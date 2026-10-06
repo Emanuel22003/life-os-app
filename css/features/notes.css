@@ -1,0 +1,2401 @@
+/* ==========================================================================
+   LIFE/OS — Notes (class prefix: nt-)
+   Panes pinned to the viewport height; each one scrolls on its own. A wide
+   workspace gets a sections rail (container query below), a narrow one a chip
+   strip. Colors come only from tokens, so the light theme works automatically.
+   ========================================================================== */
+
+.view.nt-view {
+  /* Three columns (rail · list · editor) need more room than the shell's reading width */
+  max-width: 1480px;
+  /* The layout answers to the workspace's width, not the viewport's */
+  container: nt-view / inline-size;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  /* Short windows fall back to scrolling the page instead of crushing the panes */
+  min-height: 540px;
+  padding-bottom: var(--space-6);
+}
+
+/* The shell's rise animation translates the whole view; on a full-height view
+   that briefly overflows .main and flashes a scrollbar. Fade the view and let
+   the workspace rise inside the view's bottom padding instead. */
+.view.nt-view.is-entering {
+  animation-name: lo-fade-in;
+}
+
+.nt-view.is-entering .nt-workspace {
+  animation: lo-rise var(--dur-slow) var(--ease-out) both;
+}
+
+.nt-view [hidden] {
+  display: none !important;
+}
+
+.nt-view .page-header {
+  flex: none;
+  margin-bottom: var(--space-5);
+}
+
+/* ---- Header totals ---- */
+
+.nt-stats {
+  display: flex;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+
+.nt-stat {
+  min-width: 72px;
+  padding: var(--space-2) var(--space-4);
+}
+
+.nt-stat + .nt-stat {
+  border-left: 1px solid var(--line);
+}
+
+.nt-stat .stat-value {
+  font-size: var(--fs-lg);
+}
+
+/* ---- Workspace ---- */
+
+.nt-workspace {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: clamp(256px, 34%, 340px) minmax(0, 1fr);
+  /* Narrow workspace: the chip strip is a full-width row above the panes */
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: var(--space-3) var(--space-4);
+}
+
+.nt-list,
+.nt-editor {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.nt-empty {
+  display: none;
+  grid-column: 1 / -1;
+  min-height: 0;
+}
+
+.nt-empty > .empty {
+  flex: 1;
+}
+
+.nt-view[data-empty="true"] .nt-list,
+.nt-view[data-empty="true"] .nt-editor {
+  display: none;
+}
+
+.nt-view[data-empty="true"] .nt-empty {
+  display: flex;
+}
+
+/* A blank notebook keeps the strip above the big empty state (narrow workspaces), so
+   sections and the starters are one tap away, as the rail offers them on wide ones */
+
+/* Delete confirmation copy (rendered in the shared modal, outside the view) */
+.nt-confirm-msg {
+  overflow-wrap: anywhere;
+}
+
+/* Keyboard hints sitting on an inverted (primary) button */
+.nt-kbd-inv {
+  border-color: currentColor;
+  color: inherit;
+  opacity: 0.5;
+}
+
+/* ==========================================================================
+   List panel
+   ========================================================================== */
+
+.nt-list-head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border-bottom: 1px solid var(--line);
+}
+
+.nt-new {
+  justify-content: flex-start;
+}
+
+.nt-new .kbd {
+  margin-left: auto;
+}
+
+/* ---- Search ---- */
+
+.nt-search .input {
+  padding-right: 40px;
+  /* Safari draws type=search natively (rounded, fixed padding) unless told not to */
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.nt-search .input::-webkit-search-cancel-button,
+.nt-search .input::-webkit-search-decoration {
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.nt-search-kbd {
+  position: absolute;
+  right: 10px;
+  pointer-events: none;
+  transition: opacity var(--dur-fast) var(--ease);
+}
+
+.nt-search:focus-within .nt-search-kbd,
+.nt-search.has-query .nt-search-kbd {
+  opacity: 0;
+}
+
+.nt-search-clear {
+  position: absolute;
+  right: 4px;
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-xs);
+  color: var(--text-3);
+  transition: color var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease);
+}
+
+.nt-search-clear:hover {
+  color: var(--text);
+  background: var(--surface-3);
+}
+
+.nt-list-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  border-bottom: 1px solid var(--line);
+}
+
+.nt-list-count {
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- Rows ---- */
+
+.nt-list-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: var(--space-1) var(--space-2) var(--space-3);
+}
+
+.nt-group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-2) var(--space-2);
+}
+
+.nt-group::after {
+  content: "";
+  order: 1;
+  flex: 1;
+  height: 1px;
+  background: var(--line);
+}
+
+.nt-group-count {
+  order: 2;
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.nt-items {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.nt-row.is-new {
+  animation: lo-rise var(--dur) var(--ease-out) both;
+}
+
+.nt-item {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--space-3);
+  width: 100%;
+  padding: var(--space-3);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  text-align: left;
+  color: var(--text-2);
+  transition: background var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease),
+    color var(--dur-fast) var(--ease);
+}
+
+.nt-item:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.nt-item[aria-current="true"] {
+  background: var(--surface-3);
+  border-color: var(--line-strong);
+  color: var(--text);
+}
+
+/* Signal edge on the open note */
+.nt-item[aria-current="true"]::before {
+  content: "";
+  position: absolute;
+  left: -1px;
+  top: 10px;
+  bottom: 10px;
+  width: 2px;
+  background: var(--accent);
+  box-shadow: 0 0 10px var(--glow-c);
+}
+
+.nt-item-index {
+  display: grid;
+  place-items: center;
+  min-width: 24px;
+  height: 18px;
+  margin-top: 1px;
+  padding: 0 4px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-xs);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-3);
+  transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease),
+    border-color var(--dur-fast) var(--ease);
+}
+
+.nt-item[aria-current="true"] .nt-item-index {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}
+
+.nt-item-main {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.nt-item-top {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.nt-item-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--fs-md);
+  font-weight: 500;
+  line-height: 1.3;
+  color: var(--text);
+}
+
+.nt-item-title.is-untitled {
+  color: var(--text-3);
+  font-style: italic;
+}
+
+.nt-item-pin {
+  flex: none;
+  display: inline-grid;
+  color: var(--text-2);
+}
+
+.nt-item-time {
+  flex: none;
+  margin-left: auto;
+  padding-left: var(--space-2);
+  white-space: nowrap;
+}
+
+.nt-item-excerpt {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  font-size: var(--fs-sm);
+  line-height: 1.45;
+  color: var(--text-3);
+  overflow-wrap: anywhere;
+}
+
+/* italic marks it as filler; --text-3 keeps it readable (same floor as the Tasks indices) */
+.nt-item-excerpt.is-empty {
+  color: var(--text-3);
+}
+
+.nt-item-filler {
+  font-style: italic;
+}
+
+.nt-item[aria-current="true"] .nt-item-excerpt {
+  color: var(--text-2);
+}
+
+.nt-hit {
+  background: var(--accent-soft);
+  color: var(--text);
+  border-radius: 1px;
+  box-shadow: inset 0 -1px 0 var(--text-2);
+}
+
+/* ---- No search results: a compact .empty that fits the list column ---- */
+
+.nt-nomatch {
+  gap: var(--space-2);
+  margin: var(--space-3) 0;
+  padding: var(--space-6) var(--space-4);
+  border-radius: var(--radius-sm);
+  overflow-wrap: anywhere;
+}
+
+.nt-nomatch .empty-icon {
+  width: 36px;
+  height: 36px;
+}
+
+.nt-nomatch .btn {
+  margin-top: var(--space-2);
+}
+
+/* ---- Panel footers with keyboard hints ---- */
+
+/* Hints wrap onto a second line in the narrow list column instead of being cut off */
+.nt-foot {
+  flex: none;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-4);
+  min-height: 36px;
+  padding: var(--space-2) var(--space-4);
+  border-top: 1px solid var(--line);
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.nt-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.nt-hint > span:last-child {
+  margin-left: 2px;
+}
+
+/* kbd height, so all three panel footers share one rule line */
+.nt-md-tag {
+  height: 18px;
+  margin-left: auto;
+}
+
+/* ==========================================================================
+   Editor panel
+   ========================================================================== */
+
+.nt-toolbar {
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  min-height: 49px;
+}
+
+.nt-back {
+  display: none;
+  padding-left: var(--space-2);
+}
+
+.nt-seg .seg-btn svg {
+  flex: none;
+}
+
+.nt-pin svg {
+  transition: transform var(--dur) var(--ease-out);
+}
+
+.nt-pin[aria-pressed="true"],
+.nt-pin[aria-pressed="true"]:hover {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+  box-shadow: var(--glow);
+}
+
+.nt-pin[aria-pressed="true"] svg {
+  transform: rotate(-24deg);
+}
+
+.nt-doc {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.nt-doc.is-switching {
+  animation: lo-fade-in var(--dur) var(--ease) both;
+}
+
+.nt-title {
+  flex: none;
+  display: block;
+  width: 100%;
+  /* Grows with the text (a long title wraps), up to about six lines, then scrolls */
+  field-sizing: content;
+  max-height: 8em;
+  padding: var(--space-5) var(--space-6) var(--space-2);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  -webkit-appearance: none;
+  appearance: none;
+  resize: none;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overflow-wrap: anywhere;
+  font-size: var(--fs-2xl);
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1.2;
+  color: var(--text);
+}
+
+/* placeholders use the kit's --text-3 (.input, the Tasks command bar) */
+.nt-title::placeholder {
+  color: var(--text-3);
+}
+
+/* Borderless fields: the caret and the panel's lit HUD corners mark focus */
+.nt-title:focus-visible,
+.nt-body:focus-visible {
+  outline: none;
+}
+
+/* ---- Meta bar ---- */
+
+.nt-meta {
+  flex: none;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  margin: 0 var(--space-6);
+  padding: var(--space-1) 0 var(--space-3);
+  border-bottom: 1px solid var(--line);
+}
+
+/* Items wrap freely. Each divider sits in the gap to the left of its item, so
+   on an item that starts a line it falls outside this box and is clipped. */
+.nt-meta-info {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: var(--space-4);
+  line-height: 20px;
+  overflow: hidden;
+}
+
+.nt-meta b {
+  font-weight: 500;
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.nt-meta-item {
+  position: relative;
+  display: inline-flex;
+  flex-wrap: wrap;
+  column-gap: 0.5em;
+  max-width: 100%;
+}
+
+.nt-meta-item + .nt-meta-item::before {
+  content: "";
+  position: absolute;
+  top: 5px;
+  left: calc(var(--space-4) / -2);
+  width: 1px;
+  height: 10px;
+  background: var(--line-strong);
+}
+
+/* ---- Save status ---- */
+
+.nt-status {
+  flex: none;
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 20px;
+  padding: 0 var(--space-2);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-xs);
+  color: var(--text-2);
+  transition: background var(--dur) var(--ease), color var(--dur) var(--ease),
+    border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
+}
+
+.nt-status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.nt-status[data-state="saved"] .nt-status-dot {
+  box-shadow: 0 0 6px currentColor;
+}
+
+.nt-status[data-state="saving"] {
+  border-style: dashed;
+  color: var(--text-3);
+}
+
+.nt-status[data-state="saving"] .nt-status-dot {
+  animation: lo-pulse 0.9s var(--ease) infinite;
+}
+
+/* Cmd/Ctrl+S confirmation */
+.nt-status.is-flash {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+  box-shadow: var(--glow-strong);
+}
+
+/* ---- Body / preview ---- */
+
+.nt-pane {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.nt-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  padding: var(--space-4) var(--space-6) var(--space-7);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  -webkit-appearance: none;
+  appearance: none;
+  resize: none;
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  line-height: 1.85;
+  color: var(--text);
+  caret-color: var(--accent);
+  tab-size: 2;
+}
+
+.nt-body::placeholder {
+  color: var(--text-3);
+}
+
+.nt-preview {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: var(--space-5) var(--space-6) var(--space-7);
+}
+
+.nt-preview:focus-visible {
+  outline-offset: -4px;
+}
+
+.nt-preview-empty {
+  color: var(--text-3);
+  font-style: italic;
+}
+
+/* ==========================================================================
+   Rendered markdown
+   ========================================================================== */
+
+.nt-prose {
+  font-size: var(--fs-md);
+  line-height: 1.75;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+.nt-prose > * + * {
+  margin-top: var(--space-3);
+}
+
+.nt-prose h1,
+.nt-prose h2,
+.nt-prose h3,
+.nt-prose h4,
+.nt-prose h5,
+.nt-prose h6 {
+  line-height: 1.25;
+}
+
+.nt-prose > * + h1,
+.nt-prose > * + h2,
+.nt-prose > * + h3 {
+  margin-top: var(--space-6);
+}
+
+.nt-prose h1 {
+  font-size: var(--fs-2xl);
+  letter-spacing: -0.03em;
+}
+
+.nt-prose h2 {
+  font-size: var(--fs-xl);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--line);
+}
+
+.nt-prose h3 {
+  font-size: var(--fs-lg);
+}
+
+.nt-prose h4,
+.nt-prose h5,
+.nt-prose h6 {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  letter-spacing: calc(0.14em * var(--label-tracking));
+  text-transform: var(--label-case);
+  color: var(--text-2);
+}
+
+.nt-prose strong {
+  font-weight: 600;
+}
+
+.nt-prose em {
+  font-style: italic;
+}
+
+.nt-prose del {
+  color: var(--text-3);
+}
+
+.nt-prose a {
+  text-decoration: underline;
+  text-decoration-color: var(--text-3);
+  text-underline-offset: 3px;
+  transition: text-decoration-color var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease);
+}
+
+.nt-prose a:hover {
+  text-decoration-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.nt-prose code {
+  padding: 1px 5px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-xs);
+  background: var(--surface-2);
+  font-family: var(--font-code);
+  font-size: 0.86em;
+}
+
+.nt-prose pre {
+  position: relative;
+  overflow-x: auto;
+  padding: var(--space-4);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface-solid);
+  line-height: 1.6;
+}
+
+.nt-prose pre code {
+  padding: 0;
+  border: 0;
+  background: none;
+  font-size: var(--fs-sm);
+  white-space: pre;
+  overflow-wrap: normal;
+}
+
+.nt-prose pre[data-lang]::before {
+  content: attr(data-lang);
+  position: absolute;
+  top: 0;
+  right: 0;
+  padding: 2px 8px;
+  border-left: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  border-bottom-left-radius: var(--radius-xs);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  letter-spacing: calc(0.14em * var(--label-tracking));
+  text-transform: var(--label-case);
+  color: var(--text-3);
+}
+
+.nt-prose blockquote {
+  padding: var(--space-2) var(--space-4);
+  border-left: 2px solid var(--accent);
+  background: linear-gradient(90deg, var(--surface-2), transparent 80%);
+  color: var(--text-2);
+}
+
+.nt-prose blockquote > * + * {
+  margin-top: var(--space-2);
+}
+
+.nt-prose hr {
+  position: relative;
+  height: 1px;
+  margin: var(--space-6) 0;
+  border: 0;
+  background: var(--line-strong);
+  overflow: visible;
+}
+
+.nt-prose hr::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 0;
+  width: 48px;
+  height: 1px;
+  transform: translateX(-50%);
+  background: var(--accent);
+}
+
+.nt-prose ul {
+  padding-left: 1.6em;
+}
+
+/* Wider gutter: zero-padded markers ("01.") sit inside the text column */
+.nt-prose ol {
+  padding-left: 2.4em;
+}
+
+.nt-prose li + li,
+.nt-prose li > ul,
+.nt-prose li > ol {
+  margin-top: var(--space-1);
+}
+
+/* Hollow square bullets, filled one level down */
+.nt-prose ul > li {
+  position: relative;
+}
+
+.nt-prose ul > li::before {
+  content: "";
+  position: absolute;
+  left: -1.05em;
+  top: 0.72em;
+  width: 5px;
+  height: 5px;
+  border: 1px solid var(--text-2);
+}
+
+.nt-prose ul ul > li::before {
+  background: var(--text-3);
+  border-color: var(--text-3);
+}
+
+.nt-prose ol {
+  list-style: decimal-leading-zero;
+}
+
+.nt-prose ol > li::marker {
+  font-family: var(--font-mono);
+  font-size: 0.82em;
+  color: var(--text-3);
+}
+
+/* ---- Task items ---- */
+
+/* Checkboxes replace the marker and line up with the text column */
+.nt-prose li.nt-task {
+  margin-left: -1.6em;
+  list-style: none;
+}
+
+.nt-prose ol > li.nt-task {
+  margin-left: -2.4em;
+}
+
+.nt-prose ul > li.nt-task::before {
+  content: none;
+}
+
+.nt-task-label {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  cursor: pointer;
+}
+
+.nt-task-box {
+  -webkit-appearance: none;
+  appearance: none;
+  flex: none;
+  display: grid;
+  place-content: center;
+  width: 18px;
+  height: 18px;
+  margin: 0.28em 0 0;
+  border: 1px solid var(--text-3);
+  border-radius: var(--radius-xs);
+  background: transparent;
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease),
+    box-shadow var(--dur-fast) var(--ease);
+}
+
+.nt-task-box::after {
+  content: "";
+  width: 9px;
+  height: 5px;
+  margin-top: -2px;
+  border: solid var(--accent-ink);
+  border-width: 0 0 2px 2px;
+  transform: rotate(-45deg) scale(0);
+  transition: transform var(--dur) var(--ease-out);
+}
+
+.nt-task-box:hover {
+  border-color: var(--text);
+  box-shadow: var(--glow);
+}
+
+.nt-task-box:checked {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.nt-task-box:checked::after {
+  transform: rotate(-45deg) scale(1);
+}
+
+.nt-task-box.is-pop {
+  animation: nt-pop var(--dur-slow) var(--ease-out);
+}
+
+.nt-task-text {
+  transition: color var(--dur) var(--ease);
+}
+
+.nt-task.is-done > .nt-task-label .nt-task-text {
+  color: var(--text-3);
+  text-decoration: line-through;
+  text-decoration-color: var(--text-3);
+}
+
+@keyframes nt-pop {
+  0% { transform: scale(0.75); box-shadow: 0 0 0 0 var(--accent-soft); }
+  50% { transform: scale(1.15); box-shadow: 0 0 0 6px var(--accent-soft); }
+  100% { transform: none; box-shadow: 0 0 0 0 transparent; }
+}
+
+/* ==========================================================================
+   Sections rail (wide workspace): mirrors the shell nav
+   ========================================================================== */
+
+.nt-rail {
+  display: none;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.nt-rail-head {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-height: 49px;
+  padding: var(--space-2) var(--space-2) var(--space-2) var(--space-4);
+  border-bottom: 1px solid var(--line);
+}
+
+.nt-rail-total {
+  margin-left: var(--space-2);
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.nt-rail-head .btn,
+.nt-strip-manage {
+  color: var(--text-3);
+}
+
+.nt-rail-head .btn:hover,
+.nt-strip-manage:hover {
+  color: var(--text);
+}
+
+.nt-rail-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: var(--space-2);
+}
+
+.nt-rail-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* Hairline between the built-in views and the user's sections, with a lit tick */
+.nt-rail-sep {
+  position: relative;
+  height: 1px;
+  margin: var(--space-3) var(--space-2);
+  background: var(--line);
+}
+
+.nt-rail-sep::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 16px;
+  height: 1px;
+  background: var(--text-3);
+}
+
+.nt-srow {
+  position: relative;
+}
+
+.nt-srow.is-new {
+  animation: lo-rise var(--dur) var(--ease-out) both;
+}
+
+.nt-rail-item {
+  position: relative;
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  height: 36px;
+  padding: 0 var(--space-2) 0 10px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  text-align: left;
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  color: var(--text-2);
+  transition: color var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease),
+    border-color var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease);
+}
+
+.nt-rail-item:hover {
+  color: var(--text);
+  background: var(--surface-2);
+}
+
+.nt-rail-item[aria-current="true"] {
+  color: var(--text);
+  background: var(--surface-2);
+  border-color: var(--line-strong);
+}
+
+/* Signal edge on the open view, like the shell nav and the open note */
+.nt-rail-item[aria-current="true"]::before {
+  content: "";
+  position: absolute;
+  left: -1px;
+  top: 9px;
+  bottom: 9px;
+  width: 2px;
+  background: var(--accent);
+  box-shadow: 0 0 10px var(--glow-c);
+}
+
+.nt-rail-icon {
+  display: grid;
+  place-items: center;
+  color: var(--text-3);
+  transition: opacity var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+}
+
+.nt-rail-item:hover .nt-rail-icon,
+.nt-rail-item[aria-current="true"] .nt-rail-icon {
+  color: var(--text);
+}
+
+.nt-rail-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* User-typed names never reorder the text around them (right-to-left scripts) */
+.nt-rail-name,
+.nt-chip-name,
+.nt-item-tag-name,
+.nt-move-name,
+.nt-menu-name,
+.nt-mg-name,
+.nt-suggest-name {
+  unicode-bidi: isolate;
+}
+
+/* Count badge: inverted on the open view (the shell's nav-badge treatment) */
+.nt-rail-count {
+  min-width: 22px;
+  padding: 1px 5px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-xs);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  line-height: 1.4;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  color: var(--text-2);
+}
+
+.nt-rail-item[aria-current="true"] .nt-rail-count {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}
+
+/* Grip: a pointer affordance laid over the icon (keyboard users press Alt + arrows) */
+.nt-sgrip {
+  position: absolute;
+  left: 9px;
+  top: 50%;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 28px;
+  transform: translateY(-50%);
+  border-radius: var(--radius-xs);
+  color: var(--text-3);
+  cursor: grab;
+  opacity: 0;
+  touch-action: none;
+  transition: opacity var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+}
+
+.nt-sgrip:hover {
+  color: var(--text);
+}
+
+/* Hover / focus reveals: only while nothing is being dragged. Mid-drag the row under
+   the pointer keeps its full name and count (a note's drop target, a sorted row). */
+.nt-rail:not(.is-dropzone, .is-sorting) .nt-srow:not(.nt-srow--fixed):hover .nt-sgrip {
+  opacity: 1;
+}
+
+.nt-rail:not(.is-dropzone, .is-sorting) .nt-srow:not(.nt-srow--fixed):hover .nt-rail-icon {
+  opacity: 0;
+}
+
+/* Row actions take the count's place on hover / focus */
+.nt-srow-actions {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  bottom: 3px;
+  pointer-events: none;
+}
+
+.nt-rail:not(.is-dropzone, .is-sorting) .nt-srow:is(:hover, :focus-within) > .nt-srow-actions {
+  pointer-events: auto;
+}
+
+/* Compact buttons so the name keeps most of its room while they show */
+.nt-srow-actions .btn {
+  --btn-h: 26px;
+  color: var(--text-3);
+}
+
+.nt-srow-actions .btn:hover {
+  color: var(--text);
+}
+
+/* The hidden count's column (and its gap) go too, so the name keeps that room */
+.nt-rail:not(.is-dropzone, .is-sorting) .nt-srow:not(.nt-srow--fixed):is(:hover, :focus-within) .nt-rail-item {
+  grid-template-columns: 16px minmax(0, 1fr);
+  padding-right: 58px;
+}
+
+.nt-rail:not(.is-dropzone, .is-sorting) .nt-srow:not(.nt-srow--fixed):is(:hover, :focus-within) .nt-rail-count {
+  display: none;
+}
+
+/* ---- Inline rename (F2 / double-click) ---- */
+
+.nt-srow.is-renaming .nt-rail-item,
+.nt-srow.is-renaming .nt-sgrip,
+.nt-srow.is-renaming .nt-srow-actions {
+  display: none;
+}
+
+.nt-rename {
+  width: 100%;
+  height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--line-focus);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  box-shadow: var(--glow);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+}
+
+.nt-rename[aria-invalid="true"],
+.nt-sx-input[aria-invalid="true"] {
+  border-style: dashed;
+  border-color: var(--text);
+}
+
+.nt-rename.is-shake,
+.nt-sx-input.is-shake {
+  animation: nt-shake 360ms var(--ease);
+}
+
+.nt-srow-msg {
+  padding: var(--space-1) 10px 2px;
+  font-size: var(--fs-xs);
+  line-height: 1.45;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+.nt-srow-msg:empty {
+  display: none;
+}
+
+/* Validation messages lead with a ringed "!" glyph: emphasis without hue */
+.nt-srow-msg::before,
+.nt-sx-msg:not(:empty)::before {
+  content: "!";
+  display: inline-grid;
+  place-items: center;
+  width: 13px;
+  height: 13px;
+  margin-right: 6px;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  line-height: 1;
+  vertical-align: 1px;
+}
+
+/* ---- Reordering a section by its grip ---- */
+
+.nt-rail.is-sorting {
+  cursor: grabbing;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.nt-srow.is-dragging {
+  z-index: 2;
+}
+
+.nt-srow.is-dragging .nt-rail-item {
+  background: var(--surface-solid-2);
+  border-color: var(--line-strong);
+  box-shadow: var(--shadow-sm), var(--glow-strong);
+  color: var(--text);
+}
+
+.nt-srow.is-dragging .nt-sgrip {
+  opacity: 1;
+  cursor: grabbing;
+  color: var(--text);
+}
+
+.nt-srow.is-dragging .nt-rail-icon {
+  opacity: 0;
+}
+
+.nt-rail.is-sorting .nt-srow-actions,
+.nt-rail.is-dropzone .nt-srow-actions,
+.nt-rail.is-dropzone .nt-sgrip {
+  display: none;
+}
+
+/* ---- Dropping a note: every target dashed, the one under the pointer inverted ---- */
+
+.nt-rail.is-dropzone .nt-srow[data-drop] .nt-rail-item {
+  border-style: dashed;
+  border-color: var(--line-strong);
+}
+
+.nt-rail.is-dropzone .nt-srow:not(.nt-srow--fixed) .nt-rail-icon {
+  opacity: 1;
+}
+
+.nt-srow.is-drop .nt-rail-item,
+.nt-rail.is-dropzone .nt-srow.is-drop .nt-rail-item {
+  background: var(--accent);
+  border-style: solid;
+  border-color: var(--accent);
+  color: var(--accent-ink);
+  box-shadow: var(--glow-strong);
+}
+
+.nt-srow.is-drop .nt-rail-icon {
+  color: inherit;
+}
+
+.nt-srow.is-drop .nt-rail-count {
+  background: transparent;
+  border-color: currentColor;
+  color: inherit;
+}
+
+/* A note just landed here */
+.nt-srow.is-pulse .nt-rail-item,
+.nt-chip.is-pulse {
+  animation: nt-pulse 900ms var(--ease-out);
+}
+
+/* ---- No sections yet: hint + one-click starters ---- */
+
+.nt-rail-empty {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: 0 var(--space-1);
+}
+
+.nt-rail-hint {
+  padding: 0 var(--space-1);
+  font-size: var(--fs-xs);
+  line-height: 1.5;
+  color: var(--text-3);
+}
+
+.nt-suggest {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.nt-suggest--stack {
+  flex-direction: column;
+  flex-wrap: nowrap;
+  gap: var(--space-1);
+}
+
+.nt-suggest-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  max-width: 100%;
+  min-height: 30px;
+  padding: 0 10px;
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius-sm);
+  text-align: left;
+  font-size: var(--fs-xs);
+  color: var(--text-2);
+  transition: color var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease),
+    border-color var(--dur-fast) var(--ease);
+}
+
+.nt-suggest-chip:hover {
+  border-style: solid;
+  border-color: var(--text-3);
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.nt-suggest-chip svg {
+  flex: none;
+  color: var(--text-3);
+}
+
+.nt-suggest-chip:hover svg {
+  color: var(--text);
+}
+
+.nt-suggest-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nt-suggest--stack .nt-suggest-chip {
+  width: 100%;
+  min-height: 34px;
+}
+
+.nt-suggest-plus {
+  margin-left: auto;
+}
+
+.nt-suggest-chip.is-custom {
+  border-color: transparent;
+  color: var(--text-3);
+}
+
+/* ==========================================================================
+   Chip strip (narrow workspace): a full-width row above the panes
+   ========================================================================== */
+
+.nt-strip {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.nt-strip-hint {
+  flex: none;
+  display: inline-flex;
+}
+
+.nt-chips-wrap {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* Positioned, so the chips' screen-reader text is clipped by this scroller
+   instead of widening the page */
+.nt-chips {
+  position: relative;
+  display: flex;
+  gap: 6px;
+  padding: 2px 1px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+}
+
+.nt-chips::-webkit-scrollbar {
+  display: none;
+}
+
+/* Edge fades only on the sides with more chips (mask alpha, not a color) */
+.nt-chips-wrap[data-fade="start"] .nt-chips {
+  -webkit-mask-image: linear-gradient(90deg, transparent, var(--text) 28px);
+  mask-image: linear-gradient(90deg, transparent, var(--text) 28px);
+}
+
+.nt-chips-wrap[data-fade="end"] .nt-chips {
+  -webkit-mask-image: linear-gradient(90deg, var(--text) calc(100% - 28px), transparent);
+  mask-image: linear-gradient(90deg, var(--text) calc(100% - 28px), transparent);
+}
+
+.nt-chips-wrap[data-fade="start end"] .nt-chips {
+  -webkit-mask-image: linear-gradient(90deg, transparent, var(--text) 28px, var(--text) calc(100% - 28px), transparent);
+  mask-image: linear-gradient(90deg, transparent, var(--text) 28px, var(--text) calc(100% - 28px), transparent);
+}
+
+.nt-chip {
+  position: relative;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 200px;
+  height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  white-space: nowrap;
+  color: var(--text-2);
+  transition: color var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease),
+    border-color var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease);
+}
+
+.nt-chip:hover {
+  border-color: var(--text-3);
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.nt-chip svg {
+  flex: none;
+  color: var(--text-3);
+}
+
+.nt-chip-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.nt-chip-count {
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-3);
+}
+
+.nt-chip[aria-current="true"] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+  box-shadow: var(--glow);
+}
+
+.nt-chip[aria-current="true"] svg,
+.nt-chip[aria-current="true"] .nt-chip-count {
+  color: inherit;
+}
+
+.nt-chip[aria-current="true"] .nt-chip-count {
+  opacity: 0.7;
+}
+
+.nt-chip--add,
+.nt-chip--suggest {
+  border-style: dashed;
+  color: var(--text-3);
+}
+
+.nt-chip-plus {
+  opacity: 0.7;
+}
+
+/* The ring sits inside the chip: the scroller clips anything outside it */
+.nt-chip:focus-visible {
+  outline-offset: -4px;
+}
+
+.nt-chip[aria-current="true"]:focus-visible {
+  outline-color: var(--accent-ink);
+}
+
+.nt-strip-manage {
+  flex: none;
+}
+
+/* ==========================================================================
+   List additions: section tags, empty views, matches elsewhere
+   ========================================================================== */
+
+.nt-list-body.is-swapping {
+  animation: lo-fade-in var(--dur) var(--ease) both;
+}
+
+/* Leads the excerpt line (All notes), so a filed row is no taller than an unsorted one */
+.nt-item-tag {
+  max-width: min(100%, 168px);
+  height: 17px;
+  margin-right: 6px;
+  vertical-align: top;
+  margin-top: 1px;
+  border-color: var(--line);
+  font-style: normal;
+  line-height: 1;
+  color: var(--text-3);
+}
+
+.nt-item-tag svg {
+  flex: none;
+}
+
+.nt-item-tag-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.nt-item:hover .nt-item-tag,
+.nt-item[aria-current="true"] .nt-item-tag {
+  border-color: var(--line-strong);
+  color: var(--text-2);
+}
+
+.nt-viewempty .empty-title {
+  overflow-wrap: anywhere;
+}
+
+.nt-viewempty-btn {
+  max-width: 100%;
+}
+
+.nt-viewempty-btn > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.nt-elsewhere {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: var(--space-3) var(--space-1) 0;
+  padding: var(--space-2) var(--space-2) var(--space-2) var(--space-3);
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: repeating-linear-gradient(-45deg, var(--surface-2) 0 1px, transparent 1px 8px);
+  font-size: var(--fs-xs);
+  color: var(--text-2);
+}
+
+.nt-elsewhere svg {
+  flex: none;
+  color: var(--text-3);
+}
+
+.nt-elsewhere-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.nt-elsewhere-btn {
+  flex: none;
+}
+
+/* ==========================================================================
+   Editor additions: section picker, "no note open"
+   ========================================================================== */
+
+.nt-doc-head {
+  flex: none;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  padding: var(--space-4) var(--space-6) 0;
+}
+
+.nt-doc-head + .nt-title {
+  padding-top: var(--space-2);
+}
+
+.nt-move {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  max-width: 100%;
+  height: 24px;
+  padding: 0 6px 0 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-xs);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  font-weight: 500;
+  letter-spacing: calc(0.12em * var(--label-tracking));
+  text-transform: var(--label-case);
+  color: var(--text-2);
+  transition: color var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease),
+    border-color var(--dur-fast) var(--ease);
+}
+
+.nt-move:hover,
+.nt-move[aria-expanded="true"] {
+  border-color: var(--text-3);
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+/* Not filed yet: dashed, like everything provisional in the HUD */
+.nt-move.is-unsorted {
+  border-style: dashed;
+  color: var(--text-3);
+}
+
+.nt-move-icon {
+  flex: none;
+  display: grid;
+}
+
+.nt-move-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nt-move-caret {
+  flex: none;
+  color: var(--text-3);
+  transition: transform var(--dur) var(--ease-out);
+}
+
+.nt-move[aria-expanded="true"] .nt-move-caret {
+  transform: rotate(180deg);
+}
+
+.nt-editor-empty {
+  display: none;
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: var(--space-4);
+}
+
+.nt-editor-empty > .empty {
+  flex: 1;
+}
+
+.nt-editor[data-state="empty"] .nt-editor-empty {
+  display: flex;
+}
+
+.nt-editor[data-state="empty"] .nt-toolbar,
+.nt-editor[data-state="empty"] .nt-doc,
+.nt-editor[data-state="empty"] .nt-foot {
+  display: none;
+}
+
+/* ==========================================================================
+   Move menu (popover; a small dialog on phones)
+   ========================================================================== */
+
+.nt-menu {
+  position: fixed;
+  z-index: var(--z-overlay);
+  display: flex;
+  flex-direction: column;
+  width: max-content;
+  min-width: 220px;
+  max-width: min(300px, calc(100vw - 16px));
+  padding: var(--space-1);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  background: var(--surface-solid);
+  box-shadow: var(--shadow);
+  animation: nt-menu-in var(--dur) var(--ease-out) both;
+}
+
+.nt-menu-head {
+  flex: none;
+  padding: var(--space-2) var(--space-2) var(--space-1);
+}
+
+.nt-menu-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.nt-menu-item {
+  flex: none;
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) 16px;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 34px;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-sm);
+  text-align: left;
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+  transition: color var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease);
+}
+
+.nt-menu-item:hover,
+.nt-menu-item:focus-visible {
+  background: var(--surface-3);
+  color: var(--text);
+}
+
+.nt-menu-item:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 1px var(--line-focus);
+}
+
+.nt-menu-item[aria-checked="true"] {
+  color: var(--text);
+  font-weight: 500;
+}
+
+.nt-menu-icon,
+.nt-menu-check {
+  display: grid;
+  place-items: center;
+}
+
+.nt-menu-icon {
+  color: var(--text-3);
+}
+
+.nt-menu-item:hover .nt-menu-icon,
+.nt-menu-item[aria-checked="true"] .nt-menu-icon {
+  color: var(--text);
+}
+
+.nt-menu-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nt-menu-check {
+  opacity: 0;
+}
+
+.nt-menu-item[aria-checked="true"] .nt-menu-check {
+  opacity: 1;
+}
+
+.nt-menu-sep {
+  flex: none;
+  height: 1px;
+  margin: var(--space-1);
+  background: var(--line);
+}
+
+/* Phone variant: the same list inside the shared modal */
+.nt-menu--sheet {
+  position: static;
+  width: auto;
+  min-width: 0;
+  max-width: none;
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+  animation: none;
+}
+
+.nt-menu--sheet .nt-menu-item {
+  min-height: 44px;
+  font-size: var(--fs-md);
+}
+
+.nt-menu-modal .modal-body {
+  padding: var(--space-3);
+}
+
+/* ==========================================================================
+   Dragging a note onto a section
+   ========================================================================== */
+
+.nt-drag-ghost {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: var(--z-toast);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-width: 260px;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface-solid-2);
+  box-shadow: var(--shadow-sm);
+  pointer-events: none;
+  will-change: transform;
+  transition: border-color var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease);
+}
+
+.nt-drag-ghost.is-armed {
+  border-color: var(--accent);
+  box-shadow: var(--shadow-sm), var(--glow-strong);
+}
+
+.nt-drag-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  color: var(--text);
+}
+
+.nt-drag-title svg {
+  flex: none;
+  color: var(--text-3);
+}
+
+.nt-drag-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nt-drag-to {
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  letter-spacing: calc(0.12em * var(--label-tracking));
+  text-transform: var(--label-case);
+  color: var(--text-3);
+}
+
+.nt-drag-ghost.is-armed .nt-drag-to {
+  color: var(--text);
+}
+
+.nt-is-dragging,
+.nt-is-dragging * {
+  cursor: grabbing !important;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.nt-row.is-drag-source .nt-item {
+  border-style: dashed;
+  border-color: var(--line-strong);
+  opacity: 0.45;
+}
+
+/* ==========================================================================
+   Section dialogs (rendered in the shared modal, outside the view)
+   ========================================================================== */
+
+/* ---- New / edit: name + icon ---- */
+
+.nt-sx-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.nt-sx-counter {
+  font-variant-numeric: tabular-nums;
+}
+
+.nt-sx-counter.is-over {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.nt-sx-msg {
+  min-height: 18px;
+  font-size: var(--fs-xs);
+  line-height: 1.5;
+  color: var(--text);
+}
+
+/* 13 icons in two even rows (7 + 6) at every width, no orphan */
+.nt-icon-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.nt-icon-opt {
+  display: grid;
+  place-items: center;
+  height: 40px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text-2);
+  transition: color var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease),
+    border-color var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease);
+}
+
+.nt-icon-opt:hover {
+  border-color: var(--text-3);
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.nt-icon-opt[aria-checked="true"] {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-ink);
+  box-shadow: var(--glow);
+}
+
+/* ---- Delete: keep the notes (default) or delete them too ---- */
+
+.nt-dx-choices {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.nt-choice {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease),
+    box-shadow var(--dur-fast) var(--ease);
+}
+
+.nt-choice:hover {
+  border-color: var(--text-3);
+  background: var(--surface-2);
+}
+
+.nt-choice:has(.nt-choice-input:checked) {
+  border-color: var(--text);
+  background: var(--surface-2);
+  box-shadow: var(--glow);
+}
+
+/* The destructive option: dashed, hatched once chosen (the kit's danger language) */
+.nt-choice--danger {
+  border-style: dashed;
+}
+
+.nt-choice--danger:has(.nt-choice-input:checked) {
+  background: repeating-linear-gradient(-45deg, var(--hatch) 0 2px, transparent 2px 6px);
+}
+
+.nt-choice-input {
+  -webkit-appearance: none;
+  appearance: none;
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  margin: 2px 0 0;
+  border: 1px solid var(--text-3);
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+}
+
+.nt-choice-input::after {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  transform: scale(0);
+  transition: transform var(--dur) var(--ease-out);
+}
+
+.nt-choice-input:checked {
+  border-color: var(--accent);
+}
+
+.nt-choice-input:checked::after {
+  transform: scale(1);
+}
+
+.nt-choice-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.nt-choice-title {
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  color: var(--text);
+}
+
+.nt-choice-sub {
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+}
+
+/* ---- Manage: rename / icon, reorder, delete ---- */
+
+.nt-mg-intro {
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+}
+
+.nt-mg-list {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+
+.nt-mg-row {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-2) var(--space-2) var(--space-3);
+}
+
+.nt-mg-row + .nt-mg-row {
+  border-top: 1px solid var(--line);
+}
+
+.nt-mg-icon {
+  display: grid;
+  place-items: center;
+  color: var(--text-2);
+}
+
+.nt-mg-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.nt-mg-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--fs-sm);
+  font-weight: 500;
+}
+
+.nt-mg-sub {
+  font-variant-numeric: tabular-nums;
+}
+
+.nt-mg-actions {
+  display: flex;
+  gap: 2px;
+}
+
+.nt-mg-actions .btn {
+  color: var(--text-3);
+}
+
+.nt-mg-actions .btn:hover {
+  color: var(--text);
+}
+
+.nt-mg-empty {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+@keyframes nt-shake {
+  0%, 100% { transform: none; }
+  25% { transform: translateX(-4px); }
+  50% { transform: translateX(3px); }
+  75% { transform: translateX(-2px); }
+}
+
+@keyframes nt-pulse {
+  0% { background: var(--accent-soft); box-shadow: var(--glow-strong); }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+
+@keyframes nt-menu-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* ==========================================================================
+   Wide workspace: three columns, sections rail | list | editor
+   ========================================================================== */
+
+/* 1000px, not 940: the editor keeps about 500px when the rail takes its column */
+@container nt-view (min-width: 1000px) {
+  .nt-workspace {
+    grid-template-columns: 208px clamp(240px, 27%, 360px) minmax(0, 1fr);
+  }
+
+  .nt-rail {
+    display: flex;
+  }
+
+  .nt-workspace {
+    grid-template-rows: minmax(0, 1fr);
+  }
+
+  .nt-strip {
+    display: none;
+  }
+
+  /* A blank notebook keeps the rail (and its starters) beside the big empty state */
+  .nt-empty {
+    grid-column: 2 / -1;
+  }
+}
+
+/* Touch screens: the open section keeps its Edit / Delete showing, so the rail gets
+   a little more room for its name */
+@media (hover: none) {
+  @container nt-view (min-width: 1000px) {
+    .nt-workspace {
+      grid-template-columns: 224px clamp(240px, 27%, 360px) minmax(0, 1fr);
+    }
+  }
+}
+
+/* Four readouts in a mid-width header: tighter cells */
+@container nt-view (max-width: 760px) {
+  .nt-stat {
+    min-width: 0;
+    padding: var(--space-2) var(--space-3);
+  }
+}
+
+/* ==========================================================================
+   Responsive
+   ========================================================================== */
+
+/* Single pane: list OR editor, with a back button in the editor */
+@media (max-width: 900px) {
+  .nt-workspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .nt-view[data-pane="list"] .nt-editor,
+  .nt-view[data-pane="editor"] .nt-list,
+  .nt-view[data-pane="editor"] .nt-strip,
+  .nt-view[data-pane="editor"] .page-header {
+    display: none;
+  }
+
+  .nt-view[data-pane="editor"] .nt-workspace {
+    grid-template-rows: minmax(0, 1fr);
+  }
+
+  .nt-strip-hint {
+    display: none;
+  }
+
+  .nt-back {
+    display: inline-flex;
+  }
+
+  .nt-foot.nt-hints {
+    display: none;
+  }
+}
+
+/* >= 32px touch targets on phones, tablets and any touch screen */
+@media (max-width: 900px), (pointer: coarse) {
+  .nt-toolbar .btn,
+  .nt-nomatch .btn {
+    --btn-h: 36px;
+  }
+
+  .nt-toolbar .seg-btn {
+    height: 32px;
+  }
+
+  .nt-task-label {
+    padding-block: 3px;
+  }
+
+  .nt-task-box {
+    width: 22px;
+    height: 22px;
+    margin-top: 0.14em;
+  }
+
+  .nt-elsewhere .btn,
+  .nt-strip .btn {
+    --btn-h: 34px;
+  }
+
+  .nt-chip {
+    height: 34px;
+  }
+
+  .nt-suggest-chip {
+    min-height: 34px;
+  }
+
+  .nt-move {
+    height: 32px;
+    padding: 0 8px 0 10px;
+  }
+}
+
+/* Rail rows, picker items and the rename field on touch screens */
+@media (pointer: coarse) {
+  .nt-rail-item,
+  .nt-rename {
+    height: 40px;
+  }
+
+  .nt-rename {
+    font-size: 16px;
+  }
+
+  .nt-menu-item {
+    min-height: 40px;
+  }
+}
+
+@media (max-width: 640px) {
+  .view.nt-view {
+    min-height: 460px;
+    padding-bottom: var(--space-4);
+  }
+
+  /* Manage sections: the actions get their own line so names keep the full width */
+  .nt-mg-row {
+    grid-template-columns: 16px minmax(0, 1fr);
+    row-gap: var(--space-1);
+  }
+
+  .nt-mg-actions {
+    grid-column: 2;
+    margin-left: -8px;
+  }
+
+  .nt-view .page-header {
+    padding-bottom: var(--space-4);
+    margin-bottom: var(--space-4);
+  }
+
+  /* The totals go; the List · Board toggle stays */
+  .nt-view .nt-stats {
+    display: none;
+  }
+
+  .nt-toolbar {
+    padding: var(--space-2);
+  }
+
+  .nt-title {
+    padding: var(--space-4) var(--space-4) var(--space-2);
+    font-size: var(--fs-xl);
+  }
+
+  .nt-doc-head {
+    padding: var(--space-3) var(--space-4) 0;
+  }
+
+  .nt-meta {
+    margin: 0 var(--space-4);
+  }
+
+  .nt-preview {
+    padding: var(--space-4) var(--space-4) var(--space-6);
+  }
+
+  .nt-body {
+    padding: var(--space-3) var(--space-4) var(--space-6);
+    line-height: 1.7;
+  }
+}
+
+/* iOS zooms into text fields under 16px when they get focus */
+@media (max-width: 640px), (pointer: coarse) {
+  .nt-body,
+  .nt-search .input {
+    font-size: 16px;
+  }
+}
+
+@media (max-width: 400px) {
+  .nt-seg .seg-btn svg,
+  .nt-back-label {
+    display: none;
+  }
+
+  .nt-back {
+    width: var(--btn-h);
+    padding: 0;
+  }
+}
+
+/* No hardware keyboard hints on touch screens */
+@media (hover: none) {
+  .nt-search-kbd,
+  .nt-new .kbd,
+  .nt-create .kbd,
+  .nt-foot.nt-hints,
+  .nt-strip-hint {
+    display: none;
+  }
+
+  /* No hover reveals either: the open section shows its grip, Edit and Delete for good;
+     other rows keep their counts (Manage sections covers them too) */
+  .nt-sgrip,
+  .nt-srow-actions {
+    display: none;
+  }
+
+  .nt-rail:not(.is-dropzone, .is-sorting) .nt-srow:not(.nt-srow--fixed):is(:hover, :focus-within) .nt-rail-item {
+    padding-right: var(--space-2);
+  }
+
+  .nt-rail:not(.is-dropzone, .is-sorting) .nt-srow:not(.nt-srow--fixed):is(:hover, :focus-within) .nt-rail-count {
+    display: block;
+  }
+
+  .nt-rail:not(.is-dropzone, .is-sorting) .nt-srow:not(.nt-srow--fixed):hover .nt-rail-icon {
+    opacity: 1;
+  }
+
+  .nt-rail:not(.is-dropzone, .is-sorting) .nt-srow.is-current:not(.nt-srow--fixed, .is-renaming) .nt-sgrip {
+    display: grid;
+    opacity: 1;
+  }
+
+  .nt-rail:not(.is-dropzone, .is-sorting) .nt-srow.is-current:not(.nt-srow--fixed) .nt-rail-icon {
+    opacity: 0;
+  }
+
+  .nt-rail:not(.is-dropzone, .is-sorting) .nt-srow.is-current:not(.is-renaming) > .nt-srow-actions {
+    display: flex;
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .nt-rail:not(.is-dropzone, .is-sorting) .nt-srow:not(.nt-srow--fixed):is(:hover, :focus-within) .nt-rail-item {
+    grid-template-columns: 16px minmax(0, 1fr) auto;
+  }
+
+  .nt-rail:not(.is-dropzone, .is-sorting) .nt-srow.is-current:not(.nt-srow--fixed) .nt-rail-item {
+    grid-template-columns: 16px minmax(0, 1fr);
+    padding-right: 70px;
+  }
+
+  .nt-rail:not(.is-dropzone, .is-sorting) .nt-srow.is-current:not(.nt-srow--fixed) .nt-rail-count {
+    display: none;
+  }
+
+  .nt-srow.is-dragging .nt-sgrip {
+    display: grid;
+  }
+
+  .nt-srow-actions .btn {
+    --btn-h: 32px;
+  }
+}

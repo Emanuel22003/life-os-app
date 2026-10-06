@@ -1,0 +1,918 @@
+/* ==========================================================================
+   LIFE/OS — 03 // Habits · Insights
+   Productivity graphs. Grayscale only: a series is told apart by its mark
+   (column, line, stepped wash), one lightness ramp and the legend — never hue.
+   ========================================================================== */
+
+.hbi {
+  container-type: inline-size;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  min-width: 0;
+}
+
+.hbi [hidden] {
+  display: none !important;
+}
+
+.hbi-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  min-width: 0;
+}
+
+/* ==========================================================================
+   Filter row — one row above everything it scopes
+   ========================================================================== */
+
+.hbi-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.hbi-seg {
+  flex: none;
+}
+
+.hbi-metric-btn {
+  min-width: 36px;
+  justify-content: center;
+}
+
+.hbi-table-btn {
+  flex: none;
+}
+
+.hbi-table-btn[aria-pressed="true"] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}
+
+.hbi-table-btn[aria-pressed="true"]:hover {
+  box-shadow: var(--glow-strong);
+}
+
+/* ==========================================================================
+   Stat tiles
+   ========================================================================== */
+
+.hbi-tiles {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+.hbi-tile {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: var(--space-4);
+}
+
+/* HUD tick on the top edge */
+.hbi-tile::before {
+  content: "";
+  position: absolute;
+  top: -1px;
+  left: var(--space-4);
+  width: 20px;
+  height: 1px;
+  background: var(--accent);
+  opacity: 0.7;
+}
+
+.hbi-tile-value {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  min-width: 0;
+  font-family: var(--font-sans);
+  font-size: var(--fs-2xl);
+  font-weight: 600;
+  font-variant-numeric: proportional-nums;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.hbi-tile-unit {
+  font-size: var(--fs-md);
+  font-weight: 500;
+  letter-spacing: 0;
+  color: var(--text-3);
+}
+
+/* Direction glyph: the shape carries up/down, not color */
+.hbi-dir {
+  align-self: center;
+  font-size: 0.5em;
+  color: var(--text-2);
+}
+
+.hbi-tile.is-up .hbi-dir {
+  color: var(--text);
+  text-shadow: 0 0 10px var(--glow-c-soft);
+}
+
+.hbi-tile.is-down .hbi-dir {
+  color: var(--text-3);
+}
+
+.hbi-tile-sub {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.hbi-tile-meter {
+  margin-top: auto;
+  gap: 2px;
+}
+
+.hbi-tile-meter .meter-tick {
+  height: 4px;
+}
+
+/* ==========================================================================
+   Cards
+   ========================================================================== */
+
+.hbi-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-5);
+  align-items: start;
+}
+
+.hbi-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+  padding: var(--space-4) var(--space-5) var(--space-5);
+}
+
+.hbi-card-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-2) var(--space-4);
+}
+
+.hbi-card-titles {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  margin-right: auto;
+}
+
+.hbi-card-title {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  font-size: var(--fs-md);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.hbi-card-index {
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  color: var(--text-3);
+}
+
+.hbi-card-body {
+  min-width: 0;
+}
+
+/* ---- Legend ---- */
+
+.hbi-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-4);
+}
+
+.hbi-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  letter-spacing: calc(0.1em * var(--label-tracking));
+  text-transform: var(--label-case);
+  color: var(--text-2);
+  white-space: nowrap;
+}
+
+.hbi-swatch {
+  flex: none;
+  display: inline-block;
+}
+
+.hbi-swatch--col,
+.hbi-swatch--planned {
+  width: 8px;
+  height: 10px;
+  border-radius: 2px 2px 0 0;
+  background: var(--accent);
+}
+
+.hbi-swatch--planned {
+  background: var(--heat-1);
+}
+
+.hbi-swatch--line,
+.hbi-swatch--trend {
+  width: 14px;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--accent);
+}
+
+.hbi-swatch--trend {
+  background: var(--text-2);
+}
+
+.hbi-swatch--area,
+.hbi-swatch--step {
+  width: 14px;
+  height: 10px;
+  border-top: 2px solid var(--accent);
+  background: var(--accent-soft);
+}
+
+.hbi-swatch--step {
+  border-top-color: var(--heat-2);
+  background: var(--heat-0);
+}
+
+.hbi-swatch--marker {
+  width: 7px;
+  height: 6px;
+  background: var(--text-2);
+  clip-path: polygon(50% 0, 100% 100%, 0 100%);
+}
+
+/* ---- Note under a young chart ---- */
+
+.hbi-note {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: repeating-linear-gradient(-45deg, var(--hatch) 0 1px, transparent 1px 8px);
+  font-size: var(--fs-xs);
+  color: var(--text-2);
+}
+
+.hbi-note .icon {
+  flex: none;
+  color: var(--text-3);
+}
+
+/* ==========================================================================
+   Plot: svg + tooltip
+   ========================================================================== */
+
+.hbi-plot {
+  position: relative;
+  min-width: 0;
+  border-radius: var(--radius-xs);
+  outline-offset: 4px;
+}
+
+.hbi-svg {
+  display: block;
+  width: 100%;
+  overflow: visible;
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* ---- Chrome ---- */
+
+.hbi-grid line {
+  stroke: var(--line);
+  stroke-width: 1;
+  shape-rendering: crispEdges;
+}
+
+.hbi-baseline {
+  stroke: var(--line);
+  stroke-width: 1;
+  shape-rendering: crispEdges;
+}
+
+.hbi-axis {
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  letter-spacing: 0.06em;
+  font-variant-numeric: tabular-nums;
+  fill: var(--text-3);
+}
+
+.hbi-axis.is-today {
+  fill: var(--text);
+  font-weight: 600;
+}
+
+.hbi-end,
+.hbi-val {
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+  fill: var(--text-2);
+}
+
+.hbi-val {
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  fill: var(--text);
+}
+
+.hbi-marker {
+  fill: var(--text-2);
+}
+
+/* ---- Marks ---- */
+
+.hbi-slot {
+  transition: opacity var(--dur-fast) var(--ease);
+}
+
+.hbi-col,
+.hbi-zero {
+  fill: var(--accent);
+}
+
+.hbi-col--planned {
+  fill: var(--heat-1);
+}
+
+/* Today while it is still in progress */
+.hbi-col.is-pending,
+.hbi-zero.is-pending {
+  fill-opacity: 0.38;
+}
+
+.hbi-rest {
+  stroke: var(--text-4);
+  stroke-width: 1;
+  shape-rendering: crispEdges;
+}
+
+.hbi-area {
+  fill: var(--accent);
+  fill-opacity: 0.1;
+}
+
+.hbi-area--planned {
+  fill: var(--heat-2);
+  fill-opacity: 0.3;
+}
+
+.hbi-line {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.hbi-line--trend {
+  stroke: var(--text-2);
+}
+
+.hbi-halo {
+  fill: none;
+  stroke: var(--surface-solid);
+  stroke-width: 5;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  stroke-opacity: 0.85;
+}
+
+.hbi-line--planned {
+  stroke: var(--heat-2);
+}
+
+.hbi-pt {
+  fill: var(--accent);
+}
+
+/* End / focus dots: a full r = 4 disc with a 2px surface ring outside it
+   (the stroke is painted first, so the fill covers its inner half) */
+.hbi-dot {
+  fill: var(--accent);
+  stroke: var(--surface-solid);
+  stroke-width: 4;
+  paint-order: stroke;
+}
+
+.hbi-dot--trend {
+  fill: var(--text-2);
+}
+
+.hbi-dot--planned {
+  fill: var(--heat-3);
+}
+
+.hbi-dot--live {
+  fill: var(--surface-solid);
+  stroke: var(--accent);
+}
+
+/* ---- Hover layer ---- */
+
+.hbi-band {
+  fill: var(--accent-soft);
+  opacity: 0;
+  transition: opacity var(--dur-fast) var(--ease);
+}
+
+.hbi-band.is-on {
+  opacity: 0.6;
+}
+
+.hbi-marks.has-hot .hbi-slot:not(.is-hot) {
+  opacity: 0.4;
+}
+
+.hbi-slot.is-hot .hbi-col:not(.hbi-col--planned),
+.hbi-slot.is-hot .hbi-zero {
+  filter: drop-shadow(0 0 6px var(--glow-c-soft));
+}
+
+.hbi-cross {
+  stroke: var(--text-3);
+  stroke-width: 1;
+  shape-rendering: crispEdges;
+}
+
+.hbi-hit {
+  fill: transparent;
+  pointer-events: all;
+  cursor: crosshair;
+}
+
+/* ---- Entrance (first draw and filter changes only, never on a check-off) ---- */
+
+.hbi-marks.is-entering .hbi-slot > * {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  animation: hbi-grow var(--dur-slow) var(--ease-out) both;
+  animation-delay: calc(var(--i, 0) * 14ms);
+}
+
+.hbi-marks.is-entering .hbi-line {
+  stroke-dasharray: 1;
+  animation: hbi-draw 760ms var(--ease-out) both;
+}
+
+.hbi-marks.is-entering .hbi-area,
+.hbi-marks.is-entering .hbi-halo,
+.hbi-marks.is-entering .hbi-dots,
+.hbi-marks.is-entering .hbi-end,
+.hbi-marks.is-entering .hbi-val {
+  animation: hbi-fade var(--dur-slow) var(--ease) 240ms both;
+}
+
+@keyframes hbi-grow {
+  from { transform: scaleY(0); }
+  to { transform: none; }
+}
+
+@keyframes hbi-draw {
+  from { stroke-dashoffset: 1; }
+  to { stroke-dashoffset: 0; }
+}
+
+@keyframes hbi-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* ---- Tooltip: value first, label second ---- */
+
+.hbi-tip {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: max-content;
+  min-width: 148px;
+  max-width: min(260px, 100%);
+  padding: var(--space-3);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface-solid);
+  box-shadow: var(--shadow-sm);
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity var(--dur-fast) var(--ease), visibility 0s linear var(--dur-fast);
+}
+
+.hbi-tip.is-on {
+  opacity: 1;
+  visibility: visible;
+  transition: opacity var(--dur-fast) var(--ease);
+}
+
+.hbi-tip-value {
+  font-family: var(--font-sans);
+  font-size: var(--fs-xl);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  color: var(--text);
+}
+
+.hbi-tip-sub {
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+}
+
+.hbi-tip-date {
+  color: var(--text-3);
+}
+
+.hbi-tip-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-top: 4px;
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--line);
+}
+
+.hbi-tip-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--fs-xs);
+}
+
+.hbi-tip-name {
+  flex: 1;
+  color: var(--text-2);
+}
+
+.hbi-tip-num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+
+/* Line keys, not boxes */
+.hbi-key {
+  flex: none;
+  width: 12px;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--accent);
+}
+
+.hbi-key--planned {
+  background: var(--heat-2);
+}
+
+.hbi-key--trend {
+  background: var(--text-2);
+}
+
+.hbi-tip-note {
+  font-size: var(--fs-xs);
+  line-height: 1.4;
+  color: var(--text-2);
+  overflow-wrap: anywhere;
+}
+
+.hbi-tip-rows + .hbi-tip-note,
+.hbi-tip-date + .hbi-tip-note {
+  margin-top: 4px;
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--line);
+}
+
+/* ==========================================================================
+   Table view
+   ========================================================================== */
+
+.hbi-table-wrap {
+  max-height: 420px;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  overscroll-behavior: contain;
+}
+
+.hbi-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-xs);
+}
+
+.hbi-table th,
+.hbi-table td {
+  padding: 8px var(--space-3);
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.hbi-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--surface-solid);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  font-weight: 500;
+  letter-spacing: calc(0.12em * var(--label-tracking));
+  text-transform: var(--label-case);
+  color: var(--text-3);
+}
+
+.hbi-table tbody th {
+  font-weight: 500;
+  color: var(--text);
+}
+
+.hbi-table tbody tr:last-child > * {
+  border-bottom: 0;
+}
+
+.hbi-table tbody tr:hover {
+  background: var(--surface-2);
+}
+
+.hbi-table tr.is-rest td,
+.hbi-table tr.is-rest th {
+  color: var(--text-3);
+}
+
+.hbi-table tr.is-live td:nth-child(4) {
+  color: var(--text-2);
+}
+
+.hbi-table abbr {
+  text-decoration: none;
+  cursor: help;
+}
+
+.hbi-num {
+  text-align: right !important;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.hbi-table-tag {
+  margin-left: var(--space-2);
+  height: 16px;
+  padding: 0 4px;
+  font-size: var(--fs-2xs);
+  letter-spacing: 0.02em;
+}
+
+.hbi-table-mark {
+  margin-left: var(--space-2);
+  font-size: var(--fs-2xs);
+  color: var(--text-3);
+}
+
+/* ==========================================================================
+   Habit ranking
+   ========================================================================== */
+
+.hbi-rank {
+  container-type: inline-size;
+}
+
+.hbi-rank-head,
+.hbi-rank-row {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) auto;
+  grid-template-areas:
+    "pos name streak"
+    ".   rate count";
+  align-items: center;
+  column-gap: var(--space-3);
+  row-gap: 6px;
+}
+
+.hbi-rank-head {
+  display: none;
+  padding-bottom: var(--space-2);
+}
+
+.hbi-rank-head > :nth-child(1) { grid-area: pos; }
+.hbi-rank-head > :nth-child(2) { grid-area: name; }
+.hbi-rank-head > :nth-child(3) { grid-area: count; }
+.hbi-rank-head > :nth-child(4) { grid-area: rate; }
+.hbi-rank-head > :nth-child(5) { grid-area: streak; }
+
+.hbi-rank-row {
+  padding: var(--space-3) 0;
+  border-top: 1px solid var(--line);
+  transition: background var(--dur-fast) var(--ease);
+}
+
+.hbi-rank-row:hover {
+  background: linear-gradient(90deg, var(--surface-2), transparent);
+}
+
+.hbi-rank-pos {
+  grid-area: pos;
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  letter-spacing: 0.08em;
+  color: var(--text-3);
+}
+
+.hbi-rank-row:first-child .hbi-rank-pos {
+  color: var(--text);
+}
+
+.hbi-rank-name {
+  grid-area: name;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.hbi-rank-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--fs-sm);
+  font-weight: 500;
+}
+
+.hbi-rank-tag {
+  flex: none;
+  border-style: dashed;
+}
+
+.hbi-rank-count {
+  grid-area: count;
+  font-size: var(--fs-xs);
+  color: var(--text-2);
+}
+
+.hbi-rank-rate {
+  grid-area: rate;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.hbi-rank-pct {
+  flex: none;
+  width: 4ch;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  color: var(--text);
+}
+
+.hbi-rank-bar {
+  flex: 1;
+  min-width: 32px;
+}
+
+.hbi-rank-streak {
+  grid-area: streak;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-3);
+}
+
+.hbi-rank-streak.is-lit {
+  color: var(--text);
+}
+
+.hbi-rank-streak.is-lit .icon {
+  filter: drop-shadow(0 0 4px var(--glow-c-soft));
+}
+
+.hbi-rank-row.is-archived {
+  opacity: 0.5;
+}
+
+.hbi-rank-row.is-archived .hbi-rank-bar .progress-fill {
+  box-shadow: none;
+}
+
+@container (min-width: 460px) {
+  .hbi-rank-head,
+  .hbi-rank-row {
+    grid-template-columns: 22px minmax(0, 1fr) 56px minmax(96px, 150px) 48px;
+    grid-template-areas: "pos name count rate streak";
+  }
+
+  .hbi-rank-head {
+    display: grid;
+  }
+
+  .hbi-rank-row {
+    padding: 10px 0;
+  }
+}
+
+/* ==========================================================================
+   Container-driven layout (the tab may sit beside a sidebar)
+   ========================================================================== */
+
+@container (min-width: 720px) {
+  .hbi-tiles {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@container (min-width: 880px) {
+  .hbi-split {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+}
+
+@container (max-width: 480px) {
+  .hbi-card {
+    padding: var(--space-4);
+  }
+
+  .hbi-tile {
+    padding: var(--space-3);
+  }
+
+  .hbi-tile::before {
+    left: var(--space-3);
+  }
+
+  .hbi-tile-value {
+    font-size: var(--fs-xl);
+  }
+
+  .hbi-tile-unit {
+    font-size: var(--fs-sm);
+  }
+
+  .hbi-table th,
+  .hbi-table td {
+    padding: 8px 6px;
+  }
+
+  .hbi-table thead th {
+    letter-spacing: 0.06em;
+  }
+}
+
+@container (max-width: 420px) {
+  .hbi-filters .seg-btn {
+    padding: 0 10px;
+  }
+
+  .hbi-table-btn {
+    width: var(--btn-h);
+    padding: 0;
+  }
+
+  /* icon-only, the name stays for assistive tech */
+  .hbi-table-btn-text {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+}

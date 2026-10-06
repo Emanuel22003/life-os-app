@@ -1,0 +1,2269 @@
+/* ==========================================================================
+   LIFE/OS — 03 // Habits (daily + week plan)
+   Grayscale only: state is carried by fill, outline, dashes, hatching and glow.
+   The trading chart (hbt-) and insights (hbi-) have their own stylesheets.
+   ========================================================================== */
+
+/* Components below set display; make sure [hidden] still wins inside the feature */
+.view[data-feature="habits"] [hidden],
+.hb-modal [hidden] {
+  display: none !important;
+}
+
+/* Toast / dialog copy that quotes a user-typed name (those live outside the view) */
+.hb-wrap {
+  overflow-wrap: anywhere;
+}
+
+/* ---- Header actions (placement comes from the shell's .page-actions) ---- */
+
+.hb-add-kbd {
+  margin-left: var(--space-1);
+  border-color: currentColor;
+  color: inherit;
+  opacity: 0.5;
+}
+
+/* ---- Pinned LIFE-index chart slot (content owned by habits.ticker.js) ---- */
+
+.hb-chart-slot {
+  min-width: 0;
+  margin-bottom: var(--space-5);
+}
+
+.hb-chart-slot:empty {
+  display: none;
+}
+
+/* ---- Page tabs ---- */
+
+.hb-tabs {
+  margin-bottom: var(--space-5);
+}
+
+.hb-tab {
+  height: 32px;
+  padding: 0 var(--space-4);
+}
+
+.hb-tab-count:empty {
+  display: none;
+}
+
+.hb-panel {
+  min-width: 0;
+}
+
+.hb-panel:focus-visible {
+  outline-offset: 6px;
+}
+
+/* Shared hairline rule that fills a flex row */
+.hb-rule {
+  flex: 1;
+  min-width: 24px;
+  height: 1px;
+  background: var(--line);
+}
+
+/* ==========================================================================
+   TODAY — day console (week nav, day selector, selected-day progress)
+   ========================================================================== */
+
+.hb-today {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.hb-console {
+  display: flex;
+  flex-direction: column;
+  transition: border-color var(--dur) var(--ease), box-shadow var(--dur-slow) var(--ease);
+}
+
+.hb-console.is-complete {
+  border-color: var(--line-strong);
+  box-shadow: var(--glow);
+}
+
+.hb-weeknav {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--line);
+}
+
+.hb-week-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px var(--space-2);
+  min-width: 0;
+}
+
+.hb-week-range {
+  color: var(--text);
+}
+
+/* ---- Day selector strip ---- */
+
+.hb-sel-strip {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: var(--space-2);
+  padding: var(--space-3);
+}
+
+.hb-sel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  padding: var(--space-2) 2px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text-3);
+  transition: background var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease),
+    color var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease);
+}
+
+.hb-sel:hover {
+  border-color: var(--text-3);
+  color: var(--text-2);
+}
+
+.hb-sel:active {
+  transform: scale(0.97);
+}
+
+.hb-sel.is-future {
+  border-style: dashed;
+}
+
+.hb-sel.is-perfect {
+  border-color: var(--line-strong);
+}
+
+.hb-sel-wd {
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  letter-spacing: calc(0.14em * var(--label-tracking));
+  text-transform: var(--label-case);
+}
+
+.hb-sel-date {
+  font-size: var(--fs-lg);
+  font-weight: 500;
+  line-height: 1;
+  color: var(--text);
+}
+
+.hb-sel-meter {
+  display: flex;
+  gap: 2px;
+  width: 100%;
+  max-width: 48px;
+  height: 4px;
+  padding: 0 4px;
+}
+
+.hb-sel-seg {
+  flex: 1;
+  border-radius: 1px;
+  background: currentColor;
+  opacity: 0.22;
+}
+
+.hb-sel-seg.is-on {
+  opacity: 1;
+}
+
+.hb-sel:not([aria-checked="true"]) .hb-sel-seg.is-on {
+  color: var(--text);
+}
+
+.hb-sel-meter[data-mode="future"] .hb-sel-seg {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px currentColor;
+  opacity: 0.45;
+}
+
+.hb-sel-meter[data-mode="rest"] .hb-sel-seg {
+  background: repeating-linear-gradient(-45deg, currentColor 0 1px, transparent 1px 3px);
+  opacity: 0.45;
+}
+
+.hb-sel-count {
+  font-size: var(--fs-2xs);
+  line-height: 1;
+}
+
+/* today: signal bar on the top edge */
+.hb-sel.is-today::before {
+  content: "";
+  position: absolute;
+  top: -1px;
+  left: 28%;
+  right: 28%;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--accent);
+  box-shadow: 0 0 8px var(--glow-c);
+}
+
+/* selected: inverted */
+.hb-sel[aria-checked="true"] {
+  background: var(--accent);
+  border-color: var(--accent);
+  border-style: solid;
+  color: var(--accent-ink);
+  box-shadow: var(--glow-strong);
+}
+
+.hb-sel[aria-checked="true"] .hb-sel-date {
+  color: var(--accent-ink);
+}
+
+.hb-sel[aria-checked="true"].is-today::before {
+  top: 3px;
+  background: var(--accent-ink);
+  box-shadow: none;
+}
+
+/* ---- Selected-day head: compact dial + readouts ---- */
+
+.hb-dayhead {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-5);
+  padding: var(--space-4) var(--space-5) var(--space-5);
+  border-top: 1px solid var(--line);
+  background: radial-gradient(circle at 76px 50%, var(--surface-2), transparent 220px);
+}
+
+.hb-dial {
+  position: relative;
+  width: 112px;
+  height: 112px;
+  display: grid;
+  place-items: center;
+  flex: none;
+}
+
+.hb-dial-ticks {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background:
+    repeating-conic-gradient(var(--text-2) 0deg 1.2deg, transparent 1.2deg 90deg),
+    repeating-conic-gradient(var(--text-4) 0deg 0.9deg, transparent 0.9deg 7.5deg);
+  -webkit-mask: radial-gradient(closest-side, transparent calc(100% - 7px), var(--text) calc(100% - 6px));
+  mask: radial-gradient(closest-side, transparent calc(100% - 7px), var(--text) calc(100% - 6px));
+  transition: opacity var(--dur) var(--ease);
+}
+
+.hb-console.is-future .hb-dial-ticks,
+.hb-console.is-rest .hb-dial-ticks {
+  opacity: 0.5;
+}
+
+/* Two expanding rings, played once when today's last habit is checked */
+.hb-dial::before,
+.hb-dial::after {
+  content: "";
+  position: absolute;
+  inset: 12px;
+  border-radius: 50%;
+  border: 1px solid var(--accent);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.hb-console.is-celebrating .hb-dial::before {
+  animation: hb-burst 1.2s var(--ease-out);
+}
+
+.hb-console.is-celebrating .hb-dial::after {
+  animation: hb-burst 1.2s var(--ease-out) 0.18s;
+}
+
+.hb-ring {
+  width: 88px;
+  height: 88px;
+}
+
+.hb-ring svg {
+  width: 100%;
+  height: 100%;
+}
+
+.hb-console.is-complete .ring-fill {
+  animation: hb-ring-glow 2.8s var(--ease) infinite;
+}
+
+.hb-ring-readout {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+
+.hb-ring-frac {
+  display: flex;
+  align-items: baseline;
+  font-size: var(--fs-xl);
+  font-weight: 500;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  color: var(--text);
+}
+
+.hb-ring-slash,
+.hb-ring-total {
+  font-size: var(--fs-sm);
+  color: var(--text-3);
+}
+
+.hb-ring-slash {
+  margin: 0 1px;
+}
+
+.hb-ring-sub {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: calc(0.14em * var(--label-tracking));
+  text-transform: var(--label-case);
+  color: var(--text-3);
+}
+
+.hb-console.is-rest .hb-ring-done,
+.hb-console.is-future .hb-ring-done {
+  color: var(--text-3);
+}
+
+.hb-console.is-complete .hb-ring-sub {
+  color: var(--text);
+}
+
+.hb-dayhead-main {
+  container-type: inline-size;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.hb-dayhead-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+}
+
+.hb-dayline {
+  font-size: var(--fs-xs);
+  color: var(--text);
+}
+
+.hb-day-badge::before {
+  content: "";
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.hb-console.is-active .hb-day-badge::before {
+  animation: lo-pulse 1.6s var(--ease) infinite;
+}
+
+.hb-day-badge.tag--solid {
+  animation: hb-glow 2.8s var(--ease) infinite;
+}
+
+.hb-day-add {
+  margin-left: auto;
+}
+
+.hb-status {
+  max-width: 64ch;
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+}
+
+/* ---- Readouts: hairline grid (the -1px shadow draws each cell's top/left rule) ---- */
+
+.hb-readouts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: 2px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.hb-readout {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  padding: var(--space-2) var(--space-3);
+  box-shadow: -1px -1px 0 var(--line);
+}
+
+.hb-readout-value {
+  font-size: var(--fs-lg);
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+.hb-readout-sub {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+}
+
+.hb-readout-meter {
+  margin-top: 3px;
+}
+
+.hb-readout-meter .meter-tick {
+  height: 3px;
+}
+
+/* ---- Day cycle: elapsed hours dim, current hour lit (today only) ---- */
+
+.hb-cycle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.hb-cycle-meter {
+  flex: 1;
+  gap: 2px;
+}
+
+.hb-cycle-meter .meter-tick {
+  height: 6px;
+}
+
+.hb-cycle-meter .meter-tick.is-on {
+  background: var(--text-4);
+}
+
+.hb-cycle-meter .meter-tick.is-now {
+  background: var(--accent);
+  box-shadow: 0 0 8px var(--glow-c-soft);
+  animation: lo-pulse 2.4s var(--ease) infinite;
+}
+
+.hb-cycle-left {
+  min-width: 11ch;
+  text-align: right;
+}
+
+@container (max-width: 440px) {
+  .hb-cycle {
+    flex-wrap: wrap;
+    row-gap: var(--space-2);
+  }
+
+  .hb-cycle-left {
+    margin-left: auto;
+  }
+
+  .hb-cycle-meter {
+    order: 3;
+    flex-basis: 100%;
+  }
+}
+
+/* ==========================================================================
+   Cards toolbar + legends
+   ========================================================================== */
+
+.hb-sec-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  margin-bottom: calc(-1 * var(--space-2));
+}
+
+.hb-sec-title {
+  color: var(--text-2);
+}
+
+.hb-sec-count {
+  color: var(--text);
+}
+
+.hb-legend {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.hb-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.hb-legend-gap {
+  width: var(--space-2);
+}
+
+.hb-sec-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.hb-sec-hint > span:last-child {
+  margin-left: 4px;
+}
+
+.hb-swatch {
+  width: 10px;
+  height: 10px;
+  flex: none;
+  border: 1px solid var(--line-strong);
+  border-radius: 2px;
+}
+
+.hb-swatch[data-s="planned"] {
+  border-style: dashed;
+  border-color: var(--text-3);
+}
+
+/* ==========================================================================
+   Day-state visuals — shared by the week strip, the heatmap and the legend
+   ========================================================================== */
+
+.hb-day[data-state="done"],
+.hb-swatch[data-s="done"] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}
+
+.hb-day[data-state="miss"],
+.hb-swatch[data-s="miss"] {
+  background: var(--heat-0);
+  border-color: var(--line);
+  color: var(--text-3);
+}
+
+.hb-day[data-state="pending"] {
+  border-style: dashed;
+  border-color: var(--text-2);
+  color: var(--text);
+}
+
+.hb-day[data-state="rest"],
+.hb-swatch[data-s="rest"],
+.hb-heat-cell[data-s="rest"] {
+  background: repeating-linear-gradient(-45deg, var(--hatch) 0 1.5px, transparent 1.5px 5px);
+  border-color: var(--line);
+  color: var(--text-3);
+}
+
+.hb-day[data-state="bonus"],
+.hb-swatch[data-s="bonus"],
+.hb-heat-cell[data-s="bonus"] {
+  background: repeating-linear-gradient(-45deg, var(--heat-3) 0 2px, var(--heat-1) 2px 5px);
+  border-color: var(--text-3);
+  color: var(--text);
+}
+
+.hb-day[data-state="pre"] {
+  border-style: dotted;
+  border-color: var(--line-strong);
+  color: var(--text-4);
+}
+
+/* after the archive date: a single diagonal stroke */
+.hb-day[data-state="archived"],
+.hb-heat-cell[data-s="archived"] {
+  background: linear-gradient(to top right, transparent calc(50% - 0.5px), var(--line-strong) 50%, transparent calc(50% + 0.5px));
+  border-color: var(--line);
+  color: var(--text-4);
+}
+
+/* future: blank, or a dashed outline when the plan has it on that day */
+.hb-day[data-state="future"] {
+  border-color: transparent;
+  color: var(--text-4);
+}
+
+.hb-day[data-state="future"][data-planned="true"] {
+  border-style: dashed;
+  border-color: var(--line-strong);
+  color: var(--text-3);
+}
+
+/* Heat ramp: the chain glows brighter the longer it runs */
+.hb-swatch[data-l="2"],
+.hb-heat-cell[data-l="2"] {
+  background: var(--heat-2);
+  border-color: transparent;
+}
+
+.hb-swatch[data-l="3"],
+.hb-heat-cell[data-l="3"] {
+  background: var(--heat-3);
+  border-color: transparent;
+}
+
+.hb-swatch[data-l="4"],
+.hb-heat-cell[data-l="4"] {
+  background: var(--heat-4);
+  border-color: transparent;
+}
+
+.hb-heat-cell[data-l="4"] {
+  box-shadow: 0 0 6px var(--glow-c-soft);
+}
+
+/* ==========================================================================
+   Habit cards
+   ========================================================================== */
+
+.hb-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
+  gap: var(--space-4);
+}
+
+.hb-grid:empty {
+  display: none;
+}
+
+.hb-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+  padding: var(--space-4) var(--space-4) var(--space-5);
+  transition: border-color var(--dur) var(--ease), background var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
+}
+
+.hb-card.is-entering {
+  animation: lo-rise var(--dur-slow) var(--ease-out) both;
+  animation-delay: calc(var(--hb-i, 0) * 50ms);
+}
+
+.hb-card.is-done {
+  border-color: var(--line-strong);
+  background: var(--surface-2);
+}
+
+/* a plan preview, not a record yet */
+.hb-card.is-future {
+  border-style: dashed;
+  background: transparent;
+}
+
+/* Clipped effects layer (the card itself can't clip: the .hud ticks sit on its border) */
+.hb-card-fx {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.hb-card-fx::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 12%;
+  right: 12%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  opacity: 0;
+  transition: opacity var(--dur-slow) var(--ease);
+}
+
+.hb-card.is-done .hb-card-fx::before {
+  opacity: 0.7;
+}
+
+.hb-card-scan {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 45%;
+  background: linear-gradient(90deg, transparent, var(--accent-soft), transparent);
+  opacity: 0;
+  transform: translateX(-100%);
+}
+
+.hb-card.is-popping .hb-card-scan {
+  animation: hb-scan 760ms var(--ease-out);
+}
+
+/* ---- Meta row ---- */
+
+.hb-card-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 30px;
+  margin: calc(-1 * var(--space-1)) calc(-1 * var(--space-2)) calc(-1 * var(--space-2)) 0;
+}
+
+.hb-card-index {
+  font-size: var(--fs-2xs);
+  letter-spacing: 0.1em;
+  color: var(--text);
+}
+
+.hb-card-dot {
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: var(--text-4);
+}
+
+.hb-card-sched {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hb-card:hover .hb-card-actions,
+.hb-card:focus-within .hb-card-actions {
+  opacity: 1;
+}
+
+.hb-act {
+  color: var(--text-3);
+}
+
+.hb-act[aria-disabled="true"] {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.hb-act[aria-disabled="true"]:hover {
+  background: transparent;
+  border-color: transparent;
+}
+
+/* ---- Title + big check ---- */
+
+.hb-card-main {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-4);
+}
+
+.hb-card-title {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.hb-card-name {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  font-size: var(--fs-lg);
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  line-height: 1.25;
+}
+
+.hb-card-state {
+  color: var(--text-3);
+}
+
+.hb-card.is-done .hb-card-state,
+.hb-card.is-miss .hb-card-state {
+  color: var(--text-2);
+}
+
+.hb-check-wrap {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.hb-check {
+  --size: 44px;
+  border-color: var(--text-2);
+  border-radius: var(--radius-sm);
+}
+
+.hb-check svg {
+  width: 20px;
+  height: 20px;
+}
+
+.hb-check:disabled {
+  opacity: 0.35;
+  box-shadow: none;
+}
+
+.hb-check::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border: 1px solid var(--accent);
+  border-radius: inherit;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.hb-card.is-done .hb-check {
+  box-shadow: var(--glow-strong);
+}
+
+.hb-card.is-miss .hb-check,
+.hb-card.is-future .hb-check {
+  border-style: dashed;
+  border-color: var(--text-3);
+}
+
+.hb-card.is-popping .hb-check {
+  animation: hb-pop 480ms var(--ease-out);
+}
+
+.hb-card.is-popping .hb-check::after {
+  animation: hb-ripple 720ms var(--ease-out);
+}
+
+.hb-check-cap {
+  font-size: 9px;
+  white-space: nowrap;
+}
+
+.hb-card.is-done .hb-check-cap {
+  color: var(--text);
+}
+
+/* ---- Stats ---- */
+
+.hb-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+.hb-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  padding: var(--space-3) var(--space-3) var(--space-3) 0;
+}
+
+.hb-stat + .hb-stat {
+  padding-left: var(--space-3);
+  border-left: 1px solid var(--line);
+}
+
+.hb-stat-value {
+  display: flex;
+  align-items: center;
+  font-family: var(--font-mono);
+  font-size: var(--fs-lg);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+}
+
+.hb-streak {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.hb-stat-num {
+  display: inline-block;
+}
+
+.hb-stat-num.is-bump {
+  animation: hb-bump 560ms var(--ease-out);
+}
+
+.hb-flame {
+  display: inline-grid;
+  color: var(--text-4);
+  transition: color var(--dur) var(--ease), filter var(--dur) var(--ease);
+}
+
+.hb-flame.is-lit {
+  color: var(--text);
+  filter: drop-shadow(0 0 4px var(--glow-c-soft));
+}
+
+.hb-rate-bar {
+  flex: 1;
+  margin-top: 2px;
+}
+
+/* ---- Card week strip (the displayed Mon..Sun) ---- */
+
+.hb-strip {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.hb-day-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 4px 0 3px;
+  border-radius: var(--radius-sm);
+}
+
+.hb-day-col.is-selected {
+  background: var(--surface-2);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+
+.hb-day-wd {
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  letter-spacing: 0.1em;
+  color: var(--text-3);
+}
+
+.hb-day-col.is-today .hb-day-wd,
+.hb-day-col.is-selected .hb-day-wd {
+  color: var(--text);
+}
+
+/* signal bar under today */
+.hb-day-col::after {
+  content: "";
+  width: 14px;
+  height: 2px;
+  border-radius: 1px;
+  background: transparent;
+}
+
+.hb-day-col.is-today::after {
+  background: var(--accent);
+  box-shadow: 0 0 8px var(--glow-c);
+}
+
+.hb-day {
+  width: 100%;
+  max-width: 36px;
+  min-height: 32px;
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-xs);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-2);
+  transition: background var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease),
+    color var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease);
+}
+
+.hb-day:not(:disabled):hover {
+  border-color: var(--text);
+  box-shadow: var(--glow);
+}
+
+.hb-day:not(:disabled):active {
+  transform: scale(0.92);
+}
+
+.hb-day:disabled {
+  cursor: default;
+}
+
+.hb-day[data-state="done"].is-today {
+  box-shadow: var(--glow-strong);
+}
+
+.hb-day.is-popping {
+  animation: hb-pop 420ms var(--ease-out);
+}
+
+/* ---- History heatmap ---- */
+
+.hb-heat {
+  display: grid;
+  grid-template-columns: 12px;
+  grid-template-rows: 12px repeat(7, auto);
+  grid-auto-columns: minmax(0, 1fr);
+  grid-auto-flow: column;
+  gap: 3px;
+  max-width: 420px;
+}
+
+.hb-heat-month,
+.hb-heat-wd {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  line-height: 1;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.hb-heat-month {
+  align-self: end;
+  overflow: visible;
+  text-transform: var(--label-case);
+  color: var(--text-3);
+}
+
+.hb-heat-wd {
+  display: flex;
+  align-items: center;
+  color: var(--text-3);
+}
+
+.hb-heat-cell {
+  aspect-ratio: 1;
+  min-width: 0;
+  border-radius: 2px;
+}
+
+.hb-heat-cell[data-s="miss"],
+.hb-heat-cell[data-s="pending"] {
+  background: var(--heat-0);
+}
+
+/* before the habit existed: a blueprint dot */
+.hb-heat-cell[data-s="pre"] {
+  background: radial-gradient(circle, var(--line-strong) 0 1px, transparent 1.5px);
+}
+
+.hb-heat-cell.is-today {
+  outline: 1px solid var(--text);
+  outline-offset: 1px;
+}
+
+.hb-heat-foot {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  max-width: 420px;
+  margin-top: var(--space-3);
+}
+
+/* ==========================================================================
+   Empty day + "Not planned for <day>"
+   ========================================================================== */
+
+.hb-day-empty .empty {
+  padding: var(--space-7) var(--space-5);
+}
+
+.hb-day-empty-actions,
+.hb-empty-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+/* Disclosure button shared by "Not planned" and "Archived" */
+.hb-fold {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 32px;
+  padding: 0 var(--space-3) 0 var(--space-1);
+  border-radius: var(--radius-sm);
+  color: var(--text-2);
+  transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+}
+
+.hb-fold:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.hb-fold-icon {
+  display: inline-grid;
+  transition: transform var(--dur) var(--ease);
+}
+
+.hb-fold[aria-expanded="true"] .hb-fold-icon {
+  transform: rotate(90deg);
+}
+
+.hb-fold-title {
+  color: inherit;
+}
+
+.hb-np {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.hb-np-list,
+.hb-arch-list {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.hb-np-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 52px;
+  padding: var(--space-2) var(--space-3) var(--space-2) var(--space-4);
+}
+
+.hb-np-row + .hb-np-row,
+.hb-arch-row + .hb-arch-row {
+  border-top: 1px solid var(--line);
+}
+
+.hb-np-check.is-void {
+  visibility: hidden;
+}
+
+.hb-np-list.is-future .hb-np-check {
+  display: none;
+}
+
+.hb-np-row.is-bonus .hb-np-check {
+  background: repeating-linear-gradient(-45deg, var(--heat-3) 0 2px, var(--heat-2) 2px 5px);
+  border-color: var(--text-2);
+}
+
+.hb-np-ident,
+.hb-arch-ident {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.hb-np-name,
+.hb-arch-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--fs-sm);
+  font-weight: 500;
+}
+
+.hb-np-meta,
+.hb-arch-meta {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hb-np-note {
+  flex: none;
+}
+
+.hb-np-add {
+  flex: none;
+  gap: 0;
+}
+
+.hb-np-add > svg {
+  margin-right: 6px;
+}
+
+.hb-np-addday {
+  white-space: pre;
+}
+
+/* ==========================================================================
+   First run
+   ========================================================================== */
+
+.hb-empty {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.hb-empty-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-5);
+  margin-top: var(--space-3);
+}
+
+.hb-suggest {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.hb-suggest-list {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-2);
+}
+
+.hb-suggest-hint {
+  padding-left: var(--space-2);
+  border-left: 1px solid var(--line-strong);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  letter-spacing: calc(0.1em * var(--label-tracking));
+  text-transform: var(--label-case);
+  color: var(--text-3);
+}
+
+.hb-empty-kbd {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.hb-howto {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+.hb-howto-step {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: var(--space-4);
+}
+
+.hb-howto-title {
+  font-weight: 600;
+}
+
+.hb-howto-text {
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+}
+
+/* ==========================================================================
+   WEEK PLAN — habit × weekday matrix
+   ========================================================================== */
+
+/* Names get ~38% of the table (>= 185px at its min-width); the seven day columns share the rest.
+   Row actions overlay the name cell instead of reserving room in it (see .hb-plan-acts). */
+.hb-plan {
+  --hb-name-w: 38%;
+  --hb-cell-min: 44px;
+  display: flex;
+  flex-direction: column;
+}
+
+.hb-plan-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--line);
+}
+
+.hb-plan-title {
+  color: var(--text);
+}
+
+.hb-plan-summary {
+  color: var(--text-2);
+}
+
+/* Any horizontal overflow scrolls here, never the page */
+.hb-plan-scroll {
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+}
+
+.hb-plan-table {
+  width: 100%;
+  min-width: calc(180px + 7 * var(--hb-cell-min));
+  border-collapse: separate;
+  border-spacing: 0;
+  table-layout: fixed;
+}
+
+.hb-plan-namecol {
+  width: var(--hb-name-w);
+}
+
+.hb-plan-table th,
+.hb-plan-table td {
+  padding: 0;
+  font-weight: inherit;
+  vertical-align: middle;
+}
+
+.hb-plan-table tbody > tr > * {
+  border-top: 1px solid var(--line);
+}
+
+/* Sticky habit column: opaque so scrolled cells slide underneath it */
+.hb-plan-corner,
+.hb-plan-rowhead {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  text-align: left;
+  background: linear-gradient(var(--surface), var(--surface)), var(--bg);
+  box-shadow: inset -1px 0 0 var(--line);
+}
+
+.hb-plan-corner {
+  padding: var(--space-2) var(--space-4);
+  vertical-align: bottom;
+}
+
+.hb-plan-corner .label {
+  display: block;
+  padding-bottom: var(--space-2);
+}
+
+/* ---- Column heads ---- */
+
+.hb-plan-th {
+  padding: var(--space-2) 2px;
+  text-align: center;
+}
+
+.hb-plan-th.is-today,
+.hb-plan-td.is-today {
+  background: var(--surface-2);
+}
+
+.hb-plan-colbtn {
+  position: relative;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: var(--space-2) 2px 2px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--text-3);
+  transition: background var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+}
+
+.hb-plan-colbtn:hover {
+  background: var(--surface-2);
+  border-color: var(--line);
+  color: var(--text-2);
+}
+
+.hb-plan-wd {
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  letter-spacing: calc(0.14em * var(--label-tracking));
+  text-transform: var(--label-case);
+}
+
+.hb-plan-th.is-today .hb-plan-wd {
+  color: var(--text);
+}
+
+.hb-plan-th.is-today .hb-plan-colbtn::before {
+  content: "";
+  position: absolute;
+  top: -1px;
+  left: 30%;
+  right: 30%;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--accent);
+  box-shadow: 0 0 8px var(--glow-c);
+}
+
+/* Habits planned that weekday: a plain count with a unit under it, so it never reads as a date */
+.hb-plan-load {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.hb-plan-count {
+  font-size: var(--fs-md);
+  font-weight: 600;
+  line-height: 1;
+  color: var(--text);
+}
+
+.hb-plan-count.is-zero {
+  color: var(--text-3);
+}
+
+.hb-plan-unit {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: calc(0.06em * var(--label-tracking));
+  line-height: 1;
+  text-transform: var(--label-case);
+  white-space: nowrap;
+  color: var(--text-3);
+}
+
+.hb-plan-unit-s {
+  display: none;
+}
+
+.hb-plan-bar {
+  width: 70%;
+  max-width: 40px;
+  height: 3px;
+  border-radius: 1px;
+  background: var(--heat-0);
+  overflow: hidden;
+}
+
+.hb-plan-bar-fill {
+  display: block;
+  width: 0;
+  height: 100%;
+  background: var(--accent);
+  transition: width var(--dur-slow) var(--ease-out);
+}
+
+.hb-plan-more {
+  display: inline-grid;
+  height: 14px;
+  color: var(--text-3);
+  opacity: 0;
+  transition: opacity var(--dur-fast) var(--ease);
+}
+
+.hb-plan-colbtn:hover .hb-plan-more,
+.hb-plan-colbtn:focus-visible .hb-plan-more {
+  opacity: 1;
+}
+
+/* ---- Rows ---- */
+
+.hb-plan-rowin {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: var(--space-2) var(--space-2) var(--space-2) var(--space-4);
+}
+
+/* Edit / archive / delete float over the end of the name cell, revealed on row hover or keyboard
+   focus in the cell, so the name keeps the whole column. The layer repeats the sticky cell's own
+   background and its mask fades the left edge over the name. Touch devices keep them in the row. */
+.hb-plan-acts {
+  position: absolute;
+  top: 0;
+  right: 1px;
+  bottom: 0;
+  padding: 0 var(--space-2) 0 var(--space-6);
+  background: linear-gradient(var(--surface), var(--surface)), var(--bg);
+  -webkit-mask: linear-gradient(to right, transparent, var(--text) var(--space-5));
+  mask: linear-gradient(to right, transparent, var(--text) var(--space-5));
+  pointer-events: none;
+}
+
+.hb-plan-ident {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.hb-plan-name {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  color: var(--text);
+  border-radius: var(--radius-xs);
+}
+
+.hb-plan-name:hover .hb-plan-name-text {
+  text-decoration: underline;
+  text-decoration-color: var(--text-3);
+  text-underline-offset: 3px;
+}
+
+.hb-plan-sub {
+  font-size: 9px;
+}
+
+.hb-plan-row.is-idle .hb-plan-name {
+  color: var(--text-3);
+}
+
+/* Revealed on row hover, or once keyboard focus reaches a button (Tab from the name). Focus on the
+   name or a day cell keeps the name uncovered, so the generic .row-actions focus reveal is undone here.
+   Only the buttons take the pointer: a click on the faded edge still lands on the name. */
+.hb-plan-rowin:focus-within > .hb-plan-acts {
+  opacity: 0;
+}
+
+.hb-plan-row:hover .hb-plan-acts,
+.hb-plan-rowin > .hb-plan-acts:focus-within {
+  opacity: 1;
+}
+
+.hb-plan-row:hover .hb-plan-acts > .hb-act,
+.hb-plan-rowin > .hb-plan-acts:focus-within > .hb-act {
+  pointer-events: auto;
+}
+
+.hb-plan-row:hover > td {
+  background: var(--surface);
+}
+
+.hb-plan-row:hover > td.is-today {
+  background: var(--surface-3);
+}
+
+/* ---- Cells: a square that fills with signal ---- */
+
+.hb-plan-td {
+  padding: 3px 2px;
+  text-align: center;
+}
+
+.hb-plan-cell {
+  display: inline-grid;
+  place-items: center;
+  width: 100%;
+  max-width: 44px;
+  height: 34px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-xs);
+  background: radial-gradient(circle, var(--text-4) 0 1px, transparent 1.5px);
+  color: transparent;
+  transition: background var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease),
+    box-shadow var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease);
+}
+
+.hb-plan-cell svg {
+  opacity: 0;
+  transform: scale(0.5);
+  transition: opacity var(--dur-fast) var(--ease), transform var(--dur) var(--ease-out);
+}
+
+.hb-plan-cell:hover {
+  border-color: var(--text);
+  box-shadow: var(--glow);
+}
+
+.hb-plan-cell:active {
+  transform: scale(0.92);
+}
+
+.hb-plan-cell[aria-pressed="true"] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+  box-shadow: 0 0 12px var(--glow-c-soft);
+}
+
+.hb-plan-cell[aria-pressed="true"] svg {
+  opacity: 1;
+  transform: none;
+}
+
+/* Inset focus ring: on phones the edge cells touch the sticky column and the scroll edge, which clip an outset one */
+.hb-plan-cell:focus-visible {
+  outline-offset: -4px;
+}
+
+.hb-plan-cell[aria-pressed="true"]:not(.is-draft):focus-visible {
+  outline-color: var(--accent-ink);
+}
+
+/* Add-row toggles are a draft: dashed, hatched when on */
+.hb-plan-cell.is-draft {
+  border-style: dashed;
+}
+
+.hb-plan-cell.is-draft[aria-pressed="true"] {
+  background: repeating-linear-gradient(-45deg, var(--heat-2) 0 2px, var(--heat-1) 2px 5px);
+  border-color: var(--text-2);
+  color: var(--text);
+  box-shadow: none;
+}
+
+/* ---- Add row + empty row ---- */
+
+.hb-plan-addrow > * {
+  border-top: 1px dashed var(--line-strong);
+}
+
+.hb-plan-addname {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-2) var(--space-2) var(--space-4);
+  color: var(--text-3);
+}
+
+.hb-plan-addname > svg {
+  flex: none;
+}
+
+.hb-plan-input {
+  height: 34px;
+  min-width: 0;
+  padding: 0 var(--space-2);
+}
+
+.hb-plan-empty td {
+  padding: var(--space-5) var(--space-4);
+  font-size: var(--fs-sm);
+  color: var(--text-3);
+}
+
+.hb-plan-foot {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-top: 1px solid var(--line);
+}
+
+.hb-plan-addbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+}
+
+.hb-plan-addhint.is-warn {
+  color: var(--text);
+}
+
+.hb-plan-addhint.is-shake {
+  animation: hb-shake 360ms var(--ease);
+}
+
+.hb-plan-note {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.hb-plan-note > svg {
+  flex: none;
+}
+
+/* ---- Archived ---- */
+
+.hb-arch {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-5);
+}
+
+.hb-arch-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  padding: var(--space-3) var(--space-4);
+}
+
+.hb-arch-ident {
+  flex-basis: 180px;
+}
+
+.hb-arch-name {
+  color: var(--text-2);
+}
+
+.hb-arch-acts {
+  display: flex;
+  gap: var(--space-2);
+}
+
+/* ==========================================================================
+   Dialogs — add / edit, day lineup
+   ========================================================================== */
+
+.hb-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.hb-f-name[aria-invalid="true"] {
+  border-style: dashed;
+  border-color: var(--text);
+  background: repeating-linear-gradient(-45deg, var(--hatch) 0 1px, transparent 1px 6px);
+}
+
+.hb-f-name.is-shake,
+.hb-f-hint.is-warn {
+  animation: hb-shake 360ms var(--ease);
+}
+
+.hb-f-error {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--text);
+}
+
+.hb-f-presets {
+  align-self: flex-start;
+}
+
+.hb-f-days {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.hb-wd {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-width: 0;
+  height: 44px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-xs);
+  background: var(--surface);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  letter-spacing: calc(0.1em * var(--label-tracking));
+  text-transform: var(--label-case);
+  color: var(--text-3);
+  transition: background var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease),
+    color var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease);
+}
+
+.hb-wd:hover {
+  border-color: var(--text);
+  color: var(--text);
+}
+
+.hb-wd[aria-pressed="true"] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+  box-shadow: var(--glow);
+}
+
+.hb-wd:disabled {
+  border-style: dotted;
+  opacity: 0.35;
+}
+
+.hb-wd:disabled:hover {
+  border-color: var(--line-strong);
+  color: var(--text-3);
+}
+
+.hb-wd-sub {
+  font-size: 9px;
+  letter-spacing: 0;
+  opacity: 0.75;
+}
+
+.hb-f-hint {
+  color: var(--text-3);
+}
+
+.hb-f-hint.is-warn {
+  color: var(--text);
+}
+
+.hb-f-date {
+  max-width: 220px;
+}
+
+.hb-f-note {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+}
+
+.hb-f-note > svg {
+  flex: none;
+}
+
+.hb-f-life {
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--line);
+}
+
+.hb-modal .modal-foot {
+  flex-wrap: wrap;
+}
+
+/* ---- Day lineup dialog ---- */
+
+.hb-dm-lineup {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.hb-dm-names {
+  max-height: 200px;
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+}
+
+.hb-dm-names li {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--fs-sm);
+}
+
+.hb-dm-names li + li {
+  border-top: 1px solid var(--line);
+}
+
+.hb-dm-add {
+  align-self: flex-start;
+}
+
+/* ==========================================================================
+   Motion
+   ========================================================================== */
+
+@keyframes hb-burst {
+  0% {
+    opacity: 0.9;
+    transform: scale(0.85);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.45);
+  }
+}
+
+@keyframes hb-ring-glow {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 2px var(--glow-c-soft));
+  }
+  50% {
+    filter: drop-shadow(0 0 7px var(--glow-c));
+  }
+}
+
+@keyframes hb-glow {
+  0%,
+  100% {
+    box-shadow: var(--glow);
+  }
+  50% {
+    box-shadow: var(--glow-strong);
+  }
+}
+
+@keyframes hb-pop {
+  0% {
+    transform: scale(1);
+  }
+  35% {
+    transform: scale(0.86);
+  }
+  70% {
+    transform: scale(1.08);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes hb-ripple {
+  from {
+    opacity: 0.85;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(1.9);
+  }
+}
+
+@keyframes hb-scan {
+  from {
+    opacity: 1;
+    transform: translateX(-100%);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(240%);
+  }
+}
+
+@keyframes hb-bump {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes hb-shake {
+  0%,
+  100% {
+    transform: none;
+  }
+  25% {
+    transform: translateX(-4px);
+  }
+  50% {
+    transform: translateX(3px);
+  }
+  75% {
+    transform: translateX(-2px);
+  }
+}
+
+/* ==========================================================================
+   Responsive
+   ========================================================================== */
+
+/* Touch devices: no hover-revealed hints or keyboard chips */
+@media (hover: none) {
+  .hb-add-kbd,
+  .hb-sec-hint,
+  .hb-empty-kbd {
+    display: none;
+  }
+
+  .hb-plan-more {
+    opacity: 0.6;
+  }
+
+  /* Nothing to reveal them on hover: the row actions sit in the row, always visible (phones hide them) */
+  .hb-plan-acts {
+    position: static;
+    padding: 0;
+    background: none;
+    -webkit-mask: none;
+    mask: none;
+    pointer-events: auto;
+  }
+
+  .hb-plan-rowin:focus-within > .hb-plan-acts {
+    opacity: 1;
+  }
+}
+
+/* Touch targets >= 32px on any coarse pointer (tablets too, not only phone widths) */
+@media (pointer: coarse) {
+  .hb-act,
+  .hb-suggest-btn,
+  .hb-week-step,
+  .hb-week-today,
+  .hb-day-add,
+  .hb-np-add,
+  .hb-arch-acts .btn {
+    --btn-h: 36px;
+  }
+
+  .hb-view-seg .seg-btn,
+  .hb-f-presets .seg-btn {
+    height: 32px;
+  }
+
+  .hb-tab {
+    height: 36px;
+  }
+}
+
+@media (max-width: 900px) {
+  .hb-dayhead {
+    gap: var(--space-4);
+    padding: var(--space-4);
+  }
+}
+
+@media (max-width: 640px) {
+  .hb-tabs {
+    display: flex;
+    width: 100%;
+  }
+
+  .hb-tab {
+    flex: 1;
+    justify-content: center;
+    padding: 0 var(--space-2);
+  }
+
+  .hb-tab > svg,
+  .hb-np-addday {
+    display: none;
+  }
+
+  /* ---- day console ---- */
+
+  .hb-weeknav {
+    padding: var(--space-2);
+  }
+
+  .hb-sel-strip {
+    gap: 4px;
+    padding: var(--space-2);
+  }
+
+  .hb-sel {
+    gap: 4px;
+    padding: 6px 0;
+  }
+
+  .hb-sel-wd {
+    letter-spacing: 0.06em;
+  }
+
+  .hb-sel-date {
+    font-size: var(--fs-md);
+  }
+
+  .hb-sel-meter {
+    padding: 0 3px;
+  }
+
+  /* dial beside the title + status; readouts and cycle span the full width */
+  .hb-dayhead {
+    gap: var(--space-3) var(--space-4);
+    padding: var(--space-4) var(--space-3);
+    background: radial-gradient(circle at 52px 52px, var(--surface-2), transparent 160px);
+  }
+
+  .hb-dayhead-main {
+    display: contents;
+  }
+
+  .hb-dial {
+    grid-row: span 2;
+    width: 92px;
+    height: 92px;
+  }
+
+  .hb-ring {
+    width: 72px;
+    height: 72px;
+  }
+
+  .hb-ring-frac {
+    font-size: var(--fs-lg);
+  }
+
+  .hb-readouts,
+  .hb-cycle {
+    grid-column: 1 / -1;
+  }
+
+  .hb-cycle {
+    flex-wrap: wrap;
+    row-gap: var(--space-2);
+  }
+
+  .hb-cycle-left {
+    margin-left: auto;
+  }
+
+  .hb-cycle-meter {
+    order: 3;
+    flex-basis: 100%;
+  }
+
+  .hb-day-add {
+    margin-left: 0;
+  }
+
+  .hb-readout {
+    padding: var(--space-2);
+  }
+
+  .hb-readout-value {
+    font-size: var(--fs-md);
+  }
+
+  /* ---- cards + lists ---- */
+
+  .hb-sec-hint {
+    display: none;
+  }
+
+  .hb-view-seg {
+    margin-left: auto;
+  }
+
+  .hb-card-meta {
+    margin-bottom: calc(-1 * var(--space-1));
+  }
+
+  .hb-strip {
+    gap: 4px;
+  }
+
+  .hb-np-row {
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-3);
+  }
+
+  .hb-howto {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* ---- week plan: 104px sticky names + seven >= 32px cells fit 341px ---- */
+
+  .hb-plan {
+    --hb-name-w: 104px;
+    --hb-cell-min: 33px;
+  }
+
+  .hb-plan-table {
+    min-width: calc(var(--hb-name-w) + 7 * var(--hb-cell-min));
+  }
+
+  .hb-plan-head {
+    padding: var(--space-3);
+  }
+
+  .hb-plan-head .hb-legend {
+    display: none;
+  }
+
+  .hb-plan-corner {
+    padding: var(--space-2);
+  }
+
+  .hb-plan-th {
+    padding: var(--space-1) 0;
+  }
+
+  .hb-plan-colbtn {
+    padding: 6px 0 2px;
+    gap: 3px;
+  }
+
+  .hb-plan-wd {
+    letter-spacing: 0.04em;
+  }
+
+  .hb-plan-count {
+    font-size: var(--fs-sm);
+  }
+
+  /* 33px columns: "HABITS" becomes "HB" */
+  .hb-plan-unit {
+    letter-spacing: 0.04em;
+  }
+
+  .hb-plan-unit-l {
+    display: none;
+  }
+
+  .hb-plan-unit-s {
+    display: inline;
+  }
+
+  .hb-plan-more,
+  .hb-plan-acts,
+  .hb-plan-addname > svg {
+    display: none;
+  }
+
+  .hb-plan-rowin,
+  .hb-plan-addname {
+    padding: var(--space-2) var(--space-1) var(--space-2) var(--space-2);
+  }
+
+  .hb-plan-name {
+    font-size: var(--fs-xs);
+  }
+
+  .hb-plan-td {
+    padding: 3px 0.5px;
+  }
+
+  .hb-plan-cell {
+    height: 32px;
+  }
+
+  .hb-plan-input {
+    height: 32px;
+    padding: 0 6px;
+  }
+
+  .hb-plan-foot {
+    padding: var(--space-3);
+  }
+
+  .hb-arch-row {
+    padding: var(--space-3);
+  }
+
+  /* ---- dialogs ---- */
+
+  .hb-f-presets {
+    align-self: stretch;
+  }
+
+  .hb-f-presets .seg-btn {
+    flex: 1;
+    justify-content: center;
+  }
+
+  .hb-wd {
+    letter-spacing: 0.02em;
+  }
+}

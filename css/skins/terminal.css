@@ -1,0 +1,1696 @@
+/* ==========================================================================
+   LIFE/OS — skin: Terminal (data-skin="terminal")
+   a retro CRT terminal: monospace everywhere, phosphor green, box-drawing
+   borders, bracketed labels, blinking prompt cursor, scanlines.
+
+   Conventions (README → Appearance, and the picker in js/appearance.js):
+   - Every selector starts at the skin scope: [data-skin="terminal"] .btn { … }.
+     The scope is <html> for the app and a <div> inside each Appearance preview,
+     so never use :root, html or body here; the page surface is .lo-page
+     ([data-skin="terminal"] .lo-page), on <body> and on each preview.
+   - Tokens: override css/tokens.css names on the scope itself:
+       [data-skin="terminal"] { …dark… }
+       [data-skin="terminal"][data-theme="light"] { …light… }
+     Both attributes always sit on the same element.
+   - HUD decoration switches: --page-bg-image, --hud-corners, --glow-c,
+     --glow-c-soft, --label-* (font, size, weight, case, tracking), plus
+     --font-sans/-mono/-display/-code, --radius*, --border-w(-sm),
+     --shadow-hard, --counter-style.
+   - @keyframes are global: prefix them (terminal-…).
+   - Loaded after every feature stylesheet; the scope prefix adds one attribute
+     to specificity, enough to beat the base rule you restate.
+   - After changing --bg, update this skin's colors in SKIN_BOOT (js/skins.js
+     and index.html's head script, kept equal by tools/tests/skins.test.js).
+   ========================================================================== */
+
+/* ==========================================================================
+   Tokens
+   Dark: phosphor green on a near-black tube. Light: dark green ink on pale
+   phosphor paper. Every color token is set in both blocks (the dark block
+   also applies in light mode unless overridden).
+   ========================================================================== */
+
+[data-skin="terminal"] {
+  --font-sans: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --font-display: "VT323", "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --font-code: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+  /* Monospace runs wide: body text one step smaller than Mission Control */
+  --fs-md: 14px;
+  --fs-lg: 17px;
+
+  --radius-xs: 0;
+  --radius-sm: 0;
+  --radius: 0;
+  --radius-lg: 0;
+  --radius-pill: 0;
+
+  --label-font: var(--font-mono);
+  --label-size: 11px;
+  --label-weight: 500;
+  --label-case: uppercase;
+  --label-tracking: 0.6;
+
+  /* No blueprint grid: a faint phosphor bloom in the middle of the tube */
+  --page-bg-image: radial-gradient(ellipse 90% 70% at 50% 40%, var(--terminal-bloom), transparent 75%);
+  --page-bg-size: 100% 100%;
+
+  --hud-corners: none;
+  --border-w: 1px;
+  --border-w-sm: 1px;
+  --shadow-hard: none;
+  --counter-style: decimal-leading-zero;
+
+  /* Skin-local: text glow, scanlines, bloom, the double rule of box-drawing frames */
+  --terminal-text-glow: 0 0 5px rgba(77, 255, 136, 0.32);
+  --terminal-scan: rgba(0, 0, 0, 0.16);
+  --terminal-bloom: rgba(77, 255, 136, 0.06);
+  --terminal-frame: 3px double var(--line-strong);
+  --terminal-icon-glow: drop-shadow(0 0 3px rgba(77, 255, 136, 0.45));
+  /* Inverse video (selected rows, open items): phosphor block, dark ink */
+  --terminal-inv-bg: #4dff88;
+  --terminal-inv-ink: #021407;
+  --terminal-inv-ink-2: rgba(2, 20, 7, 0.82);
+  --terminal-inv-ink-3: rgba(2, 20, 7, 0.68);
+  --terminal-inv-line: rgba(2, 20, 7, 0.28);
+  --terminal-inv-line-strong: rgba(2, 20, 7, 0.55);
+  --terminal-inv-soft: rgba(2, 20, 7, 0.1);
+
+  --bg: #050a05;
+  --bg-elev: #07100a;
+  --surface: rgba(77, 255, 136, 0.025);
+  --surface-2: rgba(77, 255, 136, 0.06);
+  --surface-3: rgba(77, 255, 136, 0.11);
+  --surface-solid: #08140b;
+  --surface-solid-2: #0b1b0f;
+
+  --line: rgba(77, 255, 136, 0.2);
+  --line-strong: rgba(77, 255, 136, 0.42);
+  --line-focus: #4dff88;
+
+  --text: #8dffb1;
+  --text-2: #4fe07f;
+  --text-3: #279a50;
+  --text-4: #17532c;
+
+  --accent: #4dff88;
+  --accent-ink: #021407;
+  --accent-soft: rgba(77, 255, 136, 0.16);
+
+  --glow: 0 0 0 1px rgba(77, 255, 136, 0.28), 0 0 18px rgba(77, 255, 136, 0.14);
+  --glow-strong: 0 0 0 1px rgba(77, 255, 136, 0.7), 0 0 22px rgba(77, 255, 136, 0.3);
+  --glow-c: rgba(77, 255, 136, 0.65);
+  --glow-c-soft: rgba(77, 255, 136, 0.3);
+  --shadow: 0 18px 60px rgba(0, 0, 0, 0.75);
+  --shadow-sm: 0 4px 18px rgba(0, 0, 0, 0.6);
+
+  --grid-line: rgba(77, 255, 136, 0.04);
+  --scrim: rgba(1, 5, 2, 0.82);
+  --hatch: rgba(77, 255, 136, 0.16);
+
+  --heat-0: rgba(77, 255, 136, 0.07);
+  --heat-1: rgba(77, 255, 136, 0.24);
+  --heat-2: rgba(77, 255, 136, 0.45);
+  --heat-3: rgba(77, 255, 136, 0.7);
+  --heat-4: #4dff88;
+}
+
+[data-skin="terminal"][data-theme="light"] {
+  --terminal-text-glow: none;
+  --terminal-icon-glow: none;
+  --terminal-scan: transparent;
+  --terminal-inv-bg: #0b4d22;
+  --terminal-inv-ink: #eef6e8;
+  --terminal-inv-ink-2: rgba(238, 246, 232, 0.86);
+  --terminal-inv-ink-3: rgba(238, 246, 232, 0.74);
+  --terminal-inv-line: rgba(238, 246, 232, 0.3);
+  --terminal-inv-line-strong: rgba(238, 246, 232, 0.55);
+  --terminal-inv-soft: rgba(238, 246, 232, 0.1);
+  --terminal-bloom: rgba(255, 255, 255, 0.5);
+
+  --bg: #e9f2e1;
+  --bg-elev: #e0ebd7;
+  --surface: rgba(11, 77, 34, 0.03);
+  --surface-2: rgba(11, 77, 34, 0.065);
+  --surface-3: rgba(11, 77, 34, 0.11);
+  --surface-solid: #f3f8ee;
+  --surface-solid-2: #e6efdf;
+
+  --line: rgba(11, 77, 34, 0.22);
+  --line-strong: rgba(11, 77, 34, 0.48);
+  --line-focus: #0b4d22;
+
+  --text: #08341a;
+  --text-2: #1d5a31;
+  --text-3: #3b6b47;
+  --text-4: #a3bf9f;
+
+  --accent: #0b4d22;
+  --accent-ink: #eef6e8;
+  --accent-soft: rgba(11, 77, 34, 0.12);
+
+  --glow: 0 0 0 1px rgba(11, 77, 34, 0.18);
+  --glow-strong: 0 0 0 1px rgba(11, 77, 34, 0.7);
+  --glow-c: transparent;
+  --glow-c-soft: transparent;
+  --shadow: 0 14px 40px rgba(20, 60, 30, 0.2);
+  --shadow-sm: 0 4px 14px rgba(20, 60, 30, 0.12);
+
+  --grid-line: rgba(11, 77, 34, 0.05);
+  --scrim: rgba(225, 236, 216, 0.8);
+  --hatch: rgba(11, 77, 34, 0.13);
+
+  --heat-0: rgba(11, 77, 34, 0.07);
+  --heat-1: rgba(11, 77, 34, 0.22);
+  --heat-2: rgba(11, 77, 34, 0.42);
+  --heat-3: rgba(11, 77, 34, 0.68);
+  --heat-4: #0b4d22;
+}
+
+/* ==========================================================================
+   The tube: page surface, glow, scanlines
+   ========================================================================== */
+
+[data-skin="terminal"] .lo-page {
+  font-feature-settings: "zero" 1;
+  text-shadow: var(--terminal-text-glow);
+}
+
+/* Scanlines + a soft vignette over everything (never catches the pointer) */
+[data-skin="terminal"] .lo-page::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  pointer-events: none;
+  background:
+    repeating-linear-gradient(180deg, var(--terminal-scan) 0 1px, transparent 1px 3px),
+    radial-gradient(ellipse 110% 100% at 50% 50%, transparent 62%, var(--terminal-vignette, rgba(0, 0, 0, 0.28)) 100%);
+}
+
+[data-skin="terminal"][data-theme="light"] .lo-page::after {
+  display: none;
+}
+
+[data-skin="terminal"] ::selection {
+  background: var(--accent);
+  color: var(--accent-ink);
+  text-shadow: none;
+}
+
+:where([data-skin="terminal"]) :focus-visible {
+  outline: 1px dashed var(--line-focus);
+  outline-offset: 2px;
+}
+
+[data-skin="terminal"] * {
+  scrollbar-color: var(--line-strong) transparent;
+}
+
+[data-skin="terminal"] ::-webkit-scrollbar-thumb {
+  border-radius: 0;
+}
+
+/* Block caret where the browser supports it */
+[data-skin="terminal"] input,
+[data-skin="terminal"] textarea {
+  caret-color: var(--accent);
+  caret-shape: block;
+}
+
+[data-skin="terminal"] button {
+  text-shadow: inherit;
+}
+
+/* Things printed in inverse video (accent block, dark ink) never glow */
+[data-skin="terminal"] .btn--primary,
+[data-skin="terminal"] .seg-btn[aria-pressed="true"],
+[data-skin="terminal"] .seg-btn[aria-selected="true"],
+[data-skin="terminal"] .tag--solid,
+[data-skin="terminal"] .nav-item[aria-current="page"] {
+  text-shadow: none;
+}
+
+/* ==========================================================================
+   Shell: sidebar, top bar, tab bar, page header
+   ========================================================================== */
+
+[data-skin="terminal"] .sidebar {
+  background: var(--bg-elev);
+  border-right: var(--terminal-frame);
+}
+
+[data-skin="terminal"] .brand-mark {
+  color: var(--text);
+}
+
+[data-skin="terminal"] .brand-name {
+  font-family: var(--font-display);
+  font-size: 26px;
+  font-weight: 400;
+  letter-spacing: 0.06em;
+  line-height: 1;
+}
+
+[data-skin="terminal"] .brand-version {
+  font-size: var(--fs-xs);
+  letter-spacing: 0;
+}
+
+[data-skin="terminal"] .brand-version::before {
+  content: "[";
+}
+
+[data-skin="terminal"] .brand-version::after {
+  content: "]";
+}
+
+/* Bracketed section labels: [ MODULES ] */
+[data-skin="terminal"] .nav-heading::before {
+  content: "[ ";
+}
+
+[data-skin="terminal"] .nav-heading::after {
+  content: " ]";
+}
+
+[data-skin="terminal"] .nav-item {
+  border: 1px solid transparent;
+  color: var(--text-2);
+}
+
+[data-skin="terminal"] .nav-item:hover {
+  color: var(--text);
+  background: var(--surface-2);
+  border-color: var(--line);
+}
+
+/* Current module in inverse video */
+[data-skin="terminal"] .nav-item[aria-current="page"] {
+  color: var(--accent-ink);
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+[data-skin="terminal"] .nav-item[aria-current="page"]::before {
+  content: ">";
+  left: -14px;
+  top: 0;
+  bottom: 0;
+  width: auto;
+  display: grid;
+  place-items: center;
+  background: none;
+  box-shadow: none;
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  text-shadow: var(--terminal-text-glow);
+}
+
+[data-skin="terminal"] .nav-index {
+  width: auto;
+  font-size: var(--fs-xs);
+}
+
+[data-skin="terminal"] .nav-item[aria-current="page"] .nav-index {
+  color: var(--accent-ink);
+}
+
+[data-skin="terminal"] .nav-badge {
+  border: 0;
+  padding: 0;
+  min-width: 0;
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+}
+
+[data-skin="terminal"] .nav-badge::before {
+  content: "[";
+}
+
+[data-skin="terminal"] .nav-badge::after {
+  content: "]";
+}
+
+[data-skin="terminal"] .nav-item[aria-current="page"] .nav-badge {
+  background: transparent;
+  color: var(--accent-ink);
+}
+
+/* Icon rail (tablets): a compact count on the icon's corner, framed instead of bracketed */
+@media (min-width: 641px) and (max-width: 900px) {
+  [data-skin="terminal"] .nav-badge {
+    padding: 0 3px;
+    border: 1px solid var(--line-strong);
+    background: var(--bg);
+    font-size: 9px;
+    line-height: 1.3;
+  }
+
+  [data-skin="terminal"] .nav-badge::before,
+  [data-skin="terminal"] .nav-badge::after {
+    content: none;
+  }
+
+  [data-skin="terminal"] .nav-item[aria-current="page"] .nav-badge {
+    border-color: var(--accent-ink);
+    background: var(--accent);
+  }
+}
+
+[data-skin="terminal"] .sidebar-foot {
+  border: 1px dashed var(--line-strong);
+  background: transparent;
+}
+
+[data-skin="terminal"] .sys-dot {
+  width: 7px;
+  height: 11px;
+  border-radius: 0;
+  box-shadow: none;
+  animation: terminal-blink 1.1s steps(1, end) infinite;
+}
+
+[data-skin="terminal"] .sys-app {
+  border: 0;
+  padding: 0;
+}
+
+[data-skin="terminal"] .sys-app::before {
+  content: "[";
+}
+
+[data-skin="terminal"] .sys-app::after {
+  content: "]";
+}
+
+/* Top bar: a status line */
+[data-skin="terminal"] .topbar {
+  background: var(--bg);
+  border-bottom: var(--terminal-frame);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+/* Crumbs read as a shell prompt path: life/os:~/tasks $ */
+[data-skin="terminal"] .crumbs {
+  gap: 0;
+  text-transform: lowercase;
+  letter-spacing: 0;
+  font-size: var(--fs-sm);
+  color: var(--text-3);
+}
+
+[data-skin="terminal"] .crumbs .crumb-sep {
+  font-size: 0;
+  color: var(--text-3);
+}
+
+[data-skin="terminal"] .crumbs .crumb-sep::before {
+  content: ":~/";
+  font-size: var(--fs-sm);
+}
+
+[data-skin="terminal"] .crumbs .crumb-current {
+  color: var(--text);
+}
+
+[data-skin="terminal"] .crumbs::after {
+  content: "$";
+  flex: none;
+  margin-left: 0.6ch;
+  color: var(--text-2);
+}
+
+[data-skin="terminal"] .clock {
+  font-family: var(--font-display);
+  font-size: 24px;
+  letter-spacing: 0.04em;
+  line-height: 1;
+}
+
+[data-skin="terminal"] .topbar-date {
+  letter-spacing: 0.04em;
+}
+
+/* Page header: kicker as a path, title as a prompt with a blinking block cursor */
+[data-skin="terminal"] .page-header {
+  border-bottom: var(--terminal-frame);
+}
+
+[data-skin="terminal"] .page-header::after {
+  display: none;
+}
+
+[data-skin="terminal"] .page-kicker {
+  gap: 0.6ch;
+  text-transform: lowercase;
+  letter-spacing: 0;
+  font-size: var(--fs-xs);
+}
+
+[data-skin="terminal"] .page-kicker > span:first-child:not(:last-child)::before {
+  content: "[";
+}
+
+[data-skin="terminal"] .page-kicker > span:first-child:not(:last-child)::after {
+  content: "]";
+}
+
+[data-skin="terminal"] .page-kicker .crumb-sep {
+  display: none;
+}
+
+[data-skin="terminal"] .page-kicker > span:last-child::before {
+  content: "~/";
+}
+
+[data-skin="terminal"] .page-title {
+  font-size: 64px;
+  font-weight: 400;
+  letter-spacing: 0.01em;
+  line-height: 0.8;
+  text-transform: lowercase;
+}
+
+[data-skin="terminal"] .page-title::before {
+  content: "> ";
+  color: var(--text-2);
+}
+
+[data-skin="terminal"] .page-title::after {
+  content: "";
+  display: inline-block;
+  width: 0.45em;
+  height: 0.62em;
+  margin-left: 0.08em;
+  vertical-align: -0.02em;
+  background: currentColor;
+  box-shadow: var(--terminal-text-glow);
+  animation: terminal-blink 1.06s steps(1, end) infinite;
+}
+
+[data-skin="terminal"] .page-subtitle {
+  color: var(--text-3);
+}
+
+[data-skin="terminal"] .page-subtitle::before {
+  content: "# ";
+}
+
+@keyframes terminal-blink {
+  0%,
+  49% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0;
+  }
+}
+
+/* ==========================================================================
+   Shared kit
+   :where(scope) keeps each rule at its base rule's specificity: it wins over
+   the base kit by source order, while a feature's more specific rule (e.g. the
+   pinned-note button) still wins over it.
+   ========================================================================== */
+
+/* Defaults for the kit go through :where() so they weigh no more than the kit's own rules:
+   a feature's state rule (.tk-stat.is-alert, a pressed pin …) still wins over them. */
+
+/* Panels: box-drawing frames (a double rule, like ╔═╗) */
+:where([data-skin="terminal"]) .panel {
+  border-style: double;
+  border-width: 3px;
+  border-color: var(--line-strong);
+}
+
+:where([data-skin="terminal"]) .panel-head {
+  border-bottom-style: dashed;
+  border-bottom-color: var(--line-strong);
+}
+
+/* Buttons: plain frames that invert on hover; primary is inverse video */
+:where([data-skin="terminal"]) .btn {
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+[data-skin="terminal"] .btn:hover {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+  text-shadow: none;
+}
+
+[data-skin="terminal"] .btn:active {
+  transform: none;
+  background: var(--text-2);
+  border-color: var(--text-2);
+}
+
+[data-skin="terminal"] .btn--primary:hover {
+  background: var(--text);
+  border-color: var(--text);
+  box-shadow: var(--glow-strong);
+}
+
+:where([data-skin="terminal"]) .btn--danger {
+  border-color: var(--text-2);
+}
+
+[data-skin="terminal"] .btn--danger:hover {
+  border-style: solid;
+  background: var(--text);
+  border-color: var(--text);
+  color: var(--accent-ink);
+}
+
+[data-skin="terminal"] .btn--danger:not(.btn--icon)::before {
+  content: "!";
+  font-weight: 700;
+}
+
+/* Fields: a dashed frame; focus lights it */
+:where([data-skin="terminal"]) .input,
+:where([data-skin="terminal"]) .textarea,
+:where([data-skin="terminal"]) .select {
+  border-style: dashed;
+  background-color: transparent;
+}
+
+[data-skin="terminal"] .input:focus,
+[data-skin="terminal"] .textarea:focus,
+[data-skin="terminal"] .select:focus {
+  border-style: solid;
+}
+
+[data-skin="terminal"] .input::placeholder,
+[data-skin="terminal"] .textarea::placeholder {
+  text-shadow: none;
+}
+
+/* Checkbox: drawn as [ ] brackets, [x] when checked (the svg's path becomes an x) */
+[data-skin="terminal"] .check {
+  border: 0;
+  border-left: 2px solid var(--text-2);
+  border-right: 2px solid var(--text-2);
+  background:
+    linear-gradient(var(--text-2), var(--text-2)) left top / 5px 2px no-repeat,
+    linear-gradient(var(--text-2), var(--text-2)) left bottom / 5px 2px no-repeat,
+    linear-gradient(var(--text-2), var(--text-2)) right top / 5px 2px no-repeat,
+    linear-gradient(var(--text-2), var(--text-2)) right bottom / 5px 2px no-repeat;
+  color: var(--text);
+}
+
+[data-skin="terminal"] .check:hover {
+  --check-ink: var(--text);
+  border-color: var(--text);
+  background:
+    linear-gradient(var(--text), var(--text)) left top / 5px 2px no-repeat,
+    linear-gradient(var(--text), var(--text)) left bottom / 5px 2px no-repeat,
+    linear-gradient(var(--text), var(--text)) right top / 5px 2px no-repeat,
+    linear-gradient(var(--text), var(--text)) right bottom / 5px 2px no-repeat,
+    var(--surface-2);
+  box-shadow: none;
+}
+
+[data-skin="terminal"] .check[aria-checked="true"],
+[data-skin="terminal"] .check.is-checked {
+  border-color: var(--text);
+  background:
+    linear-gradient(var(--text), var(--text)) left top / 5px 2px no-repeat,
+    linear-gradient(var(--text), var(--text)) left bottom / 5px 2px no-repeat,
+    linear-gradient(var(--text), var(--text)) right top / 5px 2px no-repeat,
+    linear-gradient(var(--text), var(--text)) right bottom / 5px 2px no-repeat;
+  color: var(--text);
+}
+
+[data-skin="terminal"] .check svg {
+  transform: none;
+  filter: var(--terminal-icon-glow);
+}
+
+[data-skin="terminal"] .check svg path {
+  d: path("M7 7l10 10M17 7 7 17");
+  stroke-linecap: square;
+}
+
+/* Segmented control: a row of options, the chosen one in inverse video */
+:where([data-skin="terminal"]) .seg {
+  border-color: var(--line-strong);
+  background: transparent;
+  padding: 2px;
+}
+
+:where([data-skin="terminal"]) .seg-btn {
+  font-size: var(--fs-xs);
+}
+
+[data-skin="terminal"] .seg-btn:hover {
+  color: var(--text);
+  background: var(--surface-3);
+}
+
+/* Tags: bracketed words, [ TODAY ]; solid ones in inverse video */
+:where([data-skin="terminal"]) .tag {
+  border-color: transparent;
+  padding: 0 1px;
+  gap: 3px;
+  font-size: var(--fs-xs);
+}
+
+[data-skin="terminal"] .tag::before {
+  content: "[";
+  color: var(--text-3);
+}
+
+[data-skin="terminal"] .tag::after {
+  content: "]";
+  color: var(--text-3);
+}
+
+:where([data-skin="terminal"]) .tag--solid {
+  padding: 0 6px;
+}
+
+[data-skin="terminal"] .tag--solid::before,
+[data-skin="terminal"] .tag--solid::after {
+  content: none;
+}
+
+[data-skin="terminal"] .tag--dashed::before {
+  content: "<";
+}
+
+[data-skin="terminal"] .tag--dashed::after {
+  content: ">";
+}
+
+/* Status tags that lead with a live dot (habits day badge, LIFE chart): the dot becomes
+   a block cursor and a frame stands in for the brackets */
+[data-skin="terminal"] .hb-day-badge,
+[data-skin="terminal"] .hbt-status.is-live {
+  padding: 0 6px;
+  gap: 6px;
+}
+
+[data-skin="terminal"] .hb-day-badge:not(.tag--solid) {
+  border-color: var(--line-strong);
+}
+
+[data-skin="terminal"] .hb-day-badge::before,
+[data-skin="terminal"] .hbt-status.is-live::before {
+  content: "";
+  width: 6px;
+  height: 9px;
+  border-radius: 0;
+  background: currentColor;
+  color: inherit;
+}
+
+[data-skin="terminal"] .hb-day-badge::after,
+[data-skin="terminal"] .hbt-status.is-live::after {
+  content: none;
+}
+
+/* Progress: a block bar, ▮▮▮▮▯▯ */
+[data-skin="terminal"] .progress {
+  height: 8px;
+  background: repeating-linear-gradient(90deg, var(--heat-0) 0 6px, transparent 6px 8px);
+}
+
+[data-skin="terminal"] .progress-fill {
+  background: repeating-linear-gradient(90deg, var(--accent) 0 6px, transparent 6px 8px);
+  box-shadow: none;
+  filter: drop-shadow(0 0 4px var(--glow-c-soft));
+}
+
+[data-skin="terminal"] .meter-tick {
+  border-radius: 0;
+}
+
+[data-skin="terminal"] .ring-fill {
+  stroke-linecap: butt;
+}
+
+[data-skin="terminal"] .ring-label {
+  font-family: var(--font-display);
+}
+
+[data-skin="terminal"] .stat-value {
+  font-family: var(--font-display);
+  font-size: 34px;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  line-height: 0.9;
+}
+
+/* Empty state: a dashed box with a prompt */
+:where([data-skin="terminal"]) .empty {
+  background: transparent;
+}
+
+[data-skin="terminal"] .empty-title {
+  font-family: var(--font-display);
+  font-size: 26px;
+  font-weight: 400;
+  line-height: 1;
+}
+
+[data-skin="terminal"] .empty-title::before {
+  content: "> ";
+  color: var(--text-3);
+}
+
+:where([data-skin="terminal"]) .empty-text {
+  color: var(--text-2);
+}
+
+/* Keys: [N] */
+:where([data-skin="terminal"]) .kbd {
+  border-bottom-width: 1px;
+}
+
+[data-skin="terminal"] .divider::after {
+  height: 0;
+  border-top: 1px dashed var(--line-strong);
+  background: none;
+}
+
+/* ---- Toasts: a line of output ---- */
+[data-skin="terminal"] .toast {
+  border: 1px solid var(--line-strong);
+  border-left: 6px solid var(--accent);
+  background: var(--surface-solid);
+}
+
+[data-skin="terminal"] .toast-msg::before {
+  content: "> ";
+  color: var(--text-3);
+}
+
+[data-skin="terminal"] .toast-action {
+  border-color: var(--line-strong);
+  font-size: var(--fs-xs);
+}
+
+[data-skin="terminal"] .toast-action::before {
+  content: "[";
+}
+
+[data-skin="terminal"] .toast-action::after {
+  content: "]";
+}
+
+[data-skin="terminal"] .toast-action:hover {
+  text-shadow: none;
+}
+
+/* ---- Context menu (right-click): a framed box of [ Label ] lines, the lit one in inverse video ---- */
+[data-skin="terminal"] .ctx-menu {
+  border: var(--terminal-frame);
+  border-color: var(--text-2);
+  border-radius: 0;
+  background: var(--surface-solid);
+  box-shadow: var(--shadow), 0 0 18px var(--glow-c-soft);
+}
+
+[data-skin="terminal"] .ctx-item {
+  border-radius: 0;
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+  text-shadow: var(--terminal-text-glow);
+}
+
+[data-skin="terminal"] .ctx-label::before {
+  content: "[ ";
+  color: var(--text-3);
+}
+
+[data-skin="terminal"] .ctx-label::after {
+  content: " ]";
+  color: var(--text-3);
+}
+
+[data-skin="terminal"] .ctx-icon {
+  color: var(--text-2);
+  filter: var(--terminal-icon-glow);
+}
+
+[data-skin="terminal"] .ctx-item:not([aria-disabled="true"]):is(:hover, :focus) {
+  --text: var(--terminal-inv-ink);
+  --text-2: var(--terminal-inv-ink-2);
+  --text-3: var(--terminal-inv-ink-3);
+  --line: var(--terminal-inv-line);
+  --line-strong: var(--terminal-inv-line-strong);
+  background: var(--terminal-inv-bg);
+  color: var(--terminal-inv-ink);
+  text-shadow: none;
+  box-shadow: none;
+}
+
+[data-skin="terminal"] .ctx-item:not([aria-disabled="true"]):is(:hover, :focus) .ctx-icon {
+  filter: none;
+}
+
+[data-skin="terminal"] .ctx-item[aria-disabled="true"] {
+  color: var(--text-4);
+  text-shadow: none;
+}
+
+[data-skin="terminal"] .ctx-item[aria-disabled="true"] .ctx-icon,
+[data-skin="terminal"] .ctx-item[aria-disabled="true"] .ctx-label::before,
+[data-skin="terminal"] .ctx-item[aria-disabled="true"] .ctx-label::after {
+  color: var(--text-4);
+  filter: none;
+}
+
+/* ---- Modal: a framed window with a title bar ---- */
+[data-skin="terminal"] .modal-root {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+[data-skin="terminal"] .modal {
+  border: var(--terminal-frame);
+  border-color: var(--text-2);
+  background: var(--surface-solid);
+}
+
+[data-skin="terminal"] .modal-head {
+  border-bottom: 1px dashed var(--line-strong);
+}
+
+[data-skin="terminal"] .modal-title {
+  font-size: 30px;
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: 0.02em;
+}
+
+[data-skin="terminal"] .modal-title::before {
+  content: "[ ";
+  color: var(--text-3);
+}
+
+[data-skin="terminal"] .modal-title::after {
+  content: " ]";
+  color: var(--text-3);
+}
+
+[data-skin="terminal"] .modal-foot {
+  border-top: 1px dashed var(--line-strong);
+}
+
+/* ==========================================================================
+   Inverse video: the selected or open item becomes a phosphor block.
+   These containers flip the color tokens, so everything inside them (counts,
+   tags, row buttons) re-inks itself without per-part rules.
+   ========================================================================== */
+
+[data-skin="terminal"] .nt-item[aria-current="true"],
+[data-skin="terminal"] .nt-srow:not(.is-renaming):has(> .nt-rail-item[aria-current="true"]),
+[data-skin="terminal"] .nt-card-row:has(> .nt-card[aria-current="true"]),
+[data-skin="terminal"] .nt-menu-item:is(:hover, :focus-visible),
+[data-skin="terminal"] .hm-day.is-today .hm-day-head,
+[data-skin="terminal"] .pm-preset[aria-pressed="true"],
+[data-skin="terminal"] .pm-mini[data-status="running"][data-phase="focus"] {
+  --text: var(--terminal-inv-ink);
+  --text-2: var(--terminal-inv-ink-2);
+  --text-3: var(--terminal-inv-ink-3);
+  --text-4: var(--terminal-inv-line-strong);
+  --line: var(--terminal-inv-line);
+  --line-strong: var(--terminal-inv-line-strong);
+  --line-focus: var(--terminal-inv-ink);
+  --accent: var(--terminal-inv-ink);
+  --accent-ink: var(--terminal-inv-bg);
+  --accent-soft: var(--terminal-inv-line);
+  --surface: transparent;
+  --surface-2: var(--terminal-inv-soft);
+  --surface-3: var(--terminal-inv-line);
+  --hatch: var(--terminal-inv-line);
+  --glow: 0 0 0 0 transparent;
+  --glow-strong: 0 0 0 1px var(--terminal-inv-ink);
+  --glow-c: transparent;
+  --glow-c-soft: transparent;
+  --terminal-icon-glow: none;
+  color: var(--terminal-inv-ink);
+  text-shadow: none;
+}
+
+/* ==========================================================================
+   Notes
+   ========================================================================== */
+
+[data-skin="terminal"] .nt-stats {
+  border: 1px solid var(--line-strong);
+  border-radius: 0;
+}
+
+[data-skin="terminal"] .nt-stat .stat-value {
+  font-size: 30px;
+}
+
+/* ---- List: the open note in inverse video ---- */
+[data-skin="terminal"] .nt-item {
+  border-radius: 0;
+}
+
+[data-skin="terminal"] .nt-item:hover {
+  border-color: var(--line);
+}
+
+[data-skin="terminal"] .nt-item[aria-current="true"] {
+  background: var(--terminal-inv-bg);
+  border-color: var(--terminal-inv-bg);
+}
+
+[data-skin="terminal"] .nt-item[aria-current="true"]::before,
+[data-skin="terminal"] .nt-rail-item[aria-current="true"]::before,
+[data-skin="terminal"] .nt-card[aria-current="true"]::before {
+  display: none;
+}
+
+[data-skin="terminal"] .nt-item-title {
+  font-weight: 600;
+}
+
+[data-skin="terminal"] .nt-group::after {
+  height: 0;
+  border-top: 1px dashed var(--line-strong);
+  background: none;
+}
+
+[data-skin="terminal"] .nt-hit {
+  background: var(--accent);
+  color: var(--accent-ink);
+  box-shadow: none;
+  text-shadow: none;
+}
+
+/* ---- Sections rail: the open view in inverse video ---- */
+[data-skin="terminal"] .nt-rail-item[aria-current="true"] {
+  background: var(--terminal-inv-bg);
+  border-color: var(--terminal-inv-bg);
+}
+
+[data-skin="terminal"] .nt-rail-sep {
+  height: 0;
+  border-top: 1px dashed var(--line-strong);
+  background: none;
+}
+
+[data-skin="terminal"] .nt-rail-sep::after {
+  display: none;
+}
+
+/* ---- Editor ---- */
+[data-skin="terminal"] .nt-title {
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+[data-skin="terminal"] .nt-meta {
+  border-bottom: 1px dashed var(--line-strong);
+}
+
+[data-skin="terminal"] .nt-status-dot {
+  width: 6px;
+  height: 9px;
+  border-radius: 0;
+}
+
+/* ---- Rendered markdown keeps its markup visible: # headings, * bullets, `code` ---- */
+[data-skin="terminal"] .nt-prose h1,
+[data-skin="terminal"] .nt-prose h2,
+[data-skin="terminal"] .nt-prose h3 {
+  font-family: var(--font-display);
+  font-weight: 400;
+  letter-spacing: 0.01em;
+  line-height: 1;
+}
+
+[data-skin="terminal"] .nt-prose h1 {
+  font-size: 44px;
+}
+
+[data-skin="terminal"] .nt-prose h2 {
+  font-size: 34px;
+  border-bottom: 1px dashed var(--line-strong);
+}
+
+[data-skin="terminal"] .nt-prose h3 {
+  font-size: 27px;
+}
+
+[data-skin="terminal"] .nt-prose :is(h1, h2, h3, h4, h5, h6)::before {
+  color: var(--text-3);
+}
+
+[data-skin="terminal"] .nt-prose h1::before {
+  content: "# ";
+}
+
+[data-skin="terminal"] .nt-prose h2::before {
+  content: "## ";
+}
+
+[data-skin="terminal"] .nt-prose h3::before {
+  content: "### ";
+}
+
+[data-skin="terminal"] .nt-prose :is(h4, h5, h6)::before {
+  content: "#### ";
+}
+
+[data-skin="terminal"] .nt-prose ul > li:not(.nt-task)::before {
+  content: "*";
+  top: 0;
+  left: -1.2em;
+  width: auto;
+  height: auto;
+  border: 0;
+  background: none;
+  color: var(--text-3);
+}
+
+[data-skin="terminal"] .nt-prose ul ul > li:not(.nt-task)::before {
+  content: "-";
+  background: none;
+}
+
+[data-skin="terminal"] .nt-prose code {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text);
+}
+
+[data-skin="terminal"] .nt-prose :not(pre) > code::before,
+[data-skin="terminal"] .nt-prose :not(pre) > code::after {
+  content: "`";
+  color: var(--text-3);
+}
+
+[data-skin="terminal"] .nt-prose pre {
+  border: 1px dashed var(--line-strong);
+  background: var(--surface-2);
+}
+
+[data-skin="terminal"] .nt-prose pre[data-lang]::before {
+  border-left: 1px dashed var(--line-strong);
+  border-bottom: 1px dashed var(--line-strong);
+}
+
+[data-skin="terminal"] .nt-prose blockquote {
+  border-left: 2px solid var(--text-3);
+  background: none;
+}
+
+[data-skin="terminal"] .nt-prose hr {
+  height: 0;
+  border-top: 1px dashed var(--line-strong);
+  background: none;
+}
+
+[data-skin="terminal"] .nt-prose hr::after {
+  display: none;
+}
+
+[data-skin="terminal"] .nt-prose a {
+  color: var(--text);
+  text-decoration-color: var(--text-2);
+}
+
+[data-skin="terminal"] .nt-prose a:hover {
+  background: var(--accent);
+  color: var(--accent-ink);
+  text-decoration-color: currentColor;
+  text-shadow: none;
+}
+
+/* Checklist boxes: [ ] / [x] like every other checkbox here */
+[data-skin="terminal"] .nt-task-box {
+  border: 0;
+  border-left: 2px solid var(--text-2);
+  border-right: 2px solid var(--text-2);
+  background:
+    linear-gradient(var(--text-2), var(--text-2)) left top / 5px 2px no-repeat,
+    linear-gradient(var(--text-2), var(--text-2)) left bottom / 5px 2px no-repeat,
+    linear-gradient(var(--text-2), var(--text-2)) right top / 5px 2px no-repeat,
+    linear-gradient(var(--text-2), var(--text-2)) right bottom / 5px 2px no-repeat;
+}
+
+[data-skin="terminal"] .nt-task-box:hover,
+[data-skin="terminal"] .nt-task-box:checked {
+  border-color: var(--text);
+  background:
+    linear-gradient(var(--text), var(--text)) left top / 5px 2px no-repeat,
+    linear-gradient(var(--text), var(--text)) left bottom / 5px 2px no-repeat,
+    linear-gradient(var(--text), var(--text)) right top / 5px 2px no-repeat,
+    linear-gradient(var(--text), var(--text)) right bottom / 5px 2px no-repeat;
+  box-shadow: none;
+}
+
+[data-skin="terminal"] .nt-task-box::after {
+  content: "x";
+  width: auto;
+  height: auto;
+  margin: -0.12em 0 0;
+  border: 0;
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--text);
+  transform: scale(0);
+}
+
+[data-skin="terminal"] .nt-task-box:checked::after {
+  transform: none;
+}
+
+/* ---- Menus and section dialogs ---- */
+[data-skin="terminal"] .nt-menu {
+  border: var(--terminal-frame);
+  border-color: var(--text-2);
+}
+
+[data-skin="terminal"] .nt-menu-item:is(:hover, :focus-visible) {
+  background: var(--terminal-inv-bg);
+  box-shadow: none;
+}
+
+[data-skin="terminal"] .nt-menu-sep {
+  height: 0;
+  border-top: 1px dashed var(--line-strong);
+  background: none;
+}
+
+[data-skin="terminal"] .nt-drag-ghost {
+  border: 1px dashed var(--accent);
+}
+
+[data-skin="terminal"] .nt-choice:has(.nt-choice-input:checked) {
+  border-style: double;
+  border-width: 3px;
+  box-shadow: none;
+}
+
+/* ---- Board ---- */
+[data-skin="terminal"] .nt-col {
+  border-color: var(--line-strong);
+}
+
+[data-skin="terminal"] .nt-col-head {
+  border-bottom: var(--terminal-frame);
+}
+
+[data-skin="terminal"] .nt-col-head::after {
+  display: none;
+}
+
+[data-skin="terminal"] .nt-col-title {
+  align-items: baseline;
+  gap: 0.6ch;
+}
+
+[data-skin="terminal"] .nt-col-title::before {
+  content: "[";
+  flex: none;
+  color: var(--text-3);
+}
+
+[data-skin="terminal"] .nt-col-title::after {
+  content: "]";
+  flex: none;
+  color: var(--text-3);
+}
+
+[data-skin="terminal"] .nt-view[data-layout="board"] .page-title {
+  font-size: 44px;
+}
+
+[data-skin="terminal"] .nt-card {
+  border-color: var(--line);
+  background: var(--surface-solid);
+}
+
+[data-skin="terminal"] .nt-card:hover {
+  border-color: var(--text-3);
+}
+
+[data-skin="terminal"] .nt-card[aria-current="true"] {
+  background: var(--terminal-inv-bg);
+  border-color: var(--terminal-inv-bg);
+  box-shadow: none;
+}
+
+[data-skin="terminal"] .nt-card-slot {
+  box-shadow: none;
+}
+
+[data-skin="terminal"] .nt-lift .nt-card {
+  border-style: dashed;
+  border-color: var(--accent);
+  transform: none;
+}
+
+/* ==========================================================================
+   Calendar
+   ========================================================================== */
+
+/* Day plan's habit checks: [ ] / [x] like every other checkbox here */
+[data-skin="terminal"] .cal-hcheck {
+  border: 0;
+  border-left: 2px solid var(--text-2);
+  border-right: 2px solid var(--text-2);
+  border-radius: 0;
+  background:
+    linear-gradient(var(--text-2), var(--text-2)) left top / 5px 2px no-repeat,
+    linear-gradient(var(--text-2), var(--text-2)) left bottom / 5px 2px no-repeat,
+    linear-gradient(var(--text-2), var(--text-2)) right top / 5px 2px no-repeat,
+    linear-gradient(var(--text-2), var(--text-2)) right bottom / 5px 2px no-repeat;
+  color: var(--text);
+}
+
+[data-skin="terminal"] .cal-hcheck:not(:disabled):hover,
+[data-skin="terminal"] .cal-hcheck[aria-checked="true"] {
+  border-color: var(--text);
+  background:
+    linear-gradient(var(--text), var(--text)) left top / 5px 2px no-repeat,
+    linear-gradient(var(--text), var(--text)) left bottom / 5px 2px no-repeat,
+    linear-gradient(var(--text), var(--text)) right top / 5px 2px no-repeat,
+    linear-gradient(var(--text), var(--text)) right bottom / 5px 2px no-repeat;
+  box-shadow: none;
+}
+
+[data-skin="terminal"] .cal-hcheck svg {
+  filter: var(--terminal-icon-glow);
+}
+
+[data-skin="terminal"] .cal-hcheck svg path {
+  d: path("M7 7l10 10M17 7 7 17");
+  stroke-linecap: square;
+}
+
+/* Not plannable / missed: quieter brackets */
+[data-skin="terminal"] .cal-hcheck:disabled,
+[data-skin="terminal"] .cal-hrow.is-miss .cal-hcheck {
+  border-color: var(--text-4);
+  background:
+    linear-gradient(var(--text-4), var(--text-4)) left top / 5px 2px no-repeat,
+    linear-gradient(var(--text-4), var(--text-4)) left bottom / 5px 2px no-repeat,
+    linear-gradient(var(--text-4), var(--text-4)) right top / 5px 2px no-repeat,
+    linear-gradient(var(--text-4), var(--text-4)) right bottom / 5px 2px no-repeat;
+}
+
+/* ==========================================================================
+   Home: a status-line week, [ bracketed ] cards, today in inverse video
+   ========================================================================== */
+
+[data-skin="terminal"] .hm-next {
+  border-style: dashed;
+  border-radius: 0;
+  letter-spacing: 0;
+}
+
+[data-skin="terminal"] .hm-next:hover {
+  border-style: solid;
+}
+
+[data-skin="terminal"] .hm-card-title {
+  letter-spacing: 0.04em;
+  color: var(--text);
+}
+
+[data-skin="terminal"] .hm-card-title span::before {
+  content: "[ ";
+  color: var(--text-3);
+}
+
+[data-skin="terminal"] .hm-card-title span::after {
+  content: " ]";
+  color: var(--text-3);
+}
+
+[data-skin="terminal"] .hm-week-title {
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  text-shadow: var(--terminal-text-glow);
+}
+
+[data-skin="terminal"] .hm-days {
+  gap: 0;
+  border: var(--terminal-frame);
+  border-radius: 0;
+  background: transparent;
+}
+
+[data-skin="terminal"] .hm-day {
+  border-right: 1px dashed var(--line-strong);
+  background: transparent;
+}
+
+[data-skin="terminal"] .hm-day:last-child {
+  border-right: 0;
+}
+
+[data-skin="terminal"] .hm-day:hover {
+  background: var(--surface-2);
+}
+
+[data-skin="terminal"] .hm-day.is-weekend {
+  background: repeating-linear-gradient(0deg, var(--surface-2) 0 1px, transparent 1px 4px);
+}
+
+[data-skin="terminal"] .hm-day.is-today {
+  background: var(--surface-2);
+  box-shadow: none;
+}
+
+[data-skin="terminal"] .hm-day.is-today .hm-day-head {
+  margin: calc(-1 * var(--space-2)) calc(-1 * var(--space-2)) 2px;
+  padding: var(--space-2);
+  background: var(--terminal-inv-bg);
+}
+
+[data-skin="terminal"] .hm-day-num {
+  padding: 0 3px;
+  border-radius: 0;
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 400;
+  line-height: 1;
+}
+
+[data-skin="terminal"] .hm-day.is-today .hm-day-num {
+  background: var(--terminal-inv-ink);
+  color: var(--terminal-inv-bg);
+}
+
+/* Week chips are ~100px: the priority stays bracketed, without the inner spaces ([M]) */
+[data-skin="terminal"] .hm-day .cal-pri {
+  gap: 0;
+  padding: 0;
+}
+
+[data-skin="terminal"] .hm-day-tag::before {
+  content: "<";
+}
+
+[data-skin="terminal"] .hm-day-tag::after {
+  content: ">";
+}
+
+/* The Pomodoro widget: a VT323 readout with a "> focus_" prompt */
+[data-skin="terminal"] .hm-pomo-digits {
+  font-family: var(--font-display);
+  font-size: 80px;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  line-height: 0.9;
+  text-shadow: var(--terminal-text-glow);
+}
+
+[data-skin="terminal"] .hm-pomo-phase {
+  letter-spacing: 0;
+  text-transform: lowercase;
+  color: var(--text);
+}
+
+[data-skin="terminal"] .hm-pomo-phase::before {
+  content: "> ";
+  color: var(--text-2);
+}
+
+[data-skin="terminal"] .hm-pomo[data-status="running"] .hm-pomo-phase::after {
+  content: "_";
+  animation: terminal-blink 1.06s steps(1, end) infinite;
+}
+
+[data-skin="terminal"] .hm-pomo-bar {
+  height: 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: 0;
+  background: transparent;
+}
+
+[data-skin="terminal"] .hm-pomo-fill {
+  border-radius: 0;
+  background: repeating-linear-gradient(90deg, var(--accent) 0 6px, transparent 6px 8px);
+  box-shadow: none;
+}
+
+[data-skin="terminal"] .hm-pomo:not([data-phase="focus"]) .hm-pomo-fill {
+  background: repeating-linear-gradient(90deg, var(--text-3) 0 2px, transparent 2px 4px);
+  box-shadow: none;
+}
+
+[data-skin="terminal"] .hm-empty {
+  border-style: dashed;
+  border-radius: 0;
+  background: transparent;
+}
+
+[data-skin="terminal"] .hm-empty-icon {
+  border-style: dashed;
+  border-radius: 0;
+}
+
+[data-skin="terminal"] .hm-bar-track,
+[data-skin="terminal"] .hm-bar-fill {
+  border-radius: 0;
+}
+
+[data-skin="terminal"] .hm-bar-fill {
+  background: repeating-linear-gradient(0deg, var(--accent) 0 5px, transparent 5px 7px);
+  box-shadow: none;
+}
+
+[data-skin="terminal"] .hm-bar.is-today .hm-bar-fill {
+  background: repeating-linear-gradient(0deg, var(--text-3) 0 2px, transparent 2px 4px);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+[data-skin="terminal"] .hm-graph-avg {
+  text-shadow: var(--terminal-text-glow);
+}
+
+/* ==========================================================================
+   Pomodoro: a huge VT323 countdown, "> focus_" as a prompt, [on] / [off]
+   ========================================================================== */
+
+[data-skin="terminal"] .pm-card-title {
+  letter-spacing: 0.04em;
+  color: var(--text);
+}
+
+[data-skin="terminal"] .pm-card-title::before {
+  content: "[ ";
+  color: var(--text-3);
+}
+
+[data-skin="terminal"] .pm-card-title::after {
+  content: " ]";
+  color: var(--text-3);
+}
+
+[data-skin="terminal"] .pm-digits {
+  font-family: var(--font-display);
+  font-size: clamp(84px, 19vw, 140px);
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  line-height: 0.8;
+  text-shadow: var(--terminal-text-glow);
+}
+
+[data-skin="terminal"] .pm-dial-phase {
+  font-size: var(--fs-sm);
+  letter-spacing: 0;
+  text-transform: lowercase;
+  color: var(--text);
+}
+
+[data-skin="terminal"] .pm-dial-phase::before {
+  content: "> ";
+  color: var(--text-2);
+}
+
+[data-skin="terminal"] .pm-timer[data-status="running"] .pm-dial-phase::after {
+  content: "_";
+  animation: terminal-blink 1.06s steps(1, end) infinite;
+}
+
+[data-skin="terminal"] .pm-ring .ring-fill {
+  stroke-linecap: butt;
+  filter: drop-shadow(0 0 4px var(--glow-c-soft));
+}
+
+[data-skin="terminal"] .pm-tick::before {
+  background: var(--text-4);
+}
+
+[data-skin="terminal"] .pm-tick.is-major::before {
+  background: var(--text-2);
+}
+
+[data-skin="terminal"] .pm-preset {
+  border-style: dashed;
+  border-radius: 0;
+  background: transparent;
+}
+
+[data-skin="terminal"] .pm-preset:hover {
+  border-style: solid;
+}
+
+[data-skin="terminal"] .pm-preset[aria-pressed="true"] {
+  border-style: solid;
+  border-color: var(--terminal-inv-bg);
+  background: var(--terminal-inv-bg);
+}
+
+/* Switches read as [on] / [off] */
+[data-skin="terminal"] .pm-switch-track {
+  width: 5ch;
+  height: auto;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  line-height: 1.4;
+  text-align: center;
+}
+
+[data-skin="terminal"] .pm-switch-track::before {
+  content: "[off]";
+  color: var(--text-3);
+}
+
+[data-skin="terminal"] .pm-switch-thumb {
+  display: none;
+}
+
+[data-skin="terminal"] .pm-switch[aria-checked="true"] .pm-switch-track {
+  background: var(--terminal-inv-bg);
+}
+
+[data-skin="terminal"] .pm-switch[aria-checked="true"] .pm-switch-track::before {
+  content: "[on]";
+  color: var(--terminal-inv-ink);
+}
+
+[data-skin="terminal"] .pm-switch:hover .pm-switch-track::before {
+  color: var(--text);
+}
+
+[data-skin="terminal"] .pm-switch[aria-checked="true"]:hover .pm-switch-track::before {
+  color: var(--terminal-inv-ink);
+}
+
+[data-skin="terminal"] .pm-switches,
+[data-skin="terminal"] .pm-sound,
+[data-skin="terminal"] .pm-notify,
+[data-skin="terminal"] .pm-mini-pref,
+[data-skin="terminal"] .pm-log {
+  border-top-style: dashed;
+  border-top-color: var(--line-strong);
+}
+
+[data-skin="terminal"] .pm-log-row {
+  border-bottom-style: dashed;
+}
+
+[data-skin="terminal"] .pm-log-tag::before {
+  content: "# ";
+}
+
+/* The mini timer: a status-line block; focus running in inverse video */
+[data-skin="terminal"] .pm-mini {
+  border: 3px double var(--line-strong);
+  border-radius: 0;
+  background: var(--bg);
+}
+
+[data-skin="terminal"] .pm-mini-link,
+[data-skin="terminal"] .pm-mini-btn {
+  border-radius: 0;
+}
+
+[data-skin="terminal"] .pm-mini-phase {
+  letter-spacing: 0;
+  text-transform: lowercase;
+}
+
+[data-skin="terminal"] .pm-mini-phase::before {
+  content: "> ";
+}
+
+[data-skin="terminal"] .pm-mini-digits {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  text-shadow: var(--terminal-text-glow);
+}
+
+[data-skin="terminal"] .pm-mini-btn:hover {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+[data-skin="terminal"] .pm-mini[data-status="running"][data-phase="focus"] {
+  border-color: var(--terminal-inv-bg);
+  background: var(--terminal-inv-bg);
+  box-shadow: var(--glow);
+}
+
+[data-skin="terminal"] .pm-mini[data-status="running"]:not([data-phase="focus"]) {
+  border-color: var(--text-2);
+  background: repeating-linear-gradient(0deg, var(--surface-3) 0 1px, transparent 1px 3px), var(--bg);
+}
+
+[data-skin="terminal"] .pm-mini[data-status="paused"] {
+  border-style: dashed;
+  border-width: 1px;
+}
+
+@media (max-width: 640px) {
+  /* Six tabs: a compact framed count, as on the tablet icon rail (brackets don't fit) */
+  [data-skin="terminal"] .tab .nav-badge {
+    padding: 0 3px;
+    border: 1px solid var(--line-strong);
+    background: var(--bg);
+    font-size: 9px;
+    line-height: 1.3;
+  }
+
+  [data-skin="terminal"] .tab .nav-badge::before,
+  [data-skin="terminal"] .tab .nav-badge::after {
+    content: none;
+  }
+
+  [data-skin="terminal"] .shell > .topbar-center .pm-mini-digits {
+    font-size: 26px;
+  }
+
+  [data-skin="terminal"] .hm-pomo-digits {
+    font-size: 68px;
+  }
+}

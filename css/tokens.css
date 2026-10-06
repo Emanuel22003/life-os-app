@@ -1,0 +1,179 @@
+/* ==========================================================================
+   LIFE/OS — design tokens
+   These are Mission Control's (the original HUD look): strict grayscale. Never
+   introduce hue here: state is carried by contrast, weight, pattern and copy.
+   Other templates override the same names in css/skins/<id>.css.
+
+   Every token is declared on :root AND on any [data-skin] element, so a skin
+   scope (the page, or one preview in the Appearance picker) always starts from
+   these values instead of inheriting another skin's from an ancestor.
+   ========================================================================== */
+
+:root,
+[data-skin] {
+  --font-sans: "Space Grotesk", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  /* Page and dialog titles */
+  --font-display: var(--font-sans);
+  /* Code in notes: stays monospace even when a skin turns --font-mono into a sans */
+  --font-code: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+  --fs-2xs: 10px;
+  --fs-xs: 11px;
+  --fs-sm: 13px;
+  --fs-md: 15px;
+  --fs-lg: 18px;
+  --fs-xl: 24px;
+  --fs-2xl: 32px;
+  --fs-3xl: 44px;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 32px;
+  --space-8: 48px;
+  --space-9: 64px;
+
+  --radius-xs: 2px;
+  --radius-sm: 4px;
+  --radius: 8px;
+  --radius-lg: 14px;
+  --radius-pill: 999px;
+
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --dur-fast: 120ms;
+  --dur: 220ms;
+  --dur-slow: 420ms;
+
+  --sidebar-w: 236px;
+  --topbar-h: 56px;
+  --tabbar-h: 64px;
+  --content-max: 1120px;
+
+  --z-nav: 20;
+  --z-overlay: 50;
+  --z-toast: 60;
+
+  /* ---- Skin hooks: HUD decoration, as tokens other templates switch off ---- */
+
+  /* Micro labels (.label and every uppercase mono caption): font, size, case, tracking.
+     --label-tracking multiplies each caption's own letter-spacing (0 = none). */
+  --label-font: var(--font-mono);
+  --label-size: var(--fs-2xs);
+  --label-weight: 500;
+  --label-case: uppercase;
+  --label-tracking: 1;
+
+  /* Page surface (body and each picker preview): blueprint grid + vignette */
+  --page-bg-image:
+    radial-gradient(ellipse 80% 60% at 50% -10%, var(--surface-3), transparent 70%),
+    linear-gradient(var(--grid-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+  --page-bg-size: 100% 100%, 32px 32px, 32px 32px;
+
+  /* .hud corner brackets: "" draws them, none removes them */
+  --hud-corners: "";
+  --hud-corner-size: 10px;
+
+  /* Light-emitting glows (signal bars, live dots, lit cells): transparent turns them off */
+  --glow-c: var(--accent);
+  --glow-c-soft: var(--accent-soft);
+
+  /* Shared kit outlines (panels, buttons, fields, seg, modal, toast) and small parts (check, tag) */
+  --border-w: 1px;
+  --border-w-sm: 1px;
+
+  /* Offset shadow on panels and buttons (none here; e.g. 6px 6px 0 var(--text)) */
+  --shadow-hard: none;
+
+  /* Numbered lists drawn by CSS counters (install steps) */
+  --counter-style: decimal-leading-zero;
+}
+
+/* ---- Dark (default): black void, white signal ---- */
+:root,
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --bg: #060606;
+  --bg-elev: #0c0c0c;
+  --surface: rgba(255, 255, 255, 0.022);
+  --surface-2: rgba(255, 255, 255, 0.045);
+  --surface-3: rgba(255, 255, 255, 0.08);
+  --surface-solid: #101010;
+  --surface-solid-2: #161616;
+
+  --line: rgba(255, 255, 255, 0.075);
+  --line-strong: rgba(255, 255, 255, 0.16);
+  --line-focus: rgba(255, 255, 255, 0.7);
+
+  --text: #f2f2f2;
+  --text-2: #a8a8a8;
+  --text-3: #6e6e6e;
+  --text-4: #3e3e3e;
+
+  --accent: #ffffff;
+  --accent-ink: #000000;
+  --accent-soft: rgba(255, 255, 255, 0.12);
+
+  --glow: 0 0 0 1px rgba(255, 255, 255, 0.1), 0 0 24px rgba(255, 255, 255, 0.06);
+  --glow-strong: 0 0 0 1px rgba(255, 255, 255, 0.55), 0 0 28px rgba(255, 255, 255, 0.16);
+  --shadow: 0 18px 60px rgba(0, 0, 0, 0.65);
+  --shadow-sm: 0 4px 18px rgba(0, 0, 0, 0.45);
+
+  --grid-line: rgba(255, 255, 255, 0.03);
+  --scrim: rgba(0, 0, 0, 0.72);
+  --hatch: rgba(255, 255, 255, 0.09);
+
+  /* 5-step intensity ramp for heatmaps, meters, charts */
+  --heat-0: rgba(255, 255, 255, 0.04);
+  --heat-1: rgba(255, 255, 255, 0.16);
+  --heat-2: rgba(255, 255, 255, 0.34);
+  --heat-3: rgba(255, 255, 255, 0.6);
+  --heat-4: #ffffff;
+}
+
+/* ---- Light: inverted — white paper, black ink ---- */
+[data-theme="light"] {
+  color-scheme: light;
+
+  --bg: #f4f4f4;
+  --bg-elev: #ffffff;
+  --surface: rgba(0, 0, 0, 0.018);
+  --surface-2: rgba(0, 0, 0, 0.04);
+  --surface-3: rgba(0, 0, 0, 0.075);
+  --surface-solid: #ffffff;
+  --surface-solid-2: #f7f7f7;
+
+  --line: rgba(0, 0, 0, 0.085);
+  --line-strong: rgba(0, 0, 0, 0.18);
+  --line-focus: rgba(0, 0, 0, 0.75);
+
+  --text: #0b0b0b;
+  --text-2: #4f4f4f;
+  --text-3: #8a8a8a;
+  --text-4: #c2c2c2;
+
+  --accent: #000000;
+  --accent-ink: #ffffff;
+  --accent-soft: rgba(0, 0, 0, 0.08);
+
+  --glow: 0 0 0 1px rgba(0, 0, 0, 0.08), 0 6px 24px rgba(0, 0, 0, 0.05);
+  --glow-strong: 0 0 0 1px rgba(0, 0, 0, 0.7), 0 6px 26px rgba(0, 0, 0, 0.12);
+  --shadow: 0 18px 60px rgba(0, 0, 0, 0.14);
+  --shadow-sm: 0 4px 18px rgba(0, 0, 0, 0.08);
+
+  --grid-line: rgba(0, 0, 0, 0.04);
+  --scrim: rgba(240, 240, 240, 0.72);
+  --hatch: rgba(0, 0, 0, 0.08);
+
+  --heat-0: rgba(0, 0, 0, 0.045);
+  --heat-1: rgba(0, 0, 0, 0.16);
+  --heat-2: rgba(0, 0, 0, 0.34);
+  --heat-3: rgba(0, 0, 0, 0.6);
+  --heat-4: #000000;
+}

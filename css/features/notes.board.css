@@ -1,0 +1,1103 @@
+/* ==========================================================================
+   LIFE/OS — Notes board layout (class prefix: nt-)
+   One column per section, cards move between them by drag or keyboard. The
+   editor opens as a panel over the board's right side (full screen on phones).
+   Colors come only from tokens; state is carried by contrast, dashes and glow.
+   ========================================================================== */
+
+/* ---- Layout toggle (page header) ---- */
+
+.nt-layout {
+  flex: none;
+}
+
+.nt-layout .seg-btn svg {
+  flex: none;
+}
+
+/* ---- A slim page header on the board, so the columns get the height ---- */
+
+.nt-view[data-layout="board"] .page-header {
+  flex-wrap: nowrap;
+  align-items: center;
+  padding-bottom: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+.nt-view[data-layout="board"] .page-heading {
+  gap: var(--space-1);
+}
+
+.nt-view[data-layout="board"] .page-title {
+  font-size: var(--fs-2xl);
+}
+
+/* The toolbar's pager and the column counts say what the totals and subtitle said */
+.nt-view[data-layout="board"] .page-subtitle,
+.nt-view[data-layout="board"] .nt-stats {
+  display: none;
+}
+
+/* The toggle stays on the title's row, phones included */
+.nt-view[data-layout="board"] .page-actions {
+  width: auto;
+  margin-left: auto;
+}
+
+/* ---- The board takes the whole workspace: no rail, chip strip or list ---- */
+
+.nt-board {
+  display: none;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.nt-view[data-layout="board"] .nt-workspace {
+  position: relative;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  /* The editor panel's width, also kept free at the board's end so every column can scroll out from under it */
+  --nt-peek-w: clamp(340px, 58cqw, 560px);
+}
+
+.nt-view[data-layout="board"] .nt-rail,
+.nt-view[data-layout="board"] .nt-strip,
+.nt-view[data-layout="board"] .nt-list {
+  display: none;
+}
+
+.nt-view[data-layout="board"] .nt-board {
+  display: flex;
+}
+
+.nt-view[data-layout="board"][data-empty="true"] .nt-board {
+  display: none;
+}
+
+.nt-view[data-layout="board"] .nt-empty {
+  grid-column: 1 / -1;
+}
+
+/* ---- Toolbar: New note + search, the column pager, Manage ---- */
+
+.nt-board-head {
+  position: relative;
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  padding: var(--space-3);
+  border-bottom: 1px solid var(--line);
+}
+
+.nt-board-tools {
+  flex: 0 1 auto;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.nt-board-tools .nt-new {
+  flex: none;
+  width: auto;
+}
+
+.nt-board-tools .nt-search {
+  flex: 0 1 280px;
+  min-width: 160px;
+}
+
+.nt-board-manage {
+  flex: none;
+  color: var(--text-3);
+}
+
+.nt-board-manage:hover {
+  color: var(--text);
+}
+
+/* Footer: counts and the order the cards keep, after the key hints */
+.nt-board-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-left: auto;
+}
+
+.nt-board-count {
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.nt-board-tip {
+  color: var(--text-3);
+}
+
+@container nt-view (max-width: 1099px) {
+  .nt-board-tip {
+    display: none;
+  }
+}
+
+/* ---- Pager: a chip per column, lit while the column shows (a minimap of the board) ---- */
+
+/* A size container: its chips slim down when it is narrow (beside the note panel, on phones) */
+.nt-pager {
+  container: nt-pager / inline-size;
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.nt-pager-label {
+  display: none;
+}
+
+.nt-pager-chips {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.nt-pager-chip.is-dockonly {
+  display: none;
+}
+
+.nt-chip-icon {
+  flex: none;
+  display: grid;
+}
+
+/* Out of sight: dashed and quiet */
+.nt-pager-chip:not(.is-inview) {
+  border-style: dashed;
+  color: var(--text-3);
+}
+
+/* In view: solid, lit */
+.nt-pager-chip.is-inview {
+  border-color: var(--text-3);
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.nt-pager-chip.is-inview svg {
+  color: var(--text-2);
+}
+
+.nt-pager-chip:hover {
+  border-style: solid;
+}
+
+/* While a card is lifted the pager is the drop dock: every column (Unsorted too) one move away */
+.nt-pager.is-docking .nt-pager-label {
+  display: inline-flex;
+  flex: none;
+  color: var(--text-2);
+}
+
+.nt-pager.is-docking .nt-chips.nt-pager-chips {
+  overflow: hidden;
+  -webkit-mask-image: none;
+  mask-image: none;
+}
+
+.nt-pager.is-docking .nt-pager-chip {
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: 220px;
+  height: 36px;
+  border-style: dashed;
+  border-color: var(--line-strong);
+  background: var(--surface);
+  color: var(--text-2);
+}
+
+.nt-pager.is-docking .nt-pager-chip.is-dockonly {
+  display: inline-flex;
+}
+
+.nt-pager.is-docking .nt-pager-chip.is-home {
+  background: repeating-linear-gradient(-45deg, var(--hatch) 0 1px, transparent 1px 8px);
+  color: var(--text-3);
+}
+
+.nt-pager.is-docking .nt-pager-chip.is-drop {
+  border-style: solid;
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-ink);
+  box-shadow: var(--glow-strong);
+}
+
+.nt-pager-chip.is-drop svg,
+.nt-pager-chip.is-drop .nt-chip-count {
+  color: inherit;
+}
+
+/* A narrow pager: icon and count per chip, the name in its tooltip and label */
+@container nt-pager (max-width: 300px) {
+  .nt-pager:not(.is-docking) .nt-pager-chip {
+    padding: 0 8px;
+  }
+
+  .nt-pager:not(.is-docking) .nt-pager-chip .nt-chip-name {
+    display: none;
+  }
+}
+
+/* A narrow dock: icon and name only, so every chip stays recognisable */
+@container nt-pager (max-width: 560px) {
+  .nt-pager.is-docking .nt-pager-label,
+  .nt-pager.is-docking .nt-chip-count {
+    display: none;
+  }
+
+  .nt-pager.is-docking .nt-pager-chip {
+    gap: 4px;
+    padding: 0 6px;
+    justify-content: center;
+  }
+}
+
+/* Narrower boards: the pager gets a row of its own under New note and search */
+@container nt-view (max-width: 939px) {
+  .nt-board-head {
+    flex-wrap: wrap;
+  }
+
+  .nt-board-tools {
+    flex: 1 1 0;
+  }
+
+  .nt-board-tools .nt-search {
+    flex: 1 1 auto;
+  }
+
+  .nt-pager {
+    order: 3;
+    flex: 1 0 100%;
+  }
+}
+
+/* Wide boards: the dock covers the toolbar while it is up, so every chip fits on its one row */
+@container nt-view (min-width: 940px) {
+  .nt-pager.is-docking {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    padding: 0 var(--space-3);
+    background: var(--surface-solid);
+  }
+}
+
+/* ---- Columns: a horizontal row that scrolls on its own; each column scrolls vertically ---- */
+
+/* Positioned, so the cards' screen-reader help is clipped here instead of widening the page */
+.nt-board-scroll {
+  --nt-fade: 28px;
+  --nt-cover: 0px;
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  scroll-padding-inline: var(--space-3);
+}
+
+/* Fades toward columns out of sight (mask alpha, not a color); the end fade sits at the editor panel's edge */
+.nt-board-scroll[data-fade="start"] {
+  -webkit-mask-image: linear-gradient(90deg, transparent, var(--text) var(--nt-fade));
+  mask-image: linear-gradient(90deg, transparent, var(--text) var(--nt-fade));
+}
+
+.nt-board-scroll[data-fade="end"] {
+  -webkit-mask-image: linear-gradient(90deg, var(--text) calc(100% - var(--nt-cover) - var(--nt-fade)), transparent calc(100% - var(--nt-cover)));
+  mask-image: linear-gradient(90deg, var(--text) calc(100% - var(--nt-cover) - var(--nt-fade)), transparent calc(100% - var(--nt-cover)));
+}
+
+.nt-board-scroll[data-fade="start end"] {
+  -webkit-mask-image: linear-gradient(90deg, transparent, var(--text) var(--nt-fade), var(--text) calc(100% - var(--nt-cover) - var(--nt-fade)), transparent calc(100% - var(--nt-cover)));
+  mask-image: linear-gradient(90deg, transparent, var(--text) var(--nt-fade), var(--text) calc(100% - var(--nt-cover) - var(--nt-fade)), transparent calc(100% - var(--nt-cover)));
+}
+
+/* At least as wide as the board, so a few columns share the room (up to 340px each) */
+.nt-board-cols {
+  flex: none;
+  display: flex;
+  align-items: stretch;
+  gap: var(--space-3);
+  min-width: 100%;
+  min-height: 100%;
+  padding: var(--space-3);
+}
+
+.nt-col {
+  position: relative;
+  flex: 1 0 240px;
+  display: flex;
+  flex-direction: column;
+  width: 240px;
+  max-width: 340px;
+  min-height: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  scroll-snap-align: start;
+  transition: border-color var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease),
+    box-shadow var(--dur-fast) var(--ease), width var(--dur) var(--ease-out);
+}
+
+.nt-col.is-pulse {
+  animation: nt-col-pulse 900ms var(--ease-out);
+}
+
+.nt-col-head {
+  position: relative;
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 44px;
+  padding: var(--space-2) var(--space-1) var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--line);
+  border-radius: var(--radius) var(--radius) 0 0;
+  transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+}
+
+/* The lit tick on the header rule, as on the page header */
+.nt-col-head::after {
+  content: "";
+  position: absolute;
+  left: var(--space-3);
+  bottom: -1px;
+  width: 20px;
+  height: 1px;
+  background: var(--text-3);
+}
+
+.nt-col-icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  color: var(--text-2);
+}
+
+.nt-col-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+}
+
+.nt-col-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--text);
+  unicode-bidi: isolate;
+}
+
+/* The rail's count badge */
+.nt-col-count {
+  flex: none;
+  min-width: 22px;
+  padding: 1px 5px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-xs);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  line-height: 1.4;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  color: var(--text-2);
+}
+
+.nt-col-head .btn {
+  --btn-h: 26px;
+  flex: none;
+  color: var(--text-3);
+}
+
+.nt-col-head .btn:hover {
+  color: var(--text);
+}
+
+/* Vertical containment only: a sideways swipe on a card must chain to the board and scroll it */
+.nt-col-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  padding: var(--space-2);
+}
+
+.nt-col-body:focus {
+  outline: none;
+}
+
+.nt-col-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.nt-col-empty {
+  padding: var(--space-5) var(--space-3);
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: repeating-linear-gradient(-45deg, var(--surface-2) 0 1px, transparent 1px 8px);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  letter-spacing: calc(0.14em * var(--label-tracking));
+  text-transform: var(--label-case);
+  text-align: center;
+  color: var(--text-3);
+}
+
+.nt-col-new {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  margin: 0 var(--space-2) var(--space-2);
+  padding: 0 var(--space-2);
+  border: 1px dashed transparent;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  letter-spacing: calc(0.14em * var(--label-tracking));
+  text-transform: var(--label-case);
+  color: var(--text-3);
+  transition: color var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease),
+    background var(--dur-fast) var(--ease);
+}
+
+.nt-col-new:hover {
+  border-color: var(--line-strong);
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+/* ---- Folded column: a slim strip that still takes drops ---- */
+
+.nt-col-strip {
+  display: none;
+}
+
+.nt-col.is-collapsed {
+  flex: none;
+  width: 46px;
+}
+
+.nt-col.is-collapsed > .nt-col-head,
+.nt-col.is-collapsed > .nt-col-body,
+.nt-col.is-collapsed > .nt-col-new {
+  display: none;
+}
+
+.nt-col.is-collapsed > .nt-col-strip {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) 0;
+  border-radius: inherit;
+  color: var(--text-2);
+  overflow: hidden;
+  transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+}
+
+.nt-col-strip:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.nt-col-strip:focus-visible {
+  outline-offset: -4px;
+}
+
+.nt-col-stripname {
+  min-height: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  writing-mode: vertical-rl;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--text);
+  unicode-bidi: isolate;
+}
+
+/* ---- The trailing "+ Section" strip: as slim as a folded column ---- */
+
+.nt-col.nt-col--ghost {
+  flex: none;
+  width: 44px;
+  border: 0;
+  background: none;
+}
+
+.nt-col-addsection {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-3) 0;
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius);
+  color: var(--text-3);
+  overflow: hidden;
+  transition: color var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease),
+    background var(--dur-fast) var(--ease);
+}
+
+.nt-col-addsection:hover {
+  border-style: solid;
+  border-color: var(--text-3);
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.nt-col-addsection:focus-visible {
+  outline-offset: -4px;
+}
+
+.nt-col-addsection-label {
+  writing-mode: vertical-rl;
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  letter-spacing: calc(0.14em * var(--label-tracking));
+  text-transform: var(--label-case);
+  white-space: nowrap;
+}
+
+/* ---- Cards ---- */
+
+.nt-card-row {
+  position: relative;
+}
+
+.nt-card-row.is-new {
+  animation: lo-rise var(--dur) var(--ease-out) both;
+}
+
+.nt-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  padding: var(--space-3);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface-solid);
+  text-align: left;
+  color: var(--text-2);
+  /* A long press picks the card up: no text selection or callout on the way */
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  transition: border-color var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease),
+    box-shadow var(--dur-fast) var(--ease), opacity var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease);
+}
+
+.nt-card:hover {
+  border-color: var(--text-3);
+  background: var(--surface-solid-2);
+  color: var(--text);
+}
+
+/* A finger holding the card: it sinks while the long press runs, then lifts */
+.nt-card.is-pressing {
+  border-color: var(--text-3);
+  background: var(--surface-solid-2);
+  transform: scale(0.98);
+  transition: transform 300ms linear, border-color 300ms linear, background 300ms linear;
+}
+
+/* The note open in the panel: lit border and the signal edge of the list's open row */
+.nt-card[aria-current="true"] {
+  border-color: var(--accent);
+  box-shadow: var(--glow);
+  color: var(--text);
+}
+
+.nt-card[aria-current="true"]::before {
+  content: "";
+  position: absolute;
+  left: -1px;
+  top: 10px;
+  bottom: 10px;
+  width: 2px;
+  background: var(--accent);
+  box-shadow: 0 0 10px var(--glow-c);
+}
+
+.nt-card-title {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  overflow: hidden;
+  padding-right: 22px;
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  line-height: 1.4;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+.nt-card-title.is-untitled {
+  font-style: italic;
+  color: var(--text-3);
+}
+
+.nt-card-excerpt {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  font-size: var(--fs-xs);
+  line-height: 1.5;
+  color: var(--text-3);
+  overflow-wrap: anywhere;
+}
+
+.nt-card[aria-current="true"] .nt-card-excerpt {
+  color: var(--text-2);
+}
+
+.nt-card-foot {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 18px;
+}
+
+.nt-card-grip {
+  display: grid;
+  margin-left: -3px;
+  color: var(--text-4);
+  transition: color var(--dur-fast) var(--ease);
+}
+
+.nt-card:hover .nt-card-grip {
+  color: var(--text-2);
+}
+
+.nt-card-time {
+  white-space: nowrap;
+}
+
+.nt-card-pin {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 18px;
+  margin-left: auto;
+  padding: 0 5px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-xs);
+  color: var(--text-2);
+}
+
+/* ⋯ Move to…: shown on hover / focus (always on touch screens) */
+.nt-card-menu {
+  --btn-h: 24px;
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  color: var(--text-3);
+  opacity: 0;
+  transition: opacity var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease),
+    background var(--dur-fast) var(--ease);
+}
+
+.nt-card-row:hover > .nt-card-menu,
+.nt-card-row:focus-within > .nt-card-menu,
+.nt-card-menu[aria-expanded="true"] {
+  opacity: 1;
+}
+
+.nt-card-menu:hover,
+.nt-card-menu[aria-expanded="true"] {
+  color: var(--text);
+}
+
+/* A note that just landed in this column */
+.nt-card-row.is-landed .nt-card {
+  animation: nt-card-land 900ms var(--ease-out);
+}
+
+/* ---- Dragging a card ---- */
+
+/* Snapping would fight the edge scrolling while a card is lifted */
+.nt-board-scroll.is-dragging {
+  scroll-snap-type: none;
+}
+
+.nt-board-scroll.is-dragging .nt-col[data-col] {
+  border-style: dashed;
+  border-color: var(--line-strong);
+}
+
+.nt-board-scroll.is-dragging .nt-card-menu {
+  display: none;
+}
+
+/* The column under the pointer: inverted header, lit frame */
+.nt-col.is-drop,
+.nt-board-scroll.is-dragging .nt-col.is-drop {
+  border-style: solid;
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  box-shadow: var(--glow-strong);
+}
+
+.nt-col.is-drop > .nt-col-head,
+.nt-col.is-drop > .nt-col-strip {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.nt-col.is-drop > .nt-col-head :is(.nt-col-name, .nt-col-icon, .btn),
+.nt-col.is-drop > .nt-col-strip :is(.nt-col-stripname, .nt-col-icon) {
+  color: inherit;
+}
+
+.nt-col.is-drop .nt-col-count {
+  border-color: currentColor;
+  color: inherit;
+}
+
+/* Over its own column: nothing to do, said with hatching */
+.nt-col.is-home {
+  background: repeating-linear-gradient(-45deg, var(--hatch) 0 1px, transparent 1px 8px);
+}
+
+/* A column deleted in another tab while the card was lifted: no longer a target */
+.nt-col.is-gone {
+  opacity: 0.45;
+  background: repeating-linear-gradient(-45deg, var(--hatch) 0 1px, transparent 1px 5px);
+}
+
+.nt-col.has-slot .nt-col-empty {
+  display: none;
+}
+
+/* Where the card will land (recency order decides the slot) */
+.nt-card-slot {
+  border: 1px dashed var(--accent);
+  border-radius: var(--radius-sm);
+  background: repeating-linear-gradient(-45deg, var(--accent-soft) 0 2px, transparent 2px 7px);
+  box-shadow: inset 0 0 12px var(--glow-c-soft);
+}
+
+.nt-card-row.is-drag-source .nt-card {
+  border-style: dashed;
+  background: transparent;
+  box-shadow: none;
+  opacity: 0.4;
+}
+
+/* The card that follows the pointer */
+.nt-lift {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: var(--z-toast);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  pointer-events: none;
+  will-change: transform;
+}
+
+.nt-lift .nt-card {
+  border-color: var(--text-3);
+  background: var(--surface-solid-2);
+  box-shadow: var(--shadow), var(--glow);
+  color: var(--text);
+  transform: rotate(-1.5deg);
+}
+
+.nt-lift.is-armed .nt-card {
+  border-color: var(--accent);
+  box-shadow: var(--shadow), var(--glow-strong);
+}
+
+/* Dropped nowhere or cancelled: it glides back to its place */
+.nt-lift.is-returning {
+  opacity: 0;
+  transition: transform 180ms var(--ease-out), opacity 180ms var(--ease-out);
+}
+
+/* Touch: a compact title floating above the finger, so the column under it stays in sight */
+.nt-lift.is-touch {
+  align-items: center;
+  max-width: min(260px, 72vw);
+}
+
+.nt-lift-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  height: 36px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--text-3);
+  border-radius: var(--radius-sm);
+  background: var(--surface-solid-2);
+  box-shadow: var(--shadow), var(--glow);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  color: var(--text);
+}
+
+.nt-lift-pill svg {
+  flex: none;
+  color: var(--text-3);
+}
+
+.nt-lift-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nt-lift.is-armed .nt-lift-pill {
+  border-color: var(--accent);
+  box-shadow: var(--shadow), var(--glow-strong);
+}
+
+.nt-lift-to {
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 6px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-xs);
+  background: var(--surface-solid);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  letter-spacing: calc(0.12em * var(--label-tracking));
+  text-transform: var(--label-case);
+  white-space: nowrap;
+  color: var(--text-2);
+  box-shadow: var(--shadow-sm);
+}
+
+.nt-lift.is-armed .nt-lift-to {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+/* ---- The editor as a panel over the board (tablets and up) ---- */
+
+.nt-peek-close {
+  display: none;
+}
+
+/* Long ideas are often a title only: a smaller title shows more of it in the panel */
+.nt-view[data-layout="board"] .nt-title {
+  font-size: var(--fs-xl);
+}
+
+@media (min-width: 641px) {
+  .nt-view[data-layout="board"]:not([data-pane="editor"]) .nt-editor {
+    display: none;
+  }
+
+  .nt-view[data-layout="board"] .nt-editor {
+    position: absolute;
+    z-index: 3;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: var(--nt-peek-w);
+    border-color: var(--line-strong);
+    background: var(--surface-solid);
+    box-shadow: var(--shadow);
+    animation: nt-peek-in var(--dur) var(--ease-out) both;
+  }
+
+  .nt-view[data-layout="board"] .nt-peek-close {
+    display: inline-flex;
+  }
+
+  .nt-view[data-layout="board"] .nt-back {
+    display: none;
+  }
+
+  .nt-view[data-layout="board"][data-pane="editor"] .nt-board-cols::after {
+    content: "";
+    flex: none;
+    width: calc(var(--nt-peek-w) - var(--space-3));
+  }
+
+  /* The toolbar (pager and dock included) keeps to the part of the board left of the panel,
+     with New note as its + and a shorter search so the pager keeps some room */
+  .nt-view[data-layout="board"][data-pane="editor"] .nt-board-head {
+    padding-right: calc(var(--nt-peek-w) + var(--space-3));
+  }
+
+  .nt-view[data-layout="board"][data-pane="editor"] .nt-board-tools .nt-new {
+    width: var(--btn-h);
+    padding: 0;
+    justify-content: center;
+  }
+
+  .nt-view[data-layout="board"][data-pane="editor"] .nt-board-tools .nt-new > span {
+    display: none;
+  }
+
+  .nt-view[data-layout="board"][data-pane="editor"] .nt-board-tools .nt-search {
+    flex-basis: 200px;
+  }
+
+  .nt-view[data-layout="board"][data-pane="editor"] .nt-pager.is-docking {
+    right: var(--nt-peek-w);
+  }
+}
+
+/* Tablets: the board stays beside the panel, so its header stays too */
+@media (min-width: 641px) and (max-width: 900px) {
+  .nt-view[data-layout="board"][data-pane="editor"] .page-header {
+    display: flex;
+  }
+
+  .nt-view[data-layout="board"] .nt-title {
+    padding: var(--space-4) var(--space-4) var(--space-2);
+  }
+}
+
+/* ---- Phones: one column at a time, snapping; the open note fills the screen ---- */
+
+@media (max-width: 640px) {
+  .nt-view[data-layout="board"][data-pane="editor"] .nt-board {
+    display: none;
+  }
+
+  .nt-board-scroll {
+    scroll-snap-type: x mandatory;
+    scroll-padding-inline: var(--space-2);
+  }
+
+  .nt-board-cols {
+    gap: var(--space-2);
+    padding: var(--space-2);
+  }
+
+  /* The next column peeks in at the edge */
+  .nt-col {
+    flex: none;
+    width: calc(100cqw - 48px);
+    max-width: 380px;
+  }
+
+  .nt-board-head {
+    padding: var(--space-2);
+  }
+
+  /* New note (+), search and Manage share one row */
+  .nt-board-tools .nt-search {
+    min-width: 0;
+  }
+
+  .nt-board-tools .nt-new {
+    width: var(--btn-h);
+    padding: 0;
+    justify-content: center;
+  }
+
+  .nt-board-tools .nt-new > span {
+    display: none;
+  }
+}
+
+/* Touch screens: no hover, so the ⋯ stays visible; bigger targets */
+@media (hover: none) {
+  .nt-card-menu {
+    opacity: 1;
+  }
+
+  .nt-card-grip {
+    color: var(--text-3);
+  }
+}
+
+@media (pointer: coarse) {
+  .nt-card-menu {
+    --btn-h: 32px;
+    top: 4px;
+    right: 4px;
+  }
+
+  .nt-card-title {
+    padding-right: 30px;
+  }
+
+  .nt-col-head .btn {
+    --btn-h: 34px;
+  }
+
+  .nt-col-new {
+    height: 38px;
+  }
+
+  .nt-pager-chip {
+    height: 34px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nt-lift .nt-card,
+  .nt-card.is-pressing {
+    transform: none;
+  }
+}
+
+/* Transparent, not none: forced-colors mode drops glows and fills but paints these outlines,
+   so the drop target, the open card and the lifted card stay marked there too */
+.nt-col.is-drop,
+.nt-pager-chip.is-drop,
+.nt-card[aria-current="true"]:not(:focus-visible),
+.nt-lift.is-armed .nt-card,
+.nt-lift.is-armed .nt-lift-pill {
+  outline: 2px solid transparent;
+  outline-offset: 1px;
+}
+
+@keyframes nt-peek-in {
+  from { opacity: 0; transform: translateX(24px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes nt-card-land {
+  0% { border-color: var(--accent); box-shadow: var(--glow-strong); }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+
+@keyframes nt-col-pulse {
+  0% { box-shadow: var(--glow-strong); }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}

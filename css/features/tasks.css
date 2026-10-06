@@ -1,0 +1,1283 @@
+/* ==========================================================================
+   LIFE/OS — 01 // Tasks
+   Grayscale only: state is carried by contrast, weight, pattern and motion.
+   Every class is prefixed tk-. Colors come from tokens.css exclusively.
+   ========================================================================== */
+
+/* .btn / .seg set display, which beats the UA [hidden] rule */
+.tk-root [hidden],
+.tk-modal [hidden] {
+  display: none !important;
+}
+
+/* ==========================================================================
+   Command bar
+   ========================================================================== */
+
+.tk-command {
+  margin-bottom: var(--space-5);
+  background: linear-gradient(180deg, var(--surface-2), var(--surface) 70%);
+  transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
+}
+
+.tk-command:focus-within {
+  border-color: var(--line-strong);
+  box-shadow: var(--glow);
+}
+
+.tk-command.is-rejected {
+  animation: tk-shake 360ms var(--ease);
+}
+
+.tk-command-main {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-2) var(--space-2) var(--space-4);
+}
+
+/* signal line that charges up along the divider while typing */
+.tk-command-main::after {
+  content: "";
+  position: absolute;
+  left: var(--space-4);
+  right: var(--space-4);
+  bottom: -1px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  opacity: 0;
+  transform: scaleX(0.2);
+  transition: opacity var(--dur) var(--ease), transform var(--dur-slow) var(--ease-out);
+  pointer-events: none;
+}
+
+.tk-command:focus-within .tk-command-main::after {
+  opacity: 0.55;
+  transform: none;
+}
+
+.tk-prompt {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xl);
+  line-height: 1;
+  margin-top: -3px;
+  color: var(--text-3);
+  transition: color var(--dur) var(--ease), text-shadow var(--dur) var(--ease);
+}
+
+.tk-command:focus-within .tk-prompt {
+  color: var(--text);
+  text-shadow: 0 0 14px var(--glow-c-soft);
+}
+
+.tk-add-input {
+  flex: 1;
+  min-width: 0;
+  height: 48px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  caret-color: var(--accent);
+  font-size: var(--fs-lg);
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+
+.tk-add-input::placeholder {
+  color: var(--text-3);
+  font-weight: 400;
+}
+
+/* focus is shown by the whole bar (border glow + charged signal line) */
+.tk-add-input:focus-visible {
+  outline: none;
+}
+
+.tk-key-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.tk-command:focus-within .tk-key-hint {
+  display: none;
+}
+
+.tk-add-btn {
+  gap: 6px;
+  padding: 0 var(--space-2) 0 var(--space-3);
+}
+
+.tk-add-kbd {
+  min-width: 16px;
+  height: 16px;
+  border-color: currentColor;
+  color: inherit;
+  opacity: 0.5;
+}
+
+.tk-command-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-5);
+  padding: var(--space-2) var(--space-3) var(--space-2) var(--space-4);
+  border-top: 1px solid var(--line);
+}
+
+.tk-tool {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.tk-tool-label {
+  min-width: 26px;
+}
+
+.tk-due {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.tk-date {
+  width: 136px;
+  height: 30px;
+  padding: 0 var(--space-2);
+}
+
+.tk-due-clear {
+  --btn-h: 28px;
+}
+
+.tk-readout {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  min-height: 30px;
+}
+
+.tk-tip,
+.tk-kept {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Tokens are literal syntax: show them as typed, not in label caps */
+.tk-readout .kbd {
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.tk-token {
+  height: 24px;
+  gap: 6px;
+  padding: 0 var(--space-2);
+  color: var(--text);
+  border-color: var(--text-2);
+  background: var(--surface-2);
+  animation: tk-pop-in var(--dur) var(--ease-out) both;
+  transition: background var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease);
+}
+
+.tk-token svg {
+  opacity: 0.55;
+}
+
+.tk-token:hover {
+  border-style: dashed;
+  background: transparent;
+}
+
+.tk-token:hover svg {
+  opacity: 1;
+}
+
+/* ==========================================================================
+   Stats strip
+   ========================================================================== */
+
+.tk-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(0, 1.7fr);
+  gap: var(--space-3);
+  margin-bottom: var(--space-6);
+}
+
+.tk-stat {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: var(--space-4);
+  overflow: hidden;
+  text-align: left;
+  color: var(--text);
+  transition: background var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease),
+    transform var(--dur-fast) var(--ease);
+}
+
+button.tk-stat:hover {
+  background: var(--surface-2);
+  border-color: var(--line-strong);
+}
+
+button.tk-stat:active {
+  transform: translateY(1px);
+}
+
+/* status pip, top-right */
+.tk-stat::after {
+  content: "";
+  position: absolute;
+  top: var(--space-3);
+  right: var(--space-3);
+  width: 5px;
+  height: 5px;
+  background: var(--text-4);
+}
+
+.tk-stat-label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  white-space: nowrap;
+}
+
+/* index stays the quietest part of the label, but at a readable contrast */
+.tk-stat-idx {
+  color: var(--text-3);
+}
+
+.tk-stat-value {
+  display: block;
+}
+
+.tk-stat-value.is-ticking {
+  animation: tk-tick 480ms var(--ease-out);
+}
+
+.tk-stat-sub {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+}
+
+.tk-stat.is-zero .tk-stat-value {
+  color: var(--text-3);
+}
+
+/* Overdue > 0: hatched warning field, lit pip. No hue. */
+.tk-stat.is-alert {
+  border-color: var(--text-2);
+  background: repeating-linear-gradient(-45deg, var(--hatch) 0 2px, transparent 2px 7px), var(--surface);
+}
+
+.tk-stat.is-alert::after {
+  background: var(--accent);
+  box-shadow: 0 0 8px var(--glow-c);
+  animation: lo-pulse 1.6s var(--ease) infinite;
+}
+
+.tk-stat.is-alert .tk-stat-sub {
+  color: var(--text);
+}
+
+.tk-stat--progress::after {
+  display: none;
+}
+
+.tk-stat--progress .tk-stat-label {
+  padding-right: 0;
+}
+
+.tk-prog-ratio {
+  font-size: var(--fs-2xs);
+  letter-spacing: 0.08em;
+  color: var(--text-2);
+}
+
+.tk-progress {
+  height: 6px;
+  margin-top: 2px;
+}
+
+.tk-overall {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.tk-meter {
+  flex: 1;
+  gap: 2px;
+}
+
+.tk-meter .meter-tick {
+  height: 4px;
+  transition: background var(--dur) var(--ease);
+}
+
+.tk-overall-pct {
+  min-width: 4ch;
+  text-align: right;
+  font-size: var(--fs-2xs);
+  color: var(--text-2);
+}
+
+.tk-stat--progress.is-complete {
+  border-color: var(--text-2);
+  box-shadow: var(--glow);
+}
+
+/* ==========================================================================
+   Toolbar: filters + sort
+   ========================================================================== */
+
+.tk-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+.tk-sort {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.tk-filters .seg-count {
+  min-width: 1.5ch;
+  text-align: right;
+}
+
+/* ==========================================================================
+   Task list
+   ========================================================================== */
+
+.tk-panel {
+  margin-bottom: var(--space-2);
+}
+
+.tk-list {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+.tk-row {
+  --row-line: 22px;
+  position: relative;
+  display: grid;
+  grid-template-columns: 36px auto minmax(0, 1fr) auto;
+  align-items: start;
+  column-gap: var(--space-3);
+  padding: var(--space-3) var(--space-3) var(--space-3) 0;
+  border-top: 1px solid var(--line);
+  outline: none;
+  transition: background var(--dur-fast) var(--ease);
+}
+
+.tk-row:first-child {
+  border-top-color: transparent;
+  border-radius: var(--radius) var(--radius) 0 0;
+}
+
+.tk-row:last-child {
+  border-radius: 0 0 var(--radius) var(--radius);
+}
+
+.tk-row:only-child {
+  border-radius: var(--radius);
+}
+
+.tk-row:hover,
+.tk-row.is-editing {
+  background: var(--surface-2);
+}
+
+.tk-row:focus-visible {
+  z-index: 1;
+  background: var(--surface-2);
+  box-shadow: inset 0 0 0 1px var(--line-focus);
+}
+
+/* Priority signal bar beside the first line: solid+glow / solid / dashed / none */
+.tk-row::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: var(--space-3);
+  width: 2px;
+  height: var(--row-line);
+  border-radius: 0 1px 1px 0;
+  transition: opacity var(--dur) var(--ease);
+}
+
+.tk-row[data-priority="high"]::before {
+  background: var(--accent);
+  box-shadow: 0 0 10px var(--glow-c);
+}
+
+.tk-row[data-priority="med"]::before {
+  background: var(--text-3);
+}
+
+.tk-row[data-priority="low"]::before {
+  background: repeating-linear-gradient(180deg, var(--text-3) 0 3px, transparent 3px 6px);
+}
+
+.tk-row.is-done::before {
+  opacity: 0.3;
+}
+
+/* Light sweep across the row on check-off (and back on re-open) */
+.tk-row::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  background: linear-gradient(100deg, transparent 38%, var(--accent-soft) 47%, var(--surface-3) 50%, var(--accent-soft) 53%, transparent 62%) no-repeat;
+  background-size: 300% 100%;
+  background-position: 100% 0;
+}
+
+.tk-row.is-completing::after {
+  animation: tk-sweep 720ms var(--ease-out);
+}
+
+.tk-row.is-reopening::after {
+  animation: tk-unsweep 520ms var(--ease-out);
+}
+
+.tk-row--enter {
+  animation: tk-enter 560ms var(--ease-out) both;
+}
+
+/* filter / sort change: rows boot in, top to bottom */
+.tk-list--swap > .tk-row {
+  animation: lo-rise 320ms var(--ease-out) both;
+  animation-delay: calc(var(--tk-i, 0) * 18ms);
+}
+
+/* ---- Gutter: zero-padded index, becomes a grip in Manual sort ---- */
+.tk-grip {
+  align-self: stretch;
+  display: flex;
+  justify-content: center;
+  margin: calc(var(--space-3) * -1) 0;
+  padding-top: var(--space-3);
+  border-radius: 0;
+  color: var(--text-3);
+  cursor: default;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.tk-grip:disabled {
+  cursor: default;
+}
+
+.tk-row:first-child .tk-grip {
+  border-top-left-radius: calc(var(--radius) - 1px);
+}
+
+.tk-row:last-child .tk-grip {
+  border-bottom-left-radius: calc(var(--radius) - 1px);
+}
+
+.tk-grip-inner {
+  display: grid;
+  place-items: center;
+  height: var(--row-line);
+}
+
+.tk-grip-inner > * {
+  grid-area: 1 / 1;
+  transition: opacity var(--dur-fast) var(--ease);
+}
+
+.tk-idx {
+  font-size: var(--fs-2xs);
+  letter-spacing: 0.06em;
+}
+
+.tk-grip-icon {
+  opacity: 0;
+}
+
+.tk-row:hover .tk-idx,
+.tk-row:focus-visible .tk-idx {
+  color: var(--text-2);
+}
+
+.tk-row.is-draggable .tk-grip {
+  cursor: grab;
+  color: var(--text-3);
+  /* only a live grip swallows touch-scroll; elsewhere the gutter scrolls the page */
+  touch-action: none;
+}
+
+.tk-row.is-draggable .tk-grip:hover {
+  color: var(--text);
+}
+
+.tk-row.is-draggable:hover .tk-idx,
+.tk-row.is-draggable:focus-within .tk-idx {
+  opacity: 0;
+}
+
+.tk-row.is-draggable:hover .tk-grip-icon,
+.tk-row.is-draggable:focus-within .tk-grip-icon {
+  opacity: 1;
+}
+
+/* Overdue: hatched warning stripe down the gutter */
+.tk-row.is-overdue .tk-grip {
+  background: repeating-linear-gradient(-45deg, var(--hatch) 0 2px, transparent 2px 6px);
+  color: var(--text-2);
+}
+
+/* ---- Check ---- */
+.tk-check {
+  margin-top: 1px;
+}
+
+/* larger hit area than the visible square */
+.tk-check::after {
+  content: "";
+  position: absolute;
+  inset: -8px;
+}
+
+.tk-check::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-xs);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.tk-row.is-completing .tk-check {
+  animation: tk-pop 480ms var(--ease-out);
+}
+
+.tk-row.is-completing .tk-check::before {
+  animation: tk-ring 640ms var(--ease-out);
+}
+
+/* ---- Title + inline edit ---- */
+.tk-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+/* block (not flex) so the strike line can run across wrapped lines */
+.tk-title-line {
+  min-height: var(--row-line);
+  line-height: var(--row-line);
+  font-size: var(--fs-md);
+  overflow-wrap: anywhere;
+}
+
+/* Strike-through drawn left to right as a 1px background, so it can animate */
+.tk-title {
+  color: var(--text);
+  cursor: text;
+  background-image: linear-gradient(currentColor, currentColor);
+  background-repeat: no-repeat;
+  background-position: 0 56%;
+  background-size: 0% 1px;
+  transition: background-size var(--dur-slow) var(--ease-out), color var(--dur) var(--ease);
+}
+
+.tk-row.is-done .tk-title {
+  color: var(--text-3);
+  background-size: 100% 1px;
+}
+
+.tk-edit-input {
+  display: block;
+  width: calc(100% + var(--space-2) + 1px);
+  height: 30px;
+  margin: -4px 0 -4px calc((var(--space-2) + 1px) * -1);
+  padding: 0 var(--space-2);
+  border: 1px solid var(--line-focus);
+  border-radius: var(--radius-xs);
+  background: var(--surface-solid);
+  box-shadow: var(--glow);
+  color: var(--text);
+  caret-color: var(--accent);
+  font-size: var(--fs-md);
+  line-height: 28px;
+}
+
+.tk-edit-input:focus-visible {
+  outline: none;
+}
+
+/* ---- Meta line ---- */
+.tk-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.tk-meta .tag {
+  height: 18px;
+}
+
+.tk-due-tag svg {
+  flex: none;
+  margin-left: -1px;
+}
+
+.tk-due-tag--today {
+  color: var(--text);
+  border-color: var(--text-2);
+}
+
+.tk-due-tag--overdue {
+  gap: 5px;
+  color: var(--text);
+  border-color: var(--text);
+  background: repeating-linear-gradient(-45deg, var(--hatch) 0 2px, transparent 2px 5px);
+}
+
+.tk-due-tag--overdue strong {
+  font-weight: 600;
+}
+
+.tk-sep {
+  opacity: 0.45;
+}
+
+.tk-blink {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 6px var(--glow-c);
+  animation: lo-pulse 1.4s var(--ease) infinite;
+}
+
+.tk-done-ago {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.tk-note {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  max-width: 100%;
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+}
+
+.tk-note svg {
+  flex: none;
+}
+
+.tk-note-text {
+  max-width: 52ch;
+}
+
+/* ---- Completed rows ---- */
+.tk-row.is-done .tk-meta {
+  opacity: 0.55;
+}
+
+.tk-row.is-done .tk-pri.tag--solid {
+  background: transparent;
+  border-color: var(--line-strong);
+  color: var(--text-2);
+}
+
+/* no brighter on hover than the done title beside it */
+.tk-row.is-done .tk-idx {
+  color: var(--text-3);
+}
+
+/* ---- Row actions ---- */
+.tk-actions {
+  align-self: center;
+  margin-right: calc(var(--space-1) * -1);
+}
+
+.tk-actions .btn {
+  color: var(--text-3);
+}
+
+.tk-actions .btn:hover {
+  color: var(--text);
+}
+
+/* ---- Drag & drop ---- */
+.tk-row.is-dragging {
+  position: absolute;
+  left: 0;
+  z-index: 10;
+  background: var(--surface-solid-2);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow), var(--glow-strong);
+  cursor: grabbing;
+  transition: none;
+}
+
+.tk-row.is-dragging .tk-grip {
+  cursor: grabbing;
+  color: var(--text);
+}
+
+.tk-row.is-dragging .tk-idx {
+  opacity: 0;
+}
+
+.tk-row.is-dragging .tk-grip-icon {
+  opacity: 1;
+}
+
+.tk-placeholder {
+  position: relative;
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: repeating-linear-gradient(-45deg, var(--hatch) 0 1px, transparent 1px 8px);
+}
+
+.tk-placeholder::after {
+  content: "Drop here";
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  letter-spacing: calc(0.14em * var(--label-tracking));
+  text-transform: var(--label-case);
+  color: var(--text-3);
+}
+
+.tk-is-sorting {
+  cursor: grabbing;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.tk-is-sorting .tk-row:not(.is-dragging):hover {
+  background: transparent;
+}
+
+.tk-is-sorting .tk-row > .row-actions {
+  opacity: 0;
+}
+
+/* ==========================================================================
+   Empty state, completed section, hints
+   ========================================================================== */
+
+.tk-empty-host {
+  margin-bottom: var(--space-2);
+}
+
+.tk-empty-host .empty {
+  animation: lo-rise var(--dur-slow) var(--ease-out) both;
+}
+
+.tk-empty-action {
+  margin-top: var(--space-2);
+}
+
+.tk-done {
+  margin-top: var(--space-6);
+}
+
+.tk-done-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+.tk-done-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: 32px;
+  padding: 0 var(--space-2);
+  margin-left: calc(var(--space-2) * -1);
+  border-radius: var(--radius-xs);
+  color: var(--text-3);
+  transition: color var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease);
+}
+
+.tk-done-toggle .label {
+  color: inherit;
+}
+
+.tk-done-toggle:hover {
+  color: var(--text);
+  background: var(--surface-2);
+}
+
+.tk-done-toggle svg {
+  transition: transform var(--dur) var(--ease);
+}
+
+.tk-done-toggle[aria-expanded="true"] svg {
+  transform: rotate(90deg);
+}
+
+.tk-done-count {
+  padding: 1px 6px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-xs);
+  font-size: var(--fs-2xs);
+  color: var(--text-2);
+}
+
+.tk-done-count.is-bump {
+  animation: tk-bump 620ms var(--ease-out);
+}
+
+.tk-done-rule {
+  flex: 1;
+  height: 1px;
+  background: var(--line);
+}
+
+.tk-panel--done {
+  animation: lo-fade-in var(--dur) var(--ease);
+}
+
+.tk-hints {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-5);
+  margin-top: var(--space-7);
+  padding-top: var(--space-4);
+  border-top: 1px dashed var(--line);
+}
+
+.tk-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.tk-hint > span:last-child {
+  margin-left: 2px;
+}
+
+/* ==========================================================================
+   Details modal
+   ========================================================================== */
+
+.tk-modal .modal-body {
+  gap: var(--space-5);
+}
+
+.tk-field-notes {
+  min-height: 132px;
+}
+
+.tk-field-title[aria-invalid="true"] {
+  border-style: dashed;
+  border-color: var(--text);
+}
+
+.tk-field-error {
+  color: var(--text);
+}
+
+.tk-field-error::before {
+  content: "// ";
+  color: var(--text-3);
+}
+
+.tk-detail-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-4);
+}
+
+.tk-detail-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px dashed var(--line);
+}
+
+.tk-detail-keys {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.tk-modal-delete {
+  margin-right: auto;
+}
+
+/* ==========================================================================
+   Motion
+   ========================================================================== */
+
+@keyframes tk-tick {
+  from {
+    opacity: 0.15;
+    transform: translateY(-5px);
+    filter: blur(3px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+}
+
+@keyframes tk-bump {
+  0% {
+    transform: scale(1);
+  }
+  30% {
+    transform: scale(1.25);
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--accent-ink);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes tk-pop {
+  0% {
+    transform: scale(0.82);
+  }
+  45% {
+    transform: scale(1.16);
+    box-shadow: var(--glow-strong);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes tk-ring {
+  from {
+    opacity: 0.9;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(2.4);
+  }
+}
+
+@keyframes tk-sweep {
+  0% {
+    opacity: 1;
+    background-position: 100% 0;
+  }
+  75% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    background-position: 0 0;
+  }
+}
+
+@keyframes tk-unsweep {
+  0% {
+    opacity: 0.7;
+    background-position: 0 0;
+  }
+  100% {
+    opacity: 0;
+    background-position: 100% 0;
+  }
+}
+
+@keyframes tk-enter {
+  0% {
+    opacity: 0;
+    transform: translateY(-8px);
+    background-color: var(--surface-3);
+  }
+  55% {
+    opacity: 1;
+    transform: none;
+    background-color: var(--surface-3);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+
+@keyframes tk-pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes tk-shake {
+  0%,
+  100% {
+    transform: none;
+  }
+  20% {
+    transform: translateX(-6px);
+  }
+  40% {
+    transform: translateX(5px);
+  }
+  60% {
+    transform: translateX(-3px);
+  }
+  80% {
+    transform: translateX(2px);
+  }
+}
+
+/* ==========================================================================
+   Responsive
+   ========================================================================== */
+
+/* Touch: no hover, no physical keyboard hints; grips always visible */
+@media (hover: none) {
+  .tk-hints,
+  .tk-key-hint,
+  .tk-readout.is-idle,
+  .tk-detail-keys {
+    display: none;
+  }
+
+  .tk-row.is-draggable .tk-idx {
+    opacity: 0;
+  }
+
+  .tk-row.is-draggable .tk-grip-icon {
+    opacity: 1;
+  }
+}
+
+@media (max-width: 900px) {
+  .tk-stats {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .tk-stat--progress {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 640px) {
+  /* 16px+ inputs stop iOS Safari zooming on focus */
+  .tk-date,
+  .tk-edit-input,
+  .tk-modal .input,
+  .tk-modal .textarea {
+    font-size: 16px;
+  }
+
+  .tk-root .seg-btn,
+  .tk-modal .seg-btn {
+    height: 32px;
+  }
+
+  /* touch targets >= 32px (specific button sizes below still win by order) */
+  .tk-root .btn--sm {
+    --btn-h: 32px;
+  }
+
+  .tk-token {
+    height: 32px;
+  }
+
+  .tk-command-main {
+    gap: var(--space-2);
+    padding-left: var(--space-3);
+  }
+
+  .tk-add-input {
+    height: 46px;
+    font-size: 17px;
+  }
+
+  .tk-key-hint,
+  .tk-add-label,
+  .tk-add-kbd {
+    display: none;
+  }
+
+  .tk-root .tk-add-btn {
+    --btn-h: 36px;
+    width: 36px;
+    padding: 0;
+  }
+
+  .tk-command-tools {
+    gap: var(--space-2) var(--space-4);
+    padding: var(--space-2) var(--space-3);
+  }
+
+  /* when the due controls wrap, keep the label on the first row (seg = 40px tall) */
+  .tk-tool {
+    align-items: flex-start;
+  }
+
+  .tk-tool-label {
+    display: flex;
+    align-items: center;
+    height: 40px;
+  }
+
+  .tk-date {
+    width: 148px;
+    height: 32px;
+  }
+
+  .tk-root .tk-due-clear,
+  .tk-modal .tk-due-clear {
+    --btn-h: 32px;
+  }
+
+  .tk-readout {
+    width: 100%;
+    margin-left: 0;
+    min-height: 0;
+  }
+
+  .tk-readout.is-idle {
+    display: none;
+  }
+
+  .tk-stats {
+    gap: var(--space-2);
+    margin-bottom: var(--space-5);
+  }
+
+  .tk-stat {
+    justify-content: space-between;
+    gap: var(--space-1);
+    padding: var(--space-3);
+  }
+
+  .tk-stat::after {
+    top: var(--space-2);
+    right: var(--space-2);
+  }
+
+  .tk-stat .tk-stat-value {
+    font-size: var(--fs-lg);
+  }
+
+  .tk-stat-label {
+    white-space: normal;
+    padding-right: var(--space-2);
+  }
+
+  .tk-stat-idx,
+  .tk-stat-sub {
+    display: none;
+  }
+
+  .tk-stat--progress .tk-stat-label {
+    white-space: nowrap;
+  }
+
+  .tk-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-2);
+  }
+
+  .tk-toolbar > .spacer {
+    display: none;
+  }
+
+  .tk-filters {
+    width: 100%;
+  }
+
+  .tk-filters .seg-btn,
+  .tk-sort .seg-btn {
+    flex: 1 1 auto;
+    justify-content: center;
+    padding: 0 var(--space-2);
+  }
+
+  .tk-sort .seg {
+    flex: 1;
+  }
+
+  .tk-toolbar > .btn {
+    align-self: flex-start;
+  }
+
+  .tk-row {
+    --row-line: 24px;
+    grid-template-columns: 30px auto minmax(0, 1fr) auto;
+    column-gap: var(--space-2);
+    padding-right: var(--space-2);
+  }
+
+  .tk-row .check {
+    --size: 24px;
+  }
+
+  .tk-check {
+    margin-top: 0;
+  }
+
+  .tk-actions {
+    gap: 0;
+    margin-right: 0;
+  }
+
+  .tk-root .tk-actions .btn {
+    --btn-h: 34px;
+  }
+
+  .tk-note-text {
+    max-width: none;
+  }
+}

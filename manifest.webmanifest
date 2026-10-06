@@ -1,0 +1,59 @@
+{
+  "id": "./",
+  "name": "LIFE/OS",
+  "short_name": "LIFE/OS",
+  "description": "Tasks, notes, daily habits, a calendar and a focus timer in one place.",
+  "lang": "en",
+  "dir": "ltr",
+  "start_url": "./#/home",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#060606",
+  "theme_color": "#060606",
+  "categories": ["productivity", "lifestyle"],
+  "prefer_related_applications": false,
+  "launch_handler": { "client_mode": "focus-existing" },
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ],
+  "shortcuts": [
+    {
+      "name": "Home",
+      "short_name": "Home",
+      "description": "Today at a glance: your week, habits, to-dos and the timer",
+      "url": "./#/home",
+      "icons": [{ "src": "icons/shortcut-home-96.png", "sizes": "96x96", "type": "image/png" }]
+    },
+    {
+      "name": "Tasks",
+      "short_name": "Tasks",
+      "description": "Open your task list",
+      "url": "./#/tasks",
+      "icons": [{ "src": "icons/shortcut-tasks-96.png", "sizes": "96x96", "type": "image/png" }]
+    },
+    {
+      "name": "Notes",
+      "short_name": "Notes",
+      "description": "Open your notes",
+      "url": "./#/notes",
+      "icons": [{ "src": "icons/shortcut-notes-96.png", "sizes": "96x96", "type": "image/png" }]
+    },
+    {
+      "name": "Habits",
+      "short_name": "Habits",
+      "description": "Check off today's habits",
+      "url": "./#/habits",
+      "icons": [{ "src": "icons/shortcut-habits-96.png", "sizes": "96x96", "type": "image/png" }]
+    },
+    {
+      "name": "Calendar",
+      "short_name": "Calendar",
+      "description": "Plan your month, week and day",
+      "url": "./#/calendar",
+      "icons": [{ "src": "icons/shortcut-calendar-96.png", "sizes": "96x96", "type": "image/png" }]
+    }
+  ]
+}

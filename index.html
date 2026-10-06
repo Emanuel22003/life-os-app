@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en" data-skin="simple" data-theme="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#111111" />
+    <meta name="description" content="LIFE/OS — tasks, notes, daily habits, a calendar and a focus timer in one place." />
+    <title>LIFE/OS</title>
+
+    <!-- Installable app: Chrome reads the manifest; Safari's Add to Dock (and iOS) reads these.
+         sw.js recognizes this page by its application-name tag: keep it exactly as written. -->
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png" />
+    <meta name="application-name" content="LIFE/OS" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="LIFE/OS" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black" />
+
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23000'/%3E%3Cpath d='M6 11V6h5M21 6h5v5M26 21v5h-5M11 26H6v-5M11 21 21 11' stroke='%23fff' stroke-width='2' fill='none'/%3E%3Ccircle cx='16' cy='16' r='2.5' fill='%23fff'/%3E%3C/svg%3E" />
+
+    <!-- Apply the saved appearance before first paint (no flash): template (data-skin, Simple when
+         unset), light/dark, the installed app's title-bar color and only that template's fonts.
+         SKIN_BOOT equals SKIN_BOOT in js/skins.js (tools/tests/skins.test.js checks it).
+         Only the real copies (the Mac's http://127.0.0.1:8765 and the website) are installable: a
+         test copy on any other address drops the manifest so Chrome never offers to install it
+         (REAL_ORIGINS in js/origin.js lists the same two). -->
+    <script>
+      try {
+        if (['http://127.0.0.1:8765', 'https://emanuel22003.github.io'].indexOf(location.origin) === -1 && !/[?&]treat-as-real/.test(location.search + location.hash) && sessionStorage.getItem('lifeos:treat-as-real') !== '1') {
+          var manifest = document.querySelector('link[rel="manifest"]');
+          if (manifest) manifest.remove();
+        }
+      } catch (e) {}
+      (function () {
+        var SKIN_BOOT = {"simple": {"font": "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap", "dark": "#111111", "light": "#f7f7f5"}, "hud": {"font": "https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap", "dark": "#060606", "light": "#f4f4f4"}, "brutalist": {"font": "https://fonts.googleapis.com/css2?family=Anton&family=Archivo:wght@400;500;600;700;800;900&family=Space+Mono:wght@400;700&display=swap", "dark": "#000000", "light": "#ffffff"}, "terminal": {"font": "https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=VT323&display=swap", "dark": "#050a05", "light": "#e9f2e1"}};
+        var root = document.documentElement;
+        var skin = 'simple';
+        var theme = 'dark';
+        try {
+          var s = JSON.parse(localStorage.getItem('lifeos:v1:settings') || '{}') || {};
+          if (typeof s.skin === 'string' && Object.prototype.hasOwnProperty.call(SKIN_BOOT, s.skin)) skin = s.skin;
+          if (s.theme === 'light' || s.theme === 'dark') theme = s.theme;
+        } catch (e) {}
+        root.setAttribute('data-skin', skin);
+        root.setAttribute('data-theme', theme);
+        document.querySelector('meta[name="theme-color"]').setAttribute('content', SKIN_BOOT[skin][theme]);
+        var fonts = document.createElement('link');
+        fonts.rel = 'stylesheet';
+        fonts.href = SKIN_BOOT[skin].font;
+        fonts.setAttribute('data-skin-font', skin);
+        document.head.appendChild(fonts);
+      })();
+    </script>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+
+    <link rel="stylesheet" href="css/tokens.css" />
+    <link rel="stylesheet" href="css/base.css" />
+    <link rel="stylesheet" href="css/shell.css" />
+    <link rel="stylesheet" href="css/components.css" />
+    <link rel="stylesheet" href="css/appearance.css" />
+    <link rel="stylesheet" href="css/sync.css" />
+    <link rel="stylesheet" href="css/features/tasks.css" />
+    <link rel="stylesheet" href="css/features/notes.css" />
+    <link rel="stylesheet" href="css/features/notes.board.css" />
+    <link rel="stylesheet" href="css/features/habits.css" />
+    <link rel="stylesheet" href="css/features/habits.insights.css" />
+    <link rel="stylesheet" href="css/features/habits.ticker.css" />
+    <link rel="stylesheet" href="css/features/calendar.css" />
+    <link rel="stylesheet" href="css/features/calendar.editor.css" />
+    <link rel="stylesheet" href="css/features/home.css" />
+    <link rel="stylesheet" href="css/features/pomodoro.css" />
+    <!-- Templates (Appearance): after every feature stylesheet; Mission Control is the base above -->
+    <link rel="stylesheet" href="css/skins/simple.css" />
+    <link rel="stylesheet" href="css/skins/brutalist.css" />
+    <link rel="stylesheet" href="css/skins/terminal.css" />
+  </head>
+  <body class="lo-page">
+    <div id="app"></div>
+    <noscript>LIFE/OS needs JavaScript enabled.</noscript>
+    <!-- A file of the app that can't be fetched (e.g. the local server stopped mid-load) fails the
+         whole load: say so instead of leaving the page blank. Reload loads it again, from the
+         server or, if the server is gone, from the offline copy. -->
+    <script>
+      document.addEventListener('error', function (e) {
+        var el = e.target;
+        var app = document.getElementById('app');
+        if (!el || el.tagName !== 'SCRIPT' || el.type !== 'module' || !app || app.childElementCount) return;
+        app.innerHTML =
+          '<div class="boot-error" role="alert"><div class="empty">' +
+          '<div class="empty-icon"><svg viewBox="0 0 32 32" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M2 9V2h7M23 2h7v7M30 23v7h-7M9 30H2v-7M10 22 22 10"/><circle cx="16" cy="16" r="2.5" fill="currentColor" stroke="none"/></svg></div>' +
+          '<div class="empty-title">LIFE/OS didn\u2019t finish loading</div>' +
+          '<p class="empty-text">Some of its files couldn\u2019t be fetched, usually because the local server stopped while it was opening. Your data is untouched.</p>' +
+          '<button type="button" class="btn btn--primary">Reload</button>' +
+          '</div></div>';
+        app.querySelector('button').addEventListener('click', function () {
+          location.reload();
+        });
+      }, true);
+    </script>
+    <script type="module" src="js/app.js"></script>
+  </body>
+</html>

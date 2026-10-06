@@ -1,0 +1,288 @@
+/* ==========================================================================
+   LIFE/OS — Sync: the sidebar status line (a button that opens the dialog) and the Sync dialog.
+   Grayscale like the rest: a state shows as motion or shape, never as a color.
+   ========================================================================== */
+
+/* The sidebar's status line is the way in. .label keeps its type, the button keeps nothing else. */
+.sys-status.sync-status {
+  appearance: none;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+  border-radius: var(--radius-xs);
+  transition: color var(--dur-fast) var(--ease);
+}
+
+.sys-status.sync-status:hover {
+  color: var(--text-2);
+}
+
+.sys-status.sync-status:focus-visible {
+  outline: 1px solid var(--line-focus);
+  outline-offset: 3px;
+}
+
+/* Syncing: the dot beats fast. A problem: the dot goes hollow. */
+.sync-status[data-sync="syncing"] .sys-dot,
+.sync-dot.is-syncing {
+  animation: lo-pulse 0.7s var(--ease) infinite;
+}
+
+.sync-status[data-sync="error"] .sys-dot {
+  background: transparent;
+  box-shadow: inset 0 0 0 1.5px var(--text-2);
+  animation: none;
+}
+
+/* ---- Dialog ---- */
+
+.sync-body,
+.sync-foot {
+  display: contents;
+}
+
+.sync-modal {
+  max-width: 560px;
+}
+
+.sync-lead {
+  margin: 0;
+  color: var(--text-2);
+  line-height: 1.55;
+}
+
+.sync-hint {
+  margin: 0;
+  color: var(--text-3);
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+}
+
+.sync-lead code,
+.sync-hint code {
+  padding: 1px 5px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-xs);
+  font-family: var(--font-code);
+  font-size: 0.92em;
+  color: var(--text);
+}
+
+.sync-hint b,
+.sync-lead b {
+  color: var(--text-2);
+  font-weight: 600;
+}
+
+.sync-steps {
+  display: grid;
+  gap: var(--space-5);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: sync-step;
+}
+
+.sync-steps > li {
+  position: relative;
+  display: grid;
+  gap: var(--space-2);
+  padding-left: 36px;
+  counter-increment: sync-step;
+}
+
+.sync-steps > li::before {
+  content: counter(sync-step);
+  position: absolute;
+  top: -1px;
+  left: 0;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border: var(--border-w-sm) solid var(--line-strong);
+  border-radius: var(--radius-pill);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--text-2);
+}
+
+.sync-step-title {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.sync-key {
+  width: 100%;
+  font-family: var(--font-code);
+}
+
+.sync-more summary {
+  width: max-content;
+  color: var(--text-3);
+  font-size: var(--fs-sm);
+  cursor: pointer;
+}
+
+.sync-more summary:hover {
+  color: var(--text-2);
+}
+
+.sync-more .field {
+  margin-top: var(--space-3);
+}
+
+/* Messages and problems: a dashed box, so they read as news without a color */
+.sync-msg {
+  margin: 0;
+  padding: var(--space-3);
+  border: var(--border-w-sm) dashed var(--line-strong);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+}
+
+.sync-msg:empty {
+  display: none;
+}
+
+/* First connect: what each side has, and the three ways forward */
+.sync-compare {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3);
+}
+
+.sync-side {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-3);
+  border: var(--border-w) solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+
+.sync-side-counts {
+  color: var(--text);
+  font-size: var(--fs-sm);
+  line-height: 1.45;
+}
+
+.sync-choice {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.btn.sync-choice-btn {
+  display: grid;
+  justify-content: stretch;
+  justify-items: start;
+  gap: 2px;
+  height: auto;
+  padding: var(--space-3) var(--space-4);
+  white-space: normal;
+  text-align: left;
+}
+
+.sync-choice-title {
+  font-weight: 600;
+}
+
+.sync-choice-text {
+  color: var(--text-3);
+  font-weight: 400;
+  line-height: 1.4;
+}
+
+.btn--primary .sync-choice-text {
+  color: inherit;
+  opacity: 0.72;
+}
+
+/* Connected */
+.sync-state {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: var(--fs-md);
+  font-weight: 600;
+  color: var(--text);
+}
+
+.sync-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-pill);
+  background: var(--text);
+}
+
+.sync-dot.is-error {
+  background: transparent;
+  box-shadow: inset 0 0 0 1.5px var(--text-2);
+}
+
+.sync-dot.is-idle {
+  background: var(--text-3);
+}
+
+.sync-problem {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.sync-problem:empty {
+  display: none;
+}
+
+/* "Make a new key" on its own line, then the field with its Save button beside it */
+.sync-rekey {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.sync-rekey > a {
+  grid-column: 1 / -1;
+  justify-self: start;
+}
+
+.sync-facts {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: var(--space-2) var(--space-5);
+  margin: 0;
+  font-size: var(--fs-sm);
+}
+
+.sync-facts dt {
+  color: var(--text-3);
+}
+
+.sync-facts dd {
+  margin: 0;
+  color: var(--text);
+}
+
+.sync-facts a {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: var(--line-strong);
+  text-underline-offset: 3px;
+}
+
+.sync-facts a:hover {
+  text-decoration-color: currentColor;
+}
+
+@media (max-width: 480px) {
+  .sync-compare {
+    grid-template-columns: 1fr;
+  }
+}

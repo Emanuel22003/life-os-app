@@ -1,0 +1,5370 @@
+/* ==========================================================================
+   LIFE/OS — skin: Brutalist (data-skin="brutalist")
+   raw web-brutalism: heavy borders, zero radius, hard offset shadows, giant
+   condensed headings, one hazard-yellow accent.
+
+   Conventions (README → Appearance, and the picker in js/appearance.js):
+   - Every selector starts at the skin scope: [data-skin="brutalist"] .btn { … }.
+     The scope is <html> for the app and a <div> inside each Appearance preview,
+     so never use :root, html or body here; the page surface is .lo-page
+     ([data-skin="brutalist"] .lo-page), on <body> and on each preview.
+   - Tokens: override css/tokens.css names on the scope itself:
+       [data-skin="brutalist"] { …dark… }
+       [data-skin="brutalist"][data-theme="light"] { …light… }
+     Both attributes always sit on the same element.
+   - HUD decoration switches: --page-bg-image, --hud-corners, --glow-c,
+     --glow-c-soft, --label-* (font, size, weight, case, tracking), plus
+     --font-sans/-mono/-display/-code, --radius*, --border-w(-sm),
+     --shadow-hard, --counter-style.
+   - @keyframes are global: prefix them (brutalist-…).
+   - Loaded after every feature stylesheet; the scope prefix adds one attribute
+     to specificity, enough to beat the base rule you restate.
+   - After changing --bg, update this skin's colors in SKIN_BOOT (js/skins.js
+     and index.html's head script, kept equal by tools/tests/skins.test.js).
+
+   How this skin uses color: --accent stays "ink" (black on paper, white in the
+   dark), so every line, stroke and chart the features draw with it keeps full
+   contrast. Hazard yellow is this file's own --bru-hi, applied by hand to
+   primary, selected, active and checked states and to highlights; text on it is
+   always black (--bru-on-hi), so it reads the same in light and dark.
+   ========================================================================== */
+
+/* ==========================================================================
+   Tokens
+   ========================================================================== */
+
+[data-skin="brutalist"] {
+  --font-sans: "Archivo", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-mono: "Space Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --font-display: "Anton", Impact, "Haettenschweiler", "Arial Narrow Bold", "Helvetica Neue", sans-serif;
+  --font-code: "Space Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+  --fs-2xs: 11px;
+  --fs-xs: 12px;
+  --fs-sm: 14px;
+  --fs-md: 16px;
+  --fs-lg: 19px;
+
+  --radius-xs: 0;
+  --radius-sm: 0;
+  --radius: 0;
+  --radius-lg: 0;
+  --radius-pill: 0;
+
+  /* Captions: heavy grotesk caps instead of HUD mono */
+  --label-font: var(--font-sans);
+  --label-size: 11px;
+  --label-weight: 800;
+  --label-case: uppercase;
+  --label-tracking: 0.45;
+
+  /* No grid, no corner ticks, no light */
+  --page-bg-image: none;
+  --page-bg-size: auto;
+  --hud-corners: none;
+  --glow-c: transparent;
+  --glow-c-soft: transparent;
+
+  --border-w: 3px;
+  --border-w-sm: 2px;
+  --counter-style: decimal;
+
+  /* The one accent: hazard yellow, always with black on it */
+  --bru-hi: #ffe600;
+  --bru-on-hi: #000000;
+  /* The hard drop: offset, no blur. --bru-drop is the size used by panels. */
+  --bru-drop: 6px;
+  --shadow-hard: var(--bru-drop) var(--bru-drop) 0 var(--text);
+  /* The page's ink, resolved here on the scope: yellow blocks re-point --text at black for
+     their contents, but their drop shadow must stay the page's ink (white in the dark) */
+  --bru-ink: var(--text);
+
+  /* ---- Dark: black slab, white ink ---- */
+  --bg: #000000;
+  --bg-elev: #000000;
+  --surface: #000000;
+  --surface-2: #1f1f1f;
+  --surface-3: #363636;
+  --surface-solid: #000000;
+  --surface-solid-2: #161616;
+
+  --line: #ffffff;
+  --line-strong: #ffffff;
+  --line-focus: #ffffff;
+
+  --text: #ffffff;
+  --text-2: #dcdcdc;
+  --text-3: #a6a6a6;
+  /* 4.5:1 on --surface-2 too */
+  --text-4: #8a8a8a;
+
+  --accent: #ffffff;
+  --accent-ink: #000000;
+  --accent-soft: rgba(255, 230, 0, 0.3);
+
+  /* Hover/focus "glows" become hard offset drops */
+  --glow: 4px 4px 0 var(--text);
+  --glow-strong: 6px 6px 0 var(--text);
+  --shadow: 10px 10px 0 var(--text);
+  --shadow-sm: 5px 5px 0 var(--text);
+
+  --grid-line: transparent;
+  --scrim: rgba(0, 0, 0, 0.82);
+  --hatch: rgba(255, 255, 255, 0.28);
+
+  /* Track behind a yellow fill (rings, bars): black on paper, dark gray in the dark */
+  --bru-track: #3a3a3a;
+
+  --heat-0: #1c1c1c;
+  --heat-1: #4d4d4d;
+  --heat-2: #8a8a8a;
+  --heat-3: #c8c8c8;
+  --heat-4: #ffffff;
+}
+
+/* ---- Light: white paper, black ink ---- */
+[data-skin="brutalist"][data-theme="light"] {
+  --bg: #ffffff;
+  --bg-elev: #ffffff;
+  --surface: #ffffff;
+  --surface-2: #efefef;
+  --surface-3: #dcdcdc;
+  --surface-solid: #ffffff;
+  --surface-solid-2: #f2f2f2;
+
+  --line: #000000;
+  --line-strong: #000000;
+  --line-focus: #000000;
+
+  --text: #000000;
+  --text-2: #262626;
+  --text-3: #555555;
+  --text-4: #6b6b6b;
+
+  --accent: #000000;
+  --accent-ink: #ffffff;
+  --accent-soft: #fff27a;
+
+  --scrim: rgba(255, 230, 0, 0.72);
+  --hatch: rgba(0, 0, 0, 0.3);
+
+  --bru-track: #000000;
+
+  --heat-0: #ececec;
+  --heat-1: #bdbdbd;
+  --heat-2: #8a8a8a;
+  --heat-3: #4a4a4a;
+  --heat-4: #000000;
+}
+
+/* ==========================================================================
+   Page, type, focus
+   ========================================================================== */
+
+[data-skin="brutalist"] .lo-page {
+  background-image: none;
+  font-weight: 500;
+}
+
+[data-skin="brutalist"] h1,
+[data-skin="brutalist"] h2,
+[data-skin="brutalist"] h3,
+[data-skin="brutalist"] h4 {
+  letter-spacing: -0.01em;
+}
+
+[data-skin="brutalist"] ::selection {
+  background: var(--bru-hi);
+  color: var(--bru-on-hi);
+}
+
+/* Thicker default focus ring; :where keeps it as weak as base.css's, so a feature's own
+   focus treatment still wins */
+[data-skin="brutalist"] :where(:focus-visible) {
+  outline: 3px solid var(--line-focus);
+  outline-offset: 2px;
+}
+
+[data-skin="brutalist"] .mono,
+[data-skin="brutalist"] .tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ==========================================================================
+   Shell
+   ========================================================================== */
+
+[data-skin="brutalist"] .sidebar {
+  background: var(--bg-elev);
+  border-right: 3px solid var(--text);
+  gap: var(--space-5);
+}
+
+[data-skin="brutalist"] .brand {
+  height: 40px;
+}
+
+[data-skin="brutalist"] .brand-mark {
+  width: 30px;
+  height: 30px;
+  padding: 3px;
+  background: var(--bru-hi);
+  color: var(--bru-on-hi);
+  border: 2px solid var(--text);
+}
+
+[data-skin="brutalist"] .brand-name {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 24px;
+  line-height: 1;
+  letter-spacing: 0.01em;
+}
+
+[data-skin="brutalist"] .brand-version {
+  padding: 1px 5px;
+  background: var(--text);
+  color: var(--bg);
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+[data-skin="brutalist"] .nav {
+  gap: 6px;
+}
+
+[data-skin="brutalist"] .nav-item {
+  height: 44px;
+  border: 3px solid transparent;
+  color: var(--text);
+  font-weight: 800;
+  font-size: var(--fs-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  transition: none;
+}
+
+[data-skin="brutalist"] .nav-item:hover {
+  background: transparent;
+  border-color: var(--text);
+}
+
+[data-skin="brutalist"] .nav-item[aria-current="page"] {
+  background: var(--bru-hi);
+  color: var(--bru-on-hi);
+  border-color: var(--text);
+  box-shadow: 4px 4px 0 var(--bru-ink);
+}
+
+[data-skin="brutalist"] .nav-item[aria-current="page"]::before {
+  display: none;
+}
+
+[data-skin="brutalist"] .nav-index {
+  font-weight: 700;
+  color: var(--text-3);
+}
+
+[data-skin="brutalist"] .nav-item[aria-current="page"] .nav-index {
+  color: var(--bru-on-hi);
+}
+
+[data-skin="brutalist"] .nav-badge {
+  border: 2px solid var(--text);
+  background: var(--bg);
+  color: var(--text);
+  font-weight: 700;
+}
+
+[data-skin="brutalist"] .nav-item[aria-current="page"] .nav-badge {
+  background: var(--bru-on-hi);
+  border-color: var(--bru-on-hi);
+  color: var(--bru-hi);
+}
+
+[data-skin="brutalist"] .sidebar-foot {
+  border: 3px solid var(--text);
+  background: var(--bg);
+  box-shadow: 4px 4px 0 var(--text);
+}
+
+[data-skin="brutalist"] .sys-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 0;
+  background: var(--text);
+  box-shadow: none;
+  animation: none;
+}
+
+[data-skin="brutalist"] .sys-app {
+  border: 2px solid var(--text);
+  color: var(--text);
+}
+
+/* Topbar */
+[data-skin="brutalist"] .topbar {
+  background: var(--bg);
+  border-bottom: 3px solid var(--text);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+[data-skin="brutalist"] .crumbs .crumb-current {
+  color: var(--text);
+}
+
+[data-skin="brutalist"] .crumb-sep {
+  color: var(--text-3);
+}
+
+[data-skin="brutalist"] .clock {
+  font-family: var(--font-display);
+  font-size: 26px;
+  line-height: 1;
+  letter-spacing: 0.02em;
+}
+
+[data-skin="brutalist"] .clock-seconds {
+  color: var(--text-3);
+}
+
+[data-skin="brutalist"] .topbar-date {
+  color: var(--text);
+  white-space: nowrap;
+}
+
+/* Plain links (no component class): underlined, the brutalist way */
+[data-skin="brutalist"] a:not([class]) {
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
+  font-weight: 700;
+}
+
+[data-skin="brutalist"] a:not([class]):hover {
+  background: var(--bru-hi);
+  color: var(--bru-on-hi);
+}
+
+/* Collapsed sidebar (icons only): the count badges become corner stickers, off the icon */
+@media (max-width: 900px) {
+  [data-skin="brutalist"] .nav-badge {
+    top: -8px;
+    right: -10px;
+    z-index: 1;
+    min-width: 0;
+    padding: 0 3px;
+    border-width: 2px;
+    font-size: 9px;
+    line-height: 13px;
+  }
+
+  [data-skin="brutalist"] .nav-item[aria-current="page"] .nav-badge {
+    border-color: var(--bru-ink);
+  }
+
+  [data-skin="brutalist"] .clock {
+    font-size: 22px;
+  }
+}
+
+/* Page header: giant condensed title over a 3px rule with a hazard-tape tick */
+[data-skin="brutalist"] .page-header {
+  border-bottom: 3px solid var(--text);
+  padding-bottom: var(--space-5);
+  margin-bottom: var(--space-7);
+}
+
+[data-skin="brutalist"] .page-header::after {
+  left: 0;
+  bottom: -9px;
+  width: 120px;
+  height: 15px;
+  background: repeating-linear-gradient(-45deg, var(--bru-on-hi) 0 7px, var(--bru-hi) 7px 14px);
+  border: 3px solid var(--text);
+}
+
+[data-skin="brutalist"] .page-kicker {
+  align-self: flex-start;
+  padding: 3px 8px;
+  background: var(--text);
+  color: var(--bg);
+  font-size: 12px;
+}
+
+[data-skin="brutalist"] .page-kicker .crumb-sep {
+  color: inherit;
+  opacity: 0.6;
+}
+
+[data-skin="brutalist"] .page-title {
+  font-weight: 400;
+  font-size: clamp(56px, 7vw, 88px);
+  line-height: 0.88;
+  letter-spacing: 0;
+  text-transform: uppercase;
+  overflow-wrap: anywhere;
+}
+
+[data-skin="brutalist"] .page-subtitle {
+  color: var(--text-2);
+  font-size: var(--fs-md);
+  font-weight: 500;
+}
+
+/* Install dialog: big blunt step numbers */
+[data-skin="brutalist"] .install-steps li {
+  grid-template-columns: 36px minmax(0, 1fr);
+  color: var(--text-2);
+}
+
+[data-skin="brutalist"] .install-steps li::before {
+  font-family: var(--font-display);
+  font-size: 28px;
+  line-height: 1;
+  letter-spacing: 0;
+  color: var(--text);
+}
+
+[data-skin="brutalist"] .install-note {
+  border: 3px dashed var(--text);
+  background: var(--bg);
+}
+
+@media (max-width: 640px) {
+  [data-skin="brutalist"] .page-title {
+    font-size: 52px;
+  }
+
+  [data-skin="brutalist"] .tabbar {
+    background: var(--bg);
+    border-top: 3px solid var(--text);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  [data-skin="brutalist"] .tab {
+    color: var(--text);
+    font-family: var(--font-sans);
+    font-weight: 800;
+    font-size: 11px;
+  }
+
+  [data-skin="brutalist"] .tab[aria-current="page"] {
+    background: var(--bru-hi);
+    color: var(--bru-on-hi);
+    box-shadow: inset 0 0 0 3px var(--text);
+  }
+
+  [data-skin="brutalist"] .tab[aria-current="page"]::before {
+    display: none;
+  }
+
+  /* Count stickers beside the icon, not over it */
+  [data-skin="brutalist"] .tab .nav-badge {
+    top: 7px;
+    right: auto;
+    left: calc(50% + 11px);
+    padding: 0 3px;
+    border-width: 2px;
+    font-size: 9px;
+    line-height: 12px;
+  }
+
+  [data-skin="brutalist"] .tab[aria-current="page"] .nav-badge {
+    background: var(--bru-on-hi);
+    border-color: var(--bru-on-hi);
+    color: var(--bru-hi);
+  }
+
+  /* The top bar has to hold the LIFE ticker, the clock and three icon buttons in 343px:
+     a smaller blunt clock without its seconds (decoration) */
+  [data-skin="brutalist"] .clock {
+    font-size: 20px;
+  }
+
+  [data-skin="brutalist"] .clock-seconds {
+    display: none;
+  }
+
+  [data-skin="brutalist"] .topbar,
+  [data-skin="brutalist"] .topbar-meta {
+    gap: var(--space-2);
+  }
+}
+
+/* ==========================================================================
+   Kit
+   ========================================================================== */
+
+[data-skin="brutalist"] .panel {
+  border-color: var(--text);
+  background: var(--surface);
+}
+
+[data-skin="brutalist"] .panel-head {
+  border-bottom: 3px solid var(--text);
+}
+
+/* Buttons: chunky blocks that sink into their shadow when pressed */
+[data-skin="brutalist"] .btn {
+  --btn-h: 38px;
+  --bru-press: 3px;
+  border-color: var(--text);
+  background: var(--bg);
+  color: var(--text);
+  box-shadow: var(--bru-press) var(--bru-press) 0 var(--text);
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  transition: transform 60ms linear, box-shadow 60ms linear, background 60ms linear, color 60ms linear;
+}
+
+[data-skin="brutalist"] .btn:hover {
+  background: var(--bru-hi);
+  border-color: var(--text);
+  color: var(--bru-on-hi);
+}
+
+[data-skin="brutalist"] .btn:active {
+  transform: translate(var(--bru-press), var(--bru-press));
+  box-shadow: 0 0 0 var(--text);
+}
+
+[data-skin="brutalist"] .btn--primary {
+  background: var(--bru-hi);
+  border-color: var(--text);
+  color: var(--bru-on-hi);
+}
+
+[data-skin="brutalist"] .btn--primary:hover {
+  background: var(--bru-hi);
+  border-color: var(--text);
+  color: var(--bru-on-hi);
+  transform: translate(-2px, -2px);
+  box-shadow: calc(var(--bru-press) + 2px) calc(var(--bru-press) + 2px) 0 var(--text);
+}
+
+[data-skin="brutalist"] .btn--primary:active {
+  transform: translate(var(--bru-press), var(--bru-press));
+  box-shadow: 0 0 0 var(--text);
+}
+
+[data-skin="brutalist"] .btn--ghost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--text);
+  box-shadow: none;
+}
+
+[data-skin="brutalist"] .btn--ghost:hover {
+  background: var(--bru-hi);
+  border-color: var(--text);
+  color: var(--bru-on-hi);
+}
+
+[data-skin="brutalist"] .btn--ghost:active {
+  transform: translate(1px, 1px);
+}
+
+[data-skin="brutalist"] .btn--danger {
+  border-style: solid;
+  background: var(--bg);
+  color: var(--text);
+}
+
+[data-skin="brutalist"] .btn--danger:hover {
+  background: var(--text);
+  border-color: var(--text);
+  color: var(--bg);
+}
+
+[data-skin="brutalist"] .btn--sm {
+  --btn-h: 32px;
+  --bru-press: 2px;
+  font-size: var(--fs-xs);
+}
+
+[data-skin="brutalist"] .btn--icon {
+  width: var(--btn-h);
+}
+
+[data-skin="brutalist"] .btn:disabled {
+  opacity: 0.35;
+  box-shadow: none;
+}
+
+/* Fields */
+[data-skin="brutalist"] .input,
+[data-skin="brutalist"] .textarea,
+[data-skin="brutalist"] .select {
+  height: 44px;
+  border-color: var(--text);
+  /* Color only: the shorthand would reset .select's no-repeat arrow into a tiled pattern */
+  background-color: var(--bg);
+  color: var(--text);
+  font-size: var(--fs-md);
+  font-weight: 500;
+}
+
+[data-skin="brutalist"] .input::placeholder,
+[data-skin="brutalist"] .textarea::placeholder {
+  color: var(--text-3);
+}
+
+[data-skin="brutalist"] .input:hover,
+[data-skin="brutalist"] .textarea:hover,
+[data-skin="brutalist"] .select:hover {
+  border-color: var(--text);
+}
+
+[data-skin="brutalist"] .input:focus,
+[data-skin="brutalist"] .textarea:focus,
+[data-skin="brutalist"] .select:focus {
+  border-color: var(--text);
+  background-color: var(--bg);
+  box-shadow: 4px 4px 0 var(--bru-hi), 4px 4px 0 3px var(--text);
+}
+
+[data-skin="brutalist"] .textarea {
+  height: auto;
+}
+
+[data-skin="brutalist"] .select {
+  background-image: linear-gradient(45deg, transparent 50%, var(--text) 50%),
+    linear-gradient(135deg, var(--text) 50%, transparent 50%);
+  background-size: 7px 7px;
+  background-position: calc(100% - 19px) 50%, calc(100% - 12px) 50%;
+  background-repeat: no-repeat;
+  font-weight: 700;
+}
+
+[data-skin="brutalist"] input[type="date"].input {
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  font-weight: 700;
+}
+
+[data-skin="brutalist"] input[type="date"]::-webkit-calendar-picker-indicator {
+  opacity: 1;
+}
+
+/* With color-scheme: dark the indicator is already light; the base invert() would blacken it */
+[data-skin="brutalist"][data-theme="dark"] input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: none;
+}
+
+[data-skin="brutalist"] .input-group > svg {
+  color: var(--text);
+}
+
+/* Checkbox: a heavy square that fills yellow with a fat black tick */
+[data-skin="brutalist"] .check {
+  --size: 22px;
+  border: 3px solid var(--text);
+  background: var(--bg);
+  color: var(--bru-on-hi);
+}
+
+[data-skin="brutalist"] .check svg {
+  width: 100%;
+  height: 100%;
+  stroke-width: 4px;
+  stroke-linecap: square;
+  stroke-linejoin: miter;
+  transform: scale(0.4);
+}
+
+[data-skin="brutalist"] .check:hover {
+  border-color: var(--text);
+  box-shadow: 3px 3px 0 var(--text);
+}
+
+[data-skin="brutalist"] .check[aria-checked="true"],
+[data-skin="brutalist"] .check.is-checked {
+  background: var(--bru-hi);
+  border-color: var(--text);
+}
+
+[data-skin="brutalist"] .check[aria-checked="true"] svg,
+[data-skin="brutalist"] .check.is-checked svg {
+  transform: none;
+}
+
+[data-skin="brutalist"] .check--lg {
+  --size: 30px;
+}
+
+/* Segmented control: a slab of cells split by ink rules */
+[data-skin="brutalist"] .seg {
+  padding: 0;
+  gap: 0;
+  border-color: var(--text);
+  background: var(--bg);
+}
+
+[data-skin="brutalist"] .seg-btn {
+  height: 32px;
+  font-family: var(--font-sans);
+  font-size: var(--fs-xs);
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  color: var(--text);
+}
+
+[data-skin="brutalist"] .seg-btn + .seg-btn {
+  border-left: 3px solid var(--text);
+}
+
+[data-skin="brutalist"] .seg-btn:hover {
+  color: var(--text);
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
+}
+
+[data-skin="brutalist"] .seg-btn[aria-pressed="true"],
+[data-skin="brutalist"] .seg-btn[aria-selected="true"] {
+  background: var(--bru-hi);
+  color: var(--bru-on-hi);
+  text-decoration: none;
+}
+
+/* A segmented control in a form field keeps its own width (stretched, its slab shows an empty tail) */
+[data-skin="brutalist"] .field > .seg {
+  align-self: flex-start;
+}
+
+[data-skin="brutalist"] .seg-count {
+  opacity: 1;
+  font-family: var(--font-mono);
+  font-weight: 700;
+}
+
+/* Tags: solid stamps */
+[data-skin="brutalist"] .tag {
+  height: 22px;
+  padding: 0 6px;
+  border-color: var(--text);
+  background: var(--bg);
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  color: var(--text);
+}
+
+[data-skin="brutalist"] .tag--solid {
+  background: var(--text);
+  border-color: var(--text);
+  color: var(--bg);
+}
+
+[data-skin="brutalist"] .tag--dashed {
+  border-style: dashed;
+}
+
+/* Progress: an outlined bar that fills yellow */
+[data-skin="brutalist"] .progress {
+  height: 14px;
+  border: 2px solid var(--text);
+  background: var(--bg);
+}
+
+[data-skin="brutalist"] .progress-fill {
+  background: var(--bru-hi);
+  box-shadow: 2px 0 0 var(--text);
+}
+
+[data-skin="brutalist"] .meter {
+  gap: 2px;
+}
+
+[data-skin="brutalist"] .meter-tick {
+  height: 8px;
+  background: var(--heat-0);
+  border-radius: 0;
+}
+
+[data-skin="brutalist"] .meter-tick.is-on {
+  background: var(--text);
+}
+
+/* Ring: a fat yellow arc on a hard track, square ends */
+[data-skin="brutalist"] .ring-track {
+  stroke: var(--bru-track);
+}
+
+[data-skin="brutalist"] .ring-fill {
+  stroke: var(--bru-hi);
+  stroke-linecap: butt;
+  filter: none;
+}
+
+[data-skin="brutalist"] .ring-label {
+  font-family: var(--font-display);
+}
+
+[data-skin="brutalist"] .stat-value {
+  font-family: var(--font-display);
+  font-size: 40px;
+  font-weight: 400;
+  letter-spacing: 0;
+  line-height: 1;
+}
+
+/* Empty state */
+[data-skin="brutalist"] .empty {
+  border: 3px dashed var(--text);
+  background: var(--bg);
+  color: var(--text-2);
+}
+
+[data-skin="brutalist"] .empty-icon {
+  width: 52px;
+  height: 52px;
+  border: 3px solid var(--text);
+  background: var(--bru-hi);
+  color: var(--bru-on-hi);
+  box-shadow: 4px 4px 0 var(--text);
+}
+
+[data-skin="brutalist"] .empty-title {
+  font-family: var(--font-display);
+  font-size: 30px;
+  font-weight: 400;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+[data-skin="brutalist"] .empty-text {
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+}
+
+/* Keys */
+[data-skin="brutalist"] .kbd {
+  min-width: 20px;
+  height: 20px;
+  border: 2px solid var(--text);
+  border-bottom-width: 4px;
+  background: var(--bg);
+  color: var(--text);
+  font-weight: 700;
+}
+
+[data-skin="brutalist"] .divider::after {
+  height: 3px;
+  background: var(--text);
+}
+
+/* Toasts: inverted slab on a yellow drop */
+[data-skin="brutalist"] .toast {
+  border: 3px solid var(--text);
+  background: var(--text);
+  color: var(--bg);
+  box-shadow: 6px 6px 0 var(--bru-hi), 6px 6px 0 3px var(--bg);
+  font-weight: 700;
+}
+
+[data-skin="brutalist"] .toast-action {
+  padding: 6px 10px;
+  border: 2px solid var(--bru-hi);
+  background: var(--bru-hi);
+  color: var(--bru-on-hi);
+  font-family: var(--font-sans);
+  font-weight: 800;
+  font-size: 12px;
+}
+
+[data-skin="brutalist"] .toast-action:hover {
+  background: var(--bg);
+  border-color: var(--bg);
+  color: var(--text);
+}
+
+/* Context menu (right-click): an ink-bordered slab on a hard drop, condensed caps, the lit item
+   hazard yellow with black on it */
+[data-skin="brutalist"] .ctx-menu {
+  gap: 0;
+  min-width: 220px;
+  padding: 0;
+  border: 3px solid var(--text);
+  border-radius: 0;
+  background: var(--bg);
+  box-shadow: 8px 8px 0 var(--text);
+}
+
+[data-skin="brutalist"] .ctx-item {
+  min-height: 42px;
+  padding: 0 12px;
+  border-radius: 0;
+  color: var(--text);
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 400;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+[data-skin="brutalist"] .ctx-item + .ctx-item {
+  border-top: 2px solid var(--text);
+}
+
+[data-skin="brutalist"] .ctx-icon {
+  color: var(--text);
+}
+
+[data-skin="brutalist"] .ctx-item:not([aria-disabled="true"]):is(:hover, :focus) {
+  background: var(--bru-hi);
+  color: var(--bru-on-hi);
+  box-shadow: none;
+}
+
+[data-skin="brutalist"] .ctx-item:not([aria-disabled="true"]):is(:hover, :focus) .ctx-icon {
+  color: var(--bru-on-hi);
+}
+
+[data-skin="brutalist"] .ctx-item:not([aria-disabled="true"]):is(:hover, :focus) .ctx-kbd {
+  border-color: var(--bru-on-hi);
+  background: var(--bru-hi);
+  color: var(--bru-on-hi);
+}
+
+[data-skin="brutalist"] .ctx-item:focus-visible {
+  box-shadow: inset 0 0 0 3px var(--bru-on-hi);
+}
+
+[data-skin="brutalist"] .ctx-item[aria-disabled="true"],
+[data-skin="brutalist"] .ctx-item[aria-disabled="true"] .ctx-icon {
+  color: var(--text-4);
+}
+
+[data-skin="brutalist"] .ctx-item[aria-disabled="true"] .ctx-label {
+  text-decoration: line-through 2px;
+}
+
+/* Modal: a slab with a yellow title bar */
+[data-skin="brutalist"] .modal-root {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+[data-skin="brutalist"] .modal {
+  border: 3px solid var(--text);
+  background: var(--bg);
+  box-shadow: 12px 12px 0 var(--text);
+}
+
+[data-skin="brutalist"] .modal-head {
+  background: var(--bru-hi);
+  color: var(--bru-on-hi);
+  border-bottom: 3px solid var(--text);
+}
+
+[data-skin="brutalist"] .modal-head .btn--ghost {
+  color: var(--bru-on-hi);
+}
+
+[data-skin="brutalist"] .modal-head .btn--ghost:hover {
+  background: var(--bru-on-hi);
+  border-color: var(--bru-on-hi);
+  color: var(--bru-hi);
+}
+
+[data-skin="brutalist"] .modal-title {
+  font-weight: 400;
+  font-size: 30px;
+  line-height: 1;
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+}
+
+[data-skin="brutalist"] .modal-foot {
+  border-top: 3px solid var(--text);
+}
+
+/* ==========================================================================
+   Appearance picker (page) and the preview card (shadow root)
+   ========================================================================== */
+
+[data-skin="brutalist"] .skin-card {
+  border: 3px solid var(--text);
+  background: var(--bg);
+  transition: none;
+}
+
+[data-skin="brutalist"] .skin-card:hover {
+  border-color: var(--text);
+  background: var(--surface-2);
+}
+
+[data-skin="brutalist"] .skin-card[aria-checked="true"] {
+  border-color: var(--text);
+  background: var(--bru-hi);
+  box-shadow: 6px 6px 0 var(--bru-ink);
+}
+
+[data-skin="brutalist"] .skin-card[aria-checked="true"] .skin-card-name,
+[data-skin="brutalist"] .skin-card[aria-checked="true"] .skin-card-desc {
+  color: var(--bru-on-hi);
+}
+
+[data-skin="brutalist"] .skin-card-preview {
+  border: 3px solid var(--text);
+}
+
+[data-skin="brutalist"] .skin-card-name {
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+[data-skin="brutalist"] .skin-card-mark {
+  width: 28px;
+  height: 28px;
+  border: 3px solid var(--bru-on-hi);
+  background: var(--bru-on-hi);
+  color: var(--bru-hi);
+}
+
+/* Inside the 400 × 260 preview */
+[data-skin="brutalist"] .skin-preview .page-header {
+  padding-bottom: 10px;
+  margin-bottom: 18px;
+}
+
+[data-skin="brutalist"] .skin-preview .page-title {
+  font-size: 50px;
+}
+
+[data-skin="brutalist"] .skin-preview-row + .skin-preview-row {
+  border-top: 3px solid var(--text);
+}
+
+[data-skin="brutalist"] .skin-preview-row {
+  font-weight: 700;
+}
+
+[data-skin="brutalist"] .skin-preview-actions {
+  margin-top: 18px;
+}
+
+/* ==========================================================================
+   Tasks
+   ========================================================================== */
+
+/* Overdue stat: the one yellow warning block on the page */
+[data-skin="brutalist"] .tk-stat.is-alert {
+  background: var(--bru-hi);
+  border-color: var(--text);
+  color: var(--bru-on-hi);
+}
+
+[data-skin="brutalist"] .tk-stat.is-alert .tk-stat-idx,
+[data-skin="brutalist"] .tk-stat.is-alert .label,
+[data-skin="brutalist"] .tk-stat.is-alert .tk-stat-sub {
+  color: var(--bru-on-hi);
+}
+
+[data-skin="brutalist"] .tk-stat::after {
+  width: 8px;
+  height: 8px;
+  background: var(--text-4);
+}
+
+[data-skin="brutalist"] .tk-stat.is-alert::after {
+  box-shadow: none;
+  background: var(--bru-on-hi);
+  animation: brutalist-blink 1s steps(1) infinite;
+}
+
+[data-skin="brutalist"] button.tk-stat:hover {
+  background: var(--surface-2);
+  border-color: var(--text);
+}
+
+[data-skin="brutalist"] button.tk-stat.is-alert:hover {
+  background: var(--bru-hi);
+}
+
+[data-skin="brutalist"] button.tk-stat:active {
+  transform: translate(var(--bru-drop), var(--bru-drop));
+  box-shadow: none;
+}
+
+[data-skin="brutalist"] .tk-stat-sub {
+  color: var(--text-2);
+}
+
+[data-skin="brutalist"] .tk-stat.is-zero .tk-stat-value {
+  color: var(--text-3);
+}
+
+[data-skin="brutalist"] .tk-stat--progress.is-complete {
+  border-color: var(--text);
+  box-shadow: var(--shadow-hard);
+  background: var(--bru-hi);
+  color: var(--bru-on-hi);
+}
+
+[data-skin="brutalist"] .tk-stat--progress.is-complete .label,
+[data-skin="brutalist"] .tk-stat--progress.is-complete .tk-prog-ratio,
+[data-skin="brutalist"] .tk-stat--progress.is-complete .tk-overall-pct {
+  color: var(--bru-on-hi);
+}
+
+[data-skin="brutalist"] .tk-prog-ratio,
+[data-skin="brutalist"] .tk-overall-pct {
+  font-weight: 700;
+  color: var(--text);
+}
+
+[data-skin="brutalist"] .tk-progress {
+  height: 16px;
+}
+
+[data-skin="brutalist"] .tk-meter .meter-tick {
+  height: 8px;
+}
+
+/* Command bar */
+[data-skin="brutalist"] .tk-command:focus-within {
+  border-color: var(--text);
+  box-shadow: var(--bru-drop) var(--bru-drop) 0 var(--bru-hi), var(--bru-drop) var(--bru-drop) 0 3px var(--text);
+}
+
+[data-skin="brutalist"] .tk-command-main {
+  border-bottom: 0;
+}
+
+[data-skin="brutalist"] .tk-command-main::after {
+  display: none;
+}
+
+[data-skin="brutalist"] .tk-prompt {
+  font-family: var(--font-display);
+  font-size: 30px;
+  margin-top: 0;
+  color: var(--text);
+}
+
+[data-skin="brutalist"] .tk-command:focus-within .tk-prompt {
+  text-shadow: none;
+}
+
+[data-skin="brutalist"] .tk-add-input {
+  font-size: 20px;
+  font-weight: 700;
+  caret-color: var(--text);
+}
+
+[data-skin="brutalist"] .tk-add-input::placeholder {
+  font-weight: 500;
+}
+
+[data-skin="brutalist"] .tk-command-tools {
+  border-top: 3px solid var(--text);
+}
+
+/* Key hints inside buttons: the button's own ink, full strength (half-faded fails contrast) */
+[data-skin="brutalist"] .tk-add-kbd,
+[data-skin="brutalist"] .hb-add-kbd,
+[data-skin="brutalist"] .cal-kbd {
+  border-color: currentColor;
+  background: transparent;
+  color: inherit;
+  opacity: 1;
+}
+
+[data-skin="brutalist"] .tk-token {
+  border-color: var(--text);
+  background: var(--bru-hi);
+  color: var(--bru-on-hi);
+}
+
+[data-skin="brutalist"] .tk-token:hover {
+  background: var(--bg);
+  color: var(--text);
+}
+
+/* Rows */
+[data-skin="brutalist"] .tk-row {
+  border-top: 2px solid var(--text);
+}
+
+[data-skin="brutalist"] .tk-row:first-child {
+  border-top-color: transparent;
+}
+
+[data-skin="brutalist"] .tk-row:hover,
+[data-skin="brutalist"] .tk-row.is-editing {
+  background: var(--surface-2);
+}
+
+[data-skin="brutalist"] .tk-row:focus-visible {
+  background: var(--surface-2);
+  box-shadow: inset 0 0 0 3px var(--text);
+}
+
+/* Priority: a fat bar beside the title (high: yellow block, med: ink, low: ink dashes) */
+[data-skin="brutalist"] .tk-row::before {
+  top: 0;
+  bottom: 0;
+  width: 7px;
+  height: auto;
+  border-radius: 0;
+}
+
+[data-skin="brutalist"] .tk-row[data-priority="high"]::before {
+  background: var(--bru-hi);
+  box-shadow: inset -2px 0 0 var(--text);
+}
+
+[data-skin="brutalist"] .tk-row[data-priority="med"]::before {
+  background: var(--text);
+}
+
+[data-skin="brutalist"] .tk-row[data-priority="low"]::before {
+  background: repeating-linear-gradient(180deg, var(--text) 0 4px, transparent 4px 7px);
+}
+
+/* No light sweep: a done row just gets struck through */
+[data-skin="brutalist"] .tk-row::after {
+  display: none;
+}
+
+[data-skin="brutalist"] .tk-idx {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  color: var(--text-3);
+}
+
+[data-skin="brutalist"] .tk-row:hover .tk-idx,
+[data-skin="brutalist"] .tk-row:focus-visible .tk-idx {
+  color: var(--text);
+}
+
+[data-skin="brutalist"] .tk-row.is-overdue .tk-grip {
+  background: repeating-linear-gradient(-45deg, var(--bru-hi) 0 5px, var(--bru-on-hi) 5px 10px);
+  color: var(--bru-on-hi);
+}
+
+[data-skin="brutalist"] .tk-row.is-overdue .tk-idx {
+  padding: 0 2px;
+  background: var(--bru-hi);
+  color: var(--bru-on-hi);
+}
+
+[data-skin="brutalist"] .tk-check::before {
+  border: 3px solid var(--text);
+}
+
+[data-skin="brutalist"] .tk-title-line {
+  font-weight: 600;
+}
+
+/* Strike-through: a 3px bar */
+[data-skin="brutalist"] .tk-title {
+  background-size: 0% 3px;
+}
+
+[data-skin="brutalist"] .tk-row.is-done .tk-title {
+  color: var(--text-3);
+  background-size: 100% 3px;
+}
+
+[data-skin="brutalist"] .tk-edit-input {
+  border: 3px solid var(--text);
+  background: var(--bg);
+  box-shadow: 3px 3px 0 var(--text);
+  caret-color: var(--text);
+}
+
+[data-skin="brutalist"] .tk-due-tag--today {
+  border-color: var(--text);
+  color: var(--text);
+}
+
+[data-skin="brutalist"] .tk-due-tag--overdue {
+  background: var(--text);
+  border-color: var(--text);
+  color: var(--bg);
+}
+
+[data-skin="brutalist"] .tk-due-tag--overdue strong {
+  font-weight: 900;
+}
+
+[data-skin="brutalist"] .tk-blink {
+  border-radius: 0;
+  background: var(--bru-hi);
+  box-shadow: none;
+  animation: brutalist-blink 1s steps(1) infinite;
+}
+
+[data-skin="brutalist"] .tk-row.is-done .tk-pri.tag--solid {
+  background: transparent;
+  border-color: var(--text-3);
+  color: var(--text-3);
+}
+
+[data-skin="brutalist"] .tk-note {
+  color: var(--text-2);
+}
+
+[data-skin="brutalist"] .tk-actions .btn {
+  color: var(--text);
+}
+
+/* Drag: the lifted row is a slab with a big drop; the slot is a hazard-striped hole */
+[data-skin="brutalist"] .tk-row.is-dragging {
+  background: var(--bg);
+  border: 3px solid var(--text);
+  box-shadow: 8px 8px 0 var(--text);
+  transform: rotate(-0.6deg);
+}
+
+[data-skin="brutalist"] .tk-placeholder {
+  border: 3px dashed var(--text);
+  background: repeating-linear-gradient(-45deg, var(--hatch) 0 3px, transparent 3px 10px);
+}
+
+[data-skin="brutalist"] .tk-placeholder::after {
+  font-family: var(--font-display);
+  font-size: 18px;
+  letter-spacing: 0.04em;
+  color: var(--text);
+}
+
+/* Completed section */
+[data-skin="brutalist"] .tk-done-toggle {
+  color: var(--text);
+}
+
+[data-skin="brutalist"] .tk-done-toggle:hover {
+  background: var(--bru-hi);
+  color: var(--bru-on-hi);
+}
+
+[data-skin="brutalist"] .tk-done-count {
+  border: 2px solid var(--text);
+  background: var(--text);
+  color: var(--bg);
+  font-weight: 700;
+}
+
+[data-skin="brutalist"] .tk-done-rule {
+  height: 3px;
+  background: var(--text);
+}
+
+[data-skin="brutalist"] .tk-hints,
+[data-skin="brutalist"] .tk-detail-foot {
+  border-top: 3px dashed var(--text);
+}
+
+[data-skin="brutalist"] .tk-field-title[aria-invalid="true"] {
+  border-style: dashed;
+  border-color: var(--text);
+}
+
+[data-skin="brutalist"] .tk-field-error {
+  font-weight: 700;
+}
+
+/* ==========================================================================
+   Notes
+   ========================================================================== */
+
+[data-skin="brutalist"] .nt-stats {
+  border: 3px solid var(--text);
+  background: var(--bg);
+  box-shadow: 4px 4px 0 var(--text);
+}
+
+[data-skin="brutalist"] .nt-stat + .nt-stat {
+  border-left: 3px solid var(--text);
+}
+
+[data-skin="brutalist"] .nt-stat .stat-value {
+  font-size: 34px;
+}
+
+[data-skin="brutalist"] .nt-list-head,
+[data-skin="brutalist"] .nt-list-meta,
+[data-skin="brutalist"] .nt-rail-head {
+  border-bottom: 3px solid var(--text);
+}
+
+[data-skin="brutalist"] .nt-foot {
+  border-top: 3px solid var(--text);
+}
+
+[data-skin="brutalist"] .nt-group::after {
+  height: 3px;
+  background: var(--text);
+}
+
+[data-skin="brutalist"] .nt-group-count,
+[data-skin="brutalist"] .nt-list-count {
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-weight: 700;
+}
+
+[data-skin="brutalist"] .nt-items {
+  gap: 4px;
+}
+
+[data-skin="brutalist"] .nt-item {
+  border: 3px solid transparent;
+}
+
+[data-skin="brutalist"] .nt-item:hover {
+  background: var(--surface-2);
+  border-color: var(--text);
+}
+
+/* The open note: a yellow block */
+[data-skin="brutalist"] .nt-item[aria-current="true"] {
+  background: var(--bru-hi);
+  border-color: var(--text);
+  color: var(--bru-on-hi);
+  box-shadow: 4px 4px 0 var(--bru-ink);
+}
+
+[data-skin="brutalist"] .nt-item[aria-current="true"]::before,
+[data-skin="brutalist"] .nt-rail-item[aria-current="true"]::before,
+[data-skin="brutalist"] .nt-card[aria-current="true"]::before {
+  display: none;
+}
+
+[data-skin="brutalist"] .nt-item[aria-current="true"] .nt-item-excerpt,
+[data-skin="brutalist"] .nt-item[aria-current="true"] .nt-item-date,
+[data-skin="brutalist"] .nt-item[aria-current="true"] .nt-item-time,
+[data-skin="brutalist"] .nt-item[aria-current="true"] .label,
+[data-skin="brutalist"] .nt-item[aria-current="true"] svg {
+  color: var(--bru-on-hi);
+}
+
+[data-skin="brutalist"] .nt-item-index {
+  border: 2px solid var(--text);
+  font-weight: 700;
+  color: var(--text);
+}
+
+[data-skin="brutalist"] .nt-item[aria-current="true"] .nt-item-index {
+  background: var(--bru-on-hi);
+  border-color: var(--bru-on-hi);
+  color: var(--bru-hi);
+}
+
+[data-skin="brutalist"] .nt-item-tag {
+  border-color: var(--text);
+  color: var(--text);
+}
+
+[data-skin="brutalist"] .nt-item:hover .nt-item-tag,
+[data-skin="brutalist"] .nt-item[aria-current="true"] .nt-item-tag {
+  border-color: var(--text);
+  color: var(--text);
+}
+
+[data-skin="brutalist"] .nt-item[aria-current="true"] .nt-item-tag {
+  border-color: var(--bru-on-hi);
+  background: var(--bru-on-hi);
+  color: var(--bru-hi);
+}
+
+[data-skin="brutalist"] .nt-hit {
+  background: var(--bru-hi);
+  color: var(--bru-on-hi);
+  box-shadow: inset 0 -2px 0 var(--bru-on-hi);
+}
+
+[data-skin="brutalist"] .nt-search-clear:hover {
+  background: var(--bru-hi);
+  color: var(--bru-on-hi);
+}
+
+[data-skin="brutalist"] .nt-kbd-inv {
+  background: transparent;
+  border-color: currentColor;
+  color: inherit;
+  opacity: 1;
+}
+
+/* Editor */
+[data-skin="brutalist"] .nt-pin[aria-pressed="true"],
+[data-skin="brutalist"] .nt-pin[aria-pressed="true"]:hover {
+  background: var(--bru-hi);
+  border-color: var(--text);
+  color: var(--bru-on-hi);
+  box-shadow: 3px 3px 0 var(--bru-ink);
+}
+
+[data-skin="brutalist"] .nt-title {
+  font-family: var(--font-sans);
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  line-height: 1.05;
+}
+
+[data-skin="brutalist"] .nt-meta {
+  border-bottom: 3px solid var(--text);
+}
+
+[data-skin="brutalist"] .nt-meta-item + .nt-meta-item::before {
+  width: 3px;
+  background: var(--text);
+}
+
+[data-skin="brutalist"] .nt-status {
+  border: 2px solid var(--text);
+  color: var(--text);
+  font-weight: 800;
+}
+
+[data-skin="brutalist"] .nt-status-dot {
+  border-radius: 0;
+}
+
+[data-skin="brutalist"] .nt-status[data-state="saved"] .nt-status-dot {
+  box-shadow: none;
+}
+
+[data-skin="brutalist"] .nt-status[data-state="saving"] {
+  border-style: dashed;
+}
+
+[data-skin="brutalist"] .nt-status.is-flash {
+  background: var(--bru-hi);
+  border-color: var(--text);
+  color: var(--bru-on-hi);
+  box-shadow: 3px 3px 0 var(--bru-ink);
+}
+
+[data-skin="brutalist"] .nt-body {
+  font-family: var(--font-code);
+  font-size: 15px;
+}
+
+/* Rendered markdown */
+[data-skin="brutalist"] .nt-prose h1,
+[data-skin="brutalist"] .nt-prose h2,
+[data-skin="brutalist"] .nt-prose h3 {
+  font-family: var(--font-display);
+  font-weight: 400;
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+  line-height: 1;
+}
+
+[data-skin="brutalist"] .nt-prose h1 {
+  font-size: 44px;
+}
+
+[data-skin="brutalist"] .nt-prose h2 {
+  font-size: 30px;
+  border-bottom: 3px solid var(--text);
+}
+
+[data-skin="brutalist"] .nt-prose h3 {
+  font-size: 22px;
+}
+
+[data-skin="brutalist"] .nt-prose h4,
+[data-skin="brutalist"] .nt-prose h5,
+[data-skin="brutalist"] .nt-prose h6 {
+  font-family: var(--font-sans);
+  font-weight: 800;
+  color: var(--text);
+}
+
+[data-skin="brutalist"] .nt-prose strong {
+  font-weight: 800;
+}
+
+[data-skin="brutalist"] .nt-prose a {
+  text-decoration-color: currentColor;
+  text-decoration-thickness: 2px;
+  font-weight: 700;
+}
+
+[data-skin="brutalist"] .nt-prose a:hover {
+  background: var(--bru-hi);
+  color: var(--bru-on-hi);
+  text-decoration-color: var(--bru-on-hi);
+}
+
+[data-skin="brutalist"] .nt-prose code {
+  border: 2px solid var(--text);
+  background: var(--surface-2);
+}
+
+[data-skin="brutalist"] .nt-prose pre {
+  border: 3px solid var(--text);
+  background: var(--bg);
+  box-shadow: 4px 4px 0 var(--text);
+}
+
+[data-skin="brutalist"] .nt-prose pre code {
+  border: 0;
+  background: none;
+}
+
+[data-skin="brutalist"] .nt-prose pre[data-lang]::before {
+  border: 0;
+  background: var(--text);
+  color: var(--bg);
+  font-weight: 700;
+}
+
+[data-skin="brutalist"] .nt-prose blockquote {
+  border-left: 8px solid var(--text);
+  background: var(--accent-soft);
+  color: var(--text);
+  font-weight: 600;
+}
+
+[data-skin="brutalist"] .nt-prose hr {
+  height: 3px;
+  background: var(--text);
+}
+
+[data-skin="brutalist"] .nt-prose hr::after {
+  top: -6px;
+  width: 64px;
+  height: 15px;
+  background: repeating-linear-gradient(-45deg, var(--bru-on-hi) 0 6px, var(--bru-hi) 6px 12px);
+  border: 3px solid var(--text);
+}
+
+[data-skin="brutalist"] .nt-prose ul > li::before {
+  width: 7px;
+  height: 7px;
+  top: 0.62em;
+  border: 0;
+  background: var(--text);
+}
+
+[data-skin="brutalist"] .nt-prose ol > li::marker {
+  font-family: var(--font-display);
+  font-size: 1em;
+  color: var(--text);
+}
+
+[data-skin="brutalist"] .nt-task-box {
+  width: 20px;
+  height: 20px;
+  border: 3px solid var(--text);
+  background: var(--bg);
+}
+
+[data-skin="brutalist"] .nt-task-box::after {
+  border-color: var(--bru-on-hi);
+  border-width: 0 0 3px 3px;
+}
+
+[data-skin="brutalist"] .nt-task-box:hover {
+  border-color: var(--text);
+  box-shadow: 3px 3px 0 var(--text);
+}
+
+[data-skin="brutalist"] .nt-task-box:checked {
+  background: var(--bru-hi);
+  border-color: var(--text);
+}
+
+/* Sections rail */
+[data-skin="brutalist"] .nt-rail-sep {
+  height: 3px;
+  background: var(--text);
+}
+
+[data-skin="brutalist"] .nt-rail-sep::after {
+  width: 24px;
+  height: 3px;
+  background: var(--bru-hi);
+}
+
+[data-skin="brutalist"] .nt-rail-item {
+  border: 3px solid transparent;
+  color: var(--text);
+  font-weight: 600;
+}
+
+[data-skin="brutalist"] .nt-rail-item:hover {
+  background: transparent;
+  border-color: var(--text);
+}
+
+[data-skin="brutalist"] .nt-rail-item[aria-current="true"] {
+  background: var(--bru-hi);
+  border-color: var(--text);
+  color: var(--bru-on-hi);
+  font-weight: 800;
+  box-shadow: 3px 3px 0 var(--bru-ink);
+}
+
+[data-skin="brutalist"] .nt-rail-item[aria-current="true"] .nt-rail-icon {
+  color: var(--bru-on-hi);
+}
+
+[data-skin="brutalist"] .nt-rail-icon {
+  color: var(--text);
+}
+
+[data-skin="brutalist"] .nt-rail-count {
+  border: 2px solid var(--text);
+  font-weight: 700;
+  color: var(--text);
+}
+
+[data-skin="brutalist"] .nt-rail-item[aria-current="true"] .nt-rail-count {
+  background: var(--bru-on-hi);
+  border-color: var(--bru-on-hi);
+  color: var(--bru-hi);
+}
+
+[data-skin="brutalist"] .nt-rename {
+  border: 3px solid var(--text);
+  background: var(--bg);
+  box-shadow: 3px 3px 0 var(--text);
+}
+
+[data-skin="brutalist"] .nt-srow-msg::before,
+[data-skin="brutalist"] .nt-sx-msg:not(:empty)::before {
+  border-radius: 0;
+  border-width: 2px;
+}
+
+[data-skin="brutalist"] .nt-srow.is-dragging .nt-rail-item {
+  background: var(--bg);
+  border-color: var(--text);
+  box-shadow: 6px 6px 0 var(--text);
+}
+
+[data-skin="brutalist"] .nt-rail.is-dropzone .nt-srow[data-drop] .nt-rail-item {
+  border-style: dashed;
+  border-color: var(--text);
+}
+
+[data-skin="brutalist"] .nt-srow.is-drop .nt-rail-item,
+[data-skin="brutalist"] .nt-rail.is-dropzone .nt-srow.is-drop .nt-rail-item {
+  background: var(--bru-hi);
+  border-style: solid;
+  border-color: var(--text);
+  color: var(--bru-on-hi);
+  box-shadow: 4px 4px 0 var(--bru-ink);
+}
+
+[data-skin="brutalist"] .nt-srow.is-drop .nt-rail-count {
+  border-color: var(--bru-on-hi);
+  color: var(--bru-on-hi);
+}
+
+[data-skin="brutalist"] .nt-suggest-chip {
+  border: 2px dashed var(--text);
+  color: var(--text);
+  font-weight: 600;
+}
+
+[data-skin="brutalist"] .nt-suggest-chip:hover {
+  border-style: solid;
+  border-color: var(--text);
+  background: var(--bru-hi);
+  color: var(--bru-on-hi);
+}
+
+[data-skin="brutalist"] .nt-suggest-chip.is-custom {
+  border-color: transparent;
+}
+
+/* Chip strip (narrow workspaces) */
+[data-skin="brutalist"] .nt-chip {
+  border: 3px solid var(--text);
+  background: var(--bg);
+  color: var(--text);
+  font-weight: 700;
+}
+
+[data-skin="brutalist"] .nt-chip:hover {
+  border-color: var(--text);
+  background: var(--surface-2);
+}
+
+[data-skin="brutalist"] .nt-chip-count {
+  color: var(--text-2);
+  font-weight: 700;
+}
+
+[data-skin="brutalist"] .nt-chip[aria-current="true"] {
+  background: var(--bru-hi);
+  border-color: var(--text);
+  color: var(--bru-on-hi);
+  box-shadow: 3px 3px 0 var(--bru-ink);
+}
+
+[data-skin="brutalist"] .nt-chip[aria-current="true"] .nt-chip-count {
+  opacity: 1;
+}
+
+[data-skin="brutalist"] .nt-chip[aria-current="true"]:focus-visible {
+  outline-color: var(--text);
+}
+
+[data-skin="brutalist"] .nt-chip--add,
+[data-skin="brutalist"] .nt-chip--suggest {
+  border-style: dashed;
+}
+
+[data-skin="brutalist"] .nt-elsewhere {
+  border: 3px dashed var(--text);
+}
+
+[data-skin="brutalist"] .nt-move {
+  border: 2px solid var(--text);
+  color: var(--text);
+  font-weight: 700;
+}
+
+[data-skin="brutalist"] .nt-move:hover,
+[data-skin="brutalist"] .nt-move[aria-expanded="true"] {
+  border-color: var(--text);
+  background: var(--bru-hi);
+  color: var(--bru-on-hi);
+}
+
+[data-skin="brutalist"] .nt-move.is-unsorted {
+  border-style: dashed;
+}
+
+/* Move menu */
+[data-skin="brutalist"] .nt-menu {
+  padding: 0;
+  border: 3px solid var(--text);
+  background: var(--bg);
+  box-shadow: 8px 8px 0 var(--text);
+}
+
+[data-skin="brutalist"] .nt-menu--sheet {
+  border: 0;
+  box-shadow: none;
+}
+
+[data-skin="brutalist"] .nt-menu-item {
+  font-weight: 600;
+}
+
+[data-skin="brutalist"] .nt-menu-item + .nt-menu-item {
+  border-top: 2px solid var(--text);
+}
+
+[data-skin="brutalist"] .nt-menu-item:hover,
+[data-skin="brutalist"] .nt-menu-item:focus-visible {
+  background: var(--bru-hi);
+  color: var(--bru-on-hi);
+}
+
+[data-skin="brutalist"] .nt-menu-item:hover .nt-menu-icon,
+[data-skin="brutalist"] .nt-menu-item:focus-visible .nt-menu-icon {
+  color: var(--bru-on-hi);
+}
+
+[data-skin="brutalist"] .nt-menu-item:focus-visible {
+  box-shadow: inset 0 0 0 3px var(--bru-on-hi);
+}
+
+[data-skin="brutalist"] .nt-menu-item[aria-checked="true"] {
+  font-weight: 900;
+}
+
+[data-skin="brutalist"] .nt-menu-sep {
+  height: 3px;
+  margin: 0;
+  background: var(--text);
+}
+
+/* Dragging a note */
+[data-skin="brutalist"] .nt-drag-ghost {
+  border: 3px solid var(--text);
+  background: var(--bg);
+  box-shadow: 6px 6px 0 var(--text);
+  font-weight: 700;
+}
+
+[data-skin="brutalist"] .nt-drag-ghost.is-armed {
+  border-color: var(--text);
+  background: var(--bru-hi);
+  color: var(--bru-on-hi);
+  box-shadow: 8px 8px 0 var(--bru-ink);
+}
+
+[data-skin="brutalist"] .nt-drag-ghost.is-armed .nt-drag-to {
+  color: var(--bru-on-hi);
+}
+
+[data-skin="brutalist"] .nt-row.is-drag-source .nt-item {
+  border-style: dashed;
+  border-color: var(--text);
+}
+
+/* Section editor and delete dialogs */
+[data-skin="brutalist"] .nt-icon-opt {
+  border: 3px solid var(--text);
+  background: var(--bg);
+  color: var(--text);
+}
+
+[data-skin="brutalist"] .nt-icon-opt:hover {
+  border-color: var(--text);
+  background: var(--surface-2);
+}
+
+[data-skin="brutalist"] .nt-icon-opt[aria-checked="true"] {
+  border-color: var(--text);
+  background: var(--bru-hi);
+  color: var(--bru-on-hi);
+  box-shadow: 3px 3px 0 var(--bru-ink);
+}
+
+[data-skin="brutalist"] .nt-choice {
+  border: 3px solid var(--text);
+}
+
+[data-skin="brutalist"] .nt-choice:hover {
+  border-color: var(--text);
+  background: var(--surface-2);
+}
+
+[data-skin="brutalist"] .nt-choice:has(.nt-choice-input:checked) {
+  border-color: var(--text);
+  background: var(--bru-hi);
+  color: var(--bru-on-hi);
+  box-shadow: 4px 4px 0 var(--bru-ink);
+}
+
+[data-skin="brutalist"] .nt-choice:has(.nt-choice-input:checked) * {
+  color: var(--bru-on-hi);
+}
+
+[data-skin="brutalist"] .nt-choice--danger {
+  border-style: dashed;
+}
+
+[data-skin="brutalist"] .nt-choice--danger:has(.nt-choice-input:checked) {
+  border-style: solid;
+  background: var(--text);
+  color: var(--bg);
+}
+
+[data-skin="brutalist"] .nt-choice--danger:has(.nt-choice-input:checked) * {
+  color: var(--bg);
+}
+
+[data-skin="brutalist"] .nt-choice-input {
+  width: 20px;
+  height: 20px;
+  border: 3px solid var(--text);
+  border-radius: 0;
+  background: var(--bg);
+}
+
+[data-skin="brutalist"] .nt-choice-input::after {
+  width: 10px;
+  height: 10px;
+  border-radius: 0;
+  background: var(--bru-on-hi);
+}
+
+[data-skin="brutalist"] .nt-choice-input:checked {
+  border-color: var(--bru-on-hi);
+  background: var(--bg);
+}
+
+[data-skin="brutalist"] .nt-mg-list {
+  border: 3px solid var(--text);
+  background: var(--bg);
+}
+
+[data-skin="brutalist"] .nt-mg-row + .nt-mg-row {
+  border-top: 3px solid var(--text);
+}
+
+@keyframes brutalist-blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+/* ==========================================================================
+   Habits: Today
+   ========================================================================== */
+
+[data-skin="brutalist"] .hb-rule {
+  height: 3px;
+  background: var(--text);
+}
+
+[data-skin="brutalist"] .hb-console.is-complete {
+  border-color: var(--text);
+  box-shadow: var(--bru-drop) var(--bru-drop) 0 var(--bru-hi), var(--bru-drop) var(--bru-drop) 0 3px var(--text);
+}
+
+[data-skin="brutalist"] .hb-weeknav {
+  border-bottom: 3px solid var(--text);
+}
+
+[data-skin="brutalist"] .hb-sel {
+  border: 3px solid var(--text);
+  background: var(--bg);
+  color: var(--text);
+}
+
+[data-skin="brutalist"] .hb-sel:hover {
+  border-color: var(--text);
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+[data-skin="brutalist"] .hb-sel.is-future {
+  border-style: dashed;
+}
+
+[data-skin="brutalist"] .hb-sel-wd {
+  font-family: var(--font-sans);
+  font-weight: 800;
+}
+
+[data-skin="brutalist"] .hb-sel-date {
+  font-family: var(--font-display);
+  font-size: 24px;
+  line-height: 1;
+  letter-spacing: 0;
+}
+
+[data-skin="brutalist"] .hb-sel-seg {
+  border-radius: 0;
+  opacity: 0.3;
+}
+
+/* Today: a yellow notch on the top edge; the picked day is the yellow block */
+[data-skin="brutalist"] .hb-sel.is-today::before {
+  top: -3px;
+  height: 6px;
+  border-radius: 0;
+  background: var(--bru-hi);
+  box-shadow: inset 0 0 0 2px var(--text);
+}
+
+[data-skin="brutalist"] .hb-sel[aria-checked="true"] {
+  background: var(--bru-hi);
+  border-color: var(--text);
+  color: var(--bru-on-hi);
+  box-shadow: 4px 4px 0 var(--bru-ink);
+}
+
+[data-skin="brutalist"] .hb-sel[aria-checked="true"] .hb-sel-date {
+  color: var(--bru-on-hi);
+}
+
+[data-skin="brutalist"] .hb-sel[aria-checked="true"].is-today::before {
+  top: 3px;
+  background: var(--bru-on-hi);
+  box-shadow: none;
+}
+
+[data-skin="brutalist"] .hb-dayhead {
+  border-top: 3px solid var(--text);
+  background: none;
+}
+
+/* The dial: no instrument ticks, a fat ring */
+[data-skin="brutalist"] .hb-dial-ticks {
+  display: none;
+}
+
+[data-skin="brutalist"] .hb-dial::before,
+[data-skin="brutalist"] .hb-dial::after {
+  border: 3px solid var(--text);
+  border-radius: 0;
+}
+
+[data-skin="brutalist"] .hb-ring {
+  width: 104px;
+  height: 104px;
+}
+
+[data-skin="brutalist"] .hb-ring svg {
+  overflow: visible;
+}
+
+[data-skin="brutalist"] .hb-ring circle {
+  stroke-width: 8px;
+}
+
+[data-skin="brutalist"] .hb-console.is-complete .ring-fill {
+  animation: none;
+}
+
+[data-skin="brutalist"] .hb-ring-frac {
+  font-family: var(--font-display);
+  font-size: 34px;
+  font-weight: 400;
+  letter-spacing: 0;
+}
+
+[data-skin="brutalist"] .hb-ring-slash,
+[data-skin="brutalist"] .hb-ring-total {
+  font-family: var(--font-display);
+  font-size: 18px;
+  color: var(--text-2);
+}
+
+[data-skin="brutalist"] .hb-ring-sub {
+  font-family: var(--font-sans);
+  font-weight: 800;
+  font-size: 10px;
+  color: var(--text-2);
+}
+
+[data-skin="brutalist"] .hb-dayline {
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+[data-skin="brutalist"] .hb-day-badge::before {
+  border-radius: 0;
+}
+
+[data-skin="brutalist"] .hb-day-badge.tag--solid {
+  animation: none;
+  background: var(--bru-hi);
+  border-color: var(--text);
+  color: var(--bru-on-hi);
+}
+
+[data-skin="brutalist"] .hb-status {
+  color: var(--text);
+  font-weight: 600;
+}
+
+[data-skin="brutalist"] .hb-readouts {
+  border: 3px solid var(--text);
+}
+
+[data-skin="brutalist"] .hb-readout {
+  box-shadow: -3px -3px 0 var(--text);
+}
+
+[data-skin="brutalist"] .hb-readout-value {
+  font-family: var(--font-display);
+  font-size: 30px;
+  font-weight: 400;
+  letter-spacing: 0;
+  line-height: 1.05;
+}
+
+[data-skin="brutalist"] .hb-readout-sub {
+  color: var(--text-2);
+}
+
+[data-skin="brutalist"] .hb-readout-meter .meter-tick {
+  height: 6px;
+}
+
+[data-skin="brutalist"] .hb-cycle-meter .meter-tick {
+  height: 10px;
+}
+
+[data-skin="brutalist"] .hb-cycle-meter .meter-tick.is-on {
+  background: var(--text);
+}
+
+[data-skin="brutalist"] .hb-cycle-meter .meter-tick.is-now {
+  background: var(--bru-hi);
+  box-shadow: inset 0 0 0 2px var(--text);
+  animation: brutalist-blink 1s steps(1) infinite;
+}
+
+/* Day cells and legend swatches */
+[data-skin="brutalist"] .hb-swatch {
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--text);
+  border-radius: 0;
+}
+
+[data-skin="brutalist"] .hb-day {
+  border: 2px solid var(--text);
+  font-weight: 700;
+}
+
+[data-skin="brutalist"] .hb-day[data-state="done"],
+[data-skin="brutalist"] .hb-swatch[data-s="done"] {
+  background: var(--text);
+  border-color: var(--text);
+  color: var(--bg);
+}
+
+[data-skin="brutalist"] .hb-day[data-state="miss"],
+[data-skin="brutalist"] .hb-swatch[data-s="miss"] {
+  background: var(--bg);
+  border-color: var(--text);
+  color: var(--text-3);
+}
+
+/* A miss gets a fat cross */
+[data-skin="brutalist"] .hb-day[data-state="miss"] {
+  background: linear-gradient(to top right, transparent calc(50% - 1.5px), var(--text) calc(50% - 1.5px) calc(50% + 1.5px), transparent calc(50% + 1.5px)),
+    linear-gradient(to bottom right, transparent calc(50% - 1.5px), var(--text) calc(50% - 1.5px) calc(50% + 1.5px), transparent calc(50% + 1.5px)),
+    var(--bg);
+  color: var(--text);
+}
+
+[data-skin="brutalist"] .hb-day[data-state="pending"] {
+  border-style: dashed;
+  border-color: var(--text);
+  color: var(--text);
+}
+
+[data-skin="brutalist"] .hb-day[data-state="rest"],
+[data-skin="brutalist"] .hb-swatch[data-s="rest"],
+[data-skin="brutalist"] .hb-heat-cell[data-s="rest"] {
+  border-color: var(--text-3);
+  color: var(--text-2);
+}
+
+[data-skin="brutalist"] .hb-day[data-state="bonus"],
+[data-skin="brutalist"] .hb-swatch[data-s="bonus"],
+[data-skin="brutalist"] .hb-heat-cell[data-s="bonus"] {
+  background: repeating-linear-gradient(-45deg, var(--bru-hi) 0 3px, var(--bru-on-hi) 3px 6px);
+  border-color: var(--text);
+  color: var(--bru-on-hi);
+}
+
+[data-skin="brutalist"] .hb-day[data-state="bonus"] {
+  text-shadow: 0 0 0 transparent;
+  font-weight: 900;
+}
+
+[data-skin="brutalist"] .hb-day[data-state="pre"] {
+  border-style: dotted;
+  border-color: var(--text-3);
+  color: var(--text-3);
+}
+
+[data-skin="brutalist"] .hb-day[data-state="archived"] {
+  border-color: var(--text-3);
+}
+
+[data-skin="brutalist"] .hb-day[data-state="future"] {
+  color: var(--text-3);
+}
+
+[data-skin="brutalist"] .hb-day[data-state="future"][data-planned="true"] {
+  border-style: dashed;
+  border-color: var(--text);
+  color: var(--text-2);
+}
+
+[data-skin="brutalist"] .hb-day:not(:disabled):hover {
+  border-color: var(--text);
+  box-shadow: 3px 3px 0 var(--text);
+}
+
+[data-skin="brutalist"] .hb-day[data-state="done"].is-today {
+  box-shadow: 3px 3px 0 var(--bru-hi), 3px 3px 0 2px var(--text);
+}
+
+[data-skin="brutalist"] .hb-day-col {
+  border-radius: 0;
+}
+
+[data-skin="brutalist"] .hb-day-col.is-selected {
+  background: var(--surface-2);
+  box-shadow: inset 0 0 0 2px var(--text);
+}
+
+[data-skin="brutalist"] .hb-day-wd {
+  font-family: var(--font-sans);
+  font-weight: 800;
+  color: var(--text-2);
+}
+
+[data-skin="brutalist"] .hb-day-col::after {
+  width: 16px;
+  height: 4px;
+  border-radius: 0;
+}
+
+[data-skin="brutalist"] .hb-day-col.is-today::after {
+  background: var(--text);
+  box-shadow: none;
+}
+
+/* Habit cards */
+[data-skin="brutalist"] .hb-card.is-done {
+  border-color: var(--text);
+  background: var(--bg);
+}
+
+[data-skin="brutalist"] .hb-card.is-future {
+  border-style: dashed;
+  box-shadow: none;
+}
+
+[data-skin="brutalist"] .hb-card-fx {
+  display: none;
+}
+
+[data-skin="brutalist"] .hb-card-dot {
+  border-radius: 0;
+  width: 5px;
+  height: 5px;
+  background: var(--text);
+}
+
+[data-skin="brutalist"] .hb-card-name,
+[data-skin="brutalist"] .hb-name {
+  font-weight: 800;
+}
+
+[data-skin="brutalist"] .hb-check {
+  --size: 44px;
+  border-color: var(--text);
+}
+
+[data-skin="brutalist"] .hb-check::after {
+  border: 3px solid var(--text);
+}
+
+[data-skin="brutalist"] .hb-card.is-done .hb-check {
+  box-shadow: 4px 4px 0 var(--text);
+}
+
+[data-skin="brutalist"] .hb-card.is-miss .hb-check,
+[data-skin="brutalist"] .hb-card.is-future .hb-check {
+  border-style: dashed;
+  border-color: var(--text);
+}
+
+[data-skin="brutalist"] .hb-stats {
+  border-top: 3px solid var(--text);
+  border-bottom: 3px solid var(--text);
+}
+
+[data-skin="brutalist"] .hb-stat + .hb-stat {
+  border-left: 3px solid var(--text);
+}
+
+[data-skin="brutalist"] .hb-stat-value {
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 400;
+  letter-spacing: 0;
+  line-height: 1.05;
+}
+
+[data-skin="brutalist"] .hb-flame {
+  color: var(--text-3);
+}
+
+[data-skin="brutalist"] .hb-flame.is-lit {
+  color: var(--text);
+  filter: none;
+}
+
+/* Heatmap (history) */
+[data-skin="brutalist"] .hb-heat-month,
+[data-skin="brutalist"] .hb-heat-wd {
+  font-weight: 700;
+}
+
+[data-skin="brutalist"] .hb-heat-cell {
+  border-radius: 0;
+}
+
+[data-skin="brutalist"] .hb-heat-cell[data-l="4"] {
+  box-shadow: none;
+}
+
+[data-skin="brutalist"] .hb-fold {
+  color: var(--text);
+  font-weight: 800;
+}
+
+[data-skin="brutalist"] .hb-fold:hover {
+  background: var(--bru-hi);
+  color: var(--bru-on-hi);
+}
+
+[data-skin="brutalist"] .hb-np-list,
+[data-skin="brutalist"] .hb-arch-list {
+  border: 3px solid var(--text);
+  background: var(--bg);
+}
+
+[data-skin="brutalist"] .hb-np-row + .hb-np-row,
+[data-skin="brutalist"] .hb-arch-row + .hb-arch-row {
+  border-top: 3px solid var(--text);
+}
+
+[data-skin="brutalist"] .hb-np-row.is-bonus .hb-np-check {
+  background: repeating-linear-gradient(-45deg, var(--bru-hi) 0 3px, var(--bru-on-hi) 3px 6px);
+  border-color: var(--text);
+}
+
+[data-skin="brutalist"] .hb-suggest-hint {
+  border-left: 3px solid var(--text);
+  font-weight: 700;
+}
+
+/* ==========================================================================
+   Habits: Week plan
+   ========================================================================== */
+
+[data-skin="brutalist"] .hb-plan-head,
+[data-skin="brutalist"] .hb-plan-foot {
+  border-color: var(--text);
+  border-width: 3px;
+}
+
+[data-skin="brutalist"] .hb-plan-table tbody > tr > * {
+  border-top: 2px solid var(--text);
+}
+
+[data-skin="brutalist"] .hb-plan-corner,
+[data-skin="brutalist"] .hb-plan-rowhead {
+  background: var(--bg);
+  box-shadow: inset -3px 0 0 var(--text);
+}
+
+/* .hb-plan-table th zeroes the corner's own padding: give the "Habit" caption its inset back */
+[data-skin="brutalist"] .hb-plan-table .hb-plan-corner {
+  padding: var(--space-2) var(--space-4);
+}
+
+@media (max-width: 640px) {
+  [data-skin="brutalist"] .hb-plan-table .hb-plan-corner {
+    padding: var(--space-2);
+  }
+}
+
+[data-skin="brutalist"] .hb-plan-th.is-today,
+[data-skin="brutalist"] .hb-plan-td.is-today {
+  background: var(--surface-2);
+}
+
+[data-skin="brutalist"] .hb-plan-colbtn {
+  border: 2px solid transparent;
+  color: var(--text);
+}
+
+[data-skin="brutalist"] .hb-plan-colbtn:hover {
+  background: var(--bru-hi);
+  border-color: var(--text);
+  color: var(--bru-on-hi);
+}
+
+[data-skin="brutalist"] .hb-plan-wd {
+  font-family: var(--font-sans);
+  font-weight: 800;
+}
+
+[data-skin="brutalist"] .hb-plan-th.is-today .hb-plan-colbtn::before {
+  top: -2px;
+  height: 6px;
+  border-radius: 0;
+  background: var(--bru-hi);
+  box-shadow: inset 0 0 0 2px var(--text);
+}
+
+[data-skin="brutalist"] .hb-plan-unit {
+  font-weight: 700;
+  color: var(--text-2);
+}
+
+[data-skin="brutalist"] .hb-plan-bar {
+  height: 6px;
+  border: 1px solid var(--text);
+  border-radius: 0;
+  background: var(--bg);
+}
+
+[data-skin="brutalist"] .hb-plan-bar-fill {
+  background: var(--text);
+}
+
+[data-skin="brutalist"] .hb-plan-acts {
+  background: var(--bg);
+}
+
+[data-skin="brutalist"] .hb-plan-name {
+  font-weight: 700;
+}
+
+[data-skin="brutalist"] .hb-plan-row:hover > td {
+  background: var(--surface-2);
+}
+
+[data-skin="brutalist"] .hb-plan-row:hover > td.is-today {
+  background: var(--surface-3);
+}
+
+[data-skin="brutalist"] .hb-plan-cell {
+  border: 2px solid var(--text);
+  background: var(--bg);
+}
+
+[data-skin="brutalist"] .hb-plan-cell:hover {
+  border-color: var(--text);
+  box-shadow: 3px 3px 0 var(--text);
+}
+
+[data-skin="brutalist"] .hb-plan-cell[aria-pressed="true"] {
+  background: var(--bru-hi);
+  border-color: var(--text);
+  color: var(--bru-on-hi);
+  box-shadow: 3px 3px 0 var(--bru-ink);
+}
+
+[data-skin="brutalist"] .hb-plan-cell.is-draft {
+  border-style: dashed;
+}
+
+[data-skin="brutalist"] .hb-plan-cell.is-draft[aria-pressed="true"] {
+  background: repeating-linear-gradient(-45deg, var(--bru-hi) 0 4px, var(--bg) 4px 8px);
+  border-color: var(--text);
+  color: var(--text);
+  box-shadow: none;
+}
+
+[data-skin="brutalist"] .hb-plan-addrow > * {
+  border-top: 3px dashed var(--text);
+}
+
+/* Habit form */
+[data-skin="brutalist"] .hb-f-name[aria-invalid="true"] {
+  border-style: dashed;
+  border-color: var(--text);
+  background: var(--bg);
+}
+
+[data-skin="brutalist"] .hb-f-error {
+  font-weight: 700;
+}
+
+[data-skin="brutalist"] .hb-wd {
+  border: 3px solid var(--text);
+  background: var(--bg);
+  color: var(--text);
+  font-weight: 800;
+}
+
+[data-skin="brutalist"] .hb-wd:hover {
+  border-color: var(--text);
+  background: var(--surface-2);
+}
+
+[data-skin="brutalist"] .hb-wd[aria-pressed="true"] {
+  background: var(--bru-hi);
+  border-color: var(--text);
+  color: var(--bru-on-hi);
+  box-shadow: 3px 3px 0 var(--bru-ink);
+}
+
+[data-skin="brutalist"] .hb-wd:disabled {
+  border-style: dotted;
+}
+
+[data-skin="brutalist"] .hb-f-life {
+  border-top: 3px solid var(--text);
+}
+
+[data-skin="brutalist"] .hb-dm-names {
+  border: 3px solid var(--text);
+}
+
+[data-skin="brutalist"] .hb-dm-names li + li {
+  border-top: 2px solid var(--text);
+}
+
+/* ==========================================================================
+   Habits: LIFE index chart and the top-bar ticker
+   ========================================================================== */
+
+[data-skin="brutalist"] .hbt-chart {
+  background: var(--bg);
+}
+
+[data-skin="brutalist"] .hbt-sym,
+[data-skin="brutalist"] .hbt-tk-sym {
+  border: 2px solid var(--text);
+  background: var(--bru-hi);
+  color: var(--bru-on-hi);
+  font-family: var(--font-sans);
+  font-weight: 900;
+}
+
+[data-skin="brutalist"] .hbt-name {
+  font-weight: 800;
+}
+
+[data-skin="brutalist"] .hbt-price {
+  font-family: var(--font-display);
+  font-size: 64px;
+  font-weight: 400;
+  letter-spacing: 0;
+}
+
+[data-skin="brutalist"] .hbt-chart.is-collapsed .hbt-price {
+  font-size: 34px;
+}
+
+[data-skin="brutalist"] .hbt-chg {
+  font-weight: 700;
+}
+
+[data-skin="brutalist"] .hbt-status.is-live {
+  border-color: var(--text);
+  box-shadow: 3px 3px 0 var(--text);
+}
+
+[data-skin="brutalist"] .hbt-status.is-live::before {
+  border-radius: 0;
+  width: 7px;
+  height: 7px;
+  box-shadow: none;
+  animation: brutalist-blink 1s steps(1) infinite;
+}
+
+[data-skin="brutalist"] .hbt-status.is-rest,
+[data-skin="brutalist"] .hbt-status.is-closed {
+  border-style: dashed;
+  color: var(--text-2);
+}
+
+[data-skin="brutalist"] .hbt-readout {
+  color: var(--text-2);
+}
+
+[data-skin="brutalist"] .hbt-ro-v {
+  font-weight: 700;
+}
+
+[data-skin="brutalist"] .hbt-stage:focus-visible {
+  outline: 3px solid var(--line-focus);
+}
+
+[data-skin="brutalist"] .hbt-svg text {
+  font-weight: 700;
+}
+
+/* Gridlines stay quiet; the axis rule is ink */
+[data-skin="brutalist"] .hbt-grid {
+  stroke: var(--heat-1);
+  stroke-dasharray: 2 4;
+}
+
+[data-skin="brutalist"] .hbt-rule {
+  stroke: var(--text);
+  stroke-width: 2;
+}
+
+[data-skin="brutalist"] .hbt-tick,
+[data-skin="brutalist"] .hbt-xlabel {
+  fill: var(--text-2);
+}
+
+[data-skin="brutalist"] .hbt-xlabel.is-today {
+  fill: var(--text);
+}
+
+/* The area under the line: flat hazard yellow, no fade */
+[data-skin="brutalist"] .hbt-stop-a,
+[data-skin="brutalist"] .hbt-stop-b {
+  stop-color: var(--bru-hi);
+  stop-opacity: 1;
+}
+
+[data-skin="brutalist"] .hbt-line {
+  stroke: var(--text);
+  stroke-width: 3;
+  stroke-linejoin: miter;
+  stroke-linecap: square;
+}
+
+[data-skin="brutalist"] .hbt-ma {
+  stroke: var(--text);
+  stroke-width: 1.5;
+  stroke-dasharray: 5 3;
+}
+
+[data-skin="brutalist"] .hbt-pre,
+[data-skin="brutalist"] .hbt-flat {
+  stroke: var(--text-3);
+}
+
+[data-skin="brutalist"] .hbt-end,
+[data-skin="brutalist"] .hbt-xh-dot {
+  fill: var(--bru-hi);
+  stroke: var(--text);
+  stroke-width: 6;
+}
+
+[data-skin="brutalist"] .hbt-halo {
+  display: none;
+}
+
+[data-skin="brutalist"] .hbt-wick-up,
+[data-skin="brutalist"] .hbt-wick-down,
+[data-skin="brutalist"] .hbt-rest {
+  stroke-width: 2;
+}
+
+[data-skin="brutalist"] .hbt-wick-up {
+  stroke: var(--text);
+}
+
+[data-skin="brutalist"] .hbt-body-up {
+  fill: var(--bru-hi);
+  stroke: var(--text);
+  stroke-width: 2;
+}
+
+[data-skin="brutalist"] .hbt-body-down {
+  stroke: var(--text);
+  stroke-width: 2;
+}
+
+[data-skin="brutalist"] .hbt-body-down-fill {
+  fill: var(--text);
+}
+
+[data-skin="brutalist"] .hbt-body-live {
+  stroke: var(--text);
+  stroke-width: 2;
+}
+
+[data-skin="brutalist"] .hbt-vol-plan {
+  fill: var(--heat-1);
+}
+
+[data-skin="brutalist"] .hbt-vol-done {
+  fill: var(--text);
+}
+
+[data-skin="brutalist"] .hbt-vol-hot {
+  fill: var(--bru-hi);
+  stroke: var(--text);
+  stroke-width: 2;
+}
+
+[data-skin="brutalist"] .hbt-last-line {
+  stroke: var(--text);
+  stroke-opacity: 1;
+  stroke-dasharray: 3 3;
+}
+
+[data-skin="brutalist"] .hbt-tag rect {
+  fill: var(--bru-hi);
+  stroke: var(--text);
+  stroke-width: 2;
+}
+
+[data-skin="brutalist"] .hbt-tag text {
+  fill: var(--bru-on-hi);
+  font-weight: 700;
+}
+
+[data-skin="brutalist"] .hbt-tag.is-closed rect {
+  fill: var(--bg);
+  stroke: var(--text);
+}
+
+[data-skin="brutalist"] .hbt-tag.is-closed text {
+  fill: var(--text-2);
+}
+
+[data-skin="brutalist"] .hbt-xh-line {
+  stroke: var(--text);
+  stroke-width: 2;
+}
+
+[data-skin="brutalist"] .hbt-pill-bg {
+  fill: var(--text);
+}
+
+[data-skin="brutalist"] .hbt-pill-text {
+  fill: var(--bg);
+  font-weight: 700;
+}
+
+[data-skin="brutalist"] .hbt-closed-card {
+  border: 3px dashed var(--text);
+  background: var(--bg);
+}
+
+[data-skin="brutalist"] .hbt-key {
+  font-family: var(--font-sans);
+  font-weight: 800;
+  color: var(--text);
+}
+
+[data-skin="brutalist"] .hbt-swatch.is-line {
+  height: 4px;
+  border-radius: 0;
+  background: var(--text);
+}
+
+[data-skin="brutalist"] .hbt-swatch.is-ma {
+  height: 0;
+  border-top: 2px dashed var(--text);
+  background: none;
+}
+
+[data-skin="brutalist"] .hbt-swatch.is-up {
+  background: var(--bru-hi);
+  border: 2px solid var(--text);
+  border-radius: 0;
+}
+
+[data-skin="brutalist"] .hbt-swatch.is-down {
+  border: 2px solid var(--text);
+  border-radius: 0;
+}
+
+[data-skin="brutalist"] .hbt-swatch.is-live {
+  border: 2px solid var(--text);
+  border-radius: 0;
+}
+
+[data-skin="brutalist"] .hbt-swatch.is-done {
+  background: var(--text);
+  border-radius: 0;
+}
+
+[data-skin="brutalist"] .hbt-swatch.is-plan {
+  border-radius: 0;
+}
+
+[data-skin="brutalist"] .hbt-head .hbt-quote {
+  border-color: var(--text);
+}
+
+@container hbt (min-width: 760px) {
+  [data-skin="brutalist"] .hbt-quote {
+    border-left: 3px solid var(--text);
+  }
+}
+
+@container hbt (max-width: 559px) {
+  [data-skin="brutalist"] .hbt-price {
+    font-size: 44px;
+  }
+}
+
+/* Top-bar ticker */
+[data-skin="brutalist"] .hbt-ticker {
+  border: 2px solid var(--text);
+  background: var(--bg);
+  font-weight: 700;
+}
+
+/* No index yet: the symbol drops its yellow (gray on yellow would fail contrast) */
+[data-skin="brutalist"] .hbt-ticker.is-empty .hbt-tk-sym {
+  border-style: dashed;
+  border-color: var(--text-2);
+  background: transparent;
+  color: var(--text-2);
+}
+
+/* Squeezed by a full top bar, the ticker clips its own text instead of running under its neighbours */
+[data-skin="brutalist"] .topbar .hbt-ticker {
+  overflow: hidden;
+}
+
+@media (max-width: 640px) {
+  [data-skin="brutalist"] .hbt-ticker {
+    gap: 5px;
+    padding: 0 6px 0 4px;
+  }
+
+  [data-skin="brutalist"] .hbt-tk-sym {
+    padding: 0 3px;
+    letter-spacing: 0.06em;
+  }
+}
+
+[data-skin="brutalist"] .hbt-ticker:hover {
+  border-color: var(--text);
+  background: var(--bru-hi);
+  color: var(--bru-on-hi);
+  box-shadow: 3px 3px 0 var(--text);
+}
+
+[data-skin="brutalist"] .hbt-ticker:hover .hbt-tk-price,
+[data-skin="brutalist"] .hbt-ticker:hover .hbt-tk-chg {
+  color: var(--bru-on-hi);
+}
+
+[data-skin="brutalist"] .hbt-ticker:hover .hbt-spark-line {
+  stroke: var(--bru-on-hi);
+}
+
+[data-skin="brutalist"] .hbt-tk-dot {
+  border-radius: 0;
+  width: 7px;
+  height: 7px;
+  background: var(--text-3);
+}
+
+[data-skin="brutalist"] .hbt-ticker.is-live .hbt-tk-dot {
+  background: var(--text);
+  box-shadow: none;
+  animation: brutalist-blink 1s steps(1) infinite;
+}
+
+[data-skin="brutalist"] .hbt-tk-price {
+  font-weight: 700;
+}
+
+[data-skin="brutalist"] .hbt-spark-line {
+  stroke: var(--text);
+  stroke-width: 2;
+  stroke-linejoin: miter;
+  stroke-linecap: square;
+}
+
+[data-skin="brutalist"] .hbt-spark-dot {
+  fill: var(--text);
+}
+
+@keyframes brutalist-flash {
+  0%,
+  100% {
+    background: transparent;
+  }
+  20% {
+    background: var(--bru-hi);
+  }
+}
+
+[data-skin="brutalist"] .hbt-price.is-flash-up,
+[data-skin="brutalist"] .hbt-tk-price.is-flash-up {
+  animation: brutalist-flash 720ms steps(2);
+}
+
+/* ==========================================================================
+   Habits: Insights
+   ========================================================================== */
+
+[data-skin="brutalist"] .hbi-table-btn[aria-pressed="true"] {
+  background: var(--bru-hi);
+  border-color: var(--text);
+  color: var(--bru-on-hi);
+}
+
+[data-skin="brutalist"] .hbi-table-btn[aria-pressed="true"]:hover {
+  box-shadow: 5px 5px 0 var(--text);
+}
+
+[data-skin="brutalist"] .hbi-tile::before {
+  top: -3px;
+  width: 40px;
+  height: 6px;
+  background: var(--bru-hi);
+  box-shadow: inset 0 0 0 2px var(--text);
+  opacity: 1;
+}
+
+[data-skin="brutalist"] .hbi-tile-value {
+  font-family: var(--font-display);
+  font-size: 46px;
+  font-weight: 400;
+  letter-spacing: 0;
+  line-height: 1;
+}
+
+[data-skin="brutalist"] .hbi-tile-unit {
+  font-family: var(--font-sans);
+  font-weight: 800;
+  color: var(--text-2);
+}
+
+[data-skin="brutalist"] .hbi-tile.is-up .hbi-dir {
+  text-shadow: none;
+}
+
+[data-skin="brutalist"] .hbi-card-title {
+  font-family: var(--font-display);
+  font-size: 26px;
+  font-weight: 400;
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+  line-height: 1;
+}
+
+[data-skin="brutalist"] .hbi-card-index {
+  padding: 1px 5px;
+  align-self: center;
+  background: var(--text);
+  color: var(--bg);
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+[data-skin="brutalist"] .hbi-legend-item {
+  font-family: var(--font-sans);
+  font-weight: 800;
+  color: var(--text);
+}
+
+[data-skin="brutalist"] .hbi-swatch--col,
+[data-skin="brutalist"] .hbi-swatch--planned {
+  border-radius: 0;
+  border: 2px solid var(--text);
+}
+
+[data-skin="brutalist"] .hbi-swatch--col {
+  background: var(--bru-hi);
+}
+
+[data-skin="brutalist"] .hbi-swatch--line,
+[data-skin="brutalist"] .hbi-swatch--trend {
+  height: 4px;
+  border-radius: 0;
+}
+
+[data-skin="brutalist"] .hbi-swatch--trend {
+  height: 0;
+  border-top: 2px dashed var(--text);
+  background: none;
+}
+
+[data-skin="brutalist"] .hbi-swatch--area {
+  border-top: 3px solid var(--text);
+  background: var(--bru-hi);
+}
+
+[data-skin="brutalist"] .hbi-note {
+  border: 3px dashed var(--text);
+  background: var(--bg);
+  color: var(--text);
+}
+
+[data-skin="brutalist"] .hbi-note .icon {
+  color: var(--text);
+}
+
+/* Plots: quiet dashed grid, ink baseline, yellow bars with ink outlines */
+[data-skin="brutalist"] .hbi-grid line {
+  stroke: var(--heat-1);
+  stroke-dasharray: 2 4;
+}
+
+[data-skin="brutalist"] .hbi-baseline {
+  stroke: var(--text);
+  stroke-width: 3;
+}
+
+/* Axis labels in the grotesk: Space Mono is too wide for "5 habits" under each weekday */
+[data-skin="brutalist"] .hbi-axis {
+  font-family: var(--font-sans);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  fill: var(--text-2);
+}
+
+[data-skin="brutalist"] .hbi-axis.is-today {
+  fill: var(--text);
+}
+
+[data-skin="brutalist"] .hbi-end,
+[data-skin="brutalist"] .hbi-val {
+  font-weight: 700;
+  fill: var(--text);
+}
+
+[data-skin="brutalist"] .hbi-col,
+[data-skin="brutalist"] .hbi-zero {
+  fill: var(--bru-hi);
+  stroke: var(--text);
+  stroke-width: 2;
+}
+
+[data-skin="brutalist"] .hbi-col--planned {
+  fill: var(--heat-1);
+  stroke: none;
+}
+
+[data-skin="brutalist"] .hbi-col.is-pending,
+[data-skin="brutalist"] .hbi-zero.is-pending {
+  fill: var(--bg);
+  fill-opacity: 1;
+  stroke-dasharray: 3 2;
+}
+
+[data-skin="brutalist"] .hbi-area {
+  fill: var(--bru-hi);
+  fill-opacity: 1;
+}
+
+[data-skin="brutalist"] .hbi-line {
+  stroke: var(--text);
+  stroke-width: 3;
+  stroke-linejoin: miter;
+  stroke-linecap: square;
+}
+
+[data-skin="brutalist"] .hbi-line--trend {
+  stroke: var(--text);
+  stroke-width: 2;
+  stroke-dasharray: 5 3;
+}
+
+[data-skin="brutalist"] .hbi-halo {
+  stroke: var(--bg);
+  stroke-opacity: 1;
+}
+
+[data-skin="brutalist"] .hbi-pt,
+[data-skin="brutalist"] .hbi-dot {
+  fill: var(--text);
+}
+
+[data-skin="brutalist"] .hbi-dot {
+  stroke: var(--bg);
+}
+
+[data-skin="brutalist"] .hbi-dot--live {
+  fill: var(--bru-hi);
+  stroke: var(--text);
+}
+
+[data-skin="brutalist"] .hbi-band {
+  fill: var(--text);
+  fill-opacity: 0.12;
+}
+
+[data-skin="brutalist"] .hbi-slot.is-hot .hbi-col:not(.hbi-col--planned),
+[data-skin="brutalist"] .hbi-slot.is-hot .hbi-zero {
+  filter: none;
+  stroke-width: 4;
+}
+
+[data-skin="brutalist"] .hbi-cross {
+  stroke: var(--text);
+  stroke-width: 2;
+}
+
+[data-skin="brutalist"] .hbi-plot:focus-visible {
+  outline: 3px solid var(--line-focus);
+}
+
+/* Tooltip */
+[data-skin="brutalist"] .hbi-tip {
+  border: 3px solid var(--text);
+  background: var(--bg);
+  box-shadow: 6px 6px 0 var(--text);
+}
+
+[data-skin="brutalist"] .hbi-tip-value {
+  font-family: var(--font-display);
+  font-size: 30px;
+  font-weight: 400;
+  letter-spacing: 0;
+}
+
+[data-skin="brutalist"] .hbi-tip-rows,
+[data-skin="brutalist"] .hbi-tip-rows + .hbi-tip-note,
+[data-skin="brutalist"] .hbi-tip-date + .hbi-tip-note {
+  border-top: 2px solid var(--text);
+}
+
+[data-skin="brutalist"] .hbi-key {
+  height: 4px;
+  border-radius: 0;
+  background: var(--text);
+}
+
+/* Table */
+[data-skin="brutalist"] .hbi-table-wrap {
+  border: 3px solid var(--text);
+}
+
+[data-skin="brutalist"] .hbi-table th,
+[data-skin="brutalist"] .hbi-table td {
+  border-bottom: 2px solid var(--text);
+}
+
+[data-skin="brutalist"] .hbi-table thead th {
+  background: var(--text);
+  color: var(--bg);
+  font-family: var(--font-sans);
+  font-weight: 800;
+}
+
+[data-skin="brutalist"] .hbi-table tbody th {
+  font-weight: 700;
+}
+
+[data-skin="brutalist"] .hbi-table tbody tr:hover {
+  background: var(--bru-hi);
+  color: var(--bru-on-hi);
+}
+
+[data-skin="brutalist"] .hbi-table tbody tr:hover > * {
+  color: var(--bru-on-hi);
+}
+
+/* Ranking */
+[data-skin="brutalist"] .hbi-rank-row {
+  border-top: 2px solid var(--text);
+}
+
+[data-skin="brutalist"] .hbi-rank-row:hover {
+  background: var(--surface-2);
+}
+
+[data-skin="brutalist"] .hbi-rank-pos {
+  font-weight: 700;
+  color: var(--text-2);
+}
+
+[data-skin="brutalist"] .hbi-rank-row:first-child .hbi-rank-pos {
+  padding: 0 3px;
+  background: var(--bru-hi);
+  color: var(--bru-on-hi);
+}
+
+[data-skin="brutalist"] .hbi-rank-text {
+  font-weight: 700;
+}
+
+[data-skin="brutalist"] .hbi-rank-pct,
+[data-skin="brutalist"] .hbi-rank-streak {
+  font-weight: 700;
+}
+
+[data-skin="brutalist"] .hbi-rank-streak.is-lit .icon {
+  filter: none;
+}
+
+/* ==========================================================================
+   Yellow blocks: the ink tokens re-pointed at black inside them, so every
+   label, count, glyph and dot they hold reads on the yellow in light AND dark
+   ========================================================================== */
+
+[data-skin="brutalist"] .nav-item[aria-current="page"],
+[data-skin="brutalist"] .nt-item[aria-current="true"],
+[data-skin="brutalist"] .nt-rail-item[aria-current="true"],
+[data-skin="brutalist"] .nt-chip[aria-current="true"],
+[data-skin="brutalist"] .nt-srow.is-drop .nt-rail-item,
+[data-skin="brutalist"] .nt-drag-ghost.is-armed,
+[data-skin="brutalist"] .nt-choice:not(.nt-choice--danger):has(.nt-choice-input:checked),
+[data-skin="brutalist"] .hb-sel[aria-checked="true"],
+[data-skin="brutalist"] .tk-stat.is-alert,
+[data-skin="brutalist"] .tk-stat--progress.is-complete,
+[data-skin="brutalist"] .skin-card[aria-checked="true"],
+[data-skin="brutalist"] .nt-card[aria-current="true"],
+[data-skin="brutalist"] .nt-lift.is-armed .nt-card,
+[data-skin="brutalist"] .nt-lift.is-armed .nt-lift-pill,
+[data-skin="brutalist"] .nt-pager.is-docking .nt-pager-chip.is-drop,
+[data-skin="brutalist"] .nt-col.is-drop > .nt-col-head,
+[data-skin="brutalist"] .nt-col.is-drop > .nt-col-strip,
+[data-skin="brutalist"] .cal-month:not(.is-compact) .cal-cell.is-today .cal-cell-head,
+[data-skin="brutalist"] button.cal-dh-btn:hover,
+[data-skin="brutalist"] .cal-ag-date:hover,
+[data-skin="brutalist"] .cal-ed-style.is-on,
+[data-skin="brutalist"] .cal-ed-scope-opt:not(.cal-ed-scope-opt--danger):hover,
+[data-skin="brutalist"] .cal-ed-scope-opt:not(.cal-ed-scope-opt--danger):focus-visible,
+[data-skin="brutalist"] .cal-ed-notice,
+[data-skin="brutalist"] [data-drop-tray].is-drop,
+[data-skin="brutalist"] .hm-day.is-today .hm-day-head,
+[data-skin="brutalist"] .hm-pomo[data-status="running"] .hm-pomo-digits,
+[data-skin="brutalist"] .hm-graph-avg,
+[data-skin="brutalist"] .pm-preset[aria-pressed="true"],
+[data-skin="brutalist"] .pm-timer[data-status="running"] .pm-dial-phase,
+[data-skin="brutalist"] .pm-mini[data-status="running"][data-phase="focus"] {
+  --text: #000000;
+  --text-2: #000000;
+  --text-3: #262626;
+  --text-4: #3d3d3d;
+  --line: #000000;
+  --line-strong: #000000;
+  --accent: #000000;
+  --accent-ink: #ffe600;
+  /* "Paper" inside is the yellow itself, so outlined swatches and labels read as outlines */
+  --bg: #ffe600;
+  --surface-solid: #ffe600;
+  color: #000000;
+}
+
+/* ==========================================================================
+   Notes: board layout
+   ========================================================================== */
+
+/* The slim board header still gets a big blunt title */
+[data-skin="brutalist"] .nt-view[data-layout="board"] .page-title {
+  font-size: 48px;
+}
+
+[data-skin="brutalist"] .nt-board-head {
+  border-bottom: 3px solid var(--text);
+}
+
+[data-skin="brutalist"] .nt-board-manage {
+  color: var(--text);
+}
+
+[data-skin="brutalist"] .nt-board-count {
+  color: var(--text);
+  font-weight: 800;
+}
+
+[data-skin="brutalist"] .nt-board-tip {
+  color: var(--text-2);
+}
+
+/* Pager: in-view columns are solid stamps, out-of-view ones dashed */
+[data-skin="brutalist"] .nt-pager-chip:not(.is-inview) {
+  border-style: dashed;
+  color: var(--text-2);
+  box-shadow: none;
+}
+
+[data-skin="brutalist"] .nt-pager-chip.is-inview {
+  border-color: var(--text);
+  background: var(--bg);
+  color: var(--text);
+  box-shadow: 3px 3px 0 var(--text);
+}
+
+[data-skin="brutalist"] .nt-pager-chip.is-inview svg {
+  color: var(--text);
+}
+
+[data-skin="brutalist"] .nt-pager-chip:hover {
+  background: var(--bru-hi);
+  color: var(--bru-on-hi);
+}
+
+[data-skin="brutalist"] .nt-pager-chip:hover svg,
+[data-skin="brutalist"] .nt-pager-chip:hover .nt-chip-count {
+  color: var(--bru-on-hi);
+}
+
+[data-skin="brutalist"] .nt-pager.is-docking .nt-pager-label {
+  color: var(--text);
+  font-weight: 800;
+}
+
+[data-skin="brutalist"] .nt-pager.is-docking .nt-pager-chip {
+  border: 3px dashed var(--text);
+  background: var(--bg);
+  color: var(--text);
+  box-shadow: none;
+}
+
+[data-skin="brutalist"] .nt-pager.is-docking .nt-pager-chip.is-home {
+  background: repeating-linear-gradient(-45deg, var(--hatch) 0 2px, transparent 2px 8px), var(--bg);
+  color: var(--text-2);
+}
+
+[data-skin="brutalist"] .nt-pager.is-docking .nt-pager-chip.is-drop {
+  border-style: solid;
+  border-color: var(--text);
+  background: var(--bru-hi);
+  box-shadow: 4px 4px 0 var(--bru-ink);
+}
+
+[data-skin="brutalist"] .nt-pager.is-docking .nt-pager-chip.is-drop :is(svg, .nt-chip-count, .nt-chip-name) {
+  color: var(--bru-on-hi);
+}
+
+/* Columns: slabs with a ruled head and a yellow tick on the rule */
+[data-skin="brutalist"] .nt-col {
+  border: 3px solid var(--text);
+  background: var(--bg);
+  transition: none;
+}
+
+[data-skin="brutalist"] .nt-col-head {
+  border-bottom: 3px solid var(--text);
+}
+
+[data-skin="brutalist"] .nt-col-head::after {
+  bottom: -3px;
+  width: 28px;
+  height: 3px;
+  background: var(--bru-hi);
+}
+
+[data-skin="brutalist"] .nt-col-icon {
+  color: var(--text);
+}
+
+/* Column names in the condensed display face: as loud as the page title, and a long
+   section name fits where a wide grotesk would already be cut */
+[data-skin="brutalist"] .nt-col-name,
+[data-skin="brutalist"] .nt-col-stripname {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 400;
+  line-height: 1.15;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: var(--text);
+}
+
+[data-skin="brutalist"] .nt-col-count {
+  border: 2px solid var(--text);
+  font-weight: 700;
+  color: var(--text);
+}
+
+[data-skin="brutalist"] .nt-col-head .btn {
+  color: var(--text);
+}
+
+[data-skin="brutalist"] .nt-col-list {
+  gap: 8px;
+}
+
+[data-skin="brutalist"] .nt-col-empty {
+  border: 3px dashed var(--text);
+  background: none;
+  font-family: var(--font-sans);
+  font-weight: 800;
+  color: var(--text-2);
+}
+
+[data-skin="brutalist"] .nt-col-new {
+  border: 3px dashed transparent;
+  font-family: var(--font-sans);
+  font-weight: 800;
+  color: var(--text-2);
+}
+
+[data-skin="brutalist"] .nt-col-new:hover {
+  border-style: solid;
+  border-color: var(--text);
+  background: var(--bru-hi);
+  color: var(--bru-on-hi);
+}
+
+[data-skin="brutalist"] .nt-col.is-collapsed > .nt-col-strip {
+  color: var(--text);
+}
+
+[data-skin="brutalist"] .nt-col-strip:hover {
+  background: var(--bru-hi);
+}
+
+[data-skin="brutalist"] .nt-col-strip:hover :is(.nt-col-stripname, .nt-col-icon, .nt-col-count) {
+  border-color: var(--bru-on-hi);
+  color: var(--bru-on-hi);
+}
+
+[data-skin="brutalist"] .nt-col-addsection {
+  border: 3px dashed var(--text);
+  color: var(--text);
+}
+
+[data-skin="brutalist"] .nt-col-addsection:hover {
+  border-style: solid;
+  border-color: var(--text);
+  background: var(--bru-hi);
+  color: var(--bru-on-hi);
+}
+
+[data-skin="brutalist"] .nt-col-addsection-label {
+  font-family: var(--font-sans);
+  font-weight: 800;
+}
+
+/* Cards */
+[data-skin="brutalist"] .nt-card {
+  border: 3px solid var(--text);
+  background: var(--bg);
+  color: var(--text-2);
+  transition: none;
+}
+
+[data-skin="brutalist"] .nt-card:hover {
+  border-color: var(--text);
+  background: var(--bg);
+  color: var(--text);
+  box-shadow: 4px 4px 0 var(--text);
+}
+
+[data-skin="brutalist"] .nt-card.is-pressing {
+  border-color: var(--text);
+  background: var(--surface-2);
+  box-shadow: none;
+}
+
+/* The note open in the panel: the same yellow block as the list's open note */
+[data-skin="brutalist"] .nt-card[aria-current="true"] {
+  border-color: #000000;
+  background: var(--bru-hi);
+  box-shadow: 4px 4px 0 var(--bru-ink);
+}
+
+[data-skin="brutalist"] .nt-card-title {
+  font-weight: 700;
+}
+
+[data-skin="brutalist"] .nt-card-excerpt {
+  color: var(--text-2);
+}
+
+[data-skin="brutalist"] .nt-card-grip {
+  color: var(--text-3);
+}
+
+[data-skin="brutalist"] .nt-card-pin {
+  border: 2px solid var(--text);
+  font-weight: 800;
+  color: var(--text);
+}
+
+[data-skin="brutalist"] .nt-card-menu:hover,
+[data-skin="brutalist"] .nt-card-menu[aria-expanded="true"] {
+  background: var(--bru-hi);
+  border-color: #000000;
+  color: var(--bru-on-hi);
+}
+
+/* Dragging a card */
+[data-skin="brutalist"] .nt-board-scroll.is-dragging .nt-col[data-col] {
+  border-style: dashed;
+  border-color: var(--text);
+}
+
+[data-skin="brutalist"] .nt-col.is-drop,
+[data-skin="brutalist"] .nt-board-scroll.is-dragging .nt-col.is-drop {
+  border-style: solid;
+  border-color: var(--text);
+  background: repeating-linear-gradient(-45deg, var(--bru-hi) 0 4px, transparent 4px 12px), var(--bg);
+  box-shadow: 6px 6px 0 var(--text);
+}
+
+[data-skin="brutalist"] .nt-col.is-drop > .nt-col-head,
+[data-skin="brutalist"] .nt-col.is-drop > .nt-col-strip {
+  background: var(--bru-hi);
+}
+
+[data-skin="brutalist"] .nt-col.is-drop .nt-col-new {
+  background: var(--bg);
+}
+
+[data-skin="brutalist"] .nt-col.is-home {
+  background: repeating-linear-gradient(-45deg, var(--hatch) 0 2px, transparent 2px 9px), var(--bg);
+}
+
+[data-skin="brutalist"] .nt-card-slot {
+  border: 3px dashed var(--text);
+  background: repeating-linear-gradient(-45deg, var(--bru-hi) 0 6px, var(--bg) 6px 12px);
+  box-shadow: none;
+}
+
+[data-skin="brutalist"] .nt-card-row.is-drag-source .nt-card {
+  border-style: dashed;
+  border-color: var(--text);
+  opacity: 0.45;
+}
+
+[data-skin="brutalist"] .nt-lift .nt-card {
+  border-color: var(--text);
+  background: var(--bg);
+  box-shadow: 8px 8px 0 var(--text);
+}
+
+[data-skin="brutalist"] .nt-lift.is-armed .nt-card,
+[data-skin="brutalist"] .nt-lift.is-armed .nt-lift-pill {
+  border-color: #000000;
+  background: var(--bru-hi);
+  box-shadow: 8px 8px 0 var(--bru-ink);
+}
+
+[data-skin="brutalist"] .nt-lift-pill {
+  border: 3px solid var(--text);
+  background: var(--bg);
+  box-shadow: 6px 6px 0 var(--text);
+  font-weight: 800;
+}
+
+[data-skin="brutalist"] .nt-lift-pill svg {
+  color: var(--text);
+}
+
+[data-skin="brutalist"] .nt-lift-to {
+  border: 2px solid var(--text);
+  background: var(--bg);
+  box-shadow: 3px 3px 0 var(--text);
+  font-family: var(--font-sans);
+  font-weight: 800;
+  color: var(--text);
+}
+
+[data-skin="brutalist"] .nt-lift.is-armed .nt-lift-to {
+  border-color: var(--text);
+  background: var(--bru-on-hi);
+  color: var(--bru-hi);
+}
+
+/* The editor panel over the board: a slab with the big drop */
+@media (min-width: 641px) {
+  [data-skin="brutalist"] .nt-view[data-layout="board"] .nt-editor {
+    border: 3px solid var(--text);
+    background: var(--bg);
+    box-shadow: -8px 8px 0 var(--text);
+  }
+}
+
+@keyframes brutalist-land {
+  0%,
+  60% {
+    background: var(--bru-hi);
+    box-shadow: 4px 4px 0 var(--text);
+  }
+  100% {
+    box-shadow: 0 0 0 transparent;
+  }
+}
+
+[data-skin="brutalist"] .nt-card-row.is-landed .nt-card {
+  animation: brutalist-land 900ms steps(3, end);
+}
+
+/* ==========================================================================
+   Calendar: toolbar, legend, tray
+   ========================================================================== */
+
+/* Square corners on the small parts the base draws with a hard-coded 1px radius
+   (habit dots stay round: round means habit) */
+[data-skin="brutalist"] :is(.cal-glyph--ev, .cal-glyph--task, .cal-glyph--done, .cal-legend-box, .cal-task-check, .cal-more-box, .cal-mark-ev, .cal-mark-task, .cal-hbar, .cal-ed-scope-mark, .nt-hit) {
+  border-radius: 0;
+}
+
+[data-skin="brutalist"] .cal-title {
+  font-family: var(--font-display);
+  font-size: 34px;
+  font-weight: 400;
+  line-height: 1.05;
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+}
+
+@container cal (max-width: 760px) {
+  [data-skin="brutalist"] .cal-title {
+    font-size: 26px;
+  }
+}
+
+[data-skin="brutalist"] .cal-title:focus-visible {
+  outline: 3px solid var(--line-focus);
+}
+
+[data-skin="brutalist"] .cal-tray-toggle[aria-expanded="true"] {
+  background: var(--bru-hi);
+  border-color: var(--text);
+  color: var(--bru-on-hi);
+}
+
+[data-skin="brutalist"] .cal-glyph--ev {
+  width: 13px;
+  height: 7px;
+}
+
+[data-skin="brutalist"] .cal-glyph--task,
+[data-skin="brutalist"] .cal-glyph--done {
+  width: 10px;
+  height: 10px;
+  border-width: 2px;
+}
+
+[data-skin="brutalist"] .cal-glyph--done {
+  background: linear-gradient(currentColor, currentColor) center / 100% 2px no-repeat;
+}
+
+[data-skin="brutalist"] .cal-glyph--hb {
+  width: 9px;
+  height: 9px;
+}
+
+[data-skin="brutalist"] .cal-stat-v {
+  font-weight: 700;
+}
+
+[data-skin="brutalist"] .cal-hint {
+  border-left: 3px solid var(--text);
+  color: var(--text-2);
+}
+
+[data-skin="brutalist"] .cal-legend-ev,
+[data-skin="brutalist"] .cal-legend-task {
+  height: 18px;
+  border-width: 2px;
+  font-family: var(--font-sans);
+  font-size: 10px;
+  font-weight: 800;
+}
+
+[data-skin="brutalist"] .cal-legend-task {
+  border-color: var(--text);
+  color: var(--text);
+}
+
+[data-skin="brutalist"] .cal-legend-box {
+  width: 9px;
+  height: 9px;
+  border: 2px solid var(--text);
+}
+
+/* The legend's word can't carry a backing box: its hatching is a strip at the start */
+[data-skin="brutalist"] .cal-legend-ev.cal-ev--hatched {
+  padding-left: 16px;
+  background: repeating-linear-gradient(-45deg, var(--text) 0 2px, transparent 2px 5px) left / 10px 100% no-repeat, var(--bg);
+}
+
+[data-skin="brutalist"] .cal-legend-ev.cal-ev--hatched::before {
+  display: none;
+}
+
+/* Unscheduled tray */
+[data-skin="brutalist"] .cal-tray-head,
+[data-skin="brutalist"] .cal-tray-title {
+  color: var(--text);
+}
+
+[data-skin="brutalist"] .cal-tray-count {
+  border: 2px solid var(--text);
+  font-weight: 700;
+  color: var(--text);
+}
+
+[data-skin="brutalist"] .cal-tray-hint {
+  color: var(--text-2);
+}
+
+[data-skin="brutalist"] .cal-tray-empty {
+  border: 3px dashed var(--text);
+  background: none;
+  font-weight: 700;
+  color: var(--text-2);
+}
+
+/* ==========================================================================
+   Calendar: events (four looks), tasks, habits
+   ========================================================================== */
+
+[data-skin="brutalist"] .cal-ev,
+[data-skin="brutalist"] .cal-tlev {
+  border-width: 2px;
+  transition: none;
+}
+
+[data-skin="brutalist"] .cal-ev-title {
+  font-weight: 700;
+}
+
+[data-skin="brutalist"] .cal-tlev-title {
+  font-weight: 800;
+}
+
+/* Full-strength secondary text: a past event already fades as a whole */
+[data-skin="brutalist"] .cal-ev-time,
+[data-skin="brutalist"] .cal-tlev-time,
+[data-skin="brutalist"] .cal-ev-span,
+[data-skin="brutalist"] .cal-tlev-loc {
+  font-weight: 700;
+  opacity: 1;
+}
+
+/* Solid: an ink slab (--accent is ink in this skin) */
+[data-skin="brutalist"] .cal-ev--solid {
+  border-color: var(--text);
+}
+
+/* Outline: paper with an ink frame */
+[data-skin="brutalist"] .cal-ev--outline {
+  background: var(--bg);
+  border-color: var(--text);
+  color: var(--text);
+}
+
+/* Hatched: real ink stripes; its words sit on paper labels so they stay readable */
+[data-skin="brutalist"] .cal-ev--hatched {
+  background: repeating-linear-gradient(-45deg, var(--text) 0 2px, transparent 2px 8px), var(--bg);
+  border-color: var(--text);
+  color: var(--text);
+}
+
+[data-skin="brutalist"] .cal-ev--hatched :is(.cal-ev-title, .cal-ev-time, .cal-ev-span, .cal-tlev-time, .cal-tlev-title, .cal-tlev-loc, .cal-ed-preview-time, .cal-ed-preview-title) {
+  padding: 0 3px;
+  background: var(--bg);
+  opacity: 1;
+}
+
+/* Ink: a gray slab with an ink frame */
+[data-skin="brutalist"] .cal-ev--ink {
+  background: var(--heat-1);
+  border-color: var(--text);
+  color: var(--text);
+}
+
+/* The spine every non-solid event carries (tasks never do): a fat ink edge */
+[data-skin="brutalist"] .cal-ev--outline::before,
+[data-skin="brutalist"] .cal-ev--hatched::before,
+[data-skin="brutalist"] .cal-ev--ink::before {
+  left: -2px;
+  top: -2px;
+  bottom: -2px;
+  width: 6px;
+  background: var(--text);
+}
+
+[data-skin="brutalist"] .cal-ev:hover,
+[data-skin="brutalist"] .cal-ev:focus-visible {
+  box-shadow: 3px 3px 0 var(--text);
+}
+
+[data-skin="brutalist"] .cal-tlev:hover,
+[data-skin="brutalist"] .cal-tlev:focus-visible {
+  box-shadow: 5px 5px 0 var(--text);
+}
+
+[data-skin="brutalist"] .cal-ev:focus-visible,
+[data-skin="brutalist"] .cal-tlev:focus-visible {
+  outline: 3px solid var(--bru-hi);
+  outline-offset: 0;
+}
+
+[data-skin="brutalist"] .cal-tlev-resize::after {
+  width: 18px;
+  margin-left: -9px;
+  border-top-width: 2px;
+  border-bottom-width: 2px;
+}
+
+[data-skin="brutalist"] .cal-tlev.is-dragging {
+  opacity: 1;
+  box-shadow: 8px 8px 0 var(--text);
+}
+
+/* Tasks: square-cornered chips with a heavy square check */
+[data-skin="brutalist"] .cal-task {
+  border: 2px solid var(--text);
+  background: var(--bg);
+  font-weight: 600;
+  transition: none;
+}
+
+[data-skin="brutalist"] .cal-task:hover {
+  border-color: var(--text);
+  box-shadow: 3px 3px 0 var(--text);
+}
+
+[data-skin="brutalist"] .cal-task.is-overdue {
+  border-style: dashed;
+  border-color: var(--text);
+}
+
+[data-skin="brutalist"] .cal-task.pri-high .cal-task-title {
+  font-weight: 800;
+}
+
+[data-skin="brutalist"] .cal-task-check {
+  width: 11px;
+  height: 11px;
+  border: 2px solid var(--text);
+  background: var(--bg);
+  color: var(--bru-on-hi);
+}
+
+[data-skin="brutalist"] .cal-tray .cal-task-check,
+[data-skin="brutalist"] .cal-ag-items .cal-task-check {
+  width: 15px;
+  height: 15px;
+}
+
+[data-skin="brutalist"] .cal-task-check:hover {
+  border-color: var(--text);
+  box-shadow: 2px 2px 0 var(--text);
+}
+
+[data-skin="brutalist"] .cal-task-check[aria-checked="true"] {
+  background: var(--bru-hi);
+  border-color: var(--text);
+}
+
+[data-skin="brutalist"] .cal-task.is-done,
+[data-skin="brutalist"] .cal-trow.is-done {
+  opacity: 1;
+  border-color: var(--text-3);
+}
+
+[data-skin="brutalist"] .cal-task.is-done .cal-task-title,
+[data-skin="brutalist"] .cal-trow.is-done .cal-trow-title {
+  color: var(--text-3);
+  text-decoration-thickness: 2px;
+}
+
+[data-skin="brutalist"] .cal-task-sched {
+  color: var(--text);
+}
+
+[data-skin="brutalist"] .cal-task-sched:hover {
+  background: var(--bru-hi);
+  color: var(--bru-on-hi);
+}
+
+/* H / M / L: stamps sized to their chip (the shared .tag is taller) */
+[data-skin="brutalist"] .cal-pri {
+  min-width: 14px;
+  height: 14px;
+  padding: 0 2px;
+  border-width: 2px;
+  font-family: var(--font-sans);
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0;
+  line-height: 1;
+}
+
+[data-skin="brutalist"] .cal-trow .cal-pri,
+[data-skin="brutalist"] .cal-tray .cal-pri,
+[data-skin="brutalist"] .cal-ag-items .cal-pri {
+  min-width: 20px;
+  height: 20px;
+  font-size: 11px;
+}
+
+/* Habits: round dots stay round (round means habit), just heavier */
+[data-skin="brutalist"] .cal-hb-dot {
+  width: 7px;
+  height: 7px;
+  border: 2px solid var(--text-3);
+}
+
+[data-skin="brutalist"] .cal-hb-dot.is-done {
+  background: var(--text);
+  border-color: var(--text);
+}
+
+[data-skin="brutalist"] .cal-hb-dot.is-pending {
+  border-color: var(--text);
+}
+
+[data-skin="brutalist"] .cal-hb-dot.is-miss {
+  border-color: var(--text-4);
+}
+
+/* Planned, still ahead: a thin ring (a 2px dotted ring this small reads as noise) */
+[data-skin="brutalist"] .cal-hb-dot.is-future {
+  border-width: 1px;
+  border-style: solid;
+  border-color: var(--text-2);
+}
+
+[data-skin="brutalist"] .cal-hb-dot.is-bonus {
+  background: var(--bru-hi);
+  border-color: var(--text);
+}
+
+[data-skin="brutalist"] .cal-hb.is-perfect .cal-hb-dot.is-done {
+  box-shadow: none;
+}
+
+[data-skin="brutalist"] .cal-hb-n {
+  font-weight: 700;
+  color: var(--text-2);
+}
+
+[data-skin="brutalist"] .cal-hb.is-perfect .cal-hb-n {
+  padding: 0 2px;
+  background: var(--bru-hi);
+  color: var(--bru-on-hi);
+}
+
+/* ==========================================================================
+   Calendar: month
+   ========================================================================== */
+
+[data-skin="brutalist"] .cal-month {
+  border: 3px solid var(--text);
+  background: var(--bg);
+  box-shadow: var(--shadow-hard);
+}
+
+/* Weekday header: an inverted ink band */
+[data-skin="brutalist"] .cal-mhead {
+  border-bottom: 3px solid var(--text);
+  background: var(--text);
+}
+
+[data-skin="brutalist"] .cal-mhead > *,
+[data-skin="brutalist"] .cal-mhead .label {
+  color: var(--bg);
+}
+
+[data-skin="brutalist"] .cal-mhead-day {
+  border-left: 2px solid var(--text);
+}
+
+[data-skin="brutalist"] .cal-mhead-day.is-weekend {
+  color: var(--bg);
+  opacity: 0.72;
+}
+
+[data-skin="brutalist"] .cal-wrow {
+  border-bottom: 2px solid var(--text);
+}
+
+[data-skin="brutalist"] .cal-cell {
+  border-left: 2px solid var(--text);
+  transition: none;
+}
+
+[data-skin="brutalist"] .cal-cell.is-out {
+  background-image: repeating-linear-gradient(-45deg, var(--surface-3) 0 2px, transparent 2px 9px);
+}
+
+[data-skin="brutalist"] .cal-cell:hover {
+  background-color: var(--surface-2);
+}
+
+[data-skin="brutalist"] .cal-cell.is-selected {
+  box-shadow: inset 0 0 0 3px var(--text);
+}
+
+[data-skin="brutalist"] .cal-cell:focus-visible {
+  box-shadow: inset 0 0 0 3px var(--text), inset 0 0 0 6px var(--bru-hi);
+}
+
+[data-skin="brutalist"] .cal-cell.is-today::before {
+  display: none;
+}
+
+/* Today: a yellow head band with the date as a black block */
+[data-skin="brutalist"] .cal-month:not(.is-compact) .cal-cell.is-today .cal-cell-head {
+  background: var(--bru-hi);
+  box-shadow: inset 0 -2px 0 #000000;
+}
+
+[data-skin="brutalist"] .cal-date {
+  font-weight: 700;
+  color: var(--text);
+}
+
+[data-skin="brutalist"] .cal-cell.is-out .cal-date {
+  color: var(--text-4);
+}
+
+[data-skin="brutalist"] .cal-cell.is-today .cal-date {
+  background: #000000;
+  color: var(--bru-hi);
+  font-weight: 700;
+  box-shadow: none;
+}
+
+[data-skin="brutalist"] .cal-month.is-compact .cal-cell.is-today .cal-date {
+  background: var(--bru-hi);
+  color: var(--bru-on-hi);
+  box-shadow: inset 0 0 0 2px var(--text);
+}
+
+[data-skin="brutalist"] button.cal-date:hover {
+  background: var(--bru-hi);
+  color: var(--bru-on-hi);
+}
+
+[data-skin="brutalist"] .cal-cell.is-today button.cal-date:hover {
+  background: var(--bg);
+  color: var(--text);
+}
+
+[data-skin="brutalist"] .cal-wknum {
+  font-weight: 700;
+  color: var(--text-2);
+  transition: none;
+}
+
+[data-skin="brutalist"] .cal-wknum:hover {
+  background: var(--bru-hi);
+  color: var(--bru-on-hi);
+}
+
+[data-skin="brutalist"] .cal-wrow:hover .cal-wknum:not(:hover) {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+[data-skin="brutalist"] .cal-cell-add {
+  color: var(--text);
+}
+
+[data-skin="brutalist"] .cal-cell-add:hover {
+  background: var(--bru-hi);
+  color: var(--bru-on-hi);
+  box-shadow: inset 0 0 0 2px #000000;
+}
+
+[data-skin="brutalist"] .cal-more {
+  font-family: var(--font-sans);
+  font-weight: 800;
+  color: var(--text);
+}
+
+[data-skin="brutalist"] .cal-more:hover {
+  background: var(--bru-hi);
+  color: var(--bru-on-hi);
+}
+
+[data-skin="brutalist"] .cal-more:hover .cal-more-task {
+  color: var(--bru-on-hi);
+}
+
+[data-skin="brutalist"] .cal-more-box {
+  width: 8px;
+  height: 8px;
+  border-width: 2px;
+}
+
+/* Phone month: markers */
+[data-skin="brutalist"] .cal-mark-ev {
+  width: 10px;
+  height: 4px;
+  background: var(--text);
+}
+
+[data-skin="brutalist"] .cal-mark-ev.cal-ev--outline {
+  height: 5px;
+  background: transparent;
+  box-shadow: inset 0 0 0 2px var(--text);
+}
+
+[data-skin="brutalist"] .cal-mark-ev.cal-ev--hatched {
+  height: 5px;
+  background: repeating-linear-gradient(90deg, var(--text) 0 2px, transparent 2px 4px);
+}
+
+[data-skin="brutalist"] .cal-mark-ev.cal-ev--ink {
+  height: 5px;
+  background: var(--heat-2);
+}
+
+[data-skin="brutalist"] .cal-mark-task {
+  width: 8px;
+  height: 8px;
+  border: 2px solid var(--text-3);
+}
+
+[data-skin="brutalist"] .cal-mark-task.is-high {
+  border-color: var(--text);
+  background: var(--text);
+}
+
+[data-skin="brutalist"] .cal-mark-task.is-done {
+  border-color: var(--text-4);
+  background: transparent;
+}
+
+[data-skin="brutalist"] .cal-mark-more {
+  font-weight: 700;
+  color: var(--text-2);
+}
+
+[data-skin="brutalist"] .cal-hbar {
+  height: 6px;
+  border: 2px solid var(--text);
+  background: var(--bg);
+}
+
+[data-skin="brutalist"] .cal-hbar-fill {
+  background: var(--text);
+}
+
+[data-skin="brutalist"] .cal-hbar.is-perfect {
+  box-shadow: none;
+}
+
+[data-skin="brutalist"] .cal-hbar.is-perfect .cal-hbar-fill {
+  background: var(--bru-hi);
+}
+
+[data-skin="brutalist"] .cal-minilegend {
+  color: var(--text-2);
+}
+
+/* ==========================================================================
+   Calendar: week + day timelines
+   ========================================================================== */
+
+[data-skin="brutalist"] .cal-wk-head {
+  border-bottom: 3px solid var(--text);
+  background: var(--surface-2);
+}
+
+[data-skin="brutalist"] .cal-wk-gutter {
+  color: var(--text);
+}
+
+[data-skin="brutalist"] .cal-dh {
+  border-left: 2px solid var(--text);
+}
+
+/* Heavier dots need more room: in a narrow day head the readout wraps under them */
+[data-skin="brutalist"] .cal-dh .cal-hb {
+  flex-wrap: wrap;
+  row-gap: 2px;
+  max-width: 100%;
+}
+
+[data-skin="brutalist"] .cal-dh.is-today::before,
+[data-skin="brutalist"] .cal-ag-day.is-today::before {
+  display: none;
+}
+
+[data-skin="brutalist"] .cal-dh-btn {
+  transition: none;
+}
+
+[data-skin="brutalist"] button.cal-dh-btn:hover,
+[data-skin="brutalist"] .cal-ag-date:hover {
+  background: var(--bru-hi);
+  box-shadow: inset 0 0 0 2px #000000;
+}
+
+[data-skin="brutalist"] .cal-dh-num {
+  font-family: var(--font-display);
+  font-size: 26px;
+  font-weight: 400;
+  line-height: 1.05;
+  letter-spacing: 0.01em;
+}
+
+[data-skin="brutalist"] .cal-dh.is-past .cal-dh-num,
+[data-skin="brutalist"] .cal-ag-day.is-past .cal-dh-num {
+  color: var(--text-3);
+}
+
+[data-skin="brutalist"] .cal-dh.is-today .cal-dh-num,
+[data-skin="brutalist"] .cal-ag-day.is-today .cal-dh-num {
+  padding: 0 5px;
+  background: var(--bru-hi);
+  color: var(--bru-on-hi);
+  box-shadow: inset 0 0 0 2px #000000, 3px 3px 0 var(--text);
+}
+
+[data-skin="brutalist"] .cal-dh.is-selected:not(.is-today) .cal-dh-btn {
+  box-shadow: inset 0 -4px 0 var(--text);
+}
+
+[data-skin="brutalist"] .cal-wk-allday {
+  border-bottom: 3px solid var(--text);
+}
+
+[data-skin="brutalist"] .cal-ad-label {
+  color: var(--text);
+}
+
+[data-skin="brutalist"] .cal-ad-col {
+  border-left: 2px solid var(--text);
+}
+
+[data-skin="brutalist"] .cal-ad-col:hover,
+[data-skin="brutalist"] .cal-ad-col.is-today {
+  background: var(--surface-2);
+}
+
+[data-skin="brutalist"] .cal-tl-hour {
+  font-weight: 700;
+  color: var(--text-2);
+}
+
+[data-skin="brutalist"] .cal-tl-col {
+  border-left: 2px solid var(--text);
+}
+
+[data-skin="brutalist"] .cal-tl-col.is-today,
+[data-skin="brutalist"] .cal-tl-col.is-selected {
+  background-color: var(--surface-2);
+}
+
+/* The day view's one column is always "today or selected": no tint, plain paper */
+[data-skin="brutalist"] .cal-day-tl .cal-tl-col.is-today,
+[data-skin="brutalist"] .cal-day-tl .cal-tl-col.is-selected {
+  background-color: transparent;
+}
+
+/* Drag-to-create: a yellow block with a dashed ink frame */
+[data-skin="brutalist"] .cal-tl-ghost {
+  border: 3px dashed #000000;
+  background: var(--bru-hi);
+  box-shadow: 4px 4px 0 var(--text);
+}
+
+[data-skin="brutalist"] .cal-tl-ghost .cal-tlev-time {
+  color: var(--bru-on-hi);
+  opacity: 1;
+}
+
+/* Out-of-view chips */
+[data-skin="brutalist"] .cal-edge {
+  border: 2px solid var(--text);
+  background: var(--bg);
+  box-shadow: 3px 3px 0 var(--text);
+  font-family: var(--font-sans);
+  font-weight: 800;
+  color: var(--text);
+}
+
+[data-skin="brutalist"] .cal-edge:hover {
+  border-color: var(--text);
+  background: var(--bru-hi);
+  color: var(--bru-on-hi);
+}
+
+/* Now: an ink rule, a yellow diamond and a yellow time stamp */
+[data-skin="brutalist"] .cal-now {
+  border-top: 2px solid var(--text);
+  box-shadow: none;
+}
+
+[data-skin="brutalist"] .cal-now::before {
+  left: -6px;
+  top: -6px;
+  width: 10px;
+  height: 10px;
+  background: var(--bru-hi);
+  border: 2px solid var(--text);
+}
+
+[data-skin="brutalist"] .cal-now-label {
+  top: -11px;
+  padding: 1px 4px;
+  border: 2px solid var(--text);
+  background: var(--bru-hi);
+  color: var(--bru-on-hi);
+  font-weight: 700;
+}
+
+/* Day: head band, plan panel */
+[data-skin="brutalist"] .cal-day-head {
+  border-bottom: 3px solid var(--text);
+  background: var(--surface-2);
+}
+
+[data-skin="brutalist"] .cal-day-head .label {
+  color: var(--text);
+}
+
+[data-skin="brutalist"] .cal-day-head-sep {
+  color: var(--text-3);
+}
+
+[data-skin="brutalist"] .cal-plan-sec {
+  border-bottom: 3px solid var(--text);
+}
+
+[data-skin="brutalist"] .cal-plan-sec:last-child {
+  border-bottom: 0;
+}
+
+[data-skin="brutalist"] .cal-plan-title {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 400;
+  line-height: 1.05;
+  letter-spacing: 0.01em;
+  color: var(--text);
+}
+
+[data-skin="brutalist"] .cal-plan-count {
+  font-family: var(--font-display);
+  font-size: 22px;
+  line-height: 1;
+}
+
+[data-skin="brutalist"] .cal-plan-sub,
+[data-skin="brutalist"] .cal-plan-note {
+  color: var(--text-2);
+}
+
+[data-skin="brutalist"] .cal-link {
+  font-weight: 800;
+  text-decoration-color: currentColor;
+  text-decoration-thickness: 2px;
+}
+
+[data-skin="brutalist"] .cal-link:hover {
+  background: var(--bru-hi);
+  color: var(--bru-on-hi);
+}
+
+[data-skin="brutalist"] .cal-plan-donelink,
+[data-skin="brutalist"] .cal-plan-addev {
+  color: var(--text);
+}
+
+[data-skin="brutalist"] .cal-plan-evs .cal-ev {
+  height: 34px;
+}
+
+[data-skin="brutalist"] .cal-trow {
+  min-height: 42px;
+  border: 2px solid var(--text);
+  background: var(--bg);
+}
+
+[data-skin="brutalist"] .cal-trow:hover {
+  box-shadow: 3px 3px 0 var(--text);
+}
+
+[data-skin="brutalist"] .cal-trow.is-overdue {
+  border-style: dashed;
+}
+
+[data-skin="brutalist"] .cal-trow-title {
+  font-weight: 600;
+}
+
+[data-skin="brutalist"] .cal-trow.pri-high .cal-trow-title {
+  font-weight: 800;
+}
+
+[data-skin="brutalist"] .cal-trow-title:hover {
+  text-decoration-color: currentColor;
+  text-decoration-thickness: 2px;
+}
+
+[data-skin="brutalist"] .cal-trow-due {
+  color: var(--text-2);
+}
+
+[data-skin="brutalist"] .cal-add-input {
+  height: 40px;
+}
+
+[data-skin="brutalist"] .cal-add-btn {
+  --btn-h: 40px;
+}
+
+[data-skin="brutalist"] .cal-hrow:hover {
+  background: var(--surface-2);
+}
+
+/* Habit checks stay round (round means habit), heavy ring, yellow when done */
+[data-skin="brutalist"] .cal-hcheck {
+  width: 22px;
+  height: 22px;
+  border: 3px solid var(--text);
+  background: var(--bg);
+  color: var(--bru-on-hi);
+}
+
+[data-skin="brutalist"] .cal-hcheck:not(:disabled):hover {
+  border-color: var(--text);
+  box-shadow: 2px 2px 0 var(--text);
+}
+
+[data-skin="brutalist"] .cal-hcheck[aria-checked="true"] {
+  background: var(--bru-hi);
+  border-color: var(--text);
+  box-shadow: none;
+}
+
+[data-skin="brutalist"] .cal-hcheck svg {
+  stroke-width: 3.5px;
+}
+
+[data-skin="brutalist"] .cal-hcheck:disabled {
+  border-style: dotted;
+  border-color: var(--text-2);
+}
+
+[data-skin="brutalist"] .cal-hrow.is-miss .cal-hcheck {
+  border-style: dashed;
+  border-color: var(--text-2);
+}
+
+[data-skin="brutalist"] .cal-hrow-name {
+  font-weight: 600;
+}
+
+[data-skin="brutalist"] .cal-hrow-state {
+  color: var(--text-2);
+}
+
+[data-skin="brutalist"] .cal-hrow.is-done .cal-hrow-state {
+  color: var(--text);
+}
+
+/* Phone week: agenda days; today carries the yellow drop */
+[data-skin="brutalist"] .cal-ag-day.is-today {
+  border-color: var(--text);
+  box-shadow: var(--bru-drop) var(--bru-drop) 0 var(--bru-hi), var(--bru-drop) var(--bru-drop) 0 3px var(--text);
+}
+
+[data-skin="brutalist"] .cal-ag-today.tag--solid {
+  background: var(--bru-hi);
+  border-color: var(--text);
+  color: var(--bru-on-hi);
+}
+
+[data-skin="brutalist"] .cal-ag-empty {
+  color: var(--text-3);
+}
+
+/* ==========================================================================
+   Calendar: dragging, drop targets, small dialogs
+   ========================================================================== */
+
+[data-skin="brutalist"] .cal-ghost {
+  opacity: 1;
+  box-shadow: 6px 6px 0 var(--text);
+}
+
+[data-skin="brutalist"] .is-lifted {
+  opacity: 0.35;
+}
+
+[data-skin="brutalist"] [data-drop-day].is-drop {
+  box-shadow: inset 0 0 0 3px var(--text);
+  background-image: repeating-linear-gradient(-45deg, var(--bru-hi) 0 4px, transparent 4px 11px);
+}
+
+/* The tray holds words: as a target it turns into a solid yellow slab instead */
+[data-skin="brutalist"] [data-drop-tray].is-drop {
+  border-color: #000000;
+  background: var(--bru-hi);
+  box-shadow: 6px 6px 0 var(--bru-ink);
+}
+
+[data-skin="brutalist"] .cal-cell.is-drop .cal-date {
+  background: var(--bg);
+}
+
+[data-skin="brutalist"] .cal-sheet-box {
+  width: 16px;
+  height: 16px;
+  border: 3px solid var(--text);
+}
+
+[data-skin="brutalist"] .cal-sheet-box.is-done {
+  background: var(--bru-hi);
+  border-color: var(--text);
+}
+
+[data-skin="brutalist"] .cal-sheet-title {
+  font-weight: 700;
+}
+
+/* Uppercase labels need wider quick-date buttons than the base grid gives them */
+[data-skin="brutalist"] .cal-sheet-quick {
+  grid-template-columns: repeat(auto-fill, minmax(176px, 1fr));
+}
+
+[data-skin="brutalist"] .cal-sheet-quick .btn.is-current {
+  background: var(--bru-hi);
+  border-color: var(--text);
+  color: var(--bru-on-hi);
+}
+
+[data-skin="brutalist"] .cal-sheet-date {
+  opacity: 1;
+  font-weight: 600;
+}
+
+[data-skin="brutalist"] .cal-field-error {
+  font-weight: 700;
+}
+
+/* ==========================================================================
+   Calendar: event editor
+   ========================================================================== */
+
+[data-skin="brutalist"] .cal-ed-banner {
+  border: 3px dashed var(--text);
+  background: var(--bg);
+  font-family: var(--font-sans);
+  font-weight: 700;
+  color: var(--text);
+}
+
+/* Deleted elsewhere: a yellow warning slab */
+[data-skin="brutalist"] .cal-ed-notice {
+  border: 3px solid #000000;
+  background: var(--bru-hi);
+  font-family: var(--font-sans);
+  font-weight: 700;
+  box-shadow: 4px 4px 0 var(--bru-ink);
+}
+
+[data-skin="brutalist"] .cal-ed-title {
+  height: 50px;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+[data-skin="brutalist"] .cal-ed-error {
+  font-weight: 700;
+}
+
+[data-skin="brutalist"] .cal-ed-hint {
+  font-family: var(--font-sans);
+  font-weight: 700;
+  color: var(--text-2);
+}
+
+[data-skin="brutalist"] .cal-ed-time {
+  font-weight: 700;
+}
+
+/* All-day switch: a chunky slab with a square thumb */
+[data-skin="brutalist"] .cal-ed-switch {
+  font-family: var(--font-sans);
+  font-weight: 800;
+  color: var(--text);
+}
+
+[data-skin="brutalist"] .cal-ed-switch-track {
+  width: 40px;
+  height: 22px;
+  border: 3px solid var(--text);
+  background: var(--bg);
+}
+
+[data-skin="brutalist"] .cal-ed-switch:hover .cal-ed-switch-track {
+  border-color: var(--text);
+  box-shadow: 2px 2px 0 var(--text);
+}
+
+[data-skin="brutalist"] .cal-ed-switch-thumb {
+  top: 2px;
+  left: 2px;
+  width: 12px;
+  height: 12px;
+  border-radius: 0;
+  background: var(--text);
+}
+
+[data-skin="brutalist"] .cal-ed-switch[aria-checked="true"] .cal-ed-switch-track {
+  background: var(--bru-hi);
+  border-color: var(--text);
+  box-shadow: 2px 2px 0 var(--text);
+}
+
+[data-skin="brutalist"] .cal-ed-switch[aria-checked="true"] .cal-ed-switch-thumb {
+  transform: translateX(16px);
+  background: var(--bru-on-hi);
+}
+
+/* Radio segments: the picked option is the yellow cell */
+[data-skin="brutalist"] .cal-ed-seg-opt.is-on {
+  background: var(--bru-hi);
+  color: var(--bru-on-hi);
+  text-decoration: none;
+}
+
+[data-skin="brutalist"] .cal-ed-seg-opt:has(.cal-ed-radio:focus-visible),
+[data-skin="brutalist"] .cal-ed-style:has(.cal-ed-radio:focus-visible) {
+  outline: 3px solid var(--line-focus);
+  outline-offset: 2px;
+}
+
+@media (max-width: 640px) {
+  /* Five repeat options in one row on a phone: smaller caps, no tracking */
+  [data-skin="brutalist"] .cal-ed-seg-opt {
+    padding: 0 1px;
+    font-size: 9px;
+    letter-spacing: 0;
+  }
+}
+
+[data-skin="brutalist"] .cal-ed-repeat {
+  border-left: 3px solid var(--text);
+}
+
+[data-skin="brutalist"] .cal-ed-unit {
+  font-weight: 600;
+  color: var(--text);
+}
+
+[data-skin="brutalist"] .cal-ed-wd {
+  border: 3px solid var(--text);
+  background: var(--bg);
+  font-family: var(--font-sans);
+  font-weight: 800;
+  color: var(--text);
+  transition: none;
+}
+
+[data-skin="brutalist"] .cal-ed-wd:hover {
+  border-color: var(--text);
+  box-shadow: 3px 3px 0 var(--text);
+}
+
+[data-skin="brutalist"] .cal-ed-wd[aria-pressed="true"] {
+  background: var(--bru-hi);
+  border-color: var(--text);
+  color: var(--bru-on-hi);
+  box-shadow: 3px 3px 0 var(--text);
+}
+
+[data-skin="brutalist"] .cal-ed-summary {
+  font-weight: 700;
+  color: var(--text);
+}
+
+/* Look: four cards, the picked one is yellow */
+[data-skin="brutalist"] .cal-ed-style {
+  border: 3px solid var(--text);
+  background: var(--bg);
+  transition: none;
+}
+
+[data-skin="brutalist"] .cal-ed-style:hover {
+  border-color: var(--text);
+  box-shadow: 3px 3px 0 var(--text);
+}
+
+[data-skin="brutalist"] .cal-ed-style.is-on {
+  border-color: #000000;
+  background: var(--bru-hi);
+  box-shadow: 4px 4px 0 var(--bru-ink);
+}
+
+[data-skin="brutalist"] .cal-ed-swatch,
+[data-skin="brutalist"] .cal-ed-preview {
+  border-width: 2px;
+}
+
+[data-skin="brutalist"] .cal-ed-style-name {
+  font-family: var(--font-sans);
+  font-weight: 800;
+  color: var(--text);
+}
+
+[data-skin="brutalist"] .cal-ed-preview {
+  height: 36px;
+  font-weight: 700;
+}
+
+[data-skin="brutalist"] .cal-ed-preview-time {
+  font-weight: 700;
+}
+
+/* Scope question */
+[data-skin="brutalist"] .cal-ed-scope-lead {
+  color: var(--text);
+}
+
+[data-skin="brutalist"] .cal-ed-scope-opt {
+  border: 3px solid var(--text);
+  background: var(--bg);
+  transition: none;
+}
+
+[data-skin="brutalist"] .cal-ed-scope-opt:hover,
+[data-skin="brutalist"] .cal-ed-scope-opt:focus-visible {
+  border-color: #000000;
+  background: var(--bru-hi);
+  box-shadow: 4px 4px 0 var(--bru-ink);
+}
+
+[data-skin="brutalist"] .cal-ed-scope-opt:focus-visible {
+  outline: 3px solid var(--bru-ink);
+  outline-offset: 3px;
+}
+
+[data-skin="brutalist"] .cal-ed-scope-mark {
+  width: 14px;
+  height: 14px;
+  margin-top: 3px;
+  border: 3px solid var(--text);
+}
+
+[data-skin="brutalist"] .cal-ed-scope-opt:hover .cal-ed-scope-mark,
+[data-skin="brutalist"] .cal-ed-scope-opt:focus-visible .cal-ed-scope-mark {
+  background: var(--text);
+  border-color: var(--text);
+}
+
+[data-skin="brutalist"] .cal-ed-scope-name {
+  font-weight: 800;
+}
+
+[data-skin="brutalist"] .cal-ed-scope-sub {
+  font-family: var(--font-sans);
+  font-weight: 700;
+  color: var(--text-2);
+}
+
+/* Destructive: dashed; on hover an inverted ink slab (no red) */
+[data-skin="brutalist"] .cal-ed-scope-opt--danger {
+  border-style: dashed;
+}
+
+[data-skin="brutalist"] .cal-ed-scope-opt--danger:hover,
+[data-skin="brutalist"] .cal-ed-scope-opt--danger:focus-visible {
+  border-style: solid;
+  border-color: var(--text);
+  background: var(--text);
+  box-shadow: 4px 4px 0 var(--bru-hi);
+}
+
+[data-skin="brutalist"] .cal-ed-scope-opt--danger:hover :is(.cal-ed-scope-name, .cal-ed-scope-sub),
+[data-skin="brutalist"] .cal-ed-scope-opt--danger:focus-visible :is(.cal-ed-scope-name, .cal-ed-scope-sub) {
+  color: var(--bg);
+}
+
+[data-skin="brutalist"] .cal-ed-scope-opt--danger:hover .cal-ed-scope-mark,
+[data-skin="brutalist"] .cal-ed-scope-opt--danger:focus-visible .cal-ed-scope-mark {
+  background: var(--bru-hi);
+  border-color: var(--bg);
+}
+
+/* ==========================================================================
+   Home: a 3px ink week grid, giant numbers, today and the running timer in
+   hazard yellow (the yellow blocks above re-ink their contents)
+   ========================================================================== */
+
+[data-skin="brutalist"] .hm-next {
+  border: 3px solid var(--text);
+  border-radius: 0;
+  background: var(--bg);
+  box-shadow: 3px 3px 0 var(--text);
+  font-weight: 700;
+}
+
+[data-skin="brutalist"] .hm-next:hover {
+  background: var(--bru-hi);
+  border-color: var(--text);
+  color: var(--bru-on-hi);
+}
+
+[data-skin="brutalist"] .hm-next:hover svg {
+  color: var(--bru-on-hi);
+}
+
+[data-skin="brutalist"] .hm-card-title,
+[data-skin="brutalist"] .hm-card-title svg,
+[data-skin="brutalist"] .hm-more,
+[data-skin="brutalist"] .hm-count {
+  color: var(--text);
+}
+
+[data-skin="brutalist"] .hm-more {
+  padding: 2px 4px;
+  font-family: var(--font-sans);
+  font-weight: 800;
+}
+
+[data-skin="brutalist"] .hm-more:hover {
+  background: var(--bru-hi);
+  color: var(--bru-on-hi);
+}
+
+[data-skin="brutalist"] .hm-week-title {
+  font-family: var(--font-display);
+  font-size: 30px;
+  font-weight: 400;
+  letter-spacing: 0.01em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+[data-skin="brutalist"] .hm-days {
+  gap: 0;
+  border: 3px solid var(--text);
+  border-radius: 0;
+  background: var(--bg);
+}
+
+[data-skin="brutalist"] .hm-day {
+  border-right: 2px solid var(--text);
+  background: var(--bg);
+}
+
+[data-skin="brutalist"] .hm-day:last-child {
+  border-right: 0;
+}
+
+[data-skin="brutalist"] .hm-day:hover {
+  background: var(--surface-2);
+}
+
+[data-skin="brutalist"] .hm-day.is-weekend {
+  background: repeating-linear-gradient(-45deg, var(--hatch) 0 2px, transparent 2px 10px), var(--bg);
+}
+
+[data-skin="brutalist"] .hm-day.is-today {
+  background: var(--bg);
+  box-shadow: none;
+}
+
+[data-skin="brutalist"] .hm-day.is-today .hm-day-head {
+  margin: calc(-1 * var(--space-2)) calc(-1 * var(--space-2)) 2px;
+  padding: var(--space-2);
+  border-bottom: 2px solid var(--text);
+  border-radius: 0;
+  background: var(--bru-hi);
+}
+
+[data-skin="brutalist"] .hm-day-wd {
+  font-weight: 900;
+  color: var(--text);
+}
+
+[data-skin="brutalist"] .hm-day-num {
+  padding: 0 4px;
+  border-radius: 0;
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 400;
+  line-height: 1;
+}
+
+[data-skin="brutalist"] .hm-day.is-today .hm-day-num {
+  background: var(--text);
+  color: var(--bru-hi);
+}
+
+[data-skin="brutalist"] .hm-day-tag {
+  font-family: var(--font-sans);
+  font-weight: 900;
+}
+
+/* The Pomodoro widget: one giant number; running, it sits on a yellow block */
+[data-skin="brutalist"] .hm-pomo-digits {
+  width: fit-content;
+  padding: 0 6px;
+  font-family: var(--font-display);
+  font-size: 88px;
+  font-weight: 400;
+  letter-spacing: 0.01em;
+  line-height: 0.95;
+}
+
+[data-skin="brutalist"] .hm-pomo[data-status="running"] .hm-pomo-digits {
+  background: var(--bru-hi);
+  box-shadow: 4px 4px 0 var(--bru-ink);
+}
+
+[data-skin="brutalist"] .hm-pomo-meta {
+  font-family: var(--font-sans);
+  font-weight: 800;
+  color: var(--text);
+}
+
+[data-skin="brutalist"] .hm-pomo-bar {
+  height: 12px;
+  border: 2px solid var(--text);
+  border-radius: 0;
+  background: var(--bg);
+}
+
+[data-skin="brutalist"] .hm-pomo-fill {
+  border-radius: 0;
+  background: var(--bru-hi);
+  box-shadow: none;
+}
+
+[data-skin="brutalist"] .hm-pomo:not([data-phase="focus"]) .hm-pomo-fill {
+  background: repeating-linear-gradient(-45deg, var(--text) 0 3px, var(--bru-hi) 3px 7px);
+  box-shadow: none;
+}
+
+[data-skin="brutalist"] .hm-habit,
+[data-skin="brutalist"] .hm-task,
+[data-skin="brutalist"] .hm-recent-item {
+  border-radius: 0;
+}
+
+[data-skin="brutalist"] .hm-habit-name,
+[data-skin="brutalist"] .hm-task-title,
+[data-skin="brutalist"] .hm-recent-title {
+  font-weight: 600;
+}
+
+[data-skin="brutalist"] .hm-empty {
+  border: 3px dashed var(--text);
+  border-radius: 0;
+  background: var(--bg);
+  color: var(--text);
+}
+
+[data-skin="brutalist"] .hm-empty-icon {
+  border: 2px solid var(--text);
+  border-radius: 0;
+  color: var(--text);
+}
+
+[data-skin="brutalist"] .hm-empty-text strong {
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+/* The graph: hard black bars, today in yellow, rest days a thick dashed floor */
+[data-skin="brutalist"] .hm-bars {
+  gap: 3px;
+}
+
+[data-skin="brutalist"] .hm-bar-track {
+  border-radius: 0;
+  background: var(--surface-2);
+}
+
+[data-skin="brutalist"] .hm-bar-fill {
+  border-radius: 0;
+  background: var(--text);
+  box-shadow: none;
+}
+
+[data-skin="brutalist"] .hm-bar.is-today .hm-bar-fill {
+  background: var(--bru-hi);
+  box-shadow: inset 0 0 0 2px var(--bru-ink);
+}
+
+[data-skin="brutalist"] .hm-bar.is-rest .hm-bar-track,
+[data-skin="brutalist"] .hm-bar.is-none .hm-bar-track {
+  border-bottom: 3px dashed var(--text);
+}
+
+[data-skin="brutalist"] .hm-bar-day {
+  font-family: var(--font-sans);
+  font-weight: 800;
+  color: var(--text);
+}
+
+[data-skin="brutalist"] .hm-graph-note {
+  font-family: var(--font-sans);
+  font-weight: 800;
+  color: var(--text);
+}
+
+[data-skin="brutalist"] .hm-graph-avg {
+  padding: 1px 6px;
+  background: var(--bru-hi);
+}
+
+/* ==========================================================================
+   Pomodoro: giant display digits inside a black band with a yellow arc
+   ========================================================================== */
+
+[data-skin="brutalist"] .pm-card-title {
+  font-family: var(--font-display);
+  font-size: 26px;
+  font-weight: 400;
+  letter-spacing: 0.01em;
+  line-height: 1;
+  color: var(--text);
+}
+
+[data-skin="brutalist"] .pm-digits {
+  font-family: var(--font-display);
+  font-size: clamp(76px, 17vw, 132px);
+  font-weight: 400;
+  letter-spacing: 0.01em;
+  line-height: 0.85;
+}
+
+[data-skin="brutalist"] .pm-dial-phase {
+  padding: 2px 8px;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 900;
+  color: var(--text);
+}
+
+[data-skin="brutalist"] .pm-timer[data-status="running"] .pm-dial-phase {
+  background: var(--bru-hi);
+}
+
+[data-skin="brutalist"] .pm-dial-round {
+  font-family: var(--font-sans);
+  font-weight: 800;
+  color: var(--text);
+}
+
+/* Yellow alone vanishes on paper: the arc runs inside a thick ink band */
+[data-skin="brutalist"] .pm-ring .ring-track {
+  stroke: var(--text);
+  stroke-width: 16;
+}
+
+[data-skin="brutalist"] .pm-ring .ring-fill {
+  stroke: var(--bru-hi);
+  stroke-width: 9;
+  stroke-linecap: butt;
+  filter: none;
+}
+
+[data-skin="brutalist"] .pm-timer:not([data-phase="focus"]) .pm-ring .ring-track {
+  stroke: var(--text);
+  stroke-dasharray: 10 5;
+}
+
+[data-skin="brutalist"] .pm-tick::before {
+  width: 2px;
+  background: var(--text);
+}
+
+[data-skin="brutalist"] .pm-tick.is-major::before {
+  width: 4px;
+  height: 14px;
+}
+
+[data-skin="brutalist"] .pm-preset {
+  border: 3px solid var(--text);
+  border-radius: 0;
+  background: var(--bg);
+  box-shadow: 3px 3px 0 var(--text);
+}
+
+[data-skin="brutalist"] .pm-preset:hover {
+  border-color: var(--text);
+  background: var(--surface-2);
+}
+
+[data-skin="brutalist"] .pm-preset[aria-pressed="true"] {
+  border-color: var(--bru-ink);
+  background: var(--bru-hi);
+  box-shadow: 4px 4px 0 var(--bru-ink);
+}
+
+[data-skin="brutalist"] .pm-preset-name {
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+[data-skin="brutalist"] .pm-preset-sub,
+[data-skin="brutalist"] .pm-step-unit {
+  color: var(--text);
+}
+
+[data-skin="brutalist"] .pm-step-label,
+[data-skin="brutalist"] .pm-switch-label {
+  font-weight: 700;
+}
+
+[data-skin="brutalist"] .pm-switches,
+[data-skin="brutalist"] .pm-sound,
+[data-skin="brutalist"] .pm-notify,
+[data-skin="brutalist"] .pm-mini-pref {
+  border-top: 3px solid var(--text);
+}
+
+[data-skin="brutalist"] .pm-switch-track {
+  width: 46px;
+  height: 26px;
+  border: 3px solid var(--text);
+  border-radius: 0;
+  background: var(--bg);
+}
+
+[data-skin="brutalist"] .pm-switch-thumb {
+  left: 3px;
+  width: 14px;
+  height: 14px;
+  border-radius: 0;
+  background: var(--text);
+}
+
+[data-skin="brutalist"] .pm-switch[aria-checked="true"] .pm-switch-track {
+  border-color: var(--bru-ink);
+  background: var(--bru-hi);
+}
+
+[data-skin="brutalist"] .pm-switch[aria-checked="true"] .pm-switch-thumb {
+  background: var(--bru-on-hi);
+  transform: translate(20px, -50%);
+}
+
+[data-skin="brutalist"] .pm-log {
+  border-top: 3px solid var(--text);
+}
+
+[data-skin="brutalist"] .pm-log-row {
+  border-bottom: 2px solid var(--text);
+}
+
+[data-skin="brutalist"] .pm-log-time,
+[data-skin="brutalist"] .pm-log-min,
+[data-skin="brutalist"] .pm-log-tag {
+  color: var(--text);
+}
+
+/* The mini timer: a hard block in the top bar; focus running is hazard yellow */
+[data-skin="brutalist"] .pm-mini {
+  height: 34px;
+  border: 3px solid var(--text);
+  border-radius: 0;
+  background: var(--bg);
+  box-shadow: 3px 3px 0 var(--text);
+}
+
+[data-skin="brutalist"] .pm-mini-link,
+[data-skin="brutalist"] .pm-mini-btn {
+  border-radius: 0;
+}
+
+[data-skin="brutalist"] .pm-mini-phase {
+  font-weight: 900;
+}
+
+[data-skin="brutalist"] .pm-mini-digits {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  line-height: 1;
+}
+
+[data-skin="brutalist"] .pm-mini-btn:hover {
+  background: var(--text);
+  color: var(--bg);
+}
+
+[data-skin="brutalist"] .pm-mini[data-status="running"][data-phase="focus"] {
+  border-color: var(--bru-ink);
+  background: var(--bru-hi);
+  box-shadow: 3px 3px 0 var(--bru-ink);
+}
+
+[data-skin="brutalist"] .pm-mini[data-status="running"]:not([data-phase="focus"]) {
+  border-color: var(--text);
+  background: repeating-linear-gradient(-45deg, var(--hatch) 0 3px, transparent 3px 8px), var(--bg);
+}
+
+[data-skin="brutalist"] .pm-mini[data-status="paused"] {
+  border-style: dashed;
+  border-color: var(--text);
+}
+
+[data-skin="brutalist"] .pm-mini[data-status="idle"] {
+  color: var(--text);
+}
+
+@media (max-width: 640px) {
+  [data-skin="brutalist"] .shell > .topbar-center .pm-mini {
+    height: 46px;
+    box-shadow: 4px 4px 0 var(--text);
+  }
+
+  [data-skin="brutalist"] .shell > .topbar-center .pm-mini[data-status="running"][data-phase="focus"] {
+    box-shadow: 4px 4px 0 var(--bru-ink);
+  }
+
+  [data-skin="brutalist"] .shell > .topbar-center .pm-mini-digits {
+    font-size: 26px;
+  }
+
+  [data-skin="brutalist"] .hm-pomo-digits {
+    font-size: 72px;
+  }
+
+  /* Six tabs at 375px: a tighter label so CALENDAR still fits */
+  [data-skin="brutalist"] .tab {
+    font-size: 10px;
+    letter-spacing: 0;
+  }
+
+  /* Six tabs: the stickers stay inside their tab */
+  [data-skin="brutalist"] .tab .nav-badge {
+    left: calc(50% + 4px);
+    max-width: calc(50% - 5px);
+  }
+}
+
+/* The wide sidebar: heavy caps need the room for "CALENDAR" and "POMODORO" beside a "19m" sticker */
+@media (min-width: 901px) {
+  [data-skin="brutalist"] .nav-item {
+    gap: 6px;
+    padding: 0 10px;
+  }
+
+  [data-skin="brutalist"] .nav-badge {
+    padding: 1px 4px;
+  }
+}
+
+@media (forced-colors: active) {
+  [data-skin="brutalist"] :is(.pm-preset[aria-pressed="true"], .hm-day.is-today, .pm-mini[data-status="running"]) {
+    outline: 3px solid Highlight;
+    outline-offset: -5px;
+  }
+}
+
+/* ==========================================================================
+   Motion and forced colors
+   ========================================================================== */
+
+/* No blinking, flashing or lifting for people who asked for less motion */
+@media (prefers-reduced-motion: reduce) {
+  [data-skin="brutalist"] .tk-stat.is-alert::after,
+  [data-skin="brutalist"] .tk-blink,
+  [data-skin="brutalist"] .hb-cycle-meter .meter-tick.is-now,
+  [data-skin="brutalist"] .hbt-status.is-live::before,
+  [data-skin="brutalist"] .hbt-ticker.is-live .hbt-tk-dot,
+  [data-skin="brutalist"] .hbt-price.is-flash-up,
+  [data-skin="brutalist"] .hbt-tk-price.is-flash-up,
+  [data-skin="brutalist"] .nt-card-row.is-landed .nt-card {
+    animation: none;
+  }
+
+  [data-skin="brutalist"] .btn--primary:hover,
+  [data-skin="brutalist"] .tk-row.is-dragging {
+    transform: none;
+  }
+}
+
+/* Forced colors drop fills and shadows: every yellow "selected" block keeps a system-color
+   frame, and fills that carry a value (bars, meters) keep their ink */
+@media (forced-colors: active) {
+  [data-skin="brutalist"] :is(
+      .nav-item[aria-current="page"],
+      .tab[aria-current="page"],
+      .seg-btn[aria-pressed="true"],
+      .seg-btn[aria-selected="true"],
+      .nt-item[aria-current="true"],
+      .nt-rail-item[aria-current="true"],
+      .nt-chip[aria-current="true"],
+      .nt-card[aria-current="true"],
+      .nt-icon-opt[aria-checked="true"],
+      .hb-sel[aria-checked="true"],
+      .hb-plan-cell[aria-pressed="true"],
+      .hb-wd[aria-pressed="true"],
+      .cal-ed-wd[aria-pressed="true"],
+      .cal-ed-seg-opt.is-on,
+      .cal-ed-style.is-on,
+      .skin-card[aria-checked="true"],
+      .tk-stat.is-alert,
+      .cal-cell.is-today
+    ) {
+    outline: 3px solid Highlight;
+    outline-offset: -5px;
+  }
+
+  [data-skin="brutalist"] :is(.progress-fill, .meter-tick.is-on, .hb-plan-bar-fill, .cal-hbar-fill) {
+    forced-color-adjust: none;
+    background: CanvasText;
+  }
+
+  [data-skin="brutalist"] :is(.check[aria-checked="true"], .check.is-checked, .cal-task-check[aria-checked="true"], .cal-hcheck[aria-checked="true"]) {
+    forced-color-adjust: none;
+    background: Highlight;
+    border-color: CanvasText;
+    color: HighlightText;
+  }
+}

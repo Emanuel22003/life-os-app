@@ -1,0 +1,682 @@
+/* ==========================================================================
+   LIFE/OS — 06 // Pomodoro: the page (dial, controls, settings, today) and the
+   mini timer centred in the top bar (docked above the tab bar on phones).
+   Mission Control base; the other templates restyle it in css/skins/<id>.css.
+   Focus is solid, breaks are hatched: the phase reads without color.
+   ========================================================================== */
+
+/* ---- Layout: the timer (and today) beside the settings ---- */
+
+.pm-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 380px;
+  gap: var(--space-5);
+  align-items: start;
+}
+
+.pm-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  min-width: 0;
+}
+
+@media (max-width: 1080px) {
+  .pm-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* One column: timer, settings, then today */
+  .pm-stack {
+    display: contents;
+  }
+
+  .pm-timer { order: 1; }
+  .pm-settings { order: 2; }
+  .pm-today { order: 3; }
+}
+
+.pm-card-title {
+  font-family: var(--label-font);
+  font-size: var(--label-size);
+  font-weight: var(--label-weight);
+  letter-spacing: calc(0.14em * var(--label-tracking));
+  text-transform: var(--label-case);
+  color: var(--text-2);
+}
+
+/* ---- Timer ---- */
+
+.pm-timer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-5);
+  padding: var(--space-5) var(--space-5) var(--space-6);
+}
+
+.pm-phases {
+  max-width: 100%;
+}
+
+.pm-dial {
+  --dial: min(340px, 76vw);
+  position: relative;
+  width: var(--dial);
+  height: var(--dial);
+  flex: none;
+}
+
+/* Decoration only: each tick is the whole dial turned, so it must never catch a click, and the
+   turned boxes' corners are clipped to the dial (they'd widen the page on a phone) */
+.pm-ticks,
+.pm-tick {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.pm-ticks {
+  overflow: hidden;
+  border-radius: 50%;
+}
+
+.pm-tick::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 1px;
+  height: 5px;
+  background: var(--line-strong);
+  transform: translateX(-50%);
+}
+
+.pm-tick.is-major::before {
+  height: 10px;
+  background: var(--text-3);
+}
+
+.pm-ring {
+  position: absolute;
+  inset: 16px;
+  width: auto;
+  height: auto;
+}
+
+.pm-ring svg {
+  width: 100%;
+  height: 100%;
+}
+
+.pm-ring .ring-fill {
+  transition: stroke-dashoffset 1s linear;
+}
+
+/* Breaks: the arc runs on a dashed track (focus has a solid one) */
+.pm-timer:not([data-phase="focus"]) .pm-ring .ring-track {
+  stroke: var(--line-strong);
+  stroke-dasharray: 2 6;
+}
+
+.pm-dial-center {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  text-align: center;
+}
+
+.pm-dial-phase {
+  color: var(--text-2);
+}
+
+.pm-digits {
+  font-family: var(--font-mono);
+  font-size: clamp(52px, 12vw, 80px);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  color: var(--text);
+}
+
+.pm-timer[data-status="paused"] .pm-digits {
+  color: var(--text-2);
+  animation: lo-pulse 2.4s var(--ease) infinite;
+}
+
+.pm-dial-round {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: calc(0.08em * var(--label-tracking));
+  text-transform: var(--label-case);
+  color: var(--text-3);
+}
+
+.pm-controls {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-3);
+}
+
+.pm-ctl {
+  --btn-h: 46px;
+  min-width: 112px;
+}
+
+/* Icons keep their size when a wide label (Brutalist, Terminal) fills the button */
+.pm-ctl svg,
+.pm-test svg,
+.pm-notify-btn svg,
+.pm-mini svg {
+  flex: none;
+}
+
+.pm-main.btn {
+  min-width: 156px;
+  font-size: var(--fs-md);
+}
+
+.pm-hints {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-2) var(--space-4);
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+}
+
+.pm-hints .kbd {
+  margin-right: 4px;
+}
+
+.pm-task {
+  width: min(420px, 100%);
+}
+
+/* ---- Today ---- */
+
+.pm-today {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-5) var(--space-5);
+}
+
+.pm-today-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.pm-today-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+}
+
+.pm-today-line,
+.pm-today-empty,
+.pm-today-more {
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+}
+
+.pm-log {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1px;
+  border-top: 1px solid var(--line);
+}
+
+.pm-log-row {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: var(--space-3);
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: var(--fs-sm);
+}
+
+.pm-log-time,
+.pm-log-min {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-2);
+}
+
+.pm-log-what {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pm-log-tag {
+  margin-left: var(--space-2);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  letter-spacing: calc(0.08em * var(--label-tracking));
+  text-transform: var(--label-case);
+  color: var(--text-3);
+}
+
+.pm-log-row.is-partial .pm-log-what {
+  color: var(--text-2);
+}
+
+/* ---- Settings ---- */
+
+.pm-settings {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  padding: var(--space-4) var(--space-5) var(--space-5);
+}
+
+.pm-presets {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+
+.pm-preset {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-width: 0;
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-w) solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  text-align: left;
+  transition: background var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+}
+
+.pm-preset:hover {
+  border-color: var(--text-3);
+  background: var(--surface-2);
+}
+
+.pm-preset-name {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+
+.pm-preset-sub {
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  color: var(--text-3);
+}
+
+.pm-preset[aria-pressed="true"] {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.pm-preset[aria-pressed="true"] .pm-preset-sub {
+  color: inherit;
+  opacity: 0.75;
+}
+
+.pm-steps {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-3);
+}
+
+.pm-step {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.pm-step-label {
+  min-width: 0;
+  font-size: var(--fs-sm);
+}
+
+.pm-step-ctl {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.pm-step-input {
+  width: 64px;
+  height: 34px;
+  padding: 0 6px;
+  font-family: var(--font-mono);
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+
+.pm-step-input::-webkit-outer-spin-button,
+.pm-step-input::-webkit-inner-spin-button {
+  margin: 0;
+  -webkit-appearance: none;
+}
+
+.pm-step-unit {
+  width: 44px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  letter-spacing: calc(0.08em * var(--label-tracking));
+  text-transform: var(--label-case);
+  color: var(--text-3);
+}
+
+.pm-switches,
+.pm-sound,
+.pm-notify,
+.pm-mini-pref {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--line);
+}
+
+.pm-sound {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
+.pm-switch {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+  text-align: left;
+}
+
+.pm-switch-track {
+  position: relative;
+  flex: none;
+  width: 36px;
+  height: 20px;
+  border: var(--border-w-sm) solid var(--text-3);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  transition: background var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease);
+}
+
+.pm-switch-thumb {
+  position: absolute;
+  top: 50%;
+  left: 3px;
+  width: 12px;
+  height: 12px;
+  border-radius: var(--radius-pill);
+  background: var(--text-2);
+  transform: translateY(-50%);
+  transition: transform var(--dur) var(--ease-out), background var(--dur-fast) var(--ease);
+}
+
+.pm-switch[aria-checked="true"] .pm-switch-track {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+
+.pm-switch[aria-checked="true"] .pm-switch-thumb {
+  background: var(--accent-ink);
+  transform: translate(16px, -50%);
+}
+
+.pm-switch:hover .pm-switch-track {
+  border-color: var(--text);
+}
+
+.pm-switch-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.pm-switch-label {
+  font-size: var(--fs-sm);
+}
+
+.pm-switch-hint {
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+}
+
+.pm-notify-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--text-2);
+}
+
+.pm-notify-head .pm-switch-label {
+  color: var(--text);
+}
+
+.pm-notify-text {
+  font-size: var(--fs-xs);
+  color: var(--text-2);
+}
+
+.pm-notify-btn {
+  align-self: flex-start;
+}
+
+.pm-mini-pref .seg {
+  align-self: flex-start;
+}
+
+/* ==========================================================================
+   Mini timer (top bar centre; docked above the tab bar on phones)
+   ========================================================================== */
+
+.pm-mini {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  height: 32px;
+  max-width: 100%;
+  padding: 0 3px 0 0;
+  border: var(--border-w) solid var(--line-strong);
+  border-radius: var(--radius-pill);
+  background: var(--surface-solid);
+  color: var(--text);
+  white-space: nowrap;
+  transition: background var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+}
+
+.pm-mini-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 100%;
+  min-width: 0;
+  padding: 0 6px 0 11px;
+  border-radius: var(--radius-pill);
+}
+
+.pm-mini-icon {
+  display: grid;
+  flex: none;
+}
+
+.pm-mini-phase {
+  overflow: hidden;
+  font-family: var(--label-font);
+  font-size: var(--label-size);
+  font-weight: var(--label-weight);
+  letter-spacing: calc(0.14em * var(--label-tracking));
+  text-transform: var(--label-case);
+  text-overflow: ellipsis;
+  opacity: 0.85;
+}
+
+.pm-mini-digits {
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+
+.pm-mini-btn {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: var(--radius-pill);
+  color: inherit;
+  transition: background var(--dur-fast) var(--ease);
+}
+
+.pm-mini-btn:hover {
+  background: var(--surface-3);
+}
+
+.pm-mini-link:hover .pm-mini-digits {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* Focus running: lit (inverted) */
+.pm-mini[data-status="running"][data-phase="focus"] {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-ink);
+  box-shadow: 0 0 16px var(--glow-c-soft);
+}
+
+.pm-mini[data-status="running"][data-phase="focus"] .pm-mini-btn:hover {
+  background: color-mix(in srgb, var(--accent-ink) 14%, transparent);
+}
+
+/* A break running: hatched */
+.pm-mini[data-status="running"]:not([data-phase="focus"]) {
+  border-color: var(--text-2);
+  background: repeating-linear-gradient(-45deg, var(--hatch) 0 2px, transparent 2px 6px), var(--surface-solid);
+}
+
+/* Paused: dashed and quiet, the digits breathe */
+.pm-mini[data-status="paused"] {
+  border-style: dashed;
+  border-color: var(--text-3);
+}
+
+.pm-mini[data-status="paused"] .pm-mini-digits {
+  animation: lo-pulse 2.4s var(--ease) infinite;
+}
+
+/* Idle (shown always): a quiet start pill */
+.pm-mini[data-status="idle"] {
+  border-color: var(--line-strong);
+  background: transparent;
+  color: var(--text-2);
+}
+
+.pm-mini[data-status="idle"]:hover {
+  color: var(--text);
+  border-color: var(--text-3);
+}
+
+/* Narrow windows: the time and the button are enough */
+@media (max-width: 1100px) {
+  .pm-mini-phase {
+    display: none;
+  }
+}
+
+/* Phones: a floating pill above the tab bar, big enough to tap */
+@media (max-width: 640px) {
+  /* Phones have no keyboard to advertise */
+  .pm-hints {
+    display: none;
+  }
+
+  /* The docked pill already shows the time: the Timer tab needs no "12m" badge */
+  .tab[data-id="pomodoro"] .nav-badge {
+    display: none;
+  }
+
+  .shell > .topbar-center .pm-mini {
+    height: 44px;
+    padding-right: 5px;
+    box-shadow: var(--shadow-sm);
+  }
+
+  .shell > .topbar-center .pm-mini[data-status="idle"] {
+    background: var(--surface-solid);
+  }
+
+  .shell > .topbar-center .pm-mini-phase {
+    display: inline;
+  }
+
+  .shell > .topbar-center .pm-mini-link {
+    padding: 0 8px 0 14px;
+  }
+
+  .shell > .topbar-center .pm-mini-digits {
+    font-size: var(--fs-md);
+  }
+
+  .shell > .topbar-center .pm-mini-btn {
+    width: 34px;
+    height: 34px;
+  }
+
+  .pm-timer {
+    padding: var(--space-4) var(--space-3) var(--space-5);
+  }
+
+  .pm-ctl {
+    min-width: 0;
+    flex: 1;
+  }
+
+  .pm-main.btn {
+    min-width: 0;
+    flex: 1.4;
+  }
+
+  .pm-controls {
+    width: 100%;
+    flex-wrap: nowrap;
+  }
+
+  .pm-settings,
+  .pm-today {
+    padding: var(--space-4);
+  }
+
+  .pm-log-row {
+    grid-template-columns: 84px minmax(0, 1fr) auto;
+  }
+}
+
+@media (max-width: 380px) {
+  .pm-ctl span {
+    display: none;
+  }
+
+  .pm-main.btn span {
+    display: inline;
+  }
+}

@@ -1,0 +1,695 @@
+/* ==========================================================================
+   LIFE/OS — 04 // Calendar: event editor dialog (class prefix: cal-)
+   Grayscale only: state is carried by fill, outline, dashes, hatching and glow.
+   The four event looks reuse the views' .cal-ev--* classes, so the preview shows
+   exactly how the event will be drawn.
+   ========================================================================== */
+
+/* .seg / .btn / .field set display, which beats the UA [hidden] rule */
+.cal-editor [hidden],
+.cal-ed-scope [hidden] {
+  display: none !important;
+}
+
+/* Copy that quotes a user-typed title wraps anywhere */
+.cal-ed-wrap {
+  overflow-wrap: anywhere;
+}
+
+/* A long title in the (nowrap) preview must not widen the dialog past the screen */
+.cal-editor.modal,
+.cal-ed-scope.modal {
+  min-width: 0;
+}
+
+.cal-ed-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  min-width: 0;
+}
+
+/* ---- Banner (repeating event) + notice (deleted elsewhere) ---- */
+
+.cal-ed-banner,
+.cal-ed-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  letter-spacing: calc(0.08em * var(--label-tracking));
+  line-height: 1.7;
+  text-transform: var(--label-case);
+  color: var(--text-2);
+  background: repeating-linear-gradient(-45deg, var(--surface) 0 1px, transparent 1px 8px);
+}
+
+.cal-ed-banner > svg {
+  flex: none;
+  margin-top: 3px;
+}
+
+.cal-ed-banner strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.cal-ed-notice {
+  border-style: solid;
+  border-color: var(--text);
+  color: var(--text);
+}
+
+/* ---- Title ---- */
+
+.cal-ed-title {
+  height: 46px;
+  font-size: var(--fs-lg);
+  font-weight: 500;
+}
+
+/* ---- Invalid fields + messages ---- */
+
+.cal-editor .input[aria-invalid="true"],
+.cal-editor .select[aria-invalid="true"] {
+  border-style: dashed;
+  border-color: var(--text);
+  background: repeating-linear-gradient(-45deg, var(--hatch) 0 1px, transparent 1px 6px);
+}
+
+.cal-ed-seg-opt:has(.cal-ed-radio[aria-invalid="true"]),
+.cal-ed-wd[aria-invalid="true"] {
+  border-style: dashed;
+  border-color: var(--text);
+}
+
+.cal-ed-error {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--text);
+}
+
+.cal-ed-error > svg {
+  flex: none;
+}
+
+/* ---- Groups ---- */
+
+.cal-ed-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.cal-ed-group-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-height: 28px;
+}
+
+.cal-ed-hint {
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  letter-spacing: calc(0.1em * var(--label-tracking));
+  text-transform: var(--label-case);
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.cal-ed-when {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--space-3);
+}
+
+.cal-ed-when.is-allday {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.cal-ed-when .field {
+  gap: 6px;
+  min-width: 0;
+}
+
+.cal-ed-time {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- All-day switch: a square thumb that slides into signal ---- */
+
+.cal-ed-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: 28px;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-xs);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  letter-spacing: calc(0.12em * var(--label-tracking));
+  text-transform: var(--label-case);
+  color: var(--text-2);
+  transition: color var(--dur-fast) var(--ease);
+}
+
+.cal-ed-switch:hover,
+.cal-ed-switch[aria-checked="true"] {
+  color: var(--text);
+}
+
+.cal-ed-switch-track {
+  position: relative;
+  flex: none;
+  width: 30px;
+  height: 16px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-xs);
+  background: var(--surface);
+  transition: background var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease),
+    box-shadow var(--dur-fast) var(--ease);
+}
+
+.cal-ed-switch:hover .cal-ed-switch-track {
+  border-color: var(--text-3);
+}
+
+.cal-ed-switch-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 10px;
+  height: 10px;
+  border-radius: 1px;
+  background: var(--text-3);
+  transition: transform var(--dur) var(--ease-out), background var(--dur-fast) var(--ease);
+}
+
+.cal-ed-switch[aria-checked="true"] .cal-ed-switch-track {
+  background: var(--accent);
+  border-color: var(--accent);
+  box-shadow: var(--glow);
+}
+
+.cal-ed-switch[aria-checked="true"] .cal-ed-switch-thumb {
+  transform: translateX(14px);
+  background: var(--accent-ink);
+}
+
+/* ---- Radio segments (native radios inside .seg labels) ---- */
+
+.cal-ed-seg {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  width: 100%;
+}
+
+.cal-ed-seg-opt {
+  position: relative;
+  justify-content: center;
+  min-width: 0;
+  cursor: pointer;
+}
+
+.cal-ed-seg-opt > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cal-ed-seg-opt.is-on {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+/* The radio covers its label invisibly: clicks, focus and arrow keys stay native */
+.cal-ed-radio {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.cal-ed-seg-opt:has(.cal-ed-radio:focus-visible),
+.cal-ed-style:has(.cal-ed-radio:focus-visible) {
+  outline: 1px solid var(--line-focus);
+  outline-offset: 1px;
+}
+
+/* ---- Repeat options ---- */
+
+.cal-ed-repeat {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-left: 6px;
+  padding: var(--space-1) 0 var(--space-1) var(--space-4);
+  border-left: 1px solid var(--line-strong);
+}
+
+.cal-ed-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.cal-ed-row-label {
+  flex: none;
+  width: 44px;
+}
+
+.cal-ed-interval {
+  width: 76px;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.cal-ed-unit {
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+}
+
+.cal-ed-days {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 6px;
+  min-width: 0;
+}
+
+.cal-ed-wd {
+  min-width: 0;
+  height: 36px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-xs);
+  background: var(--surface);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  letter-spacing: calc(0.08em * var(--label-tracking));
+  text-transform: var(--label-case);
+  color: var(--text-3);
+  transition: background var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease),
+    color var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease);
+}
+
+.cal-ed-wd:hover {
+  border-color: var(--text);
+  color: var(--text);
+}
+
+.cal-ed-wd[aria-pressed="true"] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+  box-shadow: var(--glow);
+}
+
+.cal-ed-ends {
+  flex-wrap: wrap;
+}
+
+.cal-ed-ends-seg {
+  width: auto;
+  flex: none;
+}
+
+.cal-ed-until {
+  width: 170px;
+  height: 36px;
+}
+
+.cal-ed-summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--text-2);
+  overflow-wrap: anywhere;
+}
+
+.cal-ed-summary > svg {
+  flex: none;
+}
+
+/* ---- Details ---- */
+
+.cal-ed-details {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.cal-ed-notes {
+  min-height: 84px;
+}
+
+/* ---- Look: four grayscale event styles ---- */
+
+.cal-ed-styles {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+
+.cal-ed-style {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  padding: var(--space-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  cursor: pointer;
+  transition: border-color var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease);
+}
+
+.cal-ed-style:hover {
+  border-color: var(--text-3);
+}
+
+.cal-ed-style.is-on {
+  border-color: var(--text);
+  box-shadow: var(--glow);
+}
+
+.cal-ed-swatch {
+  display: block;
+  height: 22px;
+  border-radius: var(--radius-xs);
+}
+
+.cal-ed-style-name {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  letter-spacing: calc(0.1em * var(--label-tracking));
+  text-transform: var(--label-case);
+  color: var(--text-3);
+}
+
+.cal-ed-style.is-on .cal-ed-style-name {
+  color: var(--text);
+}
+
+.cal-ed-style-tick {
+  display: none;
+}
+
+.cal-ed-style.is-on .cal-ed-style-tick {
+  display: block;
+}
+
+/* Swatches and the preview carry the views' own classes (.cal-ev--solid … in calendar.css):
+   same fill, same lit left spine, so the preview is exactly how the event is drawn */
+.cal-ed-swatch,
+.cal-ed-preview {
+  position: relative;
+  border-width: 1px;
+  border-style: solid;
+  overflow: hidden;
+}
+
+.cal-ed-preview-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.cal-ed-preview-row > .label {
+  flex: none;
+}
+
+.cal-ed-preview {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  max-width: 100%;
+  height: 30px;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-xs);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  transition: background var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease),
+    color var(--dur-fast) var(--ease);
+}
+
+.cal-ed-preview-time {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  letter-spacing: 0.06em;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.75;
+}
+
+.cal-ed-preview-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cal-ed-preview-title.is-placeholder {
+  opacity: 0.55;
+  font-style: italic;
+}
+
+/* ---- Footer ---- */
+
+.cal-editor .modal-foot {
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.cal-ed-keys {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-right: var(--space-2);
+}
+
+/* ==========================================================================
+   Scope question: Only this / This and following / All events
+   ========================================================================== */
+
+.cal-ed-scope-lead {
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+}
+
+.cal-ed-scope-note {
+  color: var(--text);
+}
+
+.cal-ed-scope-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.cal-ed-scope-opt {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  width: 100%;
+  padding: var(--space-3) var(--space-4);
+  text-align: left;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  transition: background var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease),
+    box-shadow var(--dur-fast) var(--ease);
+}
+
+.cal-ed-scope-opt:hover,
+.cal-ed-scope-opt:focus-visible {
+  border-color: var(--text);
+  background: var(--surface-2);
+  box-shadow: var(--glow);
+}
+
+.cal-ed-scope-opt:focus-visible {
+  outline: 1px solid var(--line-focus);
+  outline-offset: 2px;
+}
+
+.cal-ed-scope-mark {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  margin-top: 5px;
+  border: 1px solid var(--text-3);
+  border-radius: 1px;
+  transition: background var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease);
+}
+
+.cal-ed-scope-opt:hover .cal-ed-scope-mark,
+.cal-ed-scope-opt:focus-visible .cal-ed-scope-mark {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.cal-ed-scope-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.cal-ed-scope-name {
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  color: var(--text);
+}
+
+.cal-ed-scope-sub {
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  letter-spacing: calc(0.08em * var(--label-tracking));
+  text-transform: var(--label-case);
+  color: var(--text-3);
+}
+
+/* Destructive choices: dashed, hatched on hover (no red) */
+.cal-ed-scope-opt--danger {
+  border-style: dashed;
+}
+
+.cal-ed-scope-opt--danger:hover,
+.cal-ed-scope-opt--danger:focus-visible {
+  border-style: solid;
+  background: repeating-linear-gradient(-45deg, var(--hatch) 0 2px, transparent 2px 6px);
+}
+
+/* ==========================================================================
+   Touch + narrow screens
+   ========================================================================== */
+
+@media (pointer: coarse) {
+  .cal-ed-wd {
+    height: 40px;
+  }
+
+  .cal-ed-switch {
+    height: 36px;
+  }
+}
+
+@media (hover: none) {
+  .cal-ed-keys {
+    display: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .cal-editor .modal-head,
+  .cal-ed-scope .modal-head {
+    padding: var(--space-3) var(--space-4);
+  }
+
+  .cal-editor .modal-body,
+  .cal-ed-scope .modal-body {
+    padding: var(--space-4);
+  }
+
+  .cal-editor .modal-foot,
+  .cal-ed-scope .modal-foot {
+    padding: var(--space-3) var(--space-4);
+  }
+
+  /* 16px fields stop iOS zooming on focus (date inputs included) */
+  .cal-editor input.input,
+  .cal-editor .select,
+  .cal-editor .textarea {
+    font-size: 16px;
+  }
+
+  .cal-ed-keys {
+    display: none;
+  }
+
+  .cal-ed-when {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .cal-ed-when:not(.is-allday) .cal-ed-f-date {
+    grid-column: 1 / -1;
+  }
+
+  /* Two 16px dates side by side: trim the padding so 'dd.mm.yyyy' + picker icon fit */
+  .cal-ed-when .cal-ed-date,
+  .cal-ed-when .cal-ed-time {
+    padding-left: var(--space-2);
+  }
+
+  .cal-ed-when .cal-ed-date {
+    padding-right: 6px;
+  }
+
+  .cal-ed-when .cal-ed-time {
+    padding-right: 26px;
+    background-position: calc(100% - 13px) 50%, calc(100% - 8px) 50%;
+  }
+
+  .cal-ed-seg-opt {
+    padding: 0 4px;
+    letter-spacing: 0.04em;
+  }
+
+  .cal-ed-repeat {
+    margin-left: 2px;
+    padding-left: var(--space-3);
+  }
+
+  .cal-ed-row-label {
+    width: 40px;
+  }
+
+  .cal-ed-days {
+    gap: 4px;
+  }
+
+  .cal-ed-wd {
+    letter-spacing: 0;
+  }
+
+  .cal-ed-until {
+    flex: 1 1 140px;
+    width: auto;
+  }
+
+  .cal-ed-styles {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 400px) {
+  /* The weekday row gets the full width under its label */
+  .cal-ed-row:has(.cal-ed-days) {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-2);
+  }
+}

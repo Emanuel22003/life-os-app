@@ -1,0 +1,1028 @@
+/* ==========================================================================
+   LIFE/OS — 03 // Habits · LIFE index (trading chart + top-bar ticker)
+   Monochrome trading conventions: up = solid signal, down = hollow outline,
+   live = hatched / pulsing, gaps where nothing was planned. Tokens only.
+   ========================================================================== */
+
+.hbt-chart [hidden],
+.hbt-ticker [hidden] {
+  display: none !important;
+}
+
+/* ==========================================================================
+   Chart panel
+   ========================================================================== */
+
+.hbt-chart {
+  container: hbt / inline-size;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+  padding: var(--space-4) var(--space-5) var(--space-3);
+  background: radial-gradient(ellipse 70% 140% at 0% 0%, var(--surface-2), transparent 65%), var(--surface);
+}
+
+.hbt-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+/* ---- Header: symbol, quote, actions ---- */
+
+.hbt-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "id actions"
+    "quote quote";
+  align-items: center;
+  gap: var(--space-3) var(--space-4);
+  min-width: 0;
+}
+
+.hbt-id {
+  grid-area: id;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.hbt-sym {
+  flex: none;
+  padding: 4px 7px 4px 9px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-xs);
+  background: var(--surface-2);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  line-height: 1.2;
+  color: var(--text);
+}
+
+.hbt-ident {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  line-height: 1.2;
+}
+
+.hbt-name {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hbt-sub {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hbt-actions {
+  grid-area: actions;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.hbt-collapse .icon {
+  transition: transform var(--dur) var(--ease);
+}
+
+.hbt-chart.is-collapsed .hbt-collapse .icon {
+  transform: rotate(180deg);
+}
+
+/* Quote line never wraps: the status pill truncates instead, so hovering never shifts the layout */
+.hbt-quote {
+  grid-area: quote;
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.hbt-price {
+  flex: none;
+  display: inline-block;
+  font-family: var(--font-sans);
+  font-size: var(--fs-3xl);
+  font-weight: 500;
+  letter-spacing: -0.035em;
+  line-height: 1;
+  color: var(--text);
+  transform-origin: 0 70%;
+}
+
+.hbt-chart.is-empty .hbt-price {
+  color: var(--text-3);
+}
+
+.hbt-chart.is-empty .hbt-readout,
+.hbt-chart.is-empty .hbt-chg {
+  display: none;
+}
+
+.hbt-chg {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: var(--text);
+}
+
+.hbt-chg[data-dir="down"] {
+  color: var(--text-2);
+}
+
+.hbt-chg[data-dir="flat"] {
+  color: var(--text-3);
+}
+
+.hbt-chg-pct {
+  opacity: 0.8;
+}
+
+.hbt-status {
+  align-self: center;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.hbt-status-t {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hbt-status.is-live {
+  flex: none;
+  border-color: var(--text);
+  color: var(--text);
+  box-shadow: var(--glow);
+}
+
+.hbt-status.is-live::before {
+  content: "";
+  flex: none;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 6px currentColor;
+  animation: lo-pulse 1.6s var(--ease) infinite;
+}
+
+.hbt-status.is-rest,
+.hbt-status.is-closed {
+  border-style: dashed;
+  color: var(--text-3);
+}
+
+.hbt-status.is-date {
+  color: var(--text);
+  border-color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Collapsed-only sparkline */
+.hbt-strip {
+  grid-area: spark;
+  display: none;
+  align-items: center;
+}
+
+.hbt-strip-spark {
+  display: block;
+  overflow: visible;
+}
+
+/* ---- Readout (OHLC legend) + controls: one row, wraps on narrow panels ---- */
+
+.hbt-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-4);
+  min-width: 0;
+}
+
+.hbt-readout {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px var(--space-4);
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  letter-spacing: 0.06em;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-3);
+}
+
+.hbt-ro-group {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  white-space: nowrap;
+}
+
+.hbt-ro {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+  white-space: nowrap;
+}
+
+/* Separator dots are flex items: the parent gap spaces them, a negative margin evens it to 5px */
+.hbt-ro.is-sep::before,
+.hbt-ro-group.is-extra::before {
+  content: "·";
+  color: var(--text-4);
+}
+
+.hbt-ro-group.is-extra::before {
+  margin-right: -7px;
+}
+
+/* MA hidden (no line yet): VOL leads its group, so its own dot would double the group's */
+.hbt-ro[hidden] + .hbt-ro.is-sep::before {
+  content: none;
+}
+
+.hbt-ro-v {
+  min-width: 5ch;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.hbt-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.hbt-seg .seg-btn {
+  padding: 0 10px;
+}
+
+.hbt-type .icon {
+  flex: none;
+}
+
+/* ---- Stage: the SVG chart, focusable, scrubbable ---- */
+
+.hbt-stage {
+  position: relative;
+  min-width: 0;
+  border-radius: var(--radius-sm);
+  cursor: crosshair;
+  touch-action: pan-y pinch-zoom;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Reserve the drawn height until the first measure, so nothing jumps */
+.hbt-stage:not(.is-drawn) {
+  min-height: 324px;
+}
+
+.hbt-stage:focus-visible {
+  outline: 1px solid var(--line-focus);
+  outline-offset: 4px;
+}
+
+.hbt-chart.is-empty .hbt-stage {
+  cursor: default;
+}
+
+.hbt-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+  touch-action: pan-y pinch-zoom;
+}
+
+.hbt-svg text {
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  letter-spacing: 0.06em;
+  font-variant-numeric: tabular-nums;
+}
+
+.hbt-rule,
+.hbt-grid {
+  stroke: var(--line);
+  stroke-width: 1;
+  shape-rendering: crispEdges;
+}
+
+.hbt-tick,
+.hbt-xlabel {
+  fill: var(--text-3);
+}
+
+.hbt-xlabel.is-today {
+  fill: var(--text-2);
+  font-weight: 600;
+}
+
+.hbt-stop-a {
+  stop-color: var(--accent);
+  stop-opacity: 0.18;
+}
+
+.hbt-stop-b {
+  stop-color: var(--accent);
+  stop-opacity: 0;
+}
+
+.hbt-line {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.hbt-pre,
+.hbt-flat {
+  fill: none;
+  stroke: var(--text-4);
+  stroke-width: 1;
+  shape-rendering: crispEdges;
+}
+
+.hbt-ma {
+  fill: none;
+  stroke: var(--text-3);
+  stroke-width: 1;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+/* End-dot / crosshair dot: r 4 with a 2px surface ring painted under the fill */
+.hbt-end,
+.hbt-xh-dot {
+  fill: var(--accent);
+  stroke: var(--bg);
+  stroke-width: 4;
+  paint-order: stroke;
+}
+
+.hbt-halo {
+  fill: var(--accent);
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: hbt-halo 2.6s var(--ease-out) infinite;
+  pointer-events: none;
+}
+
+.hbt-wick-up,
+.hbt-wick-down,
+.hbt-rest {
+  fill: none;
+  stroke-width: 1;
+  shape-rendering: crispEdges;
+}
+
+.hbt-wick-up {
+  stroke: var(--accent);
+}
+
+.hbt-wick-down {
+  stroke: var(--text-2);
+}
+
+.hbt-rest {
+  stroke: var(--text-3);
+}
+
+.hbt-body-up {
+  fill: var(--accent);
+  shape-rendering: crispEdges;
+}
+
+.hbt-body-down {
+  fill: none;
+  stroke: var(--text-2);
+  stroke-width: 1;
+  shape-rendering: crispEdges;
+}
+
+.hbt-body-down-fill {
+  fill: var(--text-2);
+  shape-rendering: crispEdges;
+}
+
+.hbt-body-live {
+  stroke: var(--accent);
+  stroke-width: 1;
+  shape-rendering: crispEdges;
+}
+
+.hbt-hatch-ink {
+  fill: var(--accent);
+}
+
+.hbt-vol-plan {
+  fill: var(--heat-1);
+}
+
+.hbt-vol-done {
+  fill: var(--heat-3);
+}
+
+.hbt-vol-hot {
+  fill: var(--accent);
+}
+
+.hbt-last-line {
+  stroke: var(--accent);
+  stroke-opacity: 0.35;
+  stroke-width: 1;
+  shape-rendering: crispEdges;
+}
+
+.hbt-tag rect {
+  fill: var(--accent);
+}
+
+.hbt-tag text {
+  fill: var(--accent-ink);
+  font-weight: 600;
+}
+
+.hbt-tag.is-closed rect {
+  fill: none;
+  stroke: var(--line-strong);
+  stroke-width: 1;
+}
+
+.hbt-tag.is-closed text {
+  fill: var(--text-3);
+}
+
+/* ---- Crosshair ---- */
+
+.hbt-xh {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.hbt-xh.is-on {
+  visibility: visible;
+}
+
+.hbt-xh-line {
+  stroke: var(--text-3);
+  stroke-width: 1;
+  shape-rendering: crispEdges;
+}
+
+.hbt-pill-bg {
+  fill: var(--text-2);
+}
+
+.hbt-pill-text {
+  fill: var(--bg);
+  font-weight: 600;
+}
+
+/* While scrubbing, the live pulse steps back */
+.hbt-stage.is-scrubbing .hbt-halo {
+  animation-play-state: paused;
+  opacity: 0;
+}
+
+/* ---- Market closed (no habit ever planned) ---- */
+
+.hbt-closed {
+  position: absolute;
+  inset: 0 56px 26px 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4);
+  pointer-events: none;
+}
+
+.hbt-closed-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  max-width: 34ch;
+  padding: var(--space-4) var(--space-5);
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--bg) 86%, transparent);
+  text-align: center;
+  pointer-events: auto;
+}
+
+.hbt-closed-k {
+  color: var(--text);
+  letter-spacing: 0.22em;
+}
+
+.hbt-closed-t {
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+}
+
+/* ---- Footer: legend + note ---- */
+
+.hbt-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-4);
+}
+
+.hbt-chart.is-empty .hbt-foot {
+  visibility: hidden;
+}
+
+.hbt-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-4);
+}
+
+.hbt-key {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  letter-spacing: calc(0.12em * var(--label-tracking));
+  text-transform: var(--label-case);
+  color: var(--text-2);
+  white-space: nowrap;
+}
+
+.hbt-swatch {
+  flex: none;
+  display: inline-block;
+}
+
+.hbt-swatch.is-line {
+  width: 14px;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--accent);
+}
+
+.hbt-swatch.is-ma {
+  width: 14px;
+  height: 1px;
+  background: var(--text-3);
+}
+
+.hbt-swatch.is-up,
+.hbt-swatch.is-down,
+.hbt-swatch.is-live {
+  width: 7px;
+  height: 11px;
+  border-radius: 1px;
+}
+
+.hbt-swatch.is-up {
+  background: var(--accent);
+}
+
+.hbt-swatch.is-down {
+  border: 1px solid var(--text-2);
+}
+
+.hbt-swatch.is-live {
+  border: 1px solid var(--accent);
+  background: repeating-linear-gradient(45deg, var(--accent) 0 1px, transparent 1px 3px);
+}
+
+.hbt-swatch.is-done,
+.hbt-swatch.is-plan {
+  width: 8px;
+  height: 9px;
+  border-radius: 2px 2px 0 0;
+}
+
+.hbt-swatch.is-done {
+  background: var(--heat-3);
+}
+
+.hbt-swatch.is-plan {
+  background: var(--heat-1);
+}
+
+.hbt-note {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- Info modal ---- */
+
+.hbt-info {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.hbt-info-list {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: var(--space-3) var(--space-4);
+  font-size: var(--fs-sm);
+}
+
+.hbt-info-list dt {
+  padding-top: 3px;
+}
+
+.hbt-info-list dd {
+  margin: 0;
+  color: var(--text-2);
+}
+
+/* ---- Collapsed: one slim strip ---- */
+
+.hbt-chart.is-collapsed {
+  padding-block: var(--space-3);
+}
+
+.hbt-chart.is-collapsed .hbt-head {
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  grid-template-areas: "id quote spark actions";
+  row-gap: 0;
+}
+
+.hbt-chart.is-collapsed .hbt-strip {
+  display: flex;
+}
+
+.hbt-chart.is-collapsed .hbt-sub {
+  display: none;
+}
+
+.hbt-chart.is-collapsed .hbt-quote {
+  align-items: center;
+}
+
+.hbt-chart.is-collapsed .hbt-price {
+  font-size: var(--fs-xl);
+}
+
+/* ---- Wide panels: symbol, quote and actions share one row ---- */
+
+@container hbt (min-width: 760px) {
+  .hbt-head {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas: "id quote actions";
+    column-gap: var(--space-6);
+  }
+
+  .hbt-quote {
+    padding-left: var(--space-6);
+    border-left: 1px solid var(--line);
+  }
+}
+
+/* ---- Mid-width collapsed strip: price, change and sparkline keep the room ---- */
+
+@container hbt (max-width: 759px) {
+  .hbt-chart.is-collapsed .hbt-ident,
+  .hbt-chart.is-collapsed .hbt-status {
+    display: none;
+  }
+}
+
+/* ---- Narrow panels (phones): compact type, icon-only chart types ---- */
+
+@container hbt (max-width: 559px) {
+  .hbt-price {
+    font-size: 30px;
+  }
+
+  /* "0–100 · WEEKLY": the full "INDEX · 0–100 · WEEKLY" would ellipsize beside the symbol on phones */
+  .hbt-sub-k {
+    display: none;
+  }
+
+  .hbt-chg {
+    font-size: var(--fs-xs);
+  }
+
+  .hbt-quote {
+    gap: var(--space-2);
+  }
+
+  /* Readout takes its own two-line row so hover never reflows the controls;
+     it wraps between its two groups, so the group dot would start a line */
+  .hbt-readout {
+    flex-basis: 100%;
+    min-height: 32px;
+    align-content: flex-start;
+  }
+
+  .hbt-ro-group.is-extra::before {
+    content: none;
+  }
+
+  .hbt-type-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+
+  .hbt-seg .seg-btn {
+    padding: 0 9px;
+  }
+
+  .hbt-closed {
+    inset: 0 48px 26px 0;
+  }
+
+  .hbt-chart.is-collapsed .hbt-chg-pct,
+  .hbt-chart.is-collapsed .hbt-info-btn {
+    display: none;
+  }
+
+  .hbt-chart.is-collapsed .hbt-price {
+    font-size: var(--fs-lg);
+  }
+
+  .hbt-chart.is-collapsed .hbt-head {
+    column-gap: var(--space-3);
+  }
+}
+
+/* Small phones: the strip sparkline scales down (its viewBox keeps the shape) */
+@container hbt (max-width: 399px) {
+  .hbt-chart.is-collapsed .hbt-strip-spark {
+    width: 64px;
+    height: auto;
+  }
+}
+
+@container hbt (max-width: 300px) {
+  .hbt-chart.is-collapsed .hbt-strip {
+    display: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .hbt-chart {
+    padding: var(--space-3) var(--space-3) var(--space-2);
+  }
+
+  .hbt-info-list {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-1);
+  }
+
+  .hbt-info-list dd + dt {
+    margin-top: var(--space-2);
+  }
+}
+
+@media (pointer: coarse) {
+  .hbt-seg .seg-btn {
+    height: 32px;
+  }
+
+  .hbt-actions .btn {
+    --btn-h: 36px;
+  }
+}
+
+/* ==========================================================================
+   Top-bar ticker
+   ========================================================================== */
+
+.hbt-ticker {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: 32px;
+  min-width: 0;
+  padding: 0 var(--space-3) 0 var(--space-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  color: var(--text-2);
+  transition: border-color var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease),
+    box-shadow var(--dur-fast) var(--ease);
+}
+
+.hbt-ticker:hover {
+  border-color: var(--line-strong);
+  background: var(--surface-2);
+  box-shadow: var(--glow);
+}
+
+.hbt-tk-dot {
+  flex: none;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--text-4);
+}
+
+.hbt-ticker.is-live .hbt-tk-dot {
+  background: var(--accent);
+  box-shadow: 0 0 6px var(--glow-c);
+  animation: lo-pulse 1.6s var(--ease) infinite;
+}
+
+.hbt-tk-sym {
+  padding: 1px 4px 1px 5px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-xs);
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  color: var(--text);
+}
+
+.hbt-tk-price {
+  display: inline-block;
+  font-weight: 600;
+  color: var(--text);
+  transform-origin: center;
+}
+
+.hbt-tk-chg[data-dir="up"] {
+  color: var(--text);
+}
+
+.hbt-tk-chg[data-dir="down"] {
+  color: var(--text-2);
+}
+
+.hbt-tk-chg[data-dir="flat"] {
+  color: var(--text-3);
+}
+
+.hbt-tk-chg:empty,
+.hbt-tk-short {
+  display: none;
+}
+
+.hbt-tk-spark {
+  display: block;
+  flex: none;
+  overflow: visible;
+}
+
+.hbt-ticker.is-empty .hbt-tk-price,
+.hbt-ticker.is-empty .hbt-tk-sym {
+  color: var(--text-3);
+}
+
+.hbt-ticker.is-empty .hbt-tk-chg {
+  display: none;
+}
+
+/* ---- Sparklines (strip + ticker) ---- */
+
+.hbt-spark-line {
+  fill: none;
+  stroke: var(--text-3);
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.hbt-spark-dot {
+  fill: var(--accent);
+}
+
+.hbt-spark-flat {
+  stroke: var(--text-4);
+  stroke-width: 1;
+}
+
+@media (max-width: 900px) {
+  .hbt-tk-spark {
+    display: none;
+  }
+}
+
+/* Phones: "LIFE 78.4 ▲1.2" */
+@media (max-width: 640px) {
+  .hbt-ticker {
+    gap: 6px;
+    height: 30px;
+    padding: 0 var(--space-2);
+  }
+
+  .hbt-tk-long,
+  .hbt-tk-dot {
+    display: none;
+  }
+
+  .hbt-tk-short {
+    display: inline;
+  }
+}
+
+/* ==========================================================================
+   Motion
+   ========================================================================== */
+
+.hbt-price.is-flash-up,
+.hbt-tk-price.is-flash-up {
+  animation: hbt-flash-up 720ms var(--ease-out);
+}
+
+.hbt-price.is-flash-down,
+.hbt-tk-price.is-flash-down {
+  animation: hbt-flash-down 720ms var(--ease-out);
+}
+
+@keyframes hbt-flash-up {
+  0% {
+    transform: none;
+    text-shadow: none;
+  }
+  22% {
+    transform: scale(1.04);
+    text-shadow: 0 0 2px var(--glow-c), 0 0 18px var(--glow-c);
+  }
+  100% {
+    transform: none;
+    text-shadow: none;
+  }
+}
+
+@keyframes hbt-flash-down {
+  0% {
+    opacity: 1;
+    transform: none;
+  }
+  22% {
+    opacity: 0.4;
+    transform: scale(0.98);
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes hbt-halo {
+  0% {
+    opacity: 0.45;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(3.2);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hbt-price.is-flash-up,
+  .hbt-price.is-flash-down,
+  .hbt-tk-price.is-flash-up,
+  .hbt-tk-price.is-flash-down,
+  .hbt-status.is-live::before,
+  .hbt-ticker.is-live .hbt-tk-dot {
+    animation: none;
+  }
+
+  .hbt-halo {
+    display: none;
+  }
+}

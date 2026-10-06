@@ -1,0 +1,911 @@
+/* ==========================================================================
+   LIFE/OS — 01 // Home: greeting, the week, widgets (Pomodoro, habits, to-do,
+   quick note, habit graph). Mission Control base; the other templates restyle
+   it in css/skins/<id>.css. Week items reuse the Calendar's event bars, task
+   chips, habit dots and H/M/L badges (calendar.css), so they match there.
+   ========================================================================== */
+
+.view[data-feature="home"] {
+  max-width: 1360px;
+}
+
+/* ---- Header: greeting, date, what's next ---- */
+
+.hm-page .page-header {
+  align-items: flex-end;
+}
+
+.hm-next {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: fit-content;
+  max-width: 100%;
+  margin-top: var(--space-2);
+  padding: 5px 12px 5px 9px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-pill);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--text);
+  text-align: left;
+  transition: background var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease);
+}
+
+.hm-next svg {
+  flex: none;
+  color: var(--text-2);
+}
+
+.hm-next span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hm-next:hover {
+  border-color: var(--text-3);
+  background: var(--surface-2);
+}
+
+.hm-next.is-empty {
+  border-style: dashed;
+  color: var(--text-2);
+}
+
+.hm-quick .hm-kbd,
+.hm-note-btn .hm-kbd {
+  margin-left: var(--space-1);
+  border-color: currentColor;
+  color: inherit;
+  opacity: 0.55;
+}
+
+/* ---- Layout ----
+   Wide: the week, the habit graph and the quick note beside the timer, habits and to-do.
+   Tablet and narrow windows: the week across the top, the widgets in two columns.
+   Phones: one column, widgets first (timer, habits, to-do, quick note), then the week as a
+   list, then the graph. Below wide, the two column wrappers step aside (display: contents)
+   and every card takes its grid area. */
+
+.hm-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 344px;
+  grid-template-areas: "main side";
+  gap: var(--space-5);
+  align-items: start;
+}
+
+.hm-main,
+.hm-side {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  min-width: 0;
+}
+
+.hm-main {
+  grid-area: main;
+}
+
+.hm-side {
+  grid-area: side;
+}
+
+@media (max-width: 1199px) {
+  .hm-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-areas:
+      "week week"
+      "pomo todo"
+      "habits todo"
+      "note graph";
+  }
+
+  .hm-main,
+  .hm-side {
+    display: contents;
+  }
+
+  .hm-week { grid-area: week; }
+  .hm-pomo { grid-area: pomo; }
+  .hm-habits { grid-area: habits; }
+  .hm-todo { grid-area: todo; }
+  .hm-note { grid-area: note; }
+  .hm-graph { grid-area: graph; }
+}
+
+@media (max-width: 640px) {
+  .hm-grid {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "pomo" "habits" "todo" "note" "week" "graph";
+    gap: var(--space-4);
+  }
+}
+
+/* ---- Cards ---- */
+
+.hm-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+  padding: var(--space-4) var(--space-5) var(--space-5);
+}
+
+.hm-card-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 24px;
+  min-width: 0;
+}
+
+.hm-card-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  font-family: var(--label-font);
+  font-size: var(--label-size);
+  font-weight: var(--label-weight);
+  letter-spacing: calc(0.14em * var(--label-tracking));
+  text-transform: var(--label-case);
+  color: var(--text-2);
+}
+
+.hm-card-title span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hm-card-title svg {
+  flex: none;
+  color: var(--text-3);
+}
+
+.hm-card-head > .hm-more,
+.hm-card-tools {
+  margin-left: auto;
+}
+
+.hm-card-tools {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.hm-more {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  letter-spacing: calc(0.1em * var(--label-tracking));
+  text-transform: var(--label-case);
+  color: var(--text-3);
+  white-space: nowrap;
+  transition: color var(--dur-fast) var(--ease);
+}
+
+.hm-more:hover {
+  color: var(--text);
+}
+
+.hm-count {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-2);
+}
+
+.hm-count:empty {
+  display: none;
+}
+
+/* A small empty state inside a card, with the action that fills it */
+.hm-empty {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: repeating-linear-gradient(-45deg, var(--surface) 0 1px, transparent 1px 10px);
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+}
+
+.hm-empty-icon {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  color: var(--text-2);
+}
+
+.hm-empty-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.hm-empty-text strong {
+  font-weight: 500;
+  color: var(--text);
+}
+
+.hm-empty > .btn {
+  grid-column: 2;
+  justify-self: start;
+}
+
+/* ---- The week ---- */
+
+.hm-week {
+  container: hm-week / inline-size;
+  --cal-slot: 22px;
+}
+
+.hm-week-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-3);
+}
+
+.hm-week-kicker {
+  flex: none;
+}
+
+.hm-week-title {
+  font-size: var(--fs-md);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.hm-week-nav {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-left: auto;
+}
+
+.hm-week-nav .hm-more {
+  margin-left: var(--space-2);
+}
+
+.hm-days {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 1px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--line);
+}
+
+.hm-day {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  min-height: 196px;
+  padding: var(--space-2);
+  background: var(--surface-solid);
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease);
+}
+
+.hm-day:hover {
+  background: var(--surface-solid-2);
+}
+
+.hm-day.is-weekend {
+  background: repeating-linear-gradient(-45deg, var(--surface-2) 0 1px, transparent 1px 9px), var(--surface-solid);
+}
+
+.hm-day.is-today {
+  box-shadow: inset 0 2px 0 var(--accent);
+  background: linear-gradient(var(--surface-2), var(--surface-2)), var(--surface-solid);
+}
+
+.hm-day-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 2px 2px 4px;
+  border-radius: var(--radius-xs);
+  color: var(--text-2);
+  text-align: left;
+}
+
+.hm-day-wd {
+  font-family: var(--label-font);
+  font-size: var(--label-size);
+  font-weight: var(--label-weight);
+  letter-spacing: calc(0.14em * var(--label-tracking));
+  text-transform: var(--label-case);
+}
+
+.hm-day-num {
+  padding: 1px 5px;
+  border-radius: var(--radius-xs);
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+
+.hm-day.is-today .hm-day-num {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.hm-day.is-past .hm-day-num,
+.hm-day.is-past .hm-day-wd {
+  color: var(--text-3);
+}
+
+.hm-day-tag {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: calc(0.12em * var(--label-tracking));
+  text-transform: var(--label-case);
+  color: var(--text);
+}
+
+.hm-day-items {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.hm-day .cal-ev,
+.hm-day .cal-task {
+  cursor: pointer;
+}
+
+/* Titles get two lines here (a day is only ~100px wide). An event reads as one line of text
+   that wraps ("14:00 Design" / "sync"); a task's title wraps beside its checkbox. */
+.hm-day .cal-ev {
+  display: -webkit-box;
+  height: auto;
+  min-height: var(--cal-slot);
+  /* 1px at the foot: a clamped third line would otherwise peek into the padding */
+  padding-top: 4px;
+  padding-bottom: 1px;
+  overflow: hidden;
+  line-height: 1.3;
+  white-space: normal;
+  overflow-wrap: break-word;
+  hyphens: auto;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+/* Inline-block: a wrap point between the time and the title (they touch, with no space) */
+.hm-day .cal-ev-time {
+  display: inline-block;
+  margin-right: 4px;
+}
+
+.hm-day .cal-task {
+  align-items: flex-start;
+  gap: 3px;
+  height: auto;
+  min-height: var(--cal-slot);
+  padding: 4px 3px 4px 4px;
+}
+
+.hm-day .cal-task-title {
+  display: -webkit-box;
+  height: auto;
+  overflow: hidden;
+  line-height: 1.3;
+  white-space: normal;
+  overflow-wrap: break-word;
+  hyphens: auto;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.hm-day .cal-task-check {
+  margin-top: 3px;
+}
+
+.hm-days.is-quiet .hm-day {
+  min-height: 112px;
+}
+
+.hm-week-empty {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-3);
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+}
+
+.hm-day-more,
+.hm-day-free {
+  padding: 2px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  color: var(--text-3);
+}
+
+.hm-day-free {
+  color: var(--text-3);
+}
+
+/* Habit dots sit at the foot of the day */
+.hm-day > .cal-hb {
+  margin-top: auto;
+  padding: 0 2px;
+}
+
+/* Narrow (a tablet column, a phone): one row per day, the date on the left */
+@container hm-week (max-width: 600px) {
+  .hm-days {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .hm-day {
+    display: grid;
+    grid-template-columns: 64px minmax(0, 1fr);
+    column-gap: var(--space-3);
+    row-gap: 4px;
+    min-height: 0;
+    padding: var(--space-2) var(--space-3);
+  }
+
+  .hm-day-head {
+    grid-row: 1 / span 2;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+  }
+
+  .hm-day-tag {
+    margin-left: 0;
+  }
+
+  .hm-day-items {
+    grid-column: 2;
+  }
+
+  .hm-day > .cal-hb {
+    grid-column: 2;
+    margin-top: 0;
+    padding: 0;
+  }
+}
+
+/* ---- Pomodoro ---- */
+
+.hm-pomo-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-3);
+}
+
+.hm-pomo-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  letter-spacing: calc(0.12em * var(--label-tracking));
+  text-transform: var(--label-case);
+  color: var(--text-2);
+}
+
+.hm-pomo-digits {
+  font-family: var(--font-mono);
+  font-size: 46px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  color: var(--text);
+}
+
+.hm-pomo[data-status="paused"] .hm-pomo-digits {
+  color: var(--text-2);
+}
+
+.hm-pomo-bar {
+  height: 3px;
+}
+
+/* Breaks are hatched: the timer is resting, not working */
+.hm-pomo:not([data-phase="focus"]) .hm-pomo-fill {
+  background: repeating-linear-gradient(-45deg, var(--accent) 0 2px, transparent 2px 5px);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.hm-pomo-fill {
+  transition: width 1s linear;
+}
+
+.hm-pomo-ctl {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.hm-pomo-ctl .btn {
+  flex: 1;
+}
+
+.hm-page .btn svg,
+.hm-qn .btn svg {
+  flex: none;
+}
+
+.hm-pomo-task {
+  overflow: hidden;
+  font-size: var(--fs-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-2);
+}
+
+.hm-pomo-task-label {
+  font-family: var(--label-font);
+  font-size: var(--label-size);
+  letter-spacing: calc(0.12em * var(--label-tracking));
+  text-transform: var(--label-case);
+  color: var(--text-3);
+}
+
+.hm-pomo-task-name {
+  color: var(--text);
+}
+
+/* ---- Habits today ---- */
+
+.hm-habits-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-3);
+}
+
+.hm-habits-sum {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.hm-ring {
+  flex: none;
+  width: 56px;
+  height: 56px;
+}
+
+.hm-ring-label {
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.hm-habits-line {
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+}
+
+.hm-habit-list {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1px;
+}
+
+.hm-habit {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 34px;
+  padding: 4px;
+  border-radius: var(--radius-xs);
+}
+
+.hm-habit:hover {
+  background: var(--surface-2);
+}
+
+.hm-habit-name {
+  min-width: 0;
+  overflow: hidden;
+  font-size: var(--fs-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hm-habit.is-done .hm-habit-name {
+  color: var(--text-2);
+}
+
+/* ---- To do ---- */
+
+.hm-add {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.hm-add-icon {
+  position: absolute;
+  left: 11px;
+  display: grid;
+  color: var(--text-3);
+  pointer-events: none;
+}
+
+.hm-add-input {
+  height: 36px;
+  padding-left: 32px;
+}
+
+.hm-add-btn {
+  flex: none;
+}
+
+.hm-tasks {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1px;
+}
+
+.hm-task {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 34px;
+  padding: 4px;
+  border-radius: var(--radius-xs);
+  transition: opacity var(--dur) var(--ease);
+}
+
+.hm-task:hover {
+  background: var(--surface-2);
+}
+
+.hm-task-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-size: var(--fs-sm);
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text);
+}
+
+.hm-task-title:hover {
+  text-decoration: underline;
+  text-decoration-color: var(--text-3);
+  text-underline-offset: 3px;
+}
+
+.hm-task.pri-high .hm-task-title {
+  font-weight: 600;
+}
+
+.hm-task.is-done {
+  opacity: 0.5;
+}
+
+.hm-task.is-done .hm-task-title {
+  text-decoration: line-through;
+}
+
+.hm-task-late,
+.hm-task .cal-pri {
+  flex: none;
+}
+
+.hm-todo-foot:empty {
+  display: none;
+}
+
+.hm-todo-foot > .hm-more {
+  padding: 0 4px;
+}
+
+/* ---- Quick note ---- */
+
+.hm-note-btn {
+  --btn-h: 44px;
+  justify-content: flex-start;
+  width: 100%;
+  font-size: var(--fs-sm);
+}
+
+.hm-note-btn .hm-kbd {
+  margin-left: auto;
+}
+
+/* Wide: the card sits under the week, so the button keeps a button's width */
+@media (min-width: 1200px) {
+  .hm-main .hm-note-btn {
+    align-self: flex-start;
+    width: auto;
+    min-width: 280px;
+  }
+}
+
+.hm-recent {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1px;
+}
+
+.hm-recent-item {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  width: 100%;
+  padding: 6px 4px;
+  border-radius: var(--radius-xs);
+  text-align: left;
+}
+
+.hm-recent-item:hover {
+  background: var(--surface-2);
+}
+
+.hm-recent-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-size: var(--fs-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hm-recent-time {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  color: var(--text-3);
+}
+
+/* ---- Habit graph: daily completion, rest days as gaps ---- */
+
+.hm-graph-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-3);
+}
+
+.hm-bars {
+  display: grid;
+  grid-template-columns: repeat(14, minmax(0, 1fr));
+  align-items: end;
+  gap: 4px;
+  height: 128px;
+}
+
+.hm-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  height: 100%;
+  min-width: 0;
+}
+
+.hm-bar-track {
+  position: relative;
+  display: flex;
+  flex: 1;
+  align-items: flex-end;
+  overflow: hidden;
+  border-radius: 2px;
+  background: var(--heat-0);
+}
+
+.hm-bar-fill {
+  width: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+  box-shadow: 0 0 8px var(--glow-c-soft);
+}
+
+/* Today, still going: hatched */
+.hm-bar.is-today .hm-bar-fill {
+  background: repeating-linear-gradient(-45deg, var(--accent) 0 2px, transparent 2px 5px);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+/* Rest days are gaps, not zeros: an empty slot on a dashed baseline */
+.hm-bar.is-rest .hm-bar-track,
+.hm-bar.is-none .hm-bar-track {
+  background: transparent;
+  border-bottom: 1px dashed var(--line-strong);
+  border-radius: 0;
+}
+
+.hm-bar.is-none .hm-bar-track {
+  border-bottom-style: dotted;
+}
+
+.hm-bar-day {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  text-align: center;
+  color: var(--text-3);
+}
+
+.hm-bar.is-now .hm-bar-day {
+  color: var(--text);
+}
+
+.hm-graph-note {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  letter-spacing: calc(0.08em * var(--label-tracking));
+  text-transform: var(--label-case);
+  color: var(--text-3);
+}
+
+.hm-graph-avg {
+  color: var(--text);
+}
+
+/* ---- Quick note dialog ---- */
+
+.hm-qn .modal-body {
+  gap: var(--space-4);
+}
+
+.hm-qn-body {
+  min-height: 140px;
+}
+
+.hm-qn-kbd {
+  margin-left: var(--space-1);
+  border-color: currentColor;
+  color: inherit;
+  opacity: 0.6;
+}
+
+/* ---- Phones ---- */
+
+@media (max-width: 640px) {
+  .hm-card {
+    padding: var(--space-4);
+  }
+
+  .hm-quick {
+    width: 100%;
+  }
+
+  .hm-kbd {
+    display: none;
+  }
+
+  .hm-pomo-digits {
+    font-size: 40px;
+  }
+
+  .hm-bars {
+    height: 104px;
+    gap: 3px;
+  }
+}

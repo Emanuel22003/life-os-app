@@ -1,0 +1,1771 @@
+/* ==========================================================================
+   LIFE/OS — skin: Simple (data-skin="simple")
+   the default: plain, calm, beginner-friendly. Fewer numbers (no zero padding,
+   no index kickers), everyday words, sentence case, soft rounded cards. Already in place without
+   this file: .lo-deco / .lo-hint are hidden (base.css) and ui.idx()/num() print plain numbers.
+
+   Conventions (README → Appearance, and the picker in js/appearance.js):
+   - Every selector starts at the skin scope: [data-skin="simple"] .btn { … }.
+     Exception: the shared kit (and .tk-add-btn) use .btn:where([data-skin="simple"] *),
+     the same scope at base strength, so feature rules and phone layouts still win.
+     The scope is <html> for the app and a <div> inside each Appearance preview,
+     so never use :root, html or body here; the page surface is .lo-page
+     ([data-skin="simple"] .lo-page), on <body> and on each preview.
+   - Tokens: override css/tokens.css names on the scope itself:
+       [data-skin="simple"] { …dark… }
+       [data-skin="simple"][data-theme="light"] { …light… }
+     Both attributes always sit on the same element.
+   - HUD decoration switches: --page-bg-image, --hud-corners, --glow-c,
+     --glow-c-soft, --label-* (font, size, weight, case, tracking), plus
+     --font-sans/-mono/-display/-code, --radius*, --border-w(-sm),
+     --shadow-hard, --counter-style.
+   - @keyframes are global: prefix them (simple-…).
+   - Loaded after every feature stylesheet; the scope prefix adds one attribute
+     to specificity, enough to beat the base rule you restate.
+   - After changing --bg, update this skin's colors in SKIN_BOOT (js/skins.js
+     and index.html's head script, kept equal by tools/tests/skins.test.js).
+
+   Sections: tokens · page · shell · shared kit · tasks · notes · notes board ·
+   habits · habits insights · calendar · motion and forced colors. Phone and
+   tablet rules sit with the part they change. The LIFE index (chart and top-bar
+   ticker), counters and shortcut tips are left out through the .lo-deco / .lo-hint
+   hooks in the feature JS, so they need no rules here. The event editor and the
+   Appearance preview card need nothing beyond the shared kit.
+   ========================================================================== */
+
+/* ==========================================================================
+   Tokens
+   ========================================================================== */
+
+/* ---- Dark (and everything that doesn't change with the mode) ---- */
+[data-skin="simple"] {
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  /* No monospace readouts: numbers use the same calm sans (tabular where it matters) */
+  --font-mono: var(--font-sans);
+  --font-display: var(--font-sans);
+
+  --fs-2xs: 12px;
+  --fs-xs: 12.5px;
+  --fs-sm: 14px;
+  --fs-md: 15px;
+  --fs-lg: 18px;
+  --fs-xl: 22px;
+  --fs-2xl: 28px;
+  --fs-3xl: 34px;
+
+  --radius-xs: 6px;
+  --radius-sm: 8px;
+  --radius: 12px;
+  --radius-lg: 16px;
+
+  /* Captions: small sentence-case sans in a muted color, never uppercase mono */
+  --label-font: var(--font-sans);
+  --label-size: var(--fs-xs);
+  --label-weight: 500;
+  --label-case: none;
+  --label-tracking: 0;
+
+  /* No blueprint grid, corner brackets or glows */
+  --page-bg-image: none;
+  --page-bg-size: auto;
+  --hud-corners: none;
+  --glow-c: transparent;
+  --glow-c-soft: transparent;
+
+  --border-w: 1px;
+  --border-w-sm: 1.5px;
+  --shadow-hard: none;
+  --counter-style: decimal;
+
+  /* Simple's own: the soft lift under every card */
+  --simple-card-shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 2px 10px rgba(0, 0, 0, 0.18);
+  --simple-ring: 0 0 0 3px rgba(255, 255, 255, 0.14);
+
+  color-scheme: dark;
+
+  --bg: #111111;
+  --bg-elev: #161616;
+  --surface: #1b1b1b;
+  --surface-2: #232323;
+  --surface-3: #2c2c2c;
+  --surface-solid: #1d1d1d;
+  --surface-solid-2: #242424;
+
+  --line: rgba(255, 255, 255, 0.08);
+  --line-strong: rgba(255, 255, 255, 0.15);
+  --line-focus: rgba(255, 255, 255, 0.6);
+
+  --text: #ededed;
+  --text-2: #b4b4b4;
+  --text-3: #969696;
+  --text-4: #5a5a5a;
+
+  --accent: #ededed;
+  --accent-ink: #111111;
+  --accent-soft: rgba(255, 255, 255, 0.1);
+
+  --glow: var(--simple-ring);
+  --glow-strong: 0 2px 10px rgba(0, 0, 0, 0.35);
+  --shadow: 0 16px 48px rgba(0, 0, 0, 0.55);
+  --shadow-sm: 0 4px 16px rgba(0, 0, 0, 0.35);
+
+  --grid-line: transparent;
+  --scrim: rgba(0, 0, 0, 0.6);
+  --hatch: rgba(255, 255, 255, 0.06);
+
+  --heat-0: rgba(255, 255, 255, 0.07);
+  --heat-1: rgba(255, 255, 255, 0.2);
+  --heat-2: rgba(255, 255, 255, 0.38);
+  --heat-3: rgba(255, 255, 255, 0.62);
+  --heat-4: #ededed;
+}
+
+/* ---- Light ---- */
+[data-skin="simple"][data-theme="light"] {
+  --simple-card-shadow: 0 1px 2px rgba(0, 0, 0, 0.05), 0 2px 10px rgba(0, 0, 0, 0.04);
+  --simple-ring: 0 0 0 3px rgba(0, 0, 0, 0.1);
+
+  color-scheme: light;
+
+  --bg: #f7f7f5;
+  --bg-elev: #ffffff;
+  --surface: #ffffff;
+  --surface-2: #f1f1ef;
+  --surface-3: #e8e8e5;
+  --surface-solid: #ffffff;
+  --surface-solid-2: #f7f7f5;
+
+  --line: rgba(0, 0, 0, 0.08);
+  --line-strong: rgba(0, 0, 0, 0.15);
+  --line-focus: rgba(0, 0, 0, 0.6);
+
+  --text: #1a1a1a;
+  --text-2: #4d4d4d;
+  --text-3: #666666;
+  --text-4: #b8b8b8;
+
+  --accent: #1a1a1a;
+  --accent-ink: #ffffff;
+  --accent-soft: rgba(0, 0, 0, 0.06);
+
+  --glow: var(--simple-ring);
+  --glow-strong: 0 2px 10px rgba(0, 0, 0, 0.12);
+  --shadow: 0 16px 48px rgba(0, 0, 0, 0.14);
+  --shadow-sm: 0 4px 16px rgba(0, 0, 0, 0.08);
+
+  --grid-line: transparent;
+  --scrim: rgba(40, 40, 40, 0.28);
+  --hatch: rgba(0, 0, 0, 0.06);
+
+  --heat-0: rgba(0, 0, 0, 0.06);
+  --heat-1: rgba(0, 0, 0, 0.16);
+  --heat-2: rgba(0, 0, 0, 0.32);
+  --heat-3: rgba(0, 0, 0, 0.56);
+  --heat-4: #1a1a1a;
+}
+
+/* ==========================================================================
+   Page
+   ========================================================================== */
+
+[data-skin="simple"] .lo-page {
+  font-feature-settings: "cv11" 1, "ss01" 0;
+  letter-spacing: -0.006em;
+}
+
+[data-skin="simple"] h1,
+[data-skin="simple"] h2,
+[data-skin="simple"] h3,
+[data-skin="simple"] h4 {
+  letter-spacing: -0.015em;
+}
+
+[data-skin="simple"] :focus-visible {
+  outline: 2px solid var(--line-focus);
+  outline-offset: 2px;
+}
+
+[data-skin="simple"] .label {
+  letter-spacing: 0;
+}
+
+/* ==========================================================================
+   Shell: sidebar, top bar, page header, tab bar
+   ========================================================================== */
+
+[data-skin="simple"] .sidebar {
+  background: var(--bg-elev);
+  gap: var(--space-5);
+}
+
+[data-skin="simple"] .brand-name {
+  font-family: var(--font-sans);
+  font-size: var(--fs-md);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+/* The version number is for the developer, not the reader */
+[data-skin="simple"] .brand-version {
+  display: none;
+}
+
+[data-skin="simple"] .nav {
+  gap: 4px;
+}
+
+[data-skin="simple"] .nav-heading {
+  margin-bottom: var(--space-1);
+}
+
+[data-skin="simple"] .nav-item {
+  height: 42px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  font-size: var(--fs-md);
+}
+
+[data-skin="simple"] .nav-item[aria-current="page"] {
+  background: var(--surface-3);
+  font-weight: 600;
+}
+
+[data-skin="simple"] .nav-item[aria-current="page"]::before {
+  content: none;
+}
+
+[data-skin="simple"] .nav-badge {
+  min-width: 24px;
+  padding: 1px 7px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: var(--surface-3);
+  font-family: var(--font-sans);
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-2);
+}
+
+[data-skin="simple"] .nav-item[aria-current="page"] .nav-badge {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+/* Icon rail (tablet) and tab bar (phone): the badge shrinks back to a corner count */
+@media (max-width: 900px) {
+  [data-skin="simple"] .nav-badge {
+    min-width: 0;
+    padding: 0 5px;
+    font-size: 10px;
+    line-height: 16px;
+  }
+}
+
+@media (max-width: 640px) {
+  [data-skin="simple"] .tab .nav-badge {
+    min-width: 0;
+    padding: 0 5px;
+    font-size: 10px;
+    line-height: 16px;
+  }
+}
+
+[data-skin="simple"] .sidebar-foot {
+  border: 0;
+  background: transparent;
+  padding: var(--space-2) 0 0;
+  border-top: 1px solid var(--line);
+  border-radius: 0;
+}
+
+[data-skin="simple"] .sys-status {
+  padding: 0 var(--space-3);
+}
+
+[data-skin="simple"] .sys-dot {
+  width: 7px;
+  height: 7px;
+  background: var(--text-3);
+  box-shadow: none;
+  animation: none;
+}
+
+[data-skin="simple"] .sys-app {
+  border-radius: var(--radius-pill);
+  padding: 0 7px;
+  line-height: 18px;
+}
+
+[data-skin="simple"] .appearance-row .appearance-btn {
+  font-size: var(--fs-sm);
+}
+
+[data-skin="simple"] .install-steps li::before {
+  font-family: var(--font-sans);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  letter-spacing: 0;
+  padding-top: 0;
+  color: var(--text-2);
+}
+
+[data-skin="simple"] .install-note {
+  border-style: solid;
+  border-color: var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+
+/* ---- Top bar ---- */
+[data-skin="simple"] .topbar {
+  background: color-mix(in srgb, var(--bg) 85%, transparent);
+  border-bottom-color: var(--line);
+}
+
+[data-skin="simple"] .crumbs {
+  font-size: var(--fs-sm);
+}
+
+/* The LIFE ticker is a trading readout: Simple keeps the top bar quiet (Habits still works fully) */
+[data-skin="simple"] .topbar-widget[data-feature="habits"] {
+  display: none;
+}
+
+/* With the ticker gone, the crumbs keep their place on narrow screens */
+@media (max-width: 760px) {
+  [data-skin="simple"] .topbar:has(.topbar-widget) .crumbs > .crumb-current {
+    display: inline;
+  }
+}
+
+[data-skin="simple"] .clock {
+  font-family: var(--font-sans);
+  font-weight: 500;
+  letter-spacing: 0;
+}
+
+[data-skin="simple"] .topbar-date {
+  color: var(--text-2);
+}
+
+/* ---- Main + page header ---- */
+[data-skin="simple"] .view {
+  padding-top: var(--space-8);
+}
+
+[data-skin="simple"] .page-header {
+  align-items: center;
+  border-bottom: 0;
+  padding-bottom: 0;
+  margin-bottom: var(--space-6);
+}
+
+[data-skin="simple"] .page-header::after {
+  content: none;
+}
+
+[data-skin="simple"] .page-heading {
+  gap: var(--space-1);
+}
+
+[data-skin="simple"] .page-title {
+  font-size: var(--fs-3xl);
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  line-height: 1.15;
+}
+
+[data-skin="simple"] .page-subtitle {
+  font-size: var(--fs-md);
+  color: var(--text-2);
+}
+
+/* ==========================================================================
+   Shared kit
+   Written as `.thing:where([data-skin="simple"] *)`: the same skin scope with no
+   extra specificity, so these act as Simple's version of components.css and a
+   feature's own tweak (.hb-check's size, .nt-pin's pressed state) still wins.
+   ========================================================================== */
+
+.panel:where([data-skin="simple"] *) {
+  border-color: var(--line);
+  box-shadow: var(--simple-card-shadow);
+}
+
+/* ---- Buttons: the base styling already reads Simple's tokens ---- */
+.btn--primary:where([data-skin="simple"] *) {
+  font-weight: 600;
+}
+
+.btn--primary:where([data-skin="simple"] *):hover {
+  filter: brightness(0.9);
+}
+
+.btn--primary:where([data-skin="simple"][data-theme="light"] *):hover {
+  filter: none;
+  background: #333333;
+  border-color: #333333;
+}
+
+/* Destructive stays plain: no dashes or hatching, the label and dialog say what happens */
+.btn--danger:where([data-skin="simple"] *) {
+  border-style: solid;
+}
+
+.btn--danger:where([data-skin="simple"] *):hover {
+  background: var(--surface-2);
+  border-color: var(--text-3);
+}
+
+/* ---- Fields ---- */
+.input:where([data-skin="simple"] *),
+.textarea:where([data-skin="simple"] *),
+.select:where([data-skin="simple"] *) {
+  background: var(--surface);
+}
+
+.input:where([data-skin="simple"] *):focus,
+.textarea:where([data-skin="simple"] *):focus,
+.select:where([data-skin="simple"] *):focus {
+  background: var(--surface);
+}
+
+/* ---- Checkbox: a soft rounded square ---- */
+.check:where([data-skin="simple"] *) {
+  border-radius: max(6px, calc(var(--size) * 0.3));
+}
+
+.check:where([data-skin="simple"] *):hover {
+  box-shadow: none;
+}
+
+/* ---- Segmented control: a soft track with a raised selection ---- */
+.seg:where([data-skin="simple"] *) {
+  border: 0;
+  border-radius: 10px;
+  background: var(--surface-3);
+}
+
+.seg-btn:where([data-skin="simple"] *) {
+  border-radius: 7px;
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+}
+
+.seg-btn:where([data-skin="simple"] *)[aria-pressed="true"],
+.seg-btn:where([data-skin="simple"] *)[aria-selected="true"] {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.seg-btn:where([data-skin="simple"][data-theme="light"] *)[aria-pressed="true"],
+.seg-btn:where([data-skin="simple"][data-theme="light"] *)[aria-selected="true"] {
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.14);
+}
+
+.seg-count:where([data-skin="simple"] *) {
+  opacity: 1;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- Tags: small rounded pills ---- */
+.tag:where([data-skin="simple"] *) {
+  padding: 0 8px;
+  border-width: 1px;
+  border-radius: var(--radius-pill);
+  font-weight: 500;
+}
+
+.tag--dashed:where([data-skin="simple"] *) {
+  border-style: solid;
+}
+
+/* ---- Progress, meter, ring, stat ---- */
+.meter-tick:where([data-skin="simple"] *) {
+  border-radius: 3px;
+}
+
+.ring-fill:where([data-skin="simple"] *) {
+  filter: none;
+}
+
+.stat-value:where([data-skin="simple"] *) {
+  font-weight: 600;
+}
+
+/* ---- Empty state: quiet, no hatching ---- */
+.empty:where([data-skin="simple"] *) {
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--text-2);
+}
+
+.empty-icon:where([data-skin="simple"] *) {
+  width: 48px;
+  height: 48px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: var(--surface-3);
+}
+
+.empty-title:where([data-skin="simple"] *) {
+  font-size: var(--fs-lg);
+  font-weight: 600;
+}
+
+.empty-text:where([data-skin="simple"] *) {
+  font-size: var(--fs-md);
+  color: var(--text-2);
+}
+
+.kbd:where([data-skin="simple"] *) {
+  border-radius: 5px;
+}
+
+/* ---- Toasts: a dark rounded bubble in both modes ---- */
+.toast:where([data-skin="simple"] *) {
+  border: 0;
+  border-radius: var(--radius);
+  background: var(--surface-solid-2);
+  padding: var(--space-3) var(--space-3) var(--space-3) var(--space-5);
+}
+
+.toast:where([data-skin="simple"][data-theme="light"] *) {
+  background: #1f1f1f;
+  color: #f2f2f2;
+}
+
+.toast-action:where([data-skin="simple"] *) {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  border: 0;
+  border-radius: var(--radius-sm);
+  padding: 6px 10px;
+  background: var(--surface-3);
+  color: var(--text);
+}
+
+.toast-action:where([data-skin="simple"][data-theme="light"] *) {
+  background: #3a3a3a;
+  color: #ffffff;
+}
+
+.toast-action:where([data-skin="simple"] *):hover {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.toast-action:where([data-skin="simple"][data-theme="light"] *):hover {
+  background: #ffffff;
+  color: #1a1a1a;
+}
+
+/* ---- Context menu (right-click): a soft card, sentence case, a gentle fill on the lit item.
+   The shortcut hints are .lo-hint, so they are hidden here. ---- */
+[data-skin="simple"] .ctx-menu {
+  --ctx-hi: var(--surface-3);
+  min-width: 176px;
+  padding: 6px;
+  gap: 2px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+[data-skin="simple"][data-theme="light"] .ctx-menu {
+  --ctx-hi: var(--surface-2);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+[data-skin="simple"] .ctx-item {
+  grid-template-columns: 16px minmax(0, 1fr);
+  min-height: 34px;
+  padding: 0 10px;
+  border-radius: var(--radius-sm);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  color: var(--text);
+}
+
+[data-skin="simple"] .ctx-icon {
+  color: var(--text-2);
+}
+
+[data-skin="simple"] .ctx-item:not([aria-disabled="true"]):is(:hover, :focus),
+[data-skin="simple"] .ctx-item:focus-visible {
+  background: var(--ctx-hi);
+  box-shadow: none;
+}
+
+[data-skin="simple"] .ctx-item[aria-disabled="true"],
+[data-skin="simple"] .ctx-item[aria-disabled="true"] .ctx-icon {
+  color: var(--text-4);
+}
+
+/* ---- Dialogs ---- */
+.modal-root:where([data-skin="simple"] *) {
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+}
+
+.modal:where([data-skin="simple"] *) {
+  border: 0;
+  border-radius: var(--radius-lg);
+}
+
+.modal-head:where([data-skin="simple"] *) {
+  border-bottom: 0;
+  padding: var(--space-5) var(--space-6) var(--space-2);
+}
+
+.modal-title:where([data-skin="simple"] *) {
+  font-weight: 650;
+}
+
+.modal-body:where([data-skin="simple"] *) {
+  padding: var(--space-4) var(--space-6);
+}
+
+.modal-foot:where([data-skin="simple"] *) {
+  border-top: 0;
+  padding: var(--space-3) var(--space-6) var(--space-5);
+}
+
+/* ==========================================================================
+   Tasks
+   ========================================================================== */
+
+[data-skin="simple"] .tk-command {
+  background: var(--surface);
+}
+
+[data-skin="simple"] .tk-command:focus-within {
+  border-color: var(--line-strong);
+  box-shadow: var(--simple-card-shadow), var(--simple-ring);
+}
+
+[data-skin="simple"] .tk-command-main::after {
+  content: none;
+}
+
+/* The › prompt is terminal talk: a plain text field instead */
+[data-skin="simple"] .tk-prompt {
+  display: none;
+}
+
+[data-skin="simple"] .tk-command-main {
+  padding-left: var(--space-5);
+}
+
+[data-skin="simple"] .tk-add-input {
+  font-size: var(--fs-lg);
+  font-weight: 400;
+}
+
+/* :where keeps this at base strength, so the phone layout's icon-only button still wins */
+.tk-add-btn:where([data-skin="simple"] *) {
+  padding: 0 var(--space-4) 0 var(--space-3);
+}
+
+[data-skin="simple"] .tk-command-tools {
+  padding: var(--space-2) var(--space-3) var(--space-2) var(--space-5);
+  gap: var(--space-2) var(--space-6);
+}
+
+[data-skin="simple"] .tk-tool-label {
+  min-width: 0;
+  color: var(--text-2);
+}
+
+[data-skin="simple"] .tk-command-tools .seg-btn {
+  height: 28px;
+  font-size: var(--fs-sm);
+}
+
+[data-skin="simple"] .tk-date {
+  height: 34px;
+  font-family: var(--font-sans);
+}
+
+[data-skin="simple"] .tk-token {
+  height: 26px;
+  border-color: var(--line-strong);
+  background: var(--surface-2);
+}
+
+[data-skin="simple"] .tk-token:hover {
+  border-style: solid;
+  background: var(--surface-3);
+}
+
+/* Filter counts: the subtitle already says what today holds */
+[data-skin="simple"] .tk-filters .seg-count {
+  display: none;
+}
+
+[data-skin="simple"] .tk-toolbar {
+  margin-bottom: var(--space-4);
+}
+
+[data-skin="simple"] .tk-sort > .label {
+  color: var(--text-2);
+}
+
+/* ---- Rows ---- */
+[data-skin="simple"] .tk-row {
+  --row-line: 24px;
+  grid-template-columns: 28px auto minmax(0, 1fr) auto;
+  padding-top: 14px;
+  padding-bottom: 14px;
+}
+
+[data-skin="simple"] .tk-row:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--line-focus);
+}
+
+/* No priority bars or hatching: the Low / Medium / High tag says it in words */
+[data-skin="simple"] .tk-row::before {
+  content: none;
+}
+
+[data-skin="simple"] .tk-row.is-overdue .tk-grip {
+  background: none;
+}
+
+[data-skin="simple"] .tk-grip {
+  padding-top: 14px;
+  margin-top: -14px;
+  margin-bottom: -14px;
+}
+
+[data-skin="simple"] .tk-title-line {
+  font-size: var(--fs-md);
+}
+
+[data-skin="simple"] .tk-meta .tag {
+  height: 22px;
+}
+
+[data-skin="simple"] .tk-pri.tag--dashed {
+  border-style: solid;
+}
+
+[data-skin="simple"] .tk-due-tag--overdue {
+  background: var(--surface-3);
+  border-color: transparent;
+  color: var(--text);
+}
+
+[data-skin="simple"] .tk-due-tag--overdue strong {
+  font-weight: 600;
+}
+
+/* "Overdue · 2 days ago": a calm dot instead of a blinking light and a slash */
+[data-skin="simple"] .tk-blink {
+  display: none;
+}
+
+[data-skin="simple"] .tk-sep {
+  font-size: 0;
+  opacity: 1;
+}
+
+[data-skin="simple"] .tk-sep::before {
+  content: "·";
+  font-size: var(--fs-2xs);
+  color: var(--text-2);
+}
+
+[data-skin="simple"] .tk-note {
+  font-size: var(--fs-sm);
+}
+
+[data-skin="simple"] .tk-row.is-dragging {
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+[data-skin="simple"] .tk-placeholder {
+  border-radius: var(--radius-sm);
+}
+
+/* ---- Completed ---- */
+[data-skin="simple"] .tk-done-toggle {
+  color: var(--text-2);
+}
+
+[data-skin="simple"] .tk-done-toggle .label {
+  font-size: var(--fs-sm);
+}
+
+[data-skin="simple"] .tk-done-count {
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: var(--surface-3);
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+}
+
+/* ---- Details dialog ---- */
+[data-skin="simple"] .tk-field-error::before {
+  content: none;
+}
+
+[data-skin="simple"] .tk-detail-foot {
+  border-top-style: solid;
+}
+
+/* ==========================================================================
+   Notes (list layout, editor, sections rail, chips)
+   ========================================================================== */
+
+/* Footers that only advertise shortcuts go (the shortcuts still work); the board keeps its own */
+[data-skin="simple"] .nt-rail > .nt-foot,
+[data-skin="simple"] .nt-list > .nt-foot,
+[data-skin="simple"] .nt-editor > .nt-foot,
+[data-skin="simple"] .nt-strip-hint {
+  display: none;
+}
+
+/* ---- List ---- */
+[data-skin="simple"] .nt-list-head {
+  gap: var(--space-2);
+  padding: var(--space-3);
+}
+
+[data-skin="simple"] .nt-new {
+  justify-content: center;
+}
+
+[data-skin="simple"] .nt-search .input {
+  border-radius: var(--radius-sm);
+}
+
+[data-skin="simple"] .nt-list-meta {
+  border-bottom: 0;
+  padding: var(--space-1) var(--space-4) var(--space-2);
+}
+
+[data-skin="simple"] .nt-list-count {
+  font-size: var(--fs-sm);
+}
+
+/* "Pinned" / "Notes" group heads: a quiet heading, no rule or count */
+[data-skin="simple"] .nt-group {
+  padding: var(--space-3) var(--space-2) var(--space-1);
+  font-weight: 600;
+  color: var(--text-2);
+}
+
+[data-skin="simple"] .nt-group::after,
+[data-skin="simple"] .nt-group-count {
+  display: none;
+}
+
+[data-skin="simple"] .nt-items {
+  gap: 4px;
+}
+
+/* No index column: the title leads */
+[data-skin="simple"] .nt-item {
+  grid-template-columns: minmax(0, 1fr);
+  padding: var(--space-3);
+  border: 0;
+  border-radius: 10px;
+}
+
+[data-skin="simple"] .nt-item[aria-current="true"] {
+  background: var(--surface-3);
+}
+
+[data-skin="simple"] .nt-item[aria-current="true"]::before {
+  content: none;
+}
+
+[data-skin="simple"] .nt-item-title {
+  font-weight: 600;
+}
+
+[data-skin="simple"] .nt-item-time {
+  font-size: var(--fs-2xs);
+}
+
+[data-skin="simple"] .nt-item-tag {
+  height: 20px;
+  border-radius: var(--radius-pill);
+}
+
+[data-skin="simple"] .nt-hit {
+  border-radius: 3px;
+}
+
+/* ---- Editor ---- */
+[data-skin="simple"] .nt-toolbar {
+  border-bottom: 0;
+}
+
+[data-skin="simple"] .nt-pin[aria-pressed="true"],
+[data-skin="simple"] .nt-pin[aria-pressed="true"]:hover {
+  box-shadow: none;
+}
+
+[data-skin="simple"] .nt-title {
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+[data-skin="simple"] .nt-meta {
+  border-bottom: 0;
+  font-size: var(--fs-sm);
+}
+
+[data-skin="simple"] .nt-meta b {
+  font-weight: 500;
+}
+
+[data-skin="simple"] .nt-meta-item + .nt-meta-item::before {
+  content: none;
+}
+
+/* Save status: a soft pill with a still dot */
+[data-skin="simple"] .nt-status {
+  height: 22px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: var(--surface-3);
+}
+
+[data-skin="simple"] .nt-status[data-state="saved"] .nt-status-dot {
+  box-shadow: none;
+}
+
+[data-skin="simple"] .nt-status[data-state="saving"] {
+  border-style: solid;
+}
+
+[data-skin="simple"] .nt-status.is-flash {
+  box-shadow: none;
+}
+
+[data-skin="simple"] .nt-body {
+  font-size: var(--fs-md);
+  line-height: 1.7;
+}
+
+/* "Move to section" button */
+[data-skin="simple"] .nt-move {
+  height: 26px;
+  padding: 0 8px 0 10px;
+  border-style: solid;
+  border-radius: var(--radius-pill);
+  font-family: var(--font-sans);
+  font-size: var(--fs-2xs);
+}
+
+[data-skin="simple"] .nt-menu {
+  border-radius: var(--radius);
+}
+
+[data-skin="simple"] .nt-menu-item {
+  border-radius: var(--radius-sm);
+}
+
+/* ---- Markdown preview ---- */
+[data-skin="simple"] .nt-prose {
+  font-size: var(--fs-md);
+  line-height: 1.7;
+}
+
+[data-skin="simple"] .nt-prose code,
+[data-skin="simple"] .nt-prose pre {
+  border-radius: var(--radius-sm);
+}
+
+[data-skin="simple"] .nt-prose pre[data-lang]::before {
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+[data-skin="simple"] .nt-prose blockquote {
+  border-left-width: 3px;
+}
+
+[data-skin="simple"] .nt-prose hr::after {
+  content: none;
+}
+
+[data-skin="simple"] .nt-prose ul > li::before {
+  border-radius: 50%;
+}
+
+[data-skin="simple"] .nt-task-box {
+  border-radius: 5px;
+}
+
+/* ---- Sections rail ---- */
+[data-skin="simple"] .nt-rail-head {
+  border-bottom: 0;
+}
+
+[data-skin="simple"] .nt-rail-head > .label {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--text);
+}
+
+/* "Sections 4": the list right below already shows them */
+[data-skin="simple"] .nt-rail-total {
+  display: none;
+}
+
+[data-skin="simple"] .nt-rail-sep::after {
+  content: none;
+}
+
+[data-skin="simple"] .nt-rail-item {
+  height: 38px;
+  border: 0;
+  font-size: var(--fs-md);
+}
+
+[data-skin="simple"] .nt-rail-item[aria-current="true"] {
+  background: var(--surface-3);
+  font-weight: 600;
+}
+
+[data-skin="simple"] .nt-rail-item[aria-current="true"]::before {
+  content: none;
+}
+
+/* Counts read as quiet plain numbers, not badges */
+[data-skin="simple"] .nt-rail-count,
+[data-skin="simple"] .nt-srow.is-drop .nt-rail-count {
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  font-family: var(--font-sans);
+  font-size: var(--fs-sm);
+  color: var(--text-3);
+}
+
+[data-skin="simple"] .nt-rail-item[aria-current="true"] .nt-rail-count {
+  background: none;
+  color: var(--text-2);
+}
+
+[data-skin="simple"] .nt-rail.is-dropzone .nt-srow.is-drop .nt-rail-item {
+  box-shadow: inset 0 0 0 2px var(--line-focus);
+}
+
+[data-skin="simple"] .nt-suggest-chip {
+  border-style: solid;
+  border-radius: var(--radius-pill);
+}
+
+/* ---- Section chips (narrow workspaces) ---- */
+[data-skin="simple"] .nt-chip {
+  height: 34px;
+  padding: 0 12px;
+  border-color: var(--line-strong);
+  border-radius: var(--radius-pill);
+  font-family: var(--font-sans);
+  font-size: var(--fs-sm);
+}
+
+[data-skin="simple"] .nt-chip[aria-current="true"] {
+  box-shadow: none;
+}
+
+[data-skin="simple"] .nt-chip-count {
+  border: 0;
+  background: none;
+  font-family: var(--font-sans);
+  font-size: var(--fs-2xs);
+  color: var(--text-3);
+}
+
+[data-skin="simple"] .nt-chip[aria-current="true"] .nt-chip-count {
+  background: none;
+  color: inherit;
+  opacity: 0.75;
+}
+
+[data-skin="simple"] .nt-chip--add,
+[data-skin="simple"] .nt-chip--suggest {
+  border-style: solid;
+  border-color: var(--line);
+}
+
+/* ---- Drag ghost ---- */
+[data-skin="simple"] .nt-drag-ghost {
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+/* ==========================================================================
+   Notes board
+   ========================================================================== */
+
+/* Column pager chips: off-screen columns are dimmer, not dashed */
+[data-skin="simple"] .nt-pager-chip:not(.is-inview) {
+  border-style: solid;
+}
+
+[data-skin="simple"] .nt-pager.is-docking .nt-pager-chip {
+  border-style: solid;
+}
+
+[data-skin="simple"] .nt-pager.is-docking .nt-pager-chip.is-home {
+  background: var(--surface-2);
+}
+
+[data-skin="simple"] .nt-col {
+  border-radius: var(--radius);
+}
+
+[data-skin="simple"] .nt-col-head {
+  border-bottom-color: transparent;
+}
+
+[data-skin="simple"] .nt-col-head::after {
+  content: none;
+}
+
+[data-skin="simple"] .nt-col-name {
+  font-weight: 600;
+}
+
+/* Note count beside the column name: a quiet number, not a box */
+[data-skin="simple"] .nt-col-count {
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  font-family: var(--font-sans);
+  font-size: var(--fs-sm);
+  color: var(--text-3);
+}
+
+[data-skin="simple"] .nt-col-empty {
+  border-style: solid;
+  border-color: var(--line);
+  background: none;
+  font-family: var(--font-sans);
+  font-size: var(--fs-sm);
+}
+
+[data-skin="simple"] .nt-col-new {
+  font-family: var(--font-sans);
+  font-size: var(--fs-sm);
+}
+
+[data-skin="simple"] .nt-col-addsection {
+  border-style: solid;
+  border-color: var(--line);
+}
+
+[data-skin="simple"] .nt-col-addsection-label {
+  font-family: var(--font-sans);
+  font-size: var(--fs-sm);
+}
+
+[data-skin="simple"] .nt-card {
+  border-color: var(--line);
+  border-radius: 10px;
+  background: var(--surface-solid);
+  box-shadow: var(--simple-card-shadow);
+}
+
+[data-skin="simple"] .nt-card[aria-current="true"] {
+  border-color: var(--line-focus);
+  box-shadow: var(--simple-card-shadow);
+}
+
+[data-skin="simple"] .nt-card[aria-current="true"]::before {
+  content: none;
+}
+
+[data-skin="simple"] .nt-lift-to {
+  font-family: var(--font-sans);
+}
+
+/* ==========================================================================
+   Habits (Today, week plan, cards)
+   Day states stay distinct without dashes or hatching: done is filled, missed
+   is a grey fill, planned is outlined, a bonus is mid grey, rest days are blank.
+   ========================================================================== */
+
+/* ---- Week selector ---- */
+[data-skin="simple"] .hb-sel {
+  border-radius: 10px;
+}
+
+[data-skin="simple"] .hb-sel.is-future {
+  border-style: solid;
+}
+
+[data-skin="simple"] .hb-sel-wd {
+  font-family: var(--font-sans);
+  font-size: var(--fs-xs);
+}
+
+[data-skin="simple"] .hb-sel-date {
+  font-weight: 600;
+}
+
+[data-skin="simple"] .hb-sel-seg {
+  border-radius: 2px;
+}
+
+[data-skin="simple"] .hb-sel-meter[data-mode="rest"] .hb-sel-seg {
+  background: currentColor;
+  opacity: 0.12;
+}
+
+[data-skin="simple"] .hb-sel[aria-checked="true"] {
+  box-shadow: none;
+}
+
+/* ---- Selected day: a plain progress ring, no gauge ticks ---- */
+[data-skin="simple"] .hb-dayhead {
+  background: none;
+}
+
+[data-skin="simple"] .hb-dial-ticks {
+  display: none;
+}
+
+[data-skin="simple"] .hb-ring-frac {
+  font-family: var(--font-sans);
+  font-weight: 600;
+}
+
+[data-skin="simple"] .hb-status {
+  font-size: var(--fs-md);
+  color: var(--text-2);
+}
+
+/* ---- Cards ---- */
+[data-skin="simple"] .hb-card-fx {
+  display: none;
+}
+
+[data-skin="simple"] .hb-card.is-done {
+  border-color: var(--line);
+  background: var(--surface);
+}
+
+[data-skin="simple"] .hb-card.is-future {
+  border-style: solid;
+}
+
+[data-skin="simple"] .hb-card-name {
+  font-weight: 600;
+}
+
+[data-skin="simple"] .hb-card.is-done .hb-check {
+  box-shadow: none;
+}
+
+[data-skin="simple"] .hb-card.is-miss .hb-check,
+[data-skin="simple"] .hb-card.is-future .hb-check {
+  border-style: solid;
+}
+
+[data-skin="simple"] .hb-stat-num {
+  font-family: var(--font-sans);
+  font-weight: 600;
+}
+
+/* ---- Day states: week strip, heatmap and legend ---- */
+[data-skin="simple"] .hb-day {
+  border-radius: var(--radius-sm);
+  font-family: var(--font-sans);
+}
+
+[data-skin="simple"] .hb-day[data-state="pending"] {
+  border-style: solid;
+  border-width: 1.5px;
+}
+
+[data-skin="simple"] .hb-day[data-state="future"][data-planned="true"],
+[data-skin="simple"] .hb-swatch[data-s="planned"] {
+  border-style: solid;
+  border-color: var(--line-strong);
+}
+
+[data-skin="simple"] .hb-day[data-state="rest"],
+[data-skin="simple"] .hb-swatch[data-s="rest"],
+[data-skin="simple"] .hb-heat-cell[data-s="rest"] {
+  background: none;
+  border-color: transparent;
+}
+
+[data-skin="simple"] .hb-swatch[data-s="rest"] {
+  border-color: var(--line);
+}
+
+[data-skin="simple"] .hb-day[data-state="bonus"],
+[data-skin="simple"] .hb-swatch[data-s="bonus"],
+[data-skin="simple"] .hb-heat-cell[data-s="bonus"],
+[data-skin="simple"] .hb-np-row.is-bonus .hb-np-check {
+  background: var(--heat-2);
+  border-color: transparent;
+  color: var(--text);
+}
+
+[data-skin="simple"] .hb-day[data-state="pre"] {
+  border-style: solid;
+  border-color: transparent;
+}
+
+[data-skin="simple"] .hb-swatch {
+  border-radius: 3px;
+}
+
+[data-skin="simple"] .hb-heat-cell {
+  border-radius: 3px;
+}
+
+/* ---- Week plan ---- */
+[data-skin="simple"] .hb-plan-cell.is-draft {
+  border-style: solid;
+}
+
+[data-skin="simple"] .hb-plan-cell.is-draft[aria-pressed="true"] {
+  background: var(--heat-2);
+  border-color: transparent;
+}
+
+[data-skin="simple"] .hb-plan-addrow > * {
+  border-top-style: solid;
+  border-top-color: var(--line);
+}
+
+/* ---- Habit editor ---- */
+[data-skin="simple"] .hb-f-name[aria-invalid="true"] {
+  border-style: solid;
+  background: none;
+}
+
+/* ==========================================================================
+   Habits insights
+   ========================================================================== */
+
+[data-skin="simple"] .hbi-tile::before {
+  content: none;
+}
+
+[data-skin="simple"] .hbi-tile-value {
+  font-weight: 600;
+}
+
+[data-skin="simple"] .hbi-card-title {
+  font-weight: 600;
+}
+
+[data-skin="simple"] .hbi-rank-tag {
+  border-style: solid;
+}
+
+[data-skin="simple"] .hbi-note {
+  background: var(--surface-2);
+}
+
+[data-skin="simple"] .hbi-axis {
+  font-family: var(--font-sans);
+  letter-spacing: 0;
+}
+
+/* ==========================================================================
+   Calendar
+   ========================================================================== */
+
+/* "Today" while today is already on screen: dimmed, not dashed */
+[data-skin="simple"] .cal-today-btn.is-here {
+  border-style: solid;
+  color: var(--text-3);
+}
+
+[data-skin="simple"] .cal-title {
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+/* ---- Month: no week-number column. It stays in the grid at zero width so the
+   seven day columns keep their places ---- */
+[data-skin="simple"] .cal-month,
+[data-skin="simple"] .cal-month.is-compact {
+  --cal-gutter: 0px;
+  border-radius: var(--radius);
+}
+
+[data-skin="simple"] .cal-mhead-wk,
+[data-skin="simple"] .cal-wkhead {
+  visibility: hidden;
+  overflow: hidden;
+  padding: 0;
+}
+
+[data-skin="simple"] .cal-mhead {
+  border-bottom-color: var(--line);
+  background: var(--surface);
+}
+
+[data-skin="simple"] .cal-mhead-wk + .cal-mhead-day,
+[data-skin="simple"] .cal-wkhead + .cal-cell {
+  border-left: 0;
+}
+
+[data-skin="simple"] .cal-cell.is-out {
+  background-image: none;
+  background-color: var(--bg-elev);
+}
+
+/* The week view's "W41" corner */
+[data-skin="simple"] .cal-wk-gutter {
+  visibility: hidden;
+}
+
+/* Habit dots stay; the "3/4" beside them goes (it still shows when the dots can't fit) */
+[data-skin="simple"] .cal-hb:not(.is-count) .cal-hb-n {
+  display: none;
+}
+
+[data-skin="simple"] .cal-hb-n {
+  font-family: var(--font-sans);
+}
+
+[data-skin="simple"] .cal-hb.is-perfect .cal-hb-dot.is-done {
+  box-shadow: none;
+}
+
+/* ---- Task chips: overdue is a firmer outline, priority letters stay in the day list ---- */
+[data-skin="simple"] .cal-task {
+  border-radius: 6px;
+}
+
+[data-skin="simple"] .cal-task.is-overdue,
+[data-skin="simple"] .cal-trow.is-overdue {
+  border-style: solid;
+  border-color: var(--text-3);
+}
+
+[data-skin="simple"] .cal-month .cal-pri {
+  display: none;
+}
+
+/* ---- Events ---- */
+[data-skin="simple"] .cal-ev {
+  border-radius: 6px;
+}
+
+/* ---- Day list: habit checks ---- */
+[data-skin="simple"] .cal-hcheck:disabled,
+[data-skin="simple"] .cal-hrow.is-miss .cal-hcheck {
+  border-style: solid;
+}
+
+/* ---- Unscheduled tray and drop targets ---- */
+[data-skin="simple"] .cal-tray-empty {
+  border-style: solid;
+  border-color: var(--line);
+  border-radius: var(--radius-sm);
+}
+
+[data-skin="simple"] [data-drop-day].is-drop,
+[data-skin="simple"] [data-drop-tray].is-drop {
+  background-image: none;
+  background-color: var(--accent-soft);
+}
+
+/* Week view: priority letters stay in the day list only */
+[data-skin="simple"] .cal-wk-allday .cal-pri {
+  display: none;
+}
+
+/* ==========================================================================
+   Home: soft cards, a plain week (no hatching), small round priority dots
+   ========================================================================== */
+
+[data-skin="simple"] .hm-next {
+  padding: 6px 14px 6px 10px;
+  border-color: var(--line);
+  background: var(--surface);
+  box-shadow: var(--simple-card-shadow);
+  font-size: var(--fs-sm);
+}
+
+[data-skin="simple"] .hm-next.is-empty {
+  border-style: solid;
+}
+
+[data-skin="simple"] .hm-card-title {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--text);
+}
+
+[data-skin="simple"] .hm-more,
+[data-skin="simple"] .hm-count {
+  font-size: var(--fs-sm);
+}
+
+[data-skin="simple"] .hm-more {
+  color: var(--text-2);
+}
+
+[data-skin="simple"] .hm-days {
+  border-color: var(--line);
+  border-radius: var(--radius);
+}
+
+[data-skin="simple"] .hm-day {
+  background: var(--surface);
+}
+
+[data-skin="simple"] .hm-day:hover {
+  background: var(--surface-2);
+}
+
+[data-skin="simple"] .hm-day.is-weekend {
+  background: var(--surface-solid-2);
+}
+
+[data-skin="simple"] .hm-day.is-today {
+  background: var(--surface);
+  box-shadow: inset 0 3px 0 var(--text);
+}
+
+[data-skin="simple"] .hm-day-num {
+  min-width: 24px;
+  border-radius: var(--radius-pill);
+  text-align: center;
+}
+
+[data-skin="simple"] .hm-day-tag {
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+}
+
+/* Priority stays visible on Home, as a small round letter */
+[data-skin="simple"] .hm-day .cal-pri {
+  min-width: 15px;
+  height: 15px;
+  padding: 0;
+  border-radius: var(--radius-pill);
+  font-size: 9px;
+}
+
+[data-skin="simple"] .hm-pomo-digits {
+  font-weight: 600;
+  letter-spacing: -0.035em;
+}
+
+[data-skin="simple"] .hm-pomo-meta {
+  font-size: var(--fs-sm);
+}
+
+[data-skin="simple"] .hm-pomo:not([data-phase="focus"]) .hm-pomo-fill {
+  background: var(--text-3);
+  box-shadow: none;
+}
+
+[data-skin="simple"] .hm-empty {
+  border: 0;
+  background: var(--surface-2);
+}
+
+[data-skin="simple"] .hm-empty-icon {
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: var(--surface-3);
+}
+
+[data-skin="simple"] .hm-bar-track,
+[data-skin="simple"] .hm-bar-fill {
+  border-radius: 5px;
+}
+
+[data-skin="simple"] .hm-bar-fill {
+  box-shadow: none;
+}
+
+/* Today so far: a lighter bar, no hatching */
+[data-skin="simple"] .hm-bar.is-today .hm-bar-fill {
+  background: var(--text-3);
+  box-shadow: none;
+}
+
+[data-skin="simple"] .hm-bar.is-rest .hm-bar-track,
+[data-skin="simple"] .hm-bar.is-none .hm-bar-track {
+  border-bottom: 2px solid var(--line);
+  border-radius: 0;
+}
+
+[data-skin="simple"] .hm-bar-day {
+  font-size: 11px;
+}
+
+[data-skin="simple"] .hm-graph-note,
+[data-skin="simple"] .hm-recent-time {
+  font-size: var(--fs-xs);
+}
+
+[data-skin="simple"] .hm-add-input {
+  height: 38px;
+}
+
+/* ==========================================================================
+   Pomodoro: big, clear digits on a soft ring; a switch that looks like one
+   ========================================================================== */
+
+[data-skin="simple"] .pm-card-title {
+  font-size: var(--fs-md);
+  font-weight: 600;
+  color: var(--text);
+}
+
+[data-skin="simple"] .pm-digits {
+  font-size: clamp(56px, 13vw, 88px);
+  font-weight: 600;
+  letter-spacing: -0.045em;
+}
+
+[data-skin="simple"] .pm-dial-phase,
+[data-skin="simple"] .pm-dial-round {
+  font-size: var(--fs-sm);
+}
+
+[data-skin="simple"] .pm-ring .ring-track {
+  stroke: var(--surface-3);
+}
+
+[data-skin="simple"] .pm-timer:not([data-phase="focus"]) .pm-ring .ring-track {
+  stroke: var(--surface-3);
+  stroke-dasharray: none;
+}
+
+[data-skin="simple"] .pm-timer:not([data-phase="focus"]) .pm-ring .ring-fill {
+  stroke: var(--text-3);
+}
+
+[data-skin="simple"] .pm-preset {
+  border-color: var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--simple-card-shadow);
+}
+
+[data-skin="simple"] .pm-preset[aria-pressed="true"] {
+  border-color: var(--text);
+  background: var(--text);
+  color: var(--bg);
+}
+
+[data-skin="simple"] .pm-step-unit {
+  font-size: var(--fs-xs);
+}
+
+[data-skin="simple"] .pm-switch-track {
+  width: 38px;
+  height: 22px;
+  border: 0;
+  background: var(--surface-3);
+}
+
+[data-skin="simple"] .pm-switch-thumb {
+  left: 3px;
+  width: 16px;
+  height: 16px;
+  background: var(--text-2);
+}
+
+[data-skin="simple"] .pm-switch[aria-checked="true"] .pm-switch-track {
+  background: var(--text);
+}
+
+[data-skin="simple"] .pm-switch[aria-checked="true"] .pm-switch-thumb {
+  background: var(--bg);
+}
+
+[data-skin="simple"] .pm-log-tag {
+  font-size: var(--fs-xs);
+}
+
+/* The mini timer: a soft pill; focus running is the dark (light: black) one */
+[data-skin="simple"] .pm-mini {
+  border-color: var(--line);
+  box-shadow: var(--simple-card-shadow);
+}
+
+[data-skin="simple"] .pm-mini-phase {
+  font-size: var(--fs-sm);
+}
+
+[data-skin="simple"] .pm-mini[data-status="running"][data-phase="focus"] {
+  border-color: var(--text);
+  background: var(--text);
+  color: var(--bg);
+  box-shadow: var(--simple-card-shadow);
+}
+
+[data-skin="simple"] .pm-mini[data-status="running"]:not([data-phase="focus"]) {
+  border-color: var(--line-strong);
+  background: var(--surface-3);
+}
+
+[data-skin="simple"] .pm-mini[data-status="paused"] {
+  border-style: solid;
+  border-color: var(--line-strong);
+}
+
+/* Six tabs on a phone: counts like "2/5" stay inside their tab */
+@media (max-width: 640px) {
+  [data-skin="simple"] .tab .nav-badge {
+    padding: 0 3px;
+  }
+}
+
+/* ==========================================================================
+   Motion and forced colors
+   Simple adds no motion of its own (base.css already honours reduced motion).
+   It does drop many borders and marks selection with a fill alone, which
+   forced-colors mode erases, so those outlines come back there.
+   ========================================================================== */
+
+@media (forced-colors: active) {
+  [data-skin="simple"] .seg,
+  [data-skin="simple"] .modal,
+  [data-skin="simple"] .toast,
+  [data-skin="simple"] .ctx-menu,
+  [data-skin="simple"] .nt-status,
+  [data-skin="simple"] .nav-badge,
+  [data-skin="simple"] .nt-col-count,
+  [data-skin="simple"] .nt-rail-count {
+    border: 1px solid CanvasText;
+  }
+
+  [data-skin="simple"] .seg-btn[aria-pressed="true"],
+  [data-skin="simple"] .seg-btn[aria-selected="true"],
+  [data-skin="simple"] .pm-preset[aria-pressed="true"],
+  [data-skin="simple"] .nav-item[aria-current="page"],
+  [data-skin="simple"] .nt-item[aria-current="true"],
+  [data-skin="simple"] .nt-rail-item[aria-current="true"],
+  [data-skin="simple"] .nt-card[aria-current="true"],
+  [data-skin="simple"] .hb-sel[aria-checked="true"] {
+    outline: 2px solid Highlight;
+    outline-offset: -2px;
+  }
+
+  /* Planned days lost their dashes: keep them visibly outlined */
+  [data-skin="simple"] .hb-day[data-state="future"][data-planned="true"],
+  [data-skin="simple"] .hb-day[data-state="pending"] {
+    border-color: CanvasText;
+  }
+}
