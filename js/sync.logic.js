@@ -14,11 +14,12 @@ export const SYNCED = Object.freeze({
   habits: Object.freeze(['view']),
   calendar: Object.freeze(['view', 'layers']),
   pomodoro: Object.freeze(['state']),
+  training: Object.freeze(['view']),
 });
 export const SYNCED_KEYS = Object.freeze(Object.keys(SYNCED));
 
 /** How each store is named in the repo's history ("Notes · Mac"). */
-export const STORE_LABELS = Object.freeze({ tasks: 'Tasks', notes: 'Notes', habits: 'Habits', calendar: 'Calendar', pomodoro: 'Pomodoro' });
+export const STORE_LABELS = Object.freeze({ tasks: 'Tasks', notes: 'Notes', habits: 'Habits', calendar: 'Calendar', pomodoro: 'Pomodoro', training: 'Training' });
 
 const isObject = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 const hasOwn = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
@@ -151,6 +152,7 @@ export function countData(docs = {}) {
     habits: list(docs.habits?.items).length,
     events: list(docs.calendar?.events).length,
     sessions: list(docs.pomodoro?.history).length,
+    workouts: list(docs.training?.workouts).length,
   };
 }
 
@@ -162,6 +164,7 @@ const COUNT_WORDS = [
   ['habits', 'habit'],
   ['events', 'event'],
   ['sessions', 'focus session'],
+  ['workouts', 'workout'],
 ];
 
 /** '88 tasks · 61 notes · 9 habits' (what there is; sections go with notes) or 'nothing yet' */

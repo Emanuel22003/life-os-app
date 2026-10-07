@@ -280,7 +280,7 @@ export function openSyncPanel() {
           h('dt', null, isComputer() ? 'This computer' : 'This device'),
           h('dd', null, DEVICE === 'Browser' ? 'This browser' : DEVICE),
         ),
-        h('p', { class: 'sync-hint' }, 'What syncs: tasks, notes, habits, calendar events and focus sessions. Each computer keeps its own appearance and what’s on screen. Changes upload a few seconds after you make them.'),
+        h('p', { class: 'sync-hint' }, 'What syncs: tasks, notes, habits, calendar events, focus sessions and workouts. Each computer keeps its own appearance and what’s on screen. Changes upload a few seconds after you make them.'),
       ],
       [offBtn, syncBtn],
     );

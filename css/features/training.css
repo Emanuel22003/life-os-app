@@ -1,0 +1,650 @@
+/* ==========================================================================
+   LIFE/OS — 07 // Training: week strip, Log / Progress tabs, workout cards, the exercise list
+   with its graph and history, and the workout dialog. Grayscale: a personal best is a filled
+   mark with a trophy and the word, never a color.
+   ========================================================================== */
+
+.tr-week {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-3);
+  margin-bottom: var(--space-5);
+}
+
+.tr-stat {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-3) var(--space-4);
+}
+
+.tr-stat-value {
+  font-size: var(--fs-xl);
+}
+
+.tr-week-line {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--text-2);
+}
+
+.tr-tabs {
+  margin-bottom: var(--space-4);
+}
+
+/* ---- Log ---- */
+
+.tr-log {
+  display: grid;
+  gap: var(--space-3);
+  justify-items: start;
+}
+
+.tr-card {
+  width: 100%;
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-5);
+  cursor: pointer;
+  transition: border-color var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease);
+}
+
+.tr-card:hover {
+  border-color: var(--line-strong);
+}
+
+.tr-card:focus-visible {
+  outline: 1px solid var(--line-focus);
+  outline-offset: 2px;
+}
+
+.tr-card-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.tr-card-when {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.tr-card-title {
+  margin: 0;
+  font-size: var(--fs-md);
+  font-weight: 600;
+  color: var(--text);
+}
+
+.tr-card-actions {
+  display: flex;
+  gap: var(--space-1);
+}
+
+.tr-card-entries {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tr-card-entries li {
+  display: grid;
+  grid-template-columns: minmax(120px, 0.6fr) minmax(0, 1fr);
+  gap: var(--space-3);
+  font-size: var(--fs-sm);
+}
+
+.tr-card-ex {
+  color: var(--text);
+  font-weight: 500;
+}
+
+.tr-card-sum,
+.tr-td-num,
+.tr-ex-value,
+.tr-kpi-value {
+  font-variant-numeric: tabular-nums;
+}
+
+.tr-card-sum {
+  color: var(--text-2);
+}
+
+.tr-card-note {
+  margin: 0;
+  color: var(--text-3);
+  font-size: var(--fs-sm);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tr-pr {
+  gap: 4px;
+}
+
+.tr-pr-dot {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 6px;
+  color: var(--text);
+  vertical-align: -1px;
+}
+
+/* ---- Progress ---- */
+
+.tr-progress {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  gap: var(--space-4);
+  align-items: start;
+}
+
+.tr-exlist {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.tr-ex {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 2px var(--space-2);
+  padding: var(--space-3);
+  border: var(--border-w) solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease);
+}
+
+.tr-ex:hover {
+  border-color: var(--line-strong);
+}
+
+.tr-ex[aria-pressed="true"] {
+  border-color: var(--text);
+  background: var(--surface-3);
+}
+
+.tr-ex-name {
+  color: var(--text);
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tr-ex-meta {
+  grid-column: 1;
+}
+
+.tr-ex-value {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  align-self: center;
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+}
+
+.tr-trend {
+  color: var(--text);
+  font-size: var(--fs-2xs);
+}
+
+.tr-detail {
+  display: grid;
+  gap: var(--space-4);
+  padding: var(--space-5);
+  min-width: 0;
+}
+
+.tr-detail-head {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+}
+
+.tr-detail-head > div:first-child {
+  flex: 1;
+  min-width: 0;
+}
+
+.tr-detail-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--fs-xl);
+  color: var(--text);
+}
+
+.tr-detail-kind {
+  margin: 4px 0 0;
+}
+
+.tr-detail-actions {
+  display: flex;
+  gap: var(--space-1);
+}
+
+.tr-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.tr-kpis {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+.tr-kpi {
+  display: grid;
+  gap: 2px;
+  align-content: start;
+}
+
+.tr-kpi-value {
+  color: var(--text);
+  font-size: var(--fs-lg);
+  font-weight: 600;
+}
+
+.tr-kpi-sub {
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+  line-height: 1.4;
+}
+
+.tr-figure {
+  margin: 0;
+  display: grid;
+  gap: var(--space-2);
+}
+
+.tr-plot {
+  position: relative;
+  border-radius: var(--radius-sm);
+}
+
+.tr-plot:focus-visible {
+  outline: 1px solid var(--line-focus);
+  outline-offset: 4px;
+}
+
+.tr-svg {
+  display: block;
+  max-width: 100%;
+  overflow: visible;
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.tr-grid line {
+  stroke: var(--line);
+  stroke-width: 1;
+  shape-rendering: crispEdges;
+}
+
+.tr-axis {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  fill: var(--text-3);
+}
+
+.tr-line {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.tr-cross {
+  stroke: var(--line-strong);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+}
+
+/* A dot sits on a ring of the card's surface, so the line never runs through it */
+.tr-dot {
+  fill: var(--surface-solid);
+  stroke: var(--accent);
+  stroke-width: 2;
+}
+
+.tr-dot.is-record {
+  fill: var(--accent);
+  stroke: var(--surface-solid);
+  stroke-width: 2;
+}
+
+.tr-dot.is-active {
+  stroke-width: 3;
+}
+
+.tr-tip {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 2;
+  display: grid;
+  gap: 2px;
+  max-width: 260px;
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-w) solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface-solid);
+  box-shadow: var(--shadow-sm);
+  font-size: var(--fs-xs);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--dur-fast) var(--ease);
+}
+
+.tr-tip.is-on {
+  opacity: 1;
+}
+
+.tr-tip-main {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.tr-tip-sub {
+  color: var(--text-2);
+}
+
+.tr-nodata {
+  margin: 0;
+  color: var(--text-3);
+}
+
+.tr-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-sm);
+}
+
+.tr-table th {
+  padding: var(--space-2) var(--space-2) var(--space-2) 0;
+  border-bottom: 1px solid var(--line-strong);
+  color: var(--text-3);
+  font-family: var(--label-font);
+  font-size: var(--label-size);
+  font-weight: var(--label-weight);
+  letter-spacing: calc(0.14em * var(--label-tracking));
+  text-transform: var(--label-case);
+  text-align: left;
+}
+
+.tr-table td {
+  padding: var(--space-2) var(--space-2) var(--space-2) 0;
+  border-bottom: 1px solid var(--line);
+  color: var(--text-2);
+  vertical-align: top;
+}
+
+.tr-table td:first-child {
+  white-space: nowrap;
+}
+
+.tr-td-num {
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.tr-more {
+  margin: 0;
+}
+
+/* ---- The workout dialog ---- */
+
+.tr-modal .modal-body {
+  gap: var(--space-4);
+}
+
+.tr-ed-top {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.tr-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+}
+
+.tr-date {
+  width: auto;
+}
+
+.tr-entries {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.tr-entries:empty {
+  display: none;
+}
+
+.tr-entry {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border: var(--border-w) solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+
+.tr-entry-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.tr-entry-name {
+  flex: 1;
+  min-width: 0;
+  color: var(--text);
+  font-weight: 600;
+}
+
+.tr-kind {
+  margin-left: var(--space-2);
+}
+
+.tr-last {
+  margin: 0;
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+  line-height: 1.45;
+}
+
+.tr-entry-body {
+  display: grid;
+  gap: var(--space-2);
+  justify-items: start;
+}
+
+.tr-sets,
+.tr-times {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.tr-times {
+  grid-auto-flow: column;
+  justify-content: start;
+  gap: var(--space-3);
+}
+
+.tr-set {
+  display: grid;
+  grid-template-columns: 52px 76px auto 88px auto auto;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.tr-set-n {
+  white-space: nowrap;
+}
+
+.tr-x,
+.tr-unit {
+  color: var(--text-3);
+  font-size: var(--fs-sm);
+}
+
+.input.tr-num {
+  width: 76px;
+  height: 34px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.tr-set .input.tr-num:nth-of-type(2) {
+  width: 88px;
+}
+
+.input.tr-time {
+  width: 104px;
+  height: 34px;
+  font-variant-numeric: tabular-nums;
+}
+
+.tr-fields {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.tr-add .tr-picker {
+  width: auto;
+  min-width: 220px;
+  max-width: 100%;
+}
+
+.tr-newex {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border: var(--border-w-sm) dashed var(--line-strong);
+  border-radius: var(--radius-sm);
+}
+
+.tr-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.tr-newex-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.tr-newex-row > .input:first-child {
+  flex: 1 1 180px;
+  width: auto;
+}
+
+.tr-err {
+  margin: 0;
+  color: var(--text);
+  font-size: var(--fs-sm);
+}
+
+.tr-err:empty {
+  display: none;
+}
+
+.tr-note {
+  min-height: 0;
+}
+
+@media (max-width: 900px) {
+  .tr-progress {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .tr-exlist {
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(150px, 190px);
+    overflow-x: auto;
+    padding-bottom: var(--space-1);
+    scrollbar-width: none;
+  }
+
+  /* Narrow cards: name, then value, then sessions */
+  .tr-ex {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .tr-ex-value {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  .tr-ex-meta {
+    grid-row: 3;
+  }
+}
+
+@media (max-width: 640px) {
+  .tr-week {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .tr-card {
+    padding: var(--space-3) var(--space-4);
+  }
+
+  .tr-card-entries li {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+  }
+
+  .tr-detail {
+    padding: var(--space-4);
+  }
+
+  .tr-kpis {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .tr-ed-top {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .tr-set {
+    grid-template-columns: 44px 64px auto 72px auto auto;
+    gap: var(--space-1);
+  }
+
+  .input.tr-num {
+    width: 64px;
+  }
+
+  .tr-set .input.tr-num:nth-of-type(2) {
+    width: 72px;
+  }
+
+  .tr-td-sum {
+    display: none;
+  }
+}

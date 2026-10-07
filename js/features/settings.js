@@ -177,7 +177,7 @@ function mount(root) {
   root.classList.add('st-root');
   const cleanups = [];
 
-  const header = pageHeader({ index: '07', title: 'Settings', subtitle: 'Sound and notifications, how LIFE/OS looks, where it opens, and your data.' });
+  const header = pageHeader({ index: '00', title: 'Settings', subtitle: 'Sound and notifications, how LIFE/OS looks, where it opens, and your data.' });
 
   /* Sound & notifications (the timer's; they sync) */
   let sound;
@@ -291,7 +291,7 @@ function mount(root) {
 
   const backupRow = row({
     title: 'Download a backup',
-    hint: 'One file with all your tasks, notes, habits, events and timer history. Keep it somewhere safe.',
+    hint: 'One file with all your tasks, notes, habits, events, workouts and timer history. Keep it somewhere safe.',
     control: button('Download', downloadBackup, { iconName: 'arrow-down' }),
   });
 
