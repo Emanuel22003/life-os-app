@@ -19,6 +19,15 @@ export const SKINS = Object.freeze(
 
 export const SKIN_IDS = Object.freeze(SKINS.map((s) => s.id));
 
+/** Light or dark: settings.theme is 'dark' (the default), 'light' or 'system' (follow the computer). */
+export const THEMES = Object.freeze(['light', 'dark', 'system']);
+
+/** The mode to show: 'light' | 'dark'. prefersLight: the computer is in light mode. */
+export function resolveTheme(theme, prefersLight = false) {
+  if (theme === 'system') return prefersLight ? 'light' : 'dark';
+  return theme === 'light' ? 'light' : 'dark';
+}
+
 /** Any stored value -> a known skin id (unknown, missing or malformed -> the default). */
 export function normalizeSkin(value) {
   return typeof value === 'string' && SKIN_IDS.includes(value) ? value : DEFAULT_SKIN;

@@ -75,6 +75,7 @@ const CORE = [
   'js/contextmenu.js',
   'js/contextmenu.logic.js',
   'js/origin.js',
+  'js/shell.js',
   'js/sync.js',
   'js/sync.logic.js',
   'js/sync.panel.js',

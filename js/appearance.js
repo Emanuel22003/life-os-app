@@ -6,9 +6,11 @@
 // skin rules ([data-skin="brutalist"] .btn …) from reaching the other previews, so every skin
 // is written with plain ancestor selectors and still renders correctly in its own card.
 
-import { h, icon, openModal, pageHeader, uid } from './ui.js';
+import { h, icon, registerIcon, openModal, pageHeader, uid } from './ui.js';
 import { settings } from './store.js';
-import { SKINS, SKIN_BOOT, normalizeSkin } from './skins.js';
+import { SKINS, SKIN_BOOT, normalizeSkin, THEMES, resolveTheme } from './skins.js';
+
+registerIcon('monitor', '<rect x="3" y="4" width="18" height="12.5" rx="2"/><path d="M8.5 20h7M12 16.5V20"/>');
 
 const PREVIEW_W = 400; // design width of a preview page; cards scale it to fit
 
@@ -93,14 +95,16 @@ export function openAppearance({ onClose } = {}) {
   SKINS.forEach((s) => loadSkinFonts(s.id));
 
   const current = () => normalizeSkin(settings.get().skin);
-  const mode = () => (settings.get().theme === 'light' ? 'light' : 'dark');
+  // The saved mode ('system' too) for the buttons; what it resolves to for the previews
+  const mode = () => (THEMES.includes(settings.get().theme) ? settings.get().theme : 'dark');
+  const shownMode = () => resolveTheme(settings.get().theme, globalThis.matchMedia?.('(prefers-color-scheme: light)').matches);
   const choose = (id) => {
     if (current() !== id) settings.update({ skin: id });
   };
 
   const previews = [];
   const cards = SKINS.map((s) => {
-    const preview = buildPreview(s.id, mode(), sheets);
+    const preview = buildPreview(s.id, shownMode(), sheets);
     previews.push(preview);
     const nameId = `skin-name-${uid()}`;
     const descId = `skin-desc-${uid()}`;
@@ -147,12 +151,13 @@ export function openAppearance({ onClose } = {}) {
   };
   const group = h('div', { class: 'skin-grid', role: 'radiogroup', 'aria-label': 'Template', onKeydown: onGroupKey }, cards);
 
-  const modeButtons = ['light', 'dark'].map((m) =>
+  const MODE_LOOK = { light: ['sun', 'Light'], dark: ['moon', 'Dark'], system: ['monitor', 'System'] };
+  const modeButtons = THEMES.map((m) =>
     h(
       'button',
-      { type: 'button', class: 'seg-btn', 'aria-pressed': 'false', dataset: { mode: m }, onClick: () => settings.update({ theme: m }) },
-      icon(m === 'light' ? 'sun' : 'moon', { size: 14 }),
-      m === 'light' ? 'Light' : 'Dark',
+      { type: 'button', class: 'seg-btn', 'aria-pressed': 'false', dataset: { mode: m }, title: m === 'system' ? 'Follow the computer’s light or dark mode' : null, onClick: () => settings.update({ theme: m }) },
+      icon(MODE_LOOK[m][0], { size: 14 }),
+      MODE_LOOK[m][1],
     ),
   );
   const modeLabelId = `appearance-mode-${uid()}`;
@@ -172,7 +177,8 @@ export function openAppearance({ onClose } = {}) {
       card.tabIndex = on ? 0 : -1;
     });
     modeButtons.forEach((btn) => btn.setAttribute('aria-pressed', String(btn.dataset.mode === m)));
-    previews.forEach((p) => (p.scope.dataset.theme = m));
+    const shown = shownMode();
+    previews.forEach((p) => (p.scope.dataset.theme = shown));
   };
   sync();
   const unsubscribe = settings.subscribe(sync);

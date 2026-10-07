@@ -21,14 +21,16 @@
 
 import { h, icon, registerIcon, brandMark, emptyState, isTyping, modalOpen, openModal, closeAllModals, onDayChange, toast, ensureToastRegion, skin, num, term, WEEKDAYS_SHORT, MONTHS_SHORT } from './ui.js';
 import { settings } from './store.js';
-import { DEFAULT_SKIN, SKIN_BOOT, normalizeSkin } from './skins.js';
+import { DEFAULT_SKIN, SKIN_BOOT, normalizeSkin, resolveTheme } from './skins.js';
 import { openAppearance, loadSkinFonts } from './appearance.js';
 import { installContextMenu } from './contextmenu.js';
 import { LOCAL_ORIGIN, isRealCopy } from './origin.js';
 import { startSync, syncStatus, onSyncStatus } from './sync.js';
 import { openSyncPanel, syncLabel } from './sync.panel.js';
+import { provideShell } from './shell.js';
+import { isNewerVersion, startPage } from './features/settings.logic.js';
 
-const VERSION = 'v0.10';
+const VERSION = 'v0.11';
 
 // Read before any feature module can seed data: tells a first-ever run from an upgrade
 const hadSavedData = hasSavedData();
@@ -37,9 +39,11 @@ registerIcon('install', '<rect x="3" y="4" width="18" height="12" rx="2"/><path 
 registerIcon('open-app', '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 8h18M10 16l5-5M11 11h4v4"/>');
 // Nav icons live here, so the nav draws them even if their module fails to load
 registerIcon('home', '<path d="M3.5 10.5 12 3.5l8.5 7"/><path d="M5.5 9v10.5a1 1 0 0 0 1 1H10v-6h4v6h3.5a1 1 0 0 0 1-1V9"/>');
+registerIcon('gear', '<path d="M19.08 9.84 21.45 10.33 21.45 13.67 19.08 14.16 18.53 15.47 19.86 17.51 17.51 19.86 15.47 18.53 14.16 19.08 13.67 21.45 10.33 21.45 9.84 19.08 8.53 18.53 6.49 19.86 4.14 17.51 5.47 15.47 4.92 14.16 2.55 13.67 2.55 10.33 4.92 9.84 5.47 8.53 4.14 6.49 6.49 4.14 8.53 5.47 9.84 4.92 10.33 2.55 13.67 2.55 14.16 4.92 15.47 5.47 17.51 4.14 19.86 6.49 18.53 8.53Z"/><circle cx="12" cy="12" r="3"/>');
 registerIcon('timer', '<circle cx="12" cy="13.5" r="7.5"/><path d="M12 9.5v4l2.5 1.5M9.5 2.5h5M12 2.5V6M18.5 6.5l1.5-1.5"/>');
 
 // Order = nav order and number keys (1 Home … 6 Pomodoro). `short`: the phone tab bar's label.
+// `hidden`: a page outside the module nav (Settings opens from the gear in the sidebar foot).
 const MANIFEST = [
   { id: 'home', title: 'Home', icon: 'home' },
   { id: 'tasks', title: 'Tasks', icon: 'list' },
@@ -47,6 +51,7 @@ const MANIFEST = [
   { id: 'habits', title: 'Habits', icon: 'target' },
   { id: 'calendar', title: 'Calendar', icon: 'calendar' },
   { id: 'pomodoro', title: 'Pomodoro', icon: 'timer', short: 'Timer' },
+  { id: 'settings', title: 'Settings', icon: 'gear', hidden: true },
 ];
 
 // Load each feature independently so one broken module can't blank the app.
@@ -70,6 +75,8 @@ const FEATURES = MANIFEST.map((m, i) => {
     },
   };
 });
+// The modules: nav, phone tabs, number keys and start pages
+const NAV = FEATURES.filter((f) => !f.hidden);
 
 /* ---- Appearance: template (settings.skin) + light/dark (settings.theme) ----
    Cosmetic only. index.html's head script applies both before the first paint; this keeps
@@ -79,13 +86,18 @@ const themeButtons = [];
 const installButtons = [];
 let shownSkin = null; // the template the current page was rendered with
 
+const prefersLight = matchMedia('(prefers-color-scheme: light)');
+
 function applyAppearance(s) {
   const root = document.documentElement;
   const next = normalizeSkin(s.skin);
-  const theme = s.theme === 'light' ? 'light' : 'dark';
+  const theme = resolveTheme(s.theme, prefersLight.matches);
   const previous = root.dataset.skin;
   root.dataset.skin = next;
   root.dataset.theme = theme;
+  // Settings → Reduce animations (the computer's own setting is honoured by CSS either way)
+  if (s.motion === 'reduced') root.dataset.motion = 'reduced';
+  else delete root.dataset.motion;
   loadSkinFonts(next);
   // Title bar of the installed app: the template's own background in this mode
   const bg = getComputedStyle(root).getPropertyValue('--bg').trim();
@@ -100,7 +112,16 @@ function applyAppearance(s) {
   if (shownSkin && shownSkin !== next) refreshForSkin();
 }
 
-const toggleTheme = () => settings.update({ theme: settings.get().theme === 'light' ? 'dark' : 'light' });
+// The quick toggle flips what is showing (leaving System for an explicit mode)
+const toggleTheme = () => settings.update({ theme: document.documentElement.dataset.theme === 'light' ? 'dark' : 'light' });
+// System: follow the computer when it switches, and check again on coming back to the window
+const followSystemTheme = () => {
+  if (settings.get().theme === 'system') applyAppearance(settings.get());
+};
+prefersLight.addEventListener('change', followSystemTheme);
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) followSystemTheme();
+});
 
 // Pages print numbers and words for the template they were rendered with (ui.idx/num/term):
 // re-render the page, keeping its scroll. A dialog stays open, so the page waits until it closes
@@ -164,7 +185,7 @@ const sidebar = h(
     'nav',
     { class: 'nav', 'aria-label': 'Modules' },
     navHeading,
-    FEATURES.map((f, i) => {
+    NAV.map((f, i) => {
       const a = h(
         'a',
         { class: 'nav-item', href: `#/${f.id}`, dataset: { id: f.id }, title: `${f.title} (${i + 1})` },
@@ -196,6 +217,11 @@ const sidebar = h(
         { type: 'button', class: 'btn btn--sm btn--ghost appearance-btn', 'aria-label': 'Appearance', title: 'Appearance: template and light or dark mode', onClick: openPicker },
         icon('palette'),
         h('span', { class: 'appearance-label' }, 'Appearance'),
+      ),
+      h(
+        'a',
+        { class: 'btn btn--sm btn--ghost btn--icon settings-btn', href: '#/settings', dataset: { id: 'settings' }, 'aria-label': 'Settings', title: 'Settings', ref: (el) => navLinks.push(el) },
+        icon('gear'),
       ),
       h('button', {
         type: 'button',
@@ -238,14 +264,9 @@ const topbar = h(
         onClick: onInstallClick,
       }),
       h(
-        'button',
-        { type: 'button', class: 'btn btn--ghost btn--icon btn--sm sync-toggle-mobile', 'aria-label': 'Sync', title: 'Sync', onClick: openSyncPanel },
-        icon('sync'),
-      ),
-      h(
-        'button',
-        { type: 'button', class: 'btn btn--ghost btn--icon btn--sm appearance-toggle-mobile', 'aria-label': 'Appearance', title: 'Appearance', onClick: openPicker },
-        icon('palette'),
+        'a',
+        { class: 'btn btn--ghost btn--icon btn--sm settings-toggle-mobile', href: '#/settings', dataset: { id: 'settings' }, 'aria-label': 'Settings', title: 'Settings', ref: (el) => navLinks.push(el) },
+        icon('gear'),
       ),
       h('button', {
         type: 'button',
@@ -262,7 +283,7 @@ const main = h('main', { class: 'main', id: 'main' });
 const tabbar = h(
   'nav',
   { class: 'tabbar', 'aria-label': 'Modules' },
-  FEATURES.map((f) => {
+  NAV.map((f) => {
     const a = h(
       'a',
       { class: 'tab', href: `#/${f.id}`, dataset: { id: f.id }, title: f.short ? f.title : null },
@@ -332,7 +353,9 @@ let cleanup = null;
 
 function routeId() {
   const m = location.hash.match(/^#\/([\w-]+)/);
-  return m && FEATURES.some((f) => f.id === m[1]) ? m[1] : FEATURES[0].id;
+  if (m && FEATURES.some((f) => f.id === m[1])) return m[1];
+  // The app opens without a page (manifest start_url is ./): Settings → Open on
+  return startPage(settings.get().startPage, NAV.map((f) => f.id));
 }
 
 function render(force = false) {
@@ -441,9 +464,9 @@ setInterval(tick, 1000);
 document.addEventListener('keydown', (e) => {
   if (e.metaKey || e.ctrlKey || e.altKey || isTyping(e) || modalOpen()) return;
   const n = Number(e.key);
-  if (Number.isInteger(n) && n >= 1 && n <= FEATURES.length) {
+  if (Number.isInteger(n) && n >= 1 && n <= NAV.length) {
     e.preventDefault();
-    location.hash = `#/${FEATURES[n - 1].id}`;
+    location.hash = `#/${NAV[n - 1].id}`;
   }
 });
 
@@ -661,16 +684,6 @@ function hasSavedData() {
   return false;
 }
 
-function isNewerVersion(a, b) {
-  const parts = (v) => String(v ?? '').replace(/^v/, '').split('.').map((n) => Number.parseInt(n, 10) || 0);
-  const x = parts(a);
-  const y = parts(b);
-  for (let i = 0; i < Math.max(x.length, y.length); i++) {
-    if ((x[i] ?? 0) !== (y[i] ?? 0)) return (x[i] ?? 0) > (y[i] ?? 0);
-  }
-  return false;
-}
-
 function noteVersion() {
   const seen = settings.get().seenVersion;
   // Same version, or an older copy (served from cache) after a newer one: stay quiet
@@ -705,14 +718,24 @@ let offered = null; // { version, toast } of the notice last shown
 
 // periodic: the 10-minute poll may bring back a notice that was dismissed; coming back to the
 // window only shows one for a version not offered yet (no nagging on every focus)
+/** The newest deployed version, or null (offline, no version file: a test copy). */
+async function fetchLatestVersion() {
+  try {
+    // Straight from the server (the worker never caches version.json); offline it fails
+    const res = await fetch('./version.json', { cache: 'no-store' });
+    if (!res.ok) return null;
+    const { version } = await res.json();
+    return typeof version === 'string' ? version : null;
+  } catch {
+    return null;
+  }
+}
+
 async function checkForUpdate({ periodic = false } = {}) {
   if (!isRealCopy || document.hidden) return;
   try {
-    // Straight from the local service (the worker never caches version.json); offline it fails
-    const res = await fetch('./version.json', { cache: 'no-store' });
-    if (!res.ok) return;
-    const { version } = await res.json();
-    if (typeof version !== 'string' || !isNewerVersion(version, VERSION)) return;
+    const version = await fetchLatestVersion();
+    if (!version || !isNewerVersion(version, VERSION)) return;
     if (offered?.version === version && (offered.toast.el.isConnected || !periodic)) return;
     offered?.toast.dismiss();
     offered = {
@@ -755,6 +778,14 @@ window.launchQueue?.setConsumer((params) => {
 });
 
 /* ---- Boot ---- */
+
+provideShell({
+  version: VERSION,
+  pages: NAV.map(({ id, title }) => ({ id, title })),
+  openAppearance: openPicker,
+  latestVersion: fetchLatestVersion,
+  storageState: () => storageState,
+});
 
 if (isStandalone()) markInstalled(true);
 startSync();

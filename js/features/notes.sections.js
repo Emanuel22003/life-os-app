@@ -4,7 +4,7 @@
 // workspace), the move menu and the section dialogs. Every change is reported
 // through callbacks; notes.js owns the store, the selection and the autosave.
 
-import { h, icon, registerIcon, openModal, num, plural, clamp } from '../ui.js';
+import { h, icon, registerIcon, openModal, num, plural, clamp, reducedMotion } from '../ui.js';
 import {
   VIEW_ALL,
   VIEW_UNSORTED,
@@ -28,7 +28,6 @@ const EDGE_BAND = 36;
 const EDGE_SPEED = 12;
 // Phones get the move menu as a small dialog instead of a popover.
 const SHEET_QUERY = '(max-width: 640px)';
-const REDUCED_MOTION = '(prefers-reduced-motion: reduce)';
 
 /* ==========================================================================
    Icons (24px grid, 1.5 stroke, same drawing style as ui.js)
@@ -98,7 +97,7 @@ function replay(el, cls) {
   el.classList.add(cls);
 }
 
-const scrollBehavior = () => (window.matchMedia(REDUCED_MOTION).matches ? 'auto' : 'smooth');
+const scrollBehavior = () => (reducedMotion() ? 'auto' : 'smooth');
 
 /** Scroll `box` just enough to show `el` (axis 'x' or 'y'); `instant` skips the smooth scroll. */
 function scrollIntoBox(box, el, axis, instant = false) {

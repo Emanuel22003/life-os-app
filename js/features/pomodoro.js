@@ -495,7 +495,19 @@ function changeSettings(patch) {
   return mutate((d, now) => P.updateSettings(d, patch, now));
 }
 
-/** For Home and the shell: the same timer as the page. */
+/**
+ * Desktop notifications on, asking the browser first (call it from a click: browsers only ask
+ * then). -> the permission afterwards: 'granted' (and notify is on) | 'denied' | 'default' | 'unsupported'
+ */
+function enableNotifications() {
+  if (notificationState() === 'unsupported') return Promise.resolve('unsupported');
+  const asked = Notification.permission === 'default' ? Notification.requestPermission() : Promise.resolve(Notification.permission);
+  return Promise.resolve(asked)
+    .catch(() => Notification.permission)
+    .then((perm) => (perm === 'granted' ? changeSettings({ notify: true }).then(() => perm) : perm));
+}
+
+/** For Home, Settings and the shell: the same timer as the page. */
 export const pomodoroApi = Object.freeze({
   subscribe: subscribeTimer,
   snapshot: () => {
@@ -507,6 +519,17 @@ export const pomodoroApi = Object.freeze({
   pause: () => act('pause'),
   skip: () => act('skip'),
   reset: () => act('reset'),
+  /** The timer's settings: { focusMin, …, sound, notify, showMini } */
+  settings: () => getDoc().settings,
+  /** Change some settings (invalid values are ignored). -> Promise */
+  setSettings: (patch) => changeSettings(patch),
+  /** The end-of-focus bell, now (call it from a click). -> played? */
+  testSound: () => {
+    primeAudio();
+    return chime('break');
+  },
+  notificationState,
+  enableNotifications,
 });
 
 /* ==========================================================================

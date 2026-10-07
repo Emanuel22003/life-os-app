@@ -1,0 +1,98 @@
+/* ==========================================================================
+   LIFE/OS — Settings (#/settings): cards of rows, each row a title + explanation on the left and
+   its control on the right. Controls are the shared kit (seg, btn, select) and the Pomodoro
+   switch, so every template styles them already.
+   ========================================================================== */
+
+.st-cards {
+  display: grid;
+  gap: var(--space-5);
+  max-width: 760px;
+}
+
+.st-card {
+  display: grid;
+  padding: var(--space-2) var(--space-5);
+}
+
+.st-card-title {
+  margin: var(--space-4) 0 var(--space-1);
+}
+
+.st-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-3) var(--space-5);
+  padding: var(--space-4) 0;
+  border-top: 1px solid var(--line);
+}
+
+.st-card-title + .st-row {
+  border-top: 0;
+}
+
+.st-row-title {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.st-row-hint {
+  margin: 3px 0 0;
+  color: var(--text-3);
+  font-size: var(--fs-sm);
+  line-height: 1.45;
+}
+
+.st-row-control {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+.st-row-control:empty {
+  display: none;
+}
+
+.st-select {
+  width: auto;
+  min-width: 170px;
+  height: 34px;
+}
+
+/* The switch alone (its label is the row title) */
+.st-switch {
+  padding: 4px 0;
+}
+
+.st-switch:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.st-row-control a.btn {
+  text-decoration: none;
+}
+
+/* The gear in the sidebar foot shows where you are */
+.settings-btn[aria-current="page"],
+.settings-toggle-mobile[aria-current="page"] {
+  background: var(--surface-3);
+  color: var(--text);
+}
+
+@media (max-width: 640px) {
+  .st-card {
+    padding: var(--space-1) var(--space-4);
+  }
+
+  .st-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .st-row-control {
+    justify-content: flex-start;
+  }
+}

@@ -8,7 +8,7 @@
 // - Views are built by calendar.views.js; this file owns state, rendering, every click / key /
 //   drag (by delegation) and the zoom transitions.
 
-import { h, icon, pageHeader, term, skin, toast, openModal, isTyping, modalOpen, todayKey, onDayChange, debounce, weekday, uid, MONTHS_SHORT } from '../ui.js';
+import { h, icon, pageHeader, term, skin, toast, openModal, isTyping, modalOpen, todayKey, onDayChange, debounce, weekday, uid, MONTHS_SHORT, reducedMotion } from '../ui.js';
 import { tasksApi } from './tasks.js';
 import { habitsApi } from './habits.js';
 import * as L from './calendar.logic.js';
@@ -36,7 +36,6 @@ const HOUR_H_PHONE = 44;
 
 const clip = (s, n = 36) => (s.length > n ? `${s.slice(0, n - 1)}…` : s);
 const shortDay = (key) => L.viewTitle('day', key, { short: true });
-const reducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 const nowMinutes = () => {
   const d = new Date();
   return d.getHours() * 60 + d.getMinutes();

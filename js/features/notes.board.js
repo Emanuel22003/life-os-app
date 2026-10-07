@@ -10,7 +10,7 @@
 // jumps to one. While a card is lifted it becomes the drop dock: every column, Unsorted
 // included, is one short move away even when it is scrolled out of sight.
 
-import { h, icon, registerIcon, num, plural, timeAgo, clamp } from '../ui.js';
+import { h, icon, registerIcon, num, plural, timeAgo, clamp, reducedMotion } from '../ui.js';
 import { VIEW_UNSORTED, excerpt, highlight, clip, findSection } from './notes.logic.js';
 import {
   boardColumns,
@@ -36,7 +36,6 @@ const EDGE_SLACK = 48; // px past the board's side a pointer (a finger at the sc
 const LIFT_GAP = 28; // touch: the lifted card floats this far above the finger
 const FADE = 28; // px of the pager's edge fade, kept clear when a chip is brought into view
 const SLOT_DWELL_MS = 220; // a column scrolls to the drop slot once the card rests over it this long
-const REDUCED_MOTION = '(prefers-reduced-motion: reduce)';
 
 // Board glyphs: the layout toggle's columns and a column's fold control
 registerIcon('nt-board', '<rect x="3" y="4" width="5" height="16" rx="1"/><rect x="10" y="4" width="5" height="11" rx="1"/><rect x="17" y="4" width="4" height="7" rx="1"/>');
@@ -46,7 +45,6 @@ registerIcon('nt-unfold', '<path d="m10 6 6 6-6 6"/><path d="M5 5v14"/>');
 let seq = 0;
 const nextId = (prefix) => `${prefix}-${(seq += 1)}`;
 
-const reducedMotion = () => window.matchMedia(REDUCED_MOTION).matches;
 const scrollBehavior = () => (reducedMotion() ? 'auto' : 'smooth');
 
 function replay(el, cls) {

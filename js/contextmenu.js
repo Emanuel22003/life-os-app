@@ -29,7 +29,7 @@
 // in-app clipboard ({ kind, snapshot, text } in memory and sessionStorage, so it survives a
 // route change), plus the plain text on the system clipboard.
 
-import { h, icon, registerIcon, toast, isTyping, modalOpen } from './ui.js';
+import { h, icon, registerIcon, toast, isTyping, modalOpen, reducedMotion } from './ui.js';
 import { menuPosition, stepIndex, shortcutLabels, actionForKey, isMenuKey, makeClip, readClip, pasteMode, sameText } from './contextmenu.logic.js';
 
 registerIcon('ctx-copy', '<rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1"/>');
@@ -209,7 +209,6 @@ let scope = null; // the element right-clicks are handled in (the shell's <main>
 let menu = null; // { el, items, target, providerId, returnTo, cleanup }
 let swallowUntil = 0; // a keyboard open: ignore the browser's own contextmenu event right after
 
-const reducedMotion = () => globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
 function openMenu(t, at, { keyboard = false } = {}) {
   closeMenu({ restore: false });

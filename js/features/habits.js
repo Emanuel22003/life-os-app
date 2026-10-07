@@ -28,6 +28,7 @@ import {
   WEEKDAYS_SHORT,
   WEEKDAYS_MIN,
   MONTHS_SHORT,
+  reducedMotion,
 } from '../ui.js';
 import { createStore } from '../store.js';
 import * as L from './habits.logic.js';
@@ -216,10 +217,6 @@ const monthOf = (key) => MONTHS_SHORT[Number(key.slice(5, 7)) - 1];
 
 function kbd(text) {
   return h('span', { class: 'kbd' }, text);
-}
-
-function reducedMotion() {
-  return window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
 }
 
 /** Day of the month as the template prints it: '05' (Mission Control) or '5' (Simple). */

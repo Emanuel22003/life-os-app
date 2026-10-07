@@ -5,7 +5,7 @@
   "description": "Tasks, notes, daily habits, a calendar and a focus timer in one place.",
   "lang": "en",
   "dir": "ltr",
-  "start_url": "./#/home",
+  "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "background_color": "#060606",

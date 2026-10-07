@@ -578,6 +578,12 @@ export function isTyping(e) {
   return t.isContentEditable || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT';
 }
 
+/** Motion should be kept to a minimum: the computer asks for it, or Settings → Reduce animations. */
+export function reducedMotion() {
+  if (globalThis.document?.documentElement?.dataset.motion === 'reduced') return true;
+  return globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+}
+
 /** True while any modal dialog is open (features should ignore global shortcuts then). */
 export function modalOpen() {
   return !!document.querySelector('.modal-root');

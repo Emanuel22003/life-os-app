@@ -389,8 +389,7 @@
 }
 
 .topbar .theme-toggle-mobile,
-.topbar .appearance-toggle-mobile,
-.topbar .sync-toggle-mobile,
+.topbar .settings-toggle-mobile,
 .topbar .install-toggle-mobile {
   display: none;
 }
@@ -640,8 +639,7 @@
   }
 
   .topbar .theme-toggle-mobile,
-  .topbar .appearance-toggle-mobile,
-  .topbar .sync-toggle-mobile,
+  .topbar .settings-toggle-mobile,
   .topbar .install-toggle-mobile,
   .topbar-sys {
     display: inline-flex;
