@@ -17,8 +17,12 @@ export const FILTER_LABEL = { all: 'All', today: 'Today', upcoming: 'Upcoming', 
 export const SORTS = ['manual', 'due', 'priority'];
 export const SORT_LABEL = { manual: 'Manual', due: 'Due', priority: 'Priority' };
 
-export const DEFAULT_VIEW = Object.freeze({ filter: 'all', sort: 'manual', completedOpen: false });
-export const DEFAULT_STATE = Object.freeze({ items: [], view: DEFAULT_VIEW });
+// view.section: 'all' or the id of the section being shown (per device: it never syncs)
+export const DEFAULT_VIEW = Object.freeze({ filter: 'all', sort: 'manual', completedOpen: false, section: 'all' });
+export const DEFAULT_STATE = Object.freeze({ items: [], sections: Object.freeze([]), view: DEFAULT_VIEW });
+
+/** Sections split the list (Work, Life …): [{ id, name }] in display order; a task's sectionId points at one or is null. */
+export const SECTION_NAME_MAX = 40;
 
 // Older / hand-edited data may spell priorities differently. Maps, not object
 // literals, so words like "constructor" never resolve to Object.prototype members.
@@ -47,6 +51,10 @@ export function cleanTitle(v) {
    Normalization — tolerate missing / malformed fields from older versions
    ========================================================================== */
 
+/**
+ * A valid task, or null. Fields this version doesn't know are kept as they are, so a window
+ * running an older LIFE/OS (or one device in sync with a newer one) never strips them.
+ */
 export function normalizeTask(raw, i = 0, now = Date.now()) {
   if (!raw || typeof raw !== 'object') return null;
   const title = cleanTitle(raw.title ?? raw.text ?? raw.name);
@@ -57,8 +65,11 @@ export function normalizeTask(raw, i = 0, now = Date.now()) {
   const priority = PRIORITIES.includes(rawPriority) ? rawPriority : PRIORITY_ALIASES.get(rawPriority) ?? 'none';
   let id = typeof raw.id === 'number' ? String(raw.id) : raw.id;
   if (typeof id !== 'string' || !id) id = uid();
+  // Legacy spellings of title / done are read above, not kept
+  const { text: _text, name: _name, completed: _completed, ...extra } = raw;
 
   return {
+    ...extra,
     id,
     title,
     notes: typeof raw.notes === 'string' ? raw.notes : '',
@@ -68,15 +79,27 @@ export function normalizeTask(raw, i = 0, now = Date.now()) {
     createdAt: Number.isFinite(raw.createdAt) ? raw.createdAt : now,
     completedAt: done && Number.isFinite(raw.completedAt) ? raw.completedAt : null,
     order: Number.isFinite(raw.order) ? raw.order : i,
+    sectionId: typeof raw.sectionId === 'string' && raw.sectionId ? raw.sectionId : null,
   };
 }
 
-export function normalizeView(raw) {
+/** A valid section ({ id, name } + any fields a newer version added), or null. */
+export function normalizeSection(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  const name = cleanTitle(raw.name).slice(0, SECTION_NAME_MAX).trim();
+  const id = typeof raw.id === 'number' ? String(raw.id) : raw.id;
+  if (typeof id !== 'string' || !id || !name) return null;
+  return { ...raw, id, name };
+}
+
+export function normalizeView(raw, sectionIds = new Set()) {
   const v = raw && typeof raw === 'object' ? raw : {};
   return {
     filter: FILTERS.includes(v.filter) ? v.filter : DEFAULT_VIEW.filter,
     sort: SORTS.includes(v.sort) ? v.sort : DEFAULT_VIEW.sort,
     completedOpen: typeof v.completedOpen === 'boolean' ? v.completedOpen : DEFAULT_VIEW.completedOpen,
+    // A section deleted (here, or on another computer) falls back to All
+    section: typeof v.section === 'string' && sectionIds.has(v.section) ? v.section : 'all',
   };
 }
 
@@ -87,6 +110,14 @@ export function normalizeView(raw) {
 export function normalizeState(raw, now = Date.now()) {
   const src = Array.isArray(raw) ? { items: raw } : raw && typeof raw === 'object' ? raw : {};
   const list = Array.isArray(src.items) ? src.items : Array.isArray(src.tasks) ? src.tasks : [];
+  const sections = [];
+  const sectionIds = new Set();
+  for (const r of Array.isArray(src.sections) ? src.sections : []) {
+    const sec = normalizeSection(r);
+    if (!sec || sectionIds.has(sec.id)) continue;
+    sectionIds.add(sec.id);
+    sections.push(sec);
+  }
   const seen = new Set();
   const items = [];
   list.forEach((r, i) => {
@@ -94,9 +125,11 @@ export function normalizeState(raw, now = Date.now()) {
     if (!t) return;
     while (seen.has(t.id)) t.id = uid();
     seen.add(t.id);
+    // Its section was deleted: the task stays, without a section
+    if (t.sectionId && !sectionIds.has(t.sectionId)) t.sectionId = null;
     items.push(t);
   });
-  return { items: reindex(byManual(items)), view: normalizeView(src.view) };
+  return { items: reindex(byManual(items)), sections, view: normalizeView(src.view, sectionIds) };
 }
 
 /** order := index, reusing objects whose order is already right. */
@@ -115,6 +148,49 @@ export function isOverdue(t, today) {
 
 export function isDueToday(t, today) {
   return !t.done && t.due === today;
+}
+
+/** The tasks a section shows: all of them for 'all'. */
+export function inSection(items, section) {
+  return section === 'all' ? items : items.filter((t) => t.sectionId === section);
+}
+
+/** Open tasks per section id (and 'all'), for the section tabs. */
+export function sectionCounts(items) {
+  const c = new Map([['all', 0]]);
+  for (const t of items) {
+    if (t.done) continue;
+    c.set('all', c.get('all') + 1);
+    if (t.sectionId) c.set(t.sectionId, (c.get(t.sectionId) ?? 0) + 1);
+  }
+  return c;
+}
+
+/** sections + a new one named `name` -> { sections, section } | { error: 'empty' | 'taken' } */
+export function addSection(sections, name, id = uid()) {
+  const clean = cleanTitle(name).slice(0, SECTION_NAME_MAX).trim();
+  if (!clean) return { error: 'empty' };
+  if (sections.some((s) => s.name.toLowerCase() === clean.toLowerCase())) return { error: 'taken' };
+  const section = { id, name: clean };
+  return { sections: [...sections, section], section };
+}
+
+/** Rename section `id` -> { sections } (same array when nothing changes) | { error: 'empty' | 'taken' } */
+export function renameSection(sections, id, name) {
+  const clean = cleanTitle(name).slice(0, SECTION_NAME_MAX).trim();
+  if (!clean) return { error: 'empty' };
+  const current = sections.find((s) => s.id === id);
+  if (!current || current.name === clean) return { sections };
+  if (sections.some((s) => s.id !== id && s.name.toLowerCase() === clean.toLowerCase())) return { error: 'taken' };
+  return { sections: sections.map((s) => (s.id === id ? { ...s, name: clean } : s)) };
+}
+
+/** Delete section `id`: its tasks stay, without a section. -> the new { items, sections } */
+export function removeSection(items, sections, id) {
+  return {
+    sections: sections.filter((s) => s.id !== id),
+    items: items.map((t) => (t.sectionId === id ? { ...t, sectionId: null } : t)),
+  };
 }
 
 export function matchesFilter(t, filter, today) {
@@ -248,7 +324,7 @@ export function computeStats(items, today) {
    Mutations (pure: items in, items out)
    ========================================================================== */
 
-export function createTask({ title, priority = 'none', due = null, notes = '' } = {}, now = Date.now()) {
+export function createTask({ title, priority = 'none', due = null, notes = '', sectionId = null } = {}, now = Date.now()) {
   return {
     id: uid(),
     title: cleanTitle(title),
@@ -259,6 +335,7 @@ export function createTask({ title, priority = 'none', due = null, notes = '' } 
     createdAt: now,
     completedAt: null,
     order: 0,
+    sectionId: typeof sectionId === 'string' && sectionId ? sectionId : null,
   };
 }
 
@@ -278,7 +355,7 @@ export function toggleTask(items, id, done, now = Date.now()) {
   return items.map((t) => (t.id === id && t.done !== done ? { ...t, done, completedAt: done ? now : null } : t));
 }
 
-/** Patch title / notes / priority / due. Invalid values are ignored; an empty title keeps the old one. */
+/** Patch title / notes / priority / due / sectionId. Invalid values are ignored; an empty title keeps the old one. */
 export function updateTask(items, id, patch = {}) {
   return items.map((t) => {
     if (t.id !== id) return t;
@@ -290,6 +367,7 @@ export function updateTask(items, id, patch = {}) {
     if ('notes' in patch) next.notes = typeof patch.notes === 'string' ? patch.notes : '';
     if ('priority' in patch && PRIORITIES.includes(patch.priority)) next.priority = patch.priority;
     if ('due' in patch) next.due = isDateKey(patch.due) ? patch.due : null;
+    if ('sectionId' in patch) next.sectionId = typeof patch.sectionId === 'string' && patch.sectionId ? patch.sectionId : null;
     return next;
   });
 }

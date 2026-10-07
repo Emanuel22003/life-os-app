@@ -28,7 +28,7 @@ import { LOCAL_ORIGIN, isRealCopy } from './origin.js';
 import { startSync, syncStatus, onSyncStatus } from './sync.js';
 import { openSyncPanel, syncLabel } from './sync.panel.js';
 
-const VERSION = 'v0.9';
+const VERSION = 'v0.10';
 
 // Read before any feature module can seed data: tells a first-ever run from an upgrade
 const hadSavedData = hasSavedData();

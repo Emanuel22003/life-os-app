@@ -369,6 +369,90 @@ button.tk-stat:active {
 }
 
 /* ==========================================================================
+   Sections: All · Work · Life … above the command bar; the open one scopes the page
+   ========================================================================== */
+
+.tk-sections {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+}
+
+.tk-sec-seg {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+.tk-sec-seg .seg-count {
+  min-width: 1.5ch;
+  text-align: right;
+}
+
+.tk-sec-label {
+  margin-right: var(--space-1);
+}
+
+/* In All, a row names its section */
+.tk-sec-tag {
+  display: inline-block;
+  max-width: 18ch;
+  overflow: hidden;
+  line-height: calc(20px - 2 * var(--border-w-sm));
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-2);
+}
+
+/* The Sections dialog */
+.tk-secs-modal {
+  max-width: 480px;
+}
+
+.tk-secs-lead {
+  margin: 0;
+  color: var(--text-2);
+  line-height: 1.5;
+}
+
+.tk-secs {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tk-secs-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.tk-secs-count {
+  white-space: nowrap;
+}
+
+.tk-secs-add {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.tk-secs-msg {
+  margin: 0;
+  color: var(--text);
+  font-size: var(--fs-sm);
+}
+
+.tk-secs-msg:empty {
+  display: none;
+}
+
+/* ==========================================================================
    Task list
    ========================================================================== */
 

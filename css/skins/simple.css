@@ -702,8 +702,9 @@
   background: var(--surface-3);
 }
 
-/* Filter counts: the subtitle already says what today holds */
-[data-skin="simple"] .tk-filters .seg-count {
+/* Filter and section counts: the subtitle already says what today holds */
+[data-skin="simple"] .tk-filters .seg-count,
+[data-skin="simple"] .tk-sec-seg .seg-count {
   display: none;
 }
 

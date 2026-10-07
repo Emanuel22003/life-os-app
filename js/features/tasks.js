@@ -1,6 +1,6 @@
 // LIFE/OS — 01 // Tasks
-// Quick-add command bar, live stats, filters + sort, and a keyed task list with
-// inline edit, details modal, drag-to-reorder and undoable deletes.
+// Sections (Work, Life …), quick-add command bar, live stats, filters + sort, and a keyed task
+// list with inline edit, details modal, drag-to-reorder and undoable deletes.
 
 import {
   h,
@@ -55,6 +55,12 @@ import {
   parseQuickAdd,
   notePreview,
   cleanTitle,
+  inSection,
+  sectionCounts,
+  addSection,
+  renameSection,
+  removeSection,
+  SECTION_NAME_MAX,
 } from './tasks.logic.js';
 import { registerContextProvider } from '../contextmenu.js';
 import { splitText } from '../contextmenu.logic.js';
@@ -134,7 +140,7 @@ const TITLE_MAX = 500; // the quick-add input's maxlength
 
 /** What a copy of a task carries. The copy is a new, open task: done state and dates stay behind. */
 function taskSnapshot(t) {
-  return { title: t.title, notes: t.notes, priority: t.priority, due: t.due };
+  return { title: t.title, notes: t.notes, priority: t.priority, due: t.due, sectionId: t.sectionId };
 }
 
 /** Same task, field by field (its position aside). */
@@ -144,12 +150,17 @@ function sameTask(a, b) {
   return JSON.stringify(x) === JSON.stringify(y);
 }
 
-/** A new task from `snap` right after `afterId` in the manual order (first without one); `due` overrides. -> the stored task | null */
-function insertCopy(snap, { afterId = null, due } = {}) {
+/**
+ * A new task from `snap` right after `afterId` in the manual order (first without one); `due`
+ * and `sectionId` override the snapshot's. -> the stored task | null
+ */
+function insertCopy(snap, { afterId = null, due, sectionId } = {}) {
   const src = snap && typeof snap === 'object' ? snap : {};
   const title = cleanTitle(cleanTitle(src.title).slice(0, TITLE_MAX));
   if (!title) return null;
-  const task = createTask({ title, notes: src.notes, priority: src.priority, due: due !== undefined ? due : src.due });
+  const wanted = sectionId !== undefined ? sectionId : src.sectionId;
+  const section = getState().sections.some((sec) => sec.id === wanted) ? wanted : null;
+  const task = createTask({ title, notes: src.notes, priority: src.priority, due: due !== undefined ? due : src.due, sectionId: section });
   setItems((items) => insertTaskAfter(items, task, afterId));
   return findTask(task.id) ?? null;
 }
@@ -330,6 +341,11 @@ function mount(root) {
   // Simple has no stats strip: its subtitle says, in one line, what today holds instead
   const summaryEl = skin() === 'simple' ? header.querySelector('.page-subtitle') : null;
 
+  /* ---- sections: All · Work · Life … (tabs; the open one scopes the whole page) ---- */
+  const sectionBar = h('div', { class: 'tk-sections' });
+  let sectionSeg = null;
+  let sectionSig = null;
+
   /* ---- command bar ---- */
   // Screen-reader instructions sit on the controls that actually take focus (the add input
   // and every row); aria-describedby on a non-focusable <ol> is ignored by many readers.
@@ -503,7 +519,7 @@ function mount(root) {
   );
 
   root.classList.add('tk-root');
-  root.append(header, form, statsEl, toolbar, mainPanel, emptyHost, doneSection, hints, addHelp, kbdHelp);
+  root.append(header, sectionBar, form, statsEl, toolbar, mainPanel, emptyHost, doneSection, hints, addHelp, kbdHelp);
   root.addEventListener('keydown', onRowKeydown);
 
   /* ==========================================================================
@@ -531,15 +547,21 @@ function mount(root) {
   }
 
   function paint() {
-    const { items, view } = getState();
+    const { items, sections, view } = getState();
     const today = todayKey();
-    const counts = filterCounts(items, today);
-    const stats = computeStats(items, today);
+    // The open section scopes the stats, the filter counts and the lists
+    const scoped = inSection(items, view.section);
+    const counts = filterCounts(scoped, today);
+    const stats = computeStats(scoped, today);
     const snaps = new Map([...linger].map(([id, l]) => [id, l.snap]));
-    const { main, completed } = viewSections(items, view, today, snaps);
+    const { main, completed } = viewSections(scoped, view, today, snaps);
     const manual = view.sort === 'manual' && view.filter !== 'done';
     const focus = captureFocus();
+    const sectionName = sections.find((sec) => sec.id === view.section)?.name ?? null;
+    // In All, each row says which section it's in
+    const names = view.section === 'all' && sections.length ? new Map(sections.map((sec) => [sec.id, sec.name])) : null;
 
+    paintSections(sections, sectionCounts(items), view.section);
     paintStats(stats);
 
     // toolbar
@@ -548,17 +570,21 @@ function mount(root) {
     sortSeg.set(view.sort);
     sortWrap.hidden = view.filter === 'done';
     clearDoneBtn.hidden = view.filter !== 'done' || counts.done === 0;
-    addInput.placeholder = view.filter === 'today' ? 'Add a task for today…' : 'Add a task…';
+    addInput.placeholder = sectionName
+      ? `Add a task to ${sectionName}${view.filter === 'today' ? ' for today' : ''}…`
+      : view.filter === 'today'
+        ? 'Add a task for today…'
+        : 'Add a task…';
 
     // main list
     const used = new Set();
-    reconcile(mainList, main, used, (t, i) => ({ index: i, today, draggable: manual && !t.done }));
+    reconcile(mainList, main, used, (t, i) => ({ index: i, today, draggable: manual && !t.done, section: names?.get(t.sectionId) ?? null }));
     mainIds = main.map((t) => t.id);
     mainPanel.hidden = main.length === 0;
-    paintEmpty(main.length === 0 ? emptyKind(view.filter, counts) : '');
+    paintEmpty(main.length === 0 ? emptyKind(view.filter, counts, sectionName) : '', sectionName ?? '');
 
-    // a short staggered fade when the filter or sort changes
-    const viewKey = `${view.filter}:${view.sort}`;
+    // a short staggered fade when the section, filter or sort changes
+    const viewKey = `${view.section}:${view.filter}:${view.sort}`;
     if (lastViewKey && viewKey !== lastViewKey) {
       bump(mainList, 'tk-list--swap');
       clearTimeout(swapTimer);
@@ -577,7 +603,7 @@ function mount(root) {
       doneCount.textContent = doneText;
     }
     lastDoneCount = view.filter === 'all' ? completed.length : -1;
-    reconcile(doneList, showDone && view.completedOpen ? completed : [], used, (t, i) => ({ index: i, today, draggable: false }));
+    reconcile(doneList, showDone && view.completedOpen ? completed : [], used, (t, i) => ({ index: i, today, draggable: false, section: names?.get(t.sectionId) ?? null }));
 
     // The row being renamed left the view (a change from another tab filtered it out
     // or completed it into a collapsed section): keep what was typed rather than drop it.
@@ -638,19 +664,58 @@ function mount(root) {
 
   /* ---- empty states ---- */
 
-  function emptyKind(filter, counts) {
+  /** The section tabs: rebuilt when sections change, counts and the open tab updated every paint. */
+  function paintSections(sections, counts, active) {
+    const sig = sections.map((sec) => `${sec.id}\u241f${sec.name}`).join('\u241e');
+    if (sig !== sectionSig) {
+      sectionSig = sig;
+      if (sections.length) {
+        sectionSeg = segGroup({
+          label: 'Sections',
+          options: [{ value: 'all', label: 'All', count: true }, ...sections.map((sec) => ({ value: sec.id, label: sec.name, count: true }))],
+          value: active,
+          className: 'tk-sec-seg',
+          onChange: (id) => setSection(id),
+        });
+        sectionBar.replaceChildren(
+          sectionSeg.el,
+          h('button', { type: 'button', class: 'btn btn--ghost btn--sm tk-sec-btn', title: 'New section', onClick: () => openSections({ adding: true }) }, icon('plus', { size: 14 }), h('span', { class: 'tk-sec-btn-label' }, 'Section')),
+          h('button', { type: 'button', class: 'btn btn--ghost btn--icon btn--sm', 'aria-label': 'Edit sections', title: 'Rename or delete sections', onClick: () => openSections() }, icon('edit', { size: 14 })),
+        );
+      } else {
+        sectionSeg = null;
+        // None yet: one click makes the usual ones, or any other
+        const suggest = (label, onClick) => h('button', { type: 'button', class: 'btn btn--ghost btn--sm tk-sec-btn', onClick }, icon('plus', { size: 14 }), label);
+        sectionBar.replaceChildren(
+          h('span', { class: 'label tk-sec-label' }, 'Sections'),
+          suggest('Work', () => createSection('Work', { open: true })),
+          suggest('Life', () => createSection('Life', { open: true })),
+          suggest('Other…', () => openSections({ adding: true })),
+        );
+      }
+    }
+    if (sectionSeg) {
+      sectionSeg.set(active);
+      sectionSeg.count('all', String(counts.get('all') ?? 0));
+      for (const sec of sections) sectionSeg.count(sec.id, String(counts.get(sec.id) ?? 0));
+    }
+  }
+
+  function emptyKind(filter, counts, sectionName) {
     if (filter !== 'all') return filter;
-    return counts.done > 0 ? 'clear' : 'fresh';
+    if (counts.done > 0) return 'clear';
+    return sectionName ? 'section' : 'fresh';
   }
 
-  function paintEmpty(kind) {
+  function paintEmpty(kind, detail = '') {
     emptyHost.hidden = !kind;
-    if (kind === emptyKey) return;
-    emptyKey = kind;
-    emptyHost.replaceChildren(kind ? buildEmpty(kind) : '');
+    const key = `${kind}\u241f${detail}`;
+    if (key === emptyKey) return;
+    emptyKey = key;
+    emptyHost.replaceChildren(kind ? buildEmpty(kind, detail) : '');
   }
 
-  function buildEmpty(kind) {
+  function buildEmpty(kind, detail = '') {
     // Shared pattern (Notes, Habits): contextual empty states get a small button, primary
     // for "create", secondary for "go elsewhere"; the first-run state gets a full-size one.
     const action = (label, onClick, iconName = 'plus', { large = false, primary = true } = {}) =>
@@ -687,6 +752,13 @@ function mount(root) {
           icon: 'zap',
           title: 'All clear',
           text: 'Every task is done. Add the next one when you are ready.',
+          action: action('Add a task', () => focusAdd()),
+        });
+      case 'section':
+        return emptyState({
+          icon: 'list',
+          title: `Nothing in ${clip(detail, 32)} yet`,
+          text: 'Tasks you add while this section is open go here.',
           action: action('Add a task', () => focusAdd()),
         });
       default:
@@ -770,10 +842,10 @@ function mount(root) {
     return { row, grip, idxEl, check, title, titleWrap, meta, details, del, input: null, sig: '' };
   }
 
-  function updateRow(r, t, { index, today, draggable }) {
+  function updateRow(r, t, { index, today, draggable, section = null }) {
     const overdue = isOverdue(t, today);
     const doneAgo = t.done && t.completedAt ? timeAgo(t.completedAt) : '';
-    const sig = [t.title, t.done, t.priority, t.due, t.notes, doneAgo, today, index, draggable, editingId === t.id].join('␟');
+    const sig = [t.title, t.done, t.priority, t.due, t.notes, doneAgo, today, index, draggable, editingId === t.id, section].join('␟');
     if (r.sig === sig) return;
     r.sig = sig;
 
@@ -792,13 +864,14 @@ function mount(root) {
     r.details.setAttribute('aria-label', `Details for “${t.title}”`);
     r.del.setAttribute('aria-label', `Delete “${t.title}”`);
 
-    const meta = metaNodes(t, today, overdue, doneAgo);
+    const meta = metaNodes(t, today, overdue, doneAgo, section);
     r.meta.replaceChildren(...meta);
     r.meta.hidden = meta.length === 0;
   }
 
-  function metaNodes(t, today, overdue, doneAgo) {
+  function metaNodes(t, today, overdue, doneAgo, section) {
     const out = [];
+    if (section) out.push(h('span', { class: 'tag tk-sec-tag', title: `Section: ${section}` }, h('span', { class: 'sr-only' }, 'Section: '), section));
     if (t.priority !== 'none') {
       out.push(
         h(
@@ -907,6 +980,7 @@ function mount(root) {
       title: parsed.title,
       priority: parsed.priority ?? priPick.get(),
       due: parsed.due ?? duePick.get() ?? (view.filter === 'today' ? today : null),
+      sectionId: view.section !== 'all' ? view.section : null,
     });
     justAdded.add(task.id);
     setItems((items) => addTask(items, task));
@@ -1006,6 +1080,143 @@ function mount(root) {
     else render();
   }
 
+  function setSection(section) {
+    settleLinger();
+    if (editingId) commitEdit();
+    if (getState().view.section !== section) setView({ section });
+    else render();
+  }
+
+  /** Make a section (opening it when `open`). -> null, or why not: 'empty' | 'taken' */
+  function createSection(name, { open = false } = {}) {
+    const s = getState();
+    const res = addSection(s.sections, name);
+    if (res.error) return res.error;
+    if (open) settleLinger();
+    commit({ ...s, sections: res.sections, view: open ? { ...s.view, section: res.section.id } : s.view });
+    return null;
+  }
+
+  /** Delete a section after asking when it has tasks; they stay, without a section. -> deleted? */
+  async function deleteSection(id) {
+    const s = getState();
+    const sec = s.sections.find((x) => x.id === id);
+    if (!sec) return false;
+    const n = s.items.filter((t) => t.sectionId === id).length;
+    if (n) {
+      const ok = await confirmDialog({
+        title: `Delete “${clip(sec.name, 28)}”?`,
+        message: `Its ${plural(n, 'task')} ${n === 1 ? 'stays' : 'stay'} in All, without a section.`,
+        confirmLabel: 'Delete section',
+      });
+      if (!ok) return false;
+    }
+    const cur = getState();
+    if (!cur.sections.some((x) => x.id === id)) return false;
+    const next = removeSection(cur.items, cur.sections, id);
+    settleLinger();
+    commit({ ...cur, ...next, view: cur.view.section === id ? { ...cur.view, section: 'all' } : cur.view });
+    toast(`Section “${clip(sec.name, 28)}” deleted.`);
+    return true;
+  }
+
+  /** The Sections dialog: add, rename and delete. `adding` puts the cursor in the new-section field. */
+  function openSections({ adding = false } = {}) {
+    if (editingId) commitEdit();
+    const list = h('ul', { class: 'tk-secs' });
+    const msg = h('p', { class: 'tk-secs-msg', role: 'status', 'aria-live': 'polite' });
+    const addIn = h('input', {
+      class: 'input',
+      type: 'text',
+      maxlength: String(SECTION_NAME_MAX),
+      placeholder: 'New section, e.g. Work',
+      'aria-label': 'New section name',
+      autocomplete: 'off',
+    });
+    const say = (text) => (msg.textContent = text);
+    const problem = (err, name) => (err === 'taken' ? `There is already a section called “${clip(cleanTitle(name), 28)}”.` : 'Give the section a name.');
+
+    const add = () => {
+      const err = createSection(addIn.value);
+      if (err) {
+        say(problem(err, addIn.value));
+        addIn.focus();
+        return;
+      }
+      addIn.value = '';
+      say('');
+      paintList();
+      addIn.focus();
+    };
+    addIn.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !isComposing(e)) {
+        e.preventDefault();
+        add();
+      }
+    });
+
+    function paintList() {
+      const { items, sections } = getState();
+      list.hidden = sections.length === 0;
+      list.replaceChildren(
+        ...sections.map((sec) => {
+          const nameIn = h('input', { class: 'input tk-secs-name', type: 'text', value: sec.name, maxlength: String(SECTION_NAME_MAX), 'aria-label': `Name of section ${sec.name}`, autocomplete: 'off' });
+          nameIn.addEventListener('change', () => {
+            const cur = getState();
+            const res = renameSection(cur.sections, sec.id, nameIn.value);
+            if (res.error) {
+              say(problem(res.error, nameIn.value));
+              nameIn.value = cur.sections.find((x) => x.id === sec.id)?.name ?? sec.name;
+              return;
+            }
+            say('');
+            if (res.sections !== cur.sections) commit({ ...cur, sections: res.sections });
+          });
+          nameIn.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !isComposing(e)) {
+              e.preventDefault();
+              nameIn.blur();
+            }
+          });
+          const n = items.filter((t) => t.sectionId === sec.id).length;
+          return h(
+            'li',
+            { class: 'tk-secs-row' },
+            nameIn,
+            h('span', { class: 'tk-secs-count label' }, plural(n, 'task')),
+            h(
+              'button',
+              {
+                type: 'button',
+                class: 'btn btn--ghost btn--icon btn--sm',
+                'aria-label': `Delete section ${sec.name}`,
+                title: 'Delete section',
+                onClick: async () => {
+                  if (await deleteSection(sec.id)) paintList();
+                },
+              },
+              icon('trash', { size: 14 }),
+            ),
+          );
+        }),
+      );
+    }
+
+    const m = openModal({
+      title: 'Sections',
+      className: 'tk-secs-modal',
+      body: [
+        h('p', { class: 'tk-secs-lead' }, 'Split your tasks, like Work and Life. Open a section to see only its tasks; new tasks go into the open one.'),
+        list,
+        h('div', { class: 'tk-secs-add' }, addIn, h('button', { type: 'button', class: 'btn btn--sm', onClick: add }, icon('plus', { size: 14 }), 'Add')),
+        msg,
+      ],
+      footer: [h('button', { type: 'button', class: 'btn btn--primary', onClick: () => m.close() }, 'Done')],
+      initialFocus: adding || !getState().sections.length ? addIn : undefined,
+    });
+    paintList();
+  }
+
   function dropLinger(id) {
     const l = linger.get(id);
     if (l) clearTimeout(l.timer);
@@ -1020,10 +1231,10 @@ function mount(root) {
   }
 
   /** Paste (or duplicate) a copy after `afterId`; it animates in, takes focus, and Undo takes it back. */
-  function pasteTask(snap, afterId, { verb = 'Pasted', due } = {}) {
+  function pasteTask(snap, afterId, { verb = 'Pasted', due, sectionId } = {}) {
     if (drag) cancelDrag();
     if (editingId) commitEdit();
-    const task = insertCopy(snap, { afterId, due });
+    const task = insertCopy(snap, { afterId, due, sectionId });
     if (!task) {
       toast('Nothing to paste.');
       return;
@@ -1048,7 +1259,13 @@ function mount(root) {
       return;
     }
     const due = getState().view.filter === 'today' ? todayKey() : null;
-    pasteTask({ title, notes: rest, priority: 'none', due }, afterId);
+    pasteTask({ title, notes: rest, priority: 'none', due }, afterId, { sectionId: openSection() ?? null });
+  }
+
+  /** The open section's id, or undefined in All (a paste there keeps the copy's own section). */
+  function openSection() {
+    const { section } = getState().view;
+    return section === 'all' ? undefined : section;
   }
 
   function duplicateTask(id) {
@@ -1064,7 +1281,7 @@ function mount(root) {
     const afterId = task?.id ?? null;
     const paste = {
       accepts: ['task'],
-      paste: (c) => pasteTask(c.snapshot, afterId),
+      paste: (c) => pasteTask(c.snapshot, afterId, { sectionId: openSection() }),
       pasteText: (text) => pasteText(text, afterId),
     };
     if (!task) return { kind: null, id: null, label: 'Tasks', el: null, ...paste };
@@ -1229,6 +1446,11 @@ function mount(root) {
     notesIn.value = task.notes;
     const pri = priorityPicker(task.priority);
     const due = duePicker(task.due, { extended: true });
+    const { sections } = getState();
+    const secSel = sections.length
+      ? h('select', { class: 'select tk-field-section', id: 'tk-d-section' }, h('option', { value: '' }, 'No section'), sections.map((sec) => h('option', { value: sec.id }, sec.name)))
+      : null;
+    if (secSel) secSel.value = task.sectionId ?? '';
     const err = h('p', { class: 'tk-field-error label', id: 'tk-d-err', hidden: true }, 'A task needs a title');
 
     const created = `Created ${formatDay(dateKey(new Date(task.createdAt)))}`;
@@ -1247,7 +1469,9 @@ function mount(root) {
         toast('That task no longer exists.');
         return;
       }
-      setItems((items) => updateTask(items, id, { title, notes: notesIn.value.replace(/\s+$/, ''), priority: pri.get(), due: due.get() }));
+      // A section deleted while the dialog was open counts as none
+      const sectionId = secSel && getState().sections.some((sec) => sec.id === secSel.value) ? secSel.value : null;
+      setItems((items) => updateTask(items, id, { title, notes: notesIn.value.replace(/\s+$/, ''), priority: pri.get(), due: due.get(), ...(secSel ? { sectionId } : {}) }));
       m.close();
     };
 
@@ -1271,6 +1495,7 @@ function mount(root) {
         { class: 'tk-detail-grid' },
         h('div', { class: 'field' }, h('span', { class: 'label' }, 'Priority'), pri.el),
         h('div', { class: 'field' }, h('span', { class: 'label' }, 'Due'), due.el),
+        secSel ? h('div', { class: 'field' }, h('label', { class: 'label', for: 'tk-d-section' }, 'Section'), secSel) : null,
       ),
       h('div', { class: 'tk-detail-foot' }, meta, h('span', { class: 'tk-detail-keys label lo-hint' }, kbd(MOD_KEY), kbd('⏎'), 'Save')),
     ];
