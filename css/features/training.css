@@ -134,6 +134,109 @@
   vertical-align: -1px;
 }
 
+/* ---- Routines ---- */
+
+.tr-section-title {
+  margin: var(--space-2) 0 0;
+}
+
+.tr-routines {
+  width: 100%;
+  display: grid;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+.tr-routines-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.tr-routines-empty {
+  margin: 0;
+  padding: var(--space-4);
+  border: var(--border-w-sm) dashed var(--line-strong);
+  border-radius: var(--radius-sm);
+  color: var(--text-3);
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+}
+
+.tr-routine-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: var(--space-3);
+}
+
+.tr-routine {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  gap: var(--space-2);
+  padding: var(--space-4);
+}
+
+.tr-routine-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.tr-routine-name {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  color: var(--text);
+  font-size: var(--fs-md);
+  font-weight: 600;
+}
+
+.tr-routine-list {
+  margin: 0;
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+  line-height: 1.45;
+}
+
+.tr-routine-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+/* Routine editor: one row per exercise */
+.tr-rlist {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tr-ritem {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto auto auto;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-w) solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+
+.tr-ritem-name {
+  color: var(--text);
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* ---- Progress ---- */
 
 .tr-progress {
@@ -561,6 +664,46 @@
 .tr-newex-row > .input:first-child {
   flex: 1 1 180px;
   width: auto;
+}
+
+/* Last time's numbers, faint where you type. Once you type in an exercise they count (a little
+   less faint); what you type is full strength. */
+.tr-entry .input::placeholder {
+  color: var(--text-2);
+  opacity: 0.4;
+}
+
+.tr-entry.is-touched .input::placeholder {
+  opacity: 0.7;
+}
+
+.tr-ghost-hint {
+  margin: 0;
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+  line-height: 1.45;
+}
+
+.tr-start-from {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.tr-check {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+  cursor: pointer;
+}
+
+.tr-check-box {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
 }
 
 .tr-err {

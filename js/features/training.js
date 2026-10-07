@@ -1,7 +1,9 @@
 // LIFE/OS — 07 // Training: log workouts (lifts as sets × reps × weight, runs as distance and
 // time, time-only cardio, sprint times over a fixed distance) and watch every exercise improve.
 //
-// Two tabs: Log (workouts, newest first; click one to edit) and Progress (each exercise's graph
+// Routines (Push day …) start a workout with their exercises and last time's numbers in gray, so
+// only what changed is typed. Two tabs: Log (routines, then workouts newest first; click one to
+// edit) and Progress (each exercise's graph
 // on the metric that shows getting better: est. 1RM, pace, best time…, with personal bests and
 // a history table). The workout dialog starts each exercise from last time, so the next session
 // can go a little further. Store 'training' (shape in training.logic.js); it syncs, the view doesn't.
@@ -41,9 +43,15 @@ import {
   hasData,
   addExercise,
   niceTicks,
+  normalizeRoutine,
+  routineFromWorkout,
+  lastDone,
+  ghostSets,
+  readSetRow,
 } from './training.logic.js';
 import { cleanTitle } from './tasks.logic.js';
 
+registerIcon('tr-routine', '<path d="M7 3.5h10a1 1 0 0 1 1 1v16l-6-3.6-6 3.6v-16a1 1 0 0 1 1-1Z"/><path d="M9.5 8.5h5M9.5 11.5h3"/>');
 registerIcon('tr-trophy', '<path d="M8 4h8v4.5a4 4 0 0 1-8 0Z"/><path d="M8 6H5.5v1.5A3 3 0 0 0 8.5 10.5M16 6h2.5v1.5a3 3 0 0 1-3 3M12 12.5V16M8.5 20h7M10 16h4v4h-4Z"/>');
 
 const RANGE_LABEL = { '1M': '1M', '3M': '3M', '6M': '6M', '1Y': '1Y', all: 'All' };
@@ -296,13 +304,111 @@ function chart({ points, metric, records, describe }) {
 
 let editorOpen = null;
 
-/** Log a workout (no `existing`) or edit one. */
-function openEditor(existing = null) {
+const kindText = (x) => (x.kind === 'sprint' ? formatMeters(x.distanceM) : KIND_SHORT[x.kind]);
+
+/**
+ * "Add an exercise…": pick one, or make one (one-click presets, or a name + what to log). Shared
+ * by the workout and routine dialogs. exercises() is the dialog's working list (a new exercise
+ * stays in it until that dialog saves); used() the ids already in the dialog.
+ */
+function exercisePicker({ exercises, setExercises, used, onPick, say }) {
+  const select = h('select', { class: 'select tr-picker', 'aria-label': 'Add an exercise' });
+  let newKind = 'strength';
+  const newName = h('input', { class: 'input', type: 'text', maxlength: String(NAME_MAX), placeholder: 'Exercise name', 'aria-label': 'New exercise name', autocomplete: 'off' });
+  const newDist = h('input', { class: 'input tr-num', type: 'text', inputmode: 'decimal', value: '100', 'aria-label': 'Distance in meters' });
+  const distField = h('label', { class: 'tr-inline', hidden: true }, 'Distance', newDist, 'm');
+  const kindSeg = h('div', { class: 'seg tr-kind-seg', role: 'group', 'aria-label': 'What you log' });
+  const paintKinds = () =>
+    kindSeg.replaceChildren(
+      ...KINDS.map((k) =>
+        h(
+          'button',
+          {
+            type: 'button',
+            class: 'seg-btn',
+            'aria-pressed': String(k === newKind),
+            title: KIND_LABEL[k],
+            onClick: () => {
+              newKind = k;
+              distField.hidden = k !== 'sprint';
+              paintKinds();
+            },
+          },
+          KIND_SHORT[k],
+        ),
+      ),
+    );
+  paintKinds();
+  const presetsEl = h('div', { class: 'tr-presets' });
+  const create = (spec) => {
+    const res = addExercise(exercises(), { ...spec, distanceM: Number.isFinite(spec.distanceM) && spec.distanceM > 0 ? spec.distanceM : 100 });
+    if (res.error) {
+      say(res.error === 'taken' ? `There is already an exercise called “${cleanTitle(spec.name)}”: pick it in the list.` : 'Give the exercise a name.');
+      return;
+    }
+    say('');
+    setExercises(res.exercises);
+    newForm.hidden = true;
+    newName.value = '';
+    onPick(res.exercise);
+    refresh();
+  };
+  const createTyped = () => create({ name: newName.value, kind: newKind, distanceM: parseNumber(newDist.value) });
+  const newForm = h(
+    'div',
+    { class: 'tr-newex', hidden: true },
+    h('div', { class: 'label' }, 'Quick add'),
+    presetsEl,
+    h('div', { class: 'label' }, 'Or make your own'),
+    h('div', { class: 'tr-newex-row' }, newName, kindSeg, distField, btn('Add', createTyped, { iconName: 'plus' }), btn('', () => ((newForm.hidden = true), select.focus()), { iconName: 'x', ghost: true, aria: 'Close' })),
+  );
+  newName.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      createTyped();
+    }
+  });
+
+  function refresh() {
+    const taken = used();
+    const groups = KINDS.map((kind) => {
+      const list = exercises()
+        .filter((x) => x.kind === kind && !taken.has(x.id))
+        .sort((a, b) => a.name.localeCompare(b.name));
+      return list.length ? h('optgroup', { label: KIND_SHORT[kind] }, list.map((x) => h('option', { value: x.id }, x.name))) : null;
+    });
+    select.replaceChildren(h('option', { value: '' }, 'Add an exercise…'), ...groups.filter(Boolean), h('option', { value: '__new' }, '＋ New exercise…'));
+    select.value = '';
+  }
+  select.addEventListener('change', () => {
+    const v = select.value;
+    select.value = '';
+    if (v === '__new') {
+      const names = new Set(exercises().map((x) => x.name.toLowerCase()));
+      presetsEl.replaceChildren(...PRESETS.filter((p) => !names.has(p.name.toLowerCase())).map((p) => btn(p.name, () => create(p), { iconName: 'plus', ghost: true, title: KIND_LABEL[p.kind] })));
+      presetsEl.hidden = !presetsEl.childElementCount;
+      newForm.hidden = false;
+      newName.focus();
+    } else if (v) {
+      onPick(exercises().find((x) => x.id === v));
+      refresh();
+    }
+  });
+  refresh();
+  return { el: h('div', { class: 'tr-add' }, select, newForm), refresh, focus: () => select.focus() };
+}
+
+/**
+ * Log a workout (no `existing`), start one from a routine, or edit one. Each exercise shows last
+ * time's numbers faintly where you type: type what changed, and once you type in an exercise its
+ * empty fields count as last time (sprint times excepted: those are always typed).
+ */
+function openEditor(existing = null, { routine = null } = {}) {
   if (editorOpen) return;
   const start = getState();
   const isNew = !existing;
-  const draft = existing ? structuredClone(existing) : { id: uid(), date: todayKey(), title: '', note: '', entries: [], createdAt: Date.now(), updatedAt: Date.now() };
-  // Exercises made in this dialog are saved with the workout (and dropped on Cancel)
+  const now0 = Date.now();
+  const draft = existing ? structuredClone(existing) : { id: uid(), date: todayKey(), title: routine?.name ?? '', note: '', entries: [], createdAt: now0, updatedAt: now0, ...(routine ? { routineId: routine.id } : {}) };
   let exercises = [...start.exercises];
   const editors = [];
 
@@ -312,117 +418,94 @@ function openEditor(existing = null) {
   const noteIn = h('textarea', { class: 'textarea tr-note', rows: '2', placeholder: 'Notes (optional): how it felt, the weather…', 'aria-label': 'Notes' });
   noteIn.value = draft.note;
   const err = h('p', { class: 'tr-err', role: 'alert' });
+  const ghostHint = h('p', { class: 'tr-ghost-hint', hidden: true }, 'Gray numbers are last time’s. Type only what changed: once you type in an exercise, its empty fields count as last time. “Same as last time” fills them all in.');
+  const syncHint = () => (ghostHint.hidden = !editors.some((ed) => ed.ghosted));
 
-  /* ---- adding an exercise ---- */
-  const picker = h('select', { class: 'select tr-picker', 'aria-label': 'Add an exercise' });
-  function paintPicker() {
-    const used = new Set(editors.map((ed) => ed.exercise.id));
-    const groups = KINDS.map((kind) => {
-      const list = exercises.filter((x) => x.kind === kind && !used.has(x.id)).sort((a, b) => a.name.localeCompare(b.name));
-      return list.length ? h('optgroup', { label: KIND_SHORT[kind] }, list.map((x) => h('option', { value: x.id }, x.name))) : null;
-    });
-    picker.replaceChildren(h('option', { value: '' }, 'Add an exercise…'), ...groups.filter(Boolean), h('option', { value: '__new' }, '＋ New exercise…'));
-    picker.value = '';
-  }
-  picker.addEventListener('change', () => {
-    const v = picker.value;
-    picker.value = '';
-    if (v === '__new') showNewForm();
-    else if (v) addEditor(exercises.find((x) => x.id === v), null, { focus: true });
+  const picker = exercisePicker({
+    exercises: () => exercises,
+    setExercises: (list) => (exercises = list),
+    used: () => new Set(editors.map((ed) => ed.exercise.id)),
+    onPick: (x) => addEditor(x, null, { focus: true }),
+    say: (t) => (err.textContent = t),
   });
 
-  // New exercise: presets, or a name + what to log
-  let newKind = 'strength';
-  const newName = h('input', { class: 'input', type: 'text', maxlength: String(NAME_MAX), placeholder: 'Exercise name', 'aria-label': 'New exercise name', autocomplete: 'off' });
-  const newDist = h('input', { class: 'input tr-num', type: 'text', inputmode: 'decimal', value: '100', 'aria-label': 'Distance in meters' });
-  const distField = h('label', { class: 'tr-inline', hidden: true }, 'Distance', newDist, 'm');
-  const kindSeg = h('div', { class: 'seg tr-kind-seg', role: 'group', 'aria-label': 'What you log' });
-  const paintKinds = () =>
-    kindSeg.replaceChildren(
-      ...KINDS.map((k) =>
-        h('button', { type: 'button', class: 'seg-btn', 'aria-pressed': String(k === newKind), title: KIND_LABEL[k], onClick: () => ((newKind = k), paintKinds(), (distField.hidden = k !== 'sprint')) }, KIND_SHORT[k]),
-      ),
-    );
-  paintKinds();
-  const presetsEl = h('div', { class: 'tr-presets' });
-  const newForm = h(
-    'div',
-    { class: 'tr-newex', hidden: true },
-    h('div', { class: 'label' }, 'Quick add'),
-    presetsEl,
-    h('div', { class: 'label' }, 'Or make your own'),
-    h('div', { class: 'tr-newex-row' }, newName, kindSeg, distField, btn('Add', () => createExercise({ name: newName.value, kind: newKind, distanceM: parseNumber(newDist.value) }), { iconName: 'plus' }), btn('', hideNewForm, { iconName: 'x', ghost: true, aria: 'Close' })),
-  );
-  newName.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      createExercise({ name: newName.value, kind: newKind, distanceM: parseNumber(newDist.value) });
+  // A new, empty workout can start from a routine
+  const routinesRow =
+    isNew && !routine && start.routines.length
+      ? h('div', { class: 'tr-start-from' }, h('span', { class: 'label' }, 'Start from'), start.routines.map((r) => btn(r.name, () => applyRoutine(r), { iconName: 'tr-routine', ghost: true })))
+      : null;
+  function applyRoutine(r) {
+    draft.routineId = r.id;
+    if (!titleIn.value.trim()) titleIn.value = r.name;
+    for (const it of r.items) {
+      const x = exercises.find((e) => e.id === it.exerciseId);
+      if (x && !editors.some((ed) => ed.exercise.id === x.id)) addEditor(x, null, { setCount: it.sets });
     }
-  });
-  function showNewForm() {
-    const names = new Set(exercises.map((x) => x.name.toLowerCase()));
-    presetsEl.replaceChildren(
-      ...PRESETS.filter((p) => !names.has(p.name.toLowerCase())).map((p) => btn(p.name, () => createExercise(p), { iconName: 'plus', ghost: true, title: KIND_LABEL[p.kind] })),
-    );
-    presetsEl.hidden = !presetsEl.childElementCount;
-    newForm.hidden = false;
-    newName.focus();
+    routinesRow?.remove();
+    if (saveAsRoutine) saveAsRoutine.hidden = true;
+    entriesEl.querySelector('input')?.focus();
   }
-  function hideNewForm() {
-    newForm.hidden = true;
-    newName.value = '';
-    picker.focus();
-  }
-  function createExercise(spec) {
-    const res = addExercise(exercises, { ...spec, distanceM: Number.isFinite(spec.distanceM) && spec.distanceM > 0 ? spec.distanceM : 100 });
-    if (res.error) {
-      err.textContent = res.error === 'taken' ? `There is already an exercise called “${cleanTitle(spec.name)}”: pick it in the list.` : 'Give the exercise a name.';
-      return;
-    }
-    err.textContent = '';
-    exercises = res.exercises;
-    newForm.hidden = true;
-    newName.value = '';
-    addEditor(res.exercise, null, { focus: true });
-  }
+  const saveAsRoutine =
+    isNew && !routine
+      ? h('label', { class: 'tr-check' }, h('input', { type: 'checkbox', class: 'tr-check-box' }), 'Also save these exercises as a routine, named after the workout')
+      : null;
 
   /* ---- one exercise in the workout ---- */
-  function addEditor(exercise, entry, { focus = false } = {}) {
+  function addEditor(exercise, entry, { focus = false, setCount = null } = {}) {
     if (!exercise) return;
     const last = lastEntry(exercise.id, draft.id);
     const fresh = !entry;
-    // A new strength entry starts from last time's sets: change what you beat
-    const e = entry ?? { id: uid(), exerciseId: exercise.id, sets: exercise.kind === 'strength' && last ? structuredClone(last.entry.sets) : [], distanceKm: null, durationSec: null, times: [] };
+    const e = entry ?? { id: uid(), exerciseId: exercise.id, sets: [], distanceKm: null, durationSec: null, times: [] };
+    const ed = { exercise, entry: e, fresh, touched: false, ghosted: false, read: null, repeat: null };
     const body = h('div', { class: 'tr-entry-body' });
-    const ed = { exercise, entry: e, read: null };
-    const lastText = last ? `Last time (${formatDay(last.date)}): ${entrySummary(last.entry, exercise)}. ${nextTarget(last.entry, exercise)}` : 'First time: whatever you log becomes the baseline.';
+    const touch = () => {
+      if (ed.touched) return;
+      ed.touched = true;
+      el.classList.add('is-touched');
+    };
+    const repeatBtn =
+      fresh && last && exercise.kind !== 'sprint'
+        ? btn('Same as last time', () => {
+            ed.repeat?.();
+            touch();
+          }, { iconName: 'reset', ghost: true, title: 'Fill in last time’s numbers' })
+        : null;
+    const lastText = last ? `Last time (${formatDay(last.date)}): ${entrySummary(last.entry, exercise)}. ${nextTarget(last.entry, exercise)}` : fresh ? 'First time: whatever you log becomes the baseline.' : '';
     const el = h(
       'section',
       { class: 'tr-entry', 'aria-label': exercise.name },
       h(
         'div',
         { class: 'tr-entry-head' },
-        h('div', { class: 'tr-entry-name' }, exercise.name, h('span', { class: 'tr-kind label' }, exercise.kind === 'sprint' ? formatMeters(exercise.distanceM) : KIND_SHORT[exercise.kind])),
+        h('div', { class: 'tr-entry-name' }, exercise.name, h('span', { class: 'tr-kind label' }, kindText(exercise))),
+        repeatBtn,
         btn('', () => {
           editors.splice(editors.indexOf(ed), 1);
           el.remove();
-          paintPicker();
+          picker.refresh();
+          syncHint();
           picker.focus();
         }, { iconName: 'x', ghost: true, aria: `Remove ${exercise.name}`, title: 'Remove from this workout' }),
       ),
-      h('p', { class: 'tr-last' }, lastText),
+      lastText ? h('p', { class: 'tr-last' }, lastText) : null,
       body,
     );
-    ed.el = el;
+    el.addEventListener('input', touch);
 
     if (exercise.kind === 'strength') {
+      const lastSets = (last?.entry.sets ?? []).filter((s) => s.reps > 0);
+      const count = e.sets.length || setCount || lastSets.length || 1;
+      const ghosts = fresh ? ghostSets(lastSets, count) : [];
+      ed.ghosted = ghosts.length > 0;
       const rows = h('div', { class: 'tr-sets' });
       const rowEls = [];
-      const addSet = (s = {}, focusIt = false) => {
-        const reps = h('input', { class: 'input tr-num', type: 'text', inputmode: 'numeric', value: s.reps ?? '', placeholder: 'reps', 'aria-label': 'Reps', autocomplete: 'off' });
-        const kg = h('input', { class: 'input tr-num', type: 'text', inputmode: 'decimal', value: s.weight ? String(s.weight) : '', placeholder: 'kg', 'aria-label': 'Weight in kg (empty for body weight)', autocomplete: 'off' });
-        const row = h('div', { class: 'tr-set' }, h('span', { class: 'tr-set-n label' }), reps, h('span', { class: 'tr-x', 'aria-hidden': 'true' }, '×'), kg, h('span', { class: 'tr-unit' }, 'kg'));
-        const item = { row, reps, kg };
+      const number = () => rowEls.forEach((r, i) => (r.n.textContent = `Set ${i + 1}`));
+      const addSet = ({ value = null, ghost = null } = {}, focusIt = false) => {
+        const reps = h('input', { class: 'input tr-num', type: 'text', inputmode: 'numeric', value: value?.reps ?? '', placeholder: ghost ? String(ghost.reps) : 'reps', 'aria-label': ghost ? `Reps (last time ${ghost.reps})` : 'Reps', autocomplete: 'off' });
+        const kg = h('input', { class: 'input tr-num', type: 'text', inputmode: 'decimal', value: value?.weight ? String(value.weight) : '', placeholder: ghost?.weight > 0 ? String(ghost.weight) : 'kg', 'aria-label': ghost?.weight > 0 ? `Weight in kg (last time ${ghost.weight})` : 'Weight in kg (empty for body weight)', autocomplete: 'off' });
+        const n = h('span', { class: 'tr-set-n label' });
+        const row = h('div', { class: 'tr-set' }, n, reps, h('span', { class: 'tr-x', 'aria-hidden': 'true' }, '×'), kg, h('span', { class: 'tr-unit' }, 'kg'));
+        const item = { row, reps, kg, n, ghost };
         row.append(
           btn('', () => {
             rowEls.splice(rowEls.indexOf(item), 1);
@@ -435,54 +518,75 @@ function openEditor(existing = null) {
         number();
         if (focusIt) reps.focus();
       };
-      const number = () => rowEls.forEach((r, i) => (r.row.querySelector('.tr-set-n').textContent = `Set ${i + 1}`));
-      (e.sets.length ? e.sets : [{}]).forEach((s) => addSet(s));
+      if (e.sets.length) e.sets.forEach((s) => addSet({ value: s }));
+      else Array.from({ length: count }, (_, i) => addSet({ ghost: ghosts[i] ?? null }));
       body.append(
         rows,
         btn('Add set', () => {
-          const lastRow = rowEls[rowEls.length - 1];
-          addSet({ reps: lastRow?.reps.value ?? '', weight: parseNumber(lastRow?.kg.value) || 0 }, true);
+          // The new row's gray numbers: the row above, as typed or as last time had it
+          const prev = rowEls[rowEls.length - 1];
+          const reps = parseNumber(prev?.reps.value) || prev?.ghost?.reps || null;
+          const kgTyped = parseNumber(prev?.kg.value);
+          const weight = Number.isFinite(kgTyped) ? kgTyped : prev?.ghost?.weight ?? 0;
+          addSet({ ghost: reps ? { reps, weight } : null }, true);
         }, { iconName: 'plus', ghost: true }),
       );
       ed.read = () => {
+        const useGhost = ed.fresh && ed.touched;
         const sets = [];
         for (const r of rowEls) {
-          const reps = parseNumber(r.reps.value);
-          const kg = parseNumber(r.kg.value);
-          if (reps == null && kg == null) continue;
-          if (reps == null || Number.isNaN(reps) || !Number.isInteger(reps)) return { error: 'Reps are whole numbers, like 8.', field: r.reps };
-          if (Number.isNaN(kg)) return { error: 'Weight is a number of kg, like 82.5 (leave it empty for body weight).', field: r.kg };
-          sets.push({ reps, weight: kg ?? 0 });
+          const res = readSetRow(r.reps.value, r.kg.value, r.ghost, useGhost);
+          if (res.skip) continue;
+          if (res.error === 'reps') return { error: 'Reps are whole numbers, like 8.', field: r.reps };
+          if (res.error) return { error: 'Weight is a number of kg, like 82.5 (leave it empty for body weight).', field: r.kg };
+          sets.push(res.set);
         }
         return { entry: { ...e, sets } };
       };
+      ed.repeat = () => {
+        while (rowEls.length < lastSets.length) addSet({ ghost: lastSets[rowEls.length] });
+        for (const r of rowEls) {
+          if (!r.ghost) continue;
+          if (!r.reps.value) r.reps.value = String(r.ghost.reps);
+          if (!r.kg.value && r.ghost.weight > 0) r.kg.value = String(r.ghost.weight);
+        }
+      };
     } else if (exercise.kind === 'distance' || exercise.kind === 'duration') {
-      const lastE = last?.entry;
-      const km = h('input', { class: 'input tr-num', type: 'text', inputmode: 'decimal', value: e.distanceKm ?? '', placeholder: lastE?.distanceKm ? String(lastE.distanceKm) : '5', 'aria-label': 'Distance in km', autocomplete: 'off' });
-      const time = h('input', { class: 'input tr-time', type: 'text', value: e.durationSec ? formatDuration(e.durationSec) : '', placeholder: lastE?.durationSec ? formatDuration(lastE.durationSec) : exercise.kind === 'distance' ? '27:30' : '30:00', 'aria-label': 'Time (m:ss or h:mm:ss; a plain number is minutes)', autocomplete: 'off' });
+      const lastE = fresh ? last?.entry : null;
+      const kmGhost = lastE?.distanceKm > 0 ? String(lastE.distanceKm) : '';
+      const timeGhost = lastE?.durationSec > 0 ? formatDuration(lastE.durationSec) : '';
+      ed.ghosted = !!(kmGhost || timeGhost);
+      const km = h('input', { class: 'input tr-num', type: 'text', inputmode: 'decimal', value: e.distanceKm ?? '', placeholder: kmGhost || 'km', 'aria-label': kmGhost ? `Distance in km (last time ${kmGhost})` : 'Distance in km', autocomplete: 'off' });
+      const time = h('input', { class: 'input tr-time', type: 'text', value: e.durationSec ? formatDuration(e.durationSec) : '', placeholder: timeGhost || 'm:ss', 'aria-label': `Time (m:ss or h:mm:ss; a plain number is minutes)${timeGhost ? `, last time ${timeGhost}` : ''}`, autocomplete: 'off' });
       const pace = h('span', { class: 'tr-pace label' });
+      const value = (input, ghost) => input.value.trim() || (ed.fresh && ed.touched ? ghost : '');
       const paintPace = () => {
-        const k = parseKm(km.value);
-        const t = parseDuration(time.value);
+        const k = parseKm(value(km, kmGhost));
+        const t = parseDuration(value(time, timeGhost));
         pace.textContent = k > 0 && t > 0 ? `Pace ${formatPace(t / k)}` : '';
       };
-      km.addEventListener('input', paintPace);
-      time.addEventListener('input', paintPace);
+      el.addEventListener('input', paintPace);
       paintPace();
       if (exercise.kind === 'distance') body.append(h('div', { class: 'tr-fields' }, h('label', { class: 'tr-inline' }, km, 'km'), h('label', { class: 'tr-inline' }, 'in', time), pace));
       else body.append(h('div', { class: 'tr-fields' }, h('label', { class: 'tr-inline' }, 'Time', time)));
       ed.read = () => {
-        const k = exercise.kind === 'distance' ? parseKm(km.value) : null;
-        const t = parseDuration(time.value);
+        const k = exercise.kind === 'distance' ? parseKm(value(km, kmGhost)) : null;
+        const t = parseDuration(value(time, timeGhost));
         if (Number.isNaN(k)) return { error: 'Distance is a number of km, like 5.2 (or 800 m).', field: km };
         if (Number.isNaN(t)) return { error: 'Time looks like 27:30 or 1:05:00 (a plain number is minutes).', field: time };
         return { entry: { ...e, distanceKm: k, durationSec: t } };
       };
+      ed.repeat = () => {
+        if (!km.value && kmGhost && exercise.kind === 'distance') km.value = kmGhost;
+        if (!time.value && timeGhost) time.value = timeGhost;
+        paintPace();
+      };
     } else {
+      // Sprint times are results: always typed (last time's best is in the line above)
       const list = h('div', { class: 'tr-times' });
       const inputs = [];
       const addTime = (sec, focusIt = false) => {
-        const input = h('input', { class: 'input tr-num', type: 'text', inputmode: 'decimal', value: sec ? String(sec) : '', placeholder: last ? String(Math.min(...last.entry.times)) : '12.9', 'aria-label': `Attempt ${inputs.length + 1} in seconds`, autocomplete: 'off' });
+        const input = h('input', { class: 'input tr-num', type: 'text', inputmode: 'decimal', value: sec ? String(sec) : '', placeholder: 'sec', 'aria-label': `Attempt ${inputs.length + 1} in seconds`, autocomplete: 'off' });
         inputs.push(input);
         list.append(h('label', { class: 'tr-inline' }, input, 's'));
         if (focusIt) input.focus();
@@ -503,16 +607,16 @@ function openEditor(existing = null) {
 
     editors.push(ed);
     entriesEl.append(el);
-    paintPicker();
+    picker.refresh();
+    syncHint();
     if (focus) (el.querySelector('input') ?? picker).focus();
-    if (fresh && exercise.kind === 'strength' && last) el.querySelector('.tr-set .tr-num')?.select?.();
   }
 
   for (const entry of draft.entries) {
-    const ex = exercises.find((x) => x.id === entry.exerciseId);
-    if (ex) addEditor(ex, entry);
+    const x = exercises.find((e) => e.id === entry.exerciseId);
+    if (x) addEditor(x, entry);
   }
-  paintPicker();
+  if (routine) for (const it of routine.items) addEditor(exercises.find((x) => x.id === it.exerciseId), null, { setCount: it.sets });
 
   /* ---- save ---- */
   function save() {
@@ -534,7 +638,7 @@ function openEditor(existing = null) {
       if (hasData(res.entry, ed.exercise)) entries.push(res.entry);
     }
     if (!entries.length) {
-      err.textContent = editors.length ? 'Log at least one set, distance, time or attempt.' : 'Add an exercise first.';
+      err.textContent = editors.length ? 'Type at least one number, or press “Same as last time”.' : 'Add an exercise first.';
       (editors.length ? entriesEl.querySelector('input') : picker)?.focus();
       return;
     }
@@ -544,48 +648,82 @@ function openEditor(existing = null) {
       toast('That workout was deleted meanwhile.');
       return;
     }
+    const title = cleanTitle(titleIn.value).slice(0, TITLE_MAX);
+    const wantRoutine = !!saveAsRoutine?.querySelector('input').checked && !saveAsRoutine.hidden;
+    if (wantRoutine && !title) {
+      err.textContent = 'Name the workout (like Push day) to save it as a routine.';
+      titleIn.focus();
+      return;
+    }
+    if (wantRoutine && cur.routines.some((r) => r.name.toLowerCase() === title.toLowerCase())) {
+      err.textContent = `There is already a routine called “${title}”. Pick another name, or untick the box.`;
+      titleIn.focus();
+      return;
+    }
     // Keep only the new exercises this workout uses; ones made here and removed again go
     const known = new Set(cur.exercises.map((x) => x.id));
     const usedIds = new Set(entries.map((e) => e.exerciseId));
-    const added = exercises.filter((x) => !known.has(x.id) && usedIds.has(x.id));
+    const allExercises = [...cur.exercises, ...exercises.filter((x) => !known.has(x.id) && usedIds.has(x.id))];
     const now = Date.now();
-    const workout = { ...draft, date, title: cleanTitle(titleIn.value).slice(0, TITLE_MAX), note: noteIn.value.replace(/\s+$/, ''), entries, updatedAt: now };
-    const next = { ...cur, exercises: [...cur.exercises, ...added], workouts: sortWorkouts([...cur.workouts.filter((w) => w.id !== draft.id), workout]) };
+    const workout = { ...draft, date, title, note: noteIn.value.replace(/\s+$/, ''), entries, updatedAt: now };
+    const newRoutine = wantRoutine ? routineFromWorkout(workout, allExercises, title) : null;
+    if (newRoutine) workout.routineId = newRoutine.id;
+    const next = {
+      ...cur,
+      exercises: allExercises,
+      workouts: sortWorkouts([...cur.workouts.filter((w) => w.id !== draft.id), workout]),
+      routines: newRoutine ? [...cur.routines, newRoutine] : cur.routines,
+    };
     commit(next);
     m.close();
     const records = recordsIn(next, workout.id);
+    const saved = newRoutine ? ` Saved as routine “${newRoutine.name}”.` : '';
     if (records.length) {
       const words = records.slice(0, 2).map((r) => {
         const ex = next.exercises.find((x) => x.id === r.exerciseId);
         const metric = metricsFor(ex.kind).find((x) => x.id === r.metricId);
-        return `${ex.name} ${metric.label.toLowerCase()} ${metric.format(r.value)}`;
+        return `${ex.name}: ${metric.label} ${metric.format(r.value)}`;
       });
-      toast(`New personal best: ${words.join(' · ')}${records.length > 2 ? ` and ${records.length - 2} more` : ''}!`, { duration: 8000 });
-    } else toast(isNew ? `Workout logged: ${plural(entries.length, 'exercise')}.` : 'Workout saved.');
+      toast(`New personal best: ${words.join(' · ')}${records.length > 2 ? ` and ${records.length - 2} more` : ''}!${saved}`, { duration: 8000 });
+    } else toast(`${isNew ? `Workout logged: ${plural(entries.length, 'exercise')}.` : 'Workout saved.'}${saved}`);
   }
 
   const body = [
     h('div', { class: 'tr-ed-top' }, h('label', { class: 'tr-inline' }, 'Date', dateIn), titleIn),
+    routinesRow,
+    ghostHint,
     entriesEl,
-    h('div', { class: 'tr-add' }, picker),
-    newForm,
+    picker.el,
     noteIn,
+    saveAsRoutine,
     err,
   ];
   const footer = [
     isNew
       ? null
-      : h('button', { type: 'button', class: 'btn btn--danger tr-ed-delete', onClick: () => (m.close(), deleteWorkout(draft.id)) }, icon('trash', { size: 14 }), 'Delete'),
+      : h(
+          'button',
+          {
+            type: 'button',
+            class: 'btn btn--danger tr-ed-delete',
+            onClick: () => {
+              m.close();
+              deleteWorkout(draft.id);
+            },
+          },
+          icon('trash', { size: 14 }),
+          'Delete',
+        ),
     h('button', { type: 'button', class: 'btn btn--ghost', onClick: () => m.close() }, 'Cancel'),
     h('button', { type: 'button', class: 'btn btn--primary', onClick: save }, isNew ? 'Log workout' : 'Save'),
   ];
   const m = openModal({
-    title: isNew ? 'Log a workout' : 'Edit workout',
+    title: routine ? routine.name : isNew ? 'Log a workout' : 'Edit workout',
     body,
     footer,
     size: 'lg',
     className: 'tr-modal',
-    initialFocus: editors.length ? undefined : picker,
+    initialFocus: editors.length ? entriesEl.querySelector('input') : picker.el.querySelector('select'),
     onClose: () => (editorOpen = null),
   });
   editorOpen = m;
@@ -593,6 +731,186 @@ function openEditor(existing = null) {
     if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
       e.preventDefault();
       save();
+    }
+  });
+}
+
+/* ==========================================================================
+   Routines: make, edit, delete
+   ========================================================================== */
+
+function deleteRoutine(id) {
+  const s = getState();
+  const r = s.routines.find((x) => x.id === id);
+  if (!r) return;
+  commit({ ...s, routines: s.routines.filter((x) => x.id !== id) });
+  toast(`Routine “${r.name}” deleted. Its logged workouts stay.`, {
+    duration: 6000,
+    action: {
+      label: 'Undo',
+      onClick: () => {
+        const cur = getState();
+        if (!cur.routines.some((x) => x.id === id)) commit({ ...cur, routines: [...cur.routines, r] });
+      },
+    },
+  });
+}
+
+/** A routine from a logged workout, named after it (a unique name). */
+function saveWorkoutAsRoutine(id) {
+  const s = getState();
+  const w = s.workouts.find((x) => x.id === id);
+  if (!w) return;
+  const base = w.title || `Workout ${formatDay(w.date)}`;
+  const taken = new Set(s.routines.map((r) => r.name.toLowerCase()));
+  let name = base;
+  for (let i = 2; taken.has(name.toLowerCase()); i++) name = `${base} ${i}`;
+  const routine = routineFromWorkout(w, s.exercises, name);
+  if (!routine.items.length) return;
+  commit({ ...s, routines: [...s.routines, routine], workouts: s.workouts.map((x) => (x.id === id && !x.routineId ? { ...x, routineId: routine.id } : x)) });
+  toast(`Saved as routine “${routine.name}”.`, { duration: 6000, action: { label: 'Edit', onClick: () => openRoutineEditor(getState().routines.find((r) => r.id === routine.id)) } });
+}
+
+function openRoutineEditor(routine = null) {
+  if (editorOpen) return;
+  const start = getState();
+  let exercises = [...start.exercises];
+  const items = routine ? routine.items.map((it) => ({ ...it })) : [];
+  const nameIn = h('input', { class: 'input', type: 'text', value: routine?.name ?? '', maxlength: String(NAME_MAX), placeholder: 'Push day, Legs, Long run…', 'aria-label': 'Routine name', autocomplete: 'off' });
+  const listEl = h('ol', { class: 'tr-rlist' });
+  const err = h('p', { class: 'tr-err', role: 'alert' });
+
+  function move(i, by) {
+    const j = i + by;
+    if (j < 0 || j >= items.length) return;
+    [items[i], items[j]] = [items[j], items[i]];
+    paint();
+    listEl.children[j]?.querySelectorAll('button')[by < 0 ? 0 : 1]?.focus();
+  }
+  function paint() {
+    listEl.replaceChildren(
+      ...items.map((it, i) => {
+        const x = exercises.find((e) => e.id === it.exerciseId);
+        if (!x) return null;
+        const setsIn =
+          x.kind === 'strength'
+            ? h('input', {
+                class: 'input tr-num',
+                type: 'number',
+                min: '1',
+                max: '20',
+                value: String(it.sets),
+                'aria-label': `Sets of ${x.name}`,
+                onChange: (e) => {
+                  const n = Math.round(Number(e.target.value));
+                  it.sets = clamp(Number.isFinite(n) && n > 0 ? n : 3, 1, 20);
+                  e.target.value = String(it.sets);
+                },
+              })
+            : null;
+        const up = btn('', () => move(i, -1), { iconName: 'arrow-up', ghost: true, aria: `Move ${x.name} up` });
+        const down = btn('', () => move(i, 1), { iconName: 'arrow-down', ghost: true, aria: `Move ${x.name} down` });
+        up.disabled = i === 0;
+        down.disabled = i === items.length - 1;
+        return h(
+          'li',
+          { class: 'tr-ritem' },
+          h('span', { class: 'tr-ritem-name' }, x.name, h('span', { class: 'tr-kind label' }, kindText(x))),
+          setsIn ? h('label', { class: 'tr-inline' }, setsIn, 'sets') : h('span'),
+          up,
+          down,
+          btn('', () => {
+            items.splice(i, 1);
+            paint();
+            picker.refresh();
+          }, { iconName: 'x', ghost: true, aria: `Remove ${x.name}` }),
+        );
+      }),
+    );
+    listEl.hidden = !items.length;
+  }
+  const picker = exercisePicker({
+    exercises: () => exercises,
+    setExercises: (list) => (exercises = list),
+    used: () => new Set(items.map((it) => it.exerciseId)),
+    onPick: (x) => {
+      items.push({ exerciseId: x.id, sets: 3 });
+      paint();
+    },
+    say: (t) => (err.textContent = t),
+  });
+  paint();
+
+  function save() {
+    err.textContent = '';
+    const name = cleanTitle(nameIn.value).slice(0, NAME_MAX).trim();
+    const cur = getState();
+    if (!name) {
+      err.textContent = 'Give the routine a name, like Push day.';
+      nameIn.focus();
+      return;
+    }
+    if (cur.routines.some((r) => r.id !== routine?.id && r.name.toLowerCase() === name.toLowerCase())) {
+      err.textContent = `There is already a routine called “${name}”.`;
+      nameIn.focus();
+      return;
+    }
+    if (!items.length) {
+      err.textContent = 'Add the exercises this routine has.';
+      picker.focus();
+      return;
+    }
+    const known = new Set(cur.exercises.map((x) => x.id));
+    const usedIds = new Set(items.map((it) => it.exerciseId));
+    const now = Date.now();
+    const next = normalizeRoutine({ ...(routine ?? { id: uid(), createdAt: now }), name, items, updatedAt: now });
+    commit({
+      ...cur,
+      exercises: [...cur.exercises, ...exercises.filter((x) => !known.has(x.id) && usedIds.has(x.id))],
+      routines: routine && cur.routines.some((r) => r.id === routine.id) ? cur.routines.map((r) => (r.id === routine.id ? next : r)) : [...cur.routines, next],
+    });
+    m.close();
+    toast(routine ? `Routine “${name}” saved.` : `Routine “${name}” is ready: press Start to log it.`);
+  }
+
+  const m = openModal({
+    title: routine ? 'Edit routine' : 'New routine',
+    className: 'tr-modal',
+    body: [
+      nameIn,
+      h('p', { class: 'tr-last' }, 'The exercises you do together, in order. Starting the routine opens them with last time’s numbers ready.'),
+      listEl,
+      picker.el,
+      err,
+    ],
+    footer: [
+      routine
+        ? h(
+            'button',
+            {
+              type: 'button',
+              class: 'btn btn--danger',
+              onClick: () => {
+                m.close();
+                deleteRoutine(routine.id);
+              },
+            },
+            icon('trash', { size: 14 }),
+            'Delete',
+          )
+        : null,
+      h('button', { type: 'button', class: 'btn btn--ghost', onClick: () => m.close() }, 'Cancel'),
+      h('button', { type: 'button', class: 'btn btn--primary', onClick: save }, 'Save routine'),
+    ],
+    initialFocus: nameIn,
+    onClose: () => (editorOpen = null),
+  });
+  editorOpen = m;
+  nameIn.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (items.length) save();
+      else picker.focus();
     }
   });
 }
@@ -645,18 +963,59 @@ function mount(root) {
     );
   }
 
+  /* ---- Routines (Push day …): start one, edit one, make one ---- */
+  function routinesView(s) {
+    const exById = new Map(s.exercises.map((x) => [x.id, x]));
+    const today = todayKey();
+    const when = (key) => {
+      const rel = relativeDay(key, today);
+      return /^(Today|Yesterday)$/.test(rel) ? rel.toLowerCase() : /ago$/.test(rel) ? rel : `on ${rel}`;
+    };
+    const cards = s.routines.map((r) => {
+      const done = lastDone(s.workouts, r.id);
+      const names = r.items.map((it) => exById.get(it.exerciseId)?.name).filter(Boolean);
+      return h(
+        'article',
+        { class: 'tr-routine panel', 'aria-label': `Routine ${r.name}` },
+        h(
+          'div',
+          { class: 'tr-routine-head' },
+          h('h3', { class: 'tr-routine-name' }, icon('tr-routine', { size: 14 }), r.name),
+          btn('', () => openRoutineEditor(r), { iconName: 'edit', ghost: true, aria: `Edit routine ${r.name}`, title: 'Edit routine' }),
+        ),
+        h('p', { class: 'tr-routine-list' }, names.length ? names.join(' · ') : 'No exercises yet'),
+        h(
+          'div',
+          { class: 'tr-routine-foot' },
+          h('span', { class: 'tr-routine-meta label' }, done ? `Last done ${when(done.date)}` : 'Not done yet'),
+          btn('Start', () => openEditor(null, { routine: r }), { iconName: 'play', primary: true, aria: `Start ${r.name}` }),
+        ),
+      );
+    });
+    return h(
+      'section',
+      { class: 'tr-routines', 'aria-label': 'Routines' },
+      h('div', { class: 'tr-routines-head' }, h('h2', { class: 'tr-section-title label' }, 'Routines'), btn('New routine', () => openRoutineEditor(), { iconName: 'plus', ghost: true })),
+      cards.length
+        ? h('div', { class: 'tr-routine-grid' }, cards)
+        : h('p', { class: 'tr-routines-empty' }, 'Save the exercises you repeat as a routine, like Push day. Start it in one click with last time’s numbers ready, and type only what changed.'),
+    );
+  }
+
   /* ---- Log ---- */
   function logView(s) {
+    const routines = routinesView(s);
     if (!s.workouts.length) {
-      return emptyState({
+      return h('div', { class: 'tr-log' }, routines, emptyState({
         icon: 'dumbbell',
         title: 'No workouts yet',
         text: 'Log lifts with sets, reps and weight, runs with distance and time, cardio, or sprint times. Every exercise gets its own progress graph.',
         action: btn('Log your first workout', () => openEditor(), { iconName: 'plus', primary: true, small: false }),
-      });
+      }));
     }
     const exById = new Map(s.exercises.map((x) => [x.id, x]));
-    const list = h('div', { class: 'tr-log' });
+    const routineIds = new Set(s.routines.map((r) => r.id));
+    const list = h('div', { class: 'tr-log' }, routines, h('h2', { class: 'tr-section-title label' }, 'Workouts'));
     for (const w of s.workouts.slice(0, shown)) {
       const records = new Set(recordsIn(s, w.id).map((r) => r.exerciseId));
       const card = h(
@@ -685,7 +1044,13 @@ function mount(root) {
           { class: 'tr-card-head' },
           h('div', { class: 'tr-card-when' }, h('span', { class: 'label' }, dayLabel(w.date)), w.title ? h('h3', { class: 'tr-card-title' }, w.title) : null),
           records.size ? h('span', { class: 'tag tag--solid tr-pr', title: 'Personal best in this workout' }, icon('tr-trophy', { size: 12 }), records.size > 1 ? `${records.size} PRs` : 'PR') : null,
-          h('div', { class: 'row-actions tr-card-actions' }, btn('', () => openEditor(w), { iconName: 'edit', ghost: true, aria: 'Edit workout', title: 'Edit' }), btn('', () => deleteWorkout(w.id), { iconName: 'trash', ghost: true, aria: 'Delete workout', title: 'Delete' })),
+          h(
+            'div',
+            { class: 'row-actions tr-card-actions' },
+            routineIds.has(w.routineId) ? null : btn('', () => saveWorkoutAsRoutine(w.id), { iconName: 'tr-routine', ghost: true, aria: 'Save as a routine', title: 'Save as a routine (repeat it in one click)' }),
+            btn('', () => openEditor(w), { iconName: 'edit', ghost: true, aria: 'Edit workout', title: 'Edit' }),
+            btn('', () => deleteWorkout(w.id), { iconName: 'trash', ghost: true, aria: 'Delete workout', title: 'Delete' }),
+          ),
         ),
         h(
           'ul',
@@ -856,13 +1221,14 @@ function mount(root) {
     const emptied = s.workouts.filter((w) => w.entries.length && w.entries.every((e) => e.exerciseId === x.id)).length;
     const ok = await confirmDialog({
       title: `Delete “${x.name}”?`,
-      message: `This deletes its ${plural(sessions, 'logged session')} and its graph${emptied ? `, and ${plural(emptied, 'workout')} with nothing else in it` : ''}. It can’t be undone (a backup in Settings keeps a copy).`,
+      message: `This deletes its ${plural(sessions, 'logged session')} and its graph${emptied ? `, and ${plural(emptied, 'workout')} with nothing else in it` : ''}, and takes it out of your routines. It can’t be undone (a backup in Settings keeps a copy).`,
       confirmLabel: 'Delete exercise',
     });
     if (!ok) return;
     const cur = getState();
     const workouts = cur.workouts.map((w) => ({ ...w, entries: w.entries.filter((e) => e.exerciseId !== x.id) })).filter((w) => w.entries.length);
-    commit({ ...cur, exercises: cur.exercises.filter((o) => o.id !== x.id), workouts, view: { ...cur.view, exerciseId: null, metric: null } });
+    const routines = cur.routines.map((r) => ({ ...r, items: r.items.filter((it) => it.exerciseId !== x.id) }));
+    commit({ ...cur, exercises: cur.exercises.filter((o) => o.id !== x.id), workouts, routines, view: { ...cur.view, exerciseId: null, metric: null } });
     toast(`“${x.name}” deleted.`);
   }
 

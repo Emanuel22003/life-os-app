@@ -2,7 +2,8 @@
 //
 // Store shape ('training'):
 //   { exercises: [{ id, name, kind, distanceM?, createdAt }],
-//     workouts:  [{ id, date: 'YYYY-MM-DD', title, note, entries: [Entry], createdAt, updatedAt }],
+//     workouts:  [{ id, date: 'YYYY-MM-DD', title, note, entries: [Entry], routineId?, createdAt, updatedAt }],
+//     routines:  [{ id, name, items: [{ exerciseId, sets }], createdAt, updatedAt }],   // Push day …
 //     view: { tab: 'log' | 'progress', exerciseId, metric, range } }      // per device (never syncs)
 //   Entry = { id, exerciseId, sets: [{ reps, weight }], distanceKm, durationSec, times: [seconds] }
 //   An entry uses the fields of its exercise's kind; the rest stay empty:
@@ -44,7 +45,8 @@ export const TITLE_MAX = 60;
 export const RANGES = Object.freeze(['1M', '3M', '6M', '1Y', 'all']);
 export const TABS = Object.freeze(['log', 'progress']);
 export const DEFAULT_VIEW = Object.freeze({ tab: 'log', exerciseId: null, metric: null, range: '3M' });
-export const DEFAULT_STATE = Object.freeze({ exercises: Object.freeze([]), workouts: Object.freeze([]), view: DEFAULT_VIEW });
+export const DEFAULT_STATE = Object.freeze({ exercises: Object.freeze([]), workouts: Object.freeze([]), routines: Object.freeze([]), view: DEFAULT_VIEW });
+export const ROUTINE_SETS_MAX = 20;
 
 const isObject = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 const toId = (v) => (typeof v === 'number' && Number.isFinite(v) ? String(v) : typeof v === 'string' && v ? v : null);
@@ -105,6 +107,25 @@ export function normalizeWorkout(raw, today) {
   };
 }
 
+/** A routine: a named list of exercises (and how many sets each), started in one click. */
+export function normalizeRoutine(raw, exerciseIds = null) {
+  if (!isObject(raw)) return null;
+  const id = toId(raw.id);
+  const name = cleanTitle(raw.name).slice(0, NAME_MAX).trim();
+  if (!id || !name) return null;
+  const seen = new Set();
+  const items = [];
+  for (const it of Array.isArray(raw.items) ? raw.items : []) {
+    const exerciseId = isObject(it) ? toId(it.exerciseId) : null;
+    if (!exerciseId || seen.has(exerciseId) || (exerciseIds && !exerciseIds.has(exerciseId))) continue;
+    seen.add(exerciseId);
+    const sets = num(it.sets, 1, ROUTINE_SETS_MAX);
+    items.push({ ...it, exerciseId, sets: sets == null ? 3 : Math.round(sets) });
+  }
+  const createdAt = Number.isFinite(raw.createdAt) ? raw.createdAt : 0;
+  return { ...raw, id, name, items, createdAt, updatedAt: Number.isFinite(raw.updatedAt) ? raw.updatedAt : createdAt };
+}
+
 export function normalizeView(raw, exerciseIds = new Set()) {
   const v = isObject(raw) ? raw : {};
   return {
@@ -134,7 +155,15 @@ export function normalizeState(raw, today) {
     wIds.add(w.id);
     workouts.push(w);
   }
-  return { exercises, workouts: sortWorkouts(workouts), view: normalizeView(src.view, exIds) };
+  const routines = [];
+  const rIds = new Set();
+  for (const r of Array.isArray(src.routines) ? src.routines : []) {
+    const routine = normalizeRoutine(r, exIds);
+    if (!routine || rIds.has(routine.id)) continue;
+    rIds.add(routine.id);
+    routines.push(routine);
+  }
+  return { exercises, workouts: sortWorkouts(workouts), routines, view: normalizeView(src.view, exIds) };
 }
 
 /** Newest first: by date, then by when it was logged. */
@@ -471,6 +500,54 @@ export function addExercise(exercises, { name, kind = 'strength', distanceM } = 
   if (exercises.some((x) => x.name.toLowerCase() === clean.toLowerCase())) return { error: 'taken' };
   const exercise = normalizeExercise({ id, name: clean, kind: KINDS.includes(kind) ? kind : 'strength', distanceM, createdAt: now });
   return { exercises: [...exercises, exercise], exercise };
+}
+
+/* ==========================================================================
+   Routines and last time's numbers
+   ========================================================================== */
+
+/** A routine from a logged workout's exercises (sets: how many it had; 3 for kinds without sets). */
+export function routineFromWorkout(workout, exercises, name, id = uid(), now = Date.now()) {
+  const kinds = new Map(exercises.map((x) => [x.id, x.kind]));
+  const items = [];
+  for (const e of workout.entries) {
+    if (!kinds.has(e.exerciseId) || items.some((it) => it.exerciseId === e.exerciseId)) continue;
+    items.push({ exerciseId: e.exerciseId, sets: kinds.get(e.exerciseId) === 'strength' ? clampSets(setsWithReps(e).length || 3) : 1 });
+  }
+  return normalizeRoutine({ id, name, items, createdAt: now, updatedAt: now });
+}
+
+const clampSets = (n) => Math.min(ROUTINE_SETS_MAX, Math.max(1, Math.round(n)));
+
+/** The last workout started from a routine, or null. */
+export function lastDone(workouts, routineId) {
+  return workouts.find((w) => w.routineId === routineId) ?? null; // workouts are newest first
+}
+
+/**
+ * Last time's numbers for each set row (shown faintly where you type): `count` rows, row i from
+ * last time's set i, rows past last time's count repeat its last set. [] without a last time.
+ */
+export function ghostSets(lastSets, count) {
+  const sets = (lastSets ?? []).filter((s) => s && s.reps > 0);
+  if (!sets.length) return [];
+  return Array.from({ length: Math.max(1, count) }, (_, i) => sets[Math.min(i, sets.length - 1)]);
+}
+
+/**
+ * One set row as typed -> { set } | { skip: true } | { error: 'reps' | 'kg' }. With `useGhost`
+ * (you typed somewhere in this exercise), an empty field takes last time's number: type only
+ * what changed.
+ */
+export function readSetRow(repsText, kgText, ghost, useGhost) {
+  const rt = String(repsText ?? '').trim() || (useGhost && ghost?.reps > 0 ? String(ghost.reps) : '');
+  const kt = String(kgText ?? '').trim() || (useGhost && ghost?.weight > 0 ? String(ghost.weight) : '');
+  const reps = parseNumber(rt);
+  const kg = parseNumber(kt);
+  if (reps == null && kg == null) return { skip: true };
+  if (reps == null || Number.isNaN(reps) || !Number.isInteger(reps)) return { error: 'reps' };
+  if (Number.isNaN(kg)) return { error: 'kg' };
+  return { set: { reps, weight: kg ?? 0 } };
 }
 
 /* ==========================================================================
