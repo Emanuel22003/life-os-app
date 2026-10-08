@@ -1,0 +1,468 @@
+/* ==========================================================================
+   LIFE/OS — Finance (js/features/finance.js): subscriptions
+   Built from the shared kit (.panel .hud, .panel-head, .tag, .seg, .btn, .stat-value), so every
+   template restyles it without rules of its own. Layout: totals on top, the list on the left,
+   the next 30 days and the cost by category on the right (stacked on narrow windows).
+   ========================================================================== */
+
+/* ---- Totals ---- */
+.fn-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-3);
+  margin-bottom: var(--space-5);
+}
+
+.fn-summary[hidden] {
+  display: none;
+}
+
+.fn-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  padding: var(--space-4);
+}
+
+.fn-stat-value {
+  font-size: var(--fs-2xl);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The next payment is a name, not a number */
+.fn-stat--next .fn-stat-value {
+  font-family: var(--font-sans);
+  font-size: var(--fs-xl);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.fn-stat-sub {
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---- Two columns ---- */
+.fn-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1.7fr) minmax(280px, 1fr);
+  gap: var(--space-5);
+  align-items: start;
+}
+
+.fn-side {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.fn-panel {
+  padding: 0;
+  overflow: hidden;
+}
+
+.fn-panel-head {
+  justify-content: space-between;
+  flex-wrap: wrap;
+  padding: var(--space-3) var(--space-4);
+}
+
+/* The head holds a title and a figure: plain text, whatever a template does to panel heads */
+.fn-root .fn-panel .fn-panel-head {
+  font-family: var(--font-sans);
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+/* Titled like the template's captions (mono capitals in Mission Control, plain in Simple) */
+.fn-root .fn-panel-title {
+  margin: 0;
+  font-family: var(--label-font);
+  font-size: max(var(--label-size), var(--fs-xs));
+  font-weight: 600;
+  letter-spacing: calc(0.14em * var(--label-tracking));
+  text-transform: var(--label-case);
+  color: var(--text);
+}
+
+.fn-due {
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.fn-none,
+.fn-more {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--fs-sm);
+  color: var(--text-3);
+}
+
+.fn-more {
+  font-size: var(--fs-xs);
+  border-top: 1px solid var(--line);
+}
+
+/* ---- The list ---- */
+.fn-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.fn-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-top: 1px solid var(--line);
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease);
+}
+
+.fn-list > .fn-row:first-child {
+  border-top: 0;
+}
+
+.fn-row:hover {
+  background: var(--surface-2);
+}
+
+.fn-row:focus-visible {
+  outline: 2px solid var(--line-focus);
+  outline-offset: -2px;
+}
+
+.fn-row.is-paused,
+.fn-row.is-cancelled {
+  opacity: 0.62;
+}
+
+.fn-avatar {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--line-strong);
+  border-radius: 50%;
+  background: var(--surface-2);
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-2);
+}
+
+.fn-row-main {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+
+.fn-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+.fn-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.fn-row-actions {
+  justify-content: flex-end;
+  width: 64px;
+}
+
+.fn-row-price {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  text-align: right;
+}
+
+.fn-price {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.fn-per {
+  font-size: var(--fs-xs);
+  font-weight: 400;
+  color: var(--text-3);
+}
+
+.fn-monthly {
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+  white-space: nowrap;
+}
+
+.fn-group {
+  margin: 0;
+  padding: var(--space-3) var(--space-4) var(--space-1);
+  border-top: 1px solid var(--line);
+}
+
+.fn-cancelled-toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-3) var(--space-4);
+  border: 0;
+  border-top: 1px solid var(--line);
+  background: transparent;
+  color: var(--text-2);
+  font: inherit;
+  font-size: var(--fs-sm);
+  text-align: left;
+  cursor: pointer;
+}
+
+.fn-cancelled-toggle:hover {
+  color: var(--text);
+}
+
+.fn-caret {
+  transition: transform var(--dur-fast) var(--ease);
+}
+
+.fn-cancelled-toggle[aria-expanded="true"] .fn-caret {
+  transform: rotate(180deg);
+}
+
+.fn-saved {
+  margin-left: auto;
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+}
+
+.fn-list--cancelled {
+  border-top: 1px solid var(--line);
+}
+
+/* ---- Next 30 days ---- */
+.fn-up-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.fn-up {
+  display: grid;
+  grid-template-columns: 78px minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: var(--space-3);
+  padding: 9px var(--space-4);
+  border-top: 1px solid var(--line);
+}
+
+.fn-up:first-child {
+  border-top: 0;
+}
+
+.fn-up-when {
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+  white-space: nowrap;
+}
+
+.fn-up.is-soon .fn-up-when {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.fn-up-name {
+  overflow: hidden;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.fn-up-name:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.fn-up-trial {
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+}
+
+.fn-up-amount {
+  font-size: var(--fs-sm);
+  white-space: nowrap;
+}
+
+/* ---- By category ---- */
+.fn-cat-list {
+  margin: 0;
+  padding: var(--space-2) 0 var(--space-3);
+  list-style: none;
+}
+
+.fn-cat {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 5px var(--space-3);
+  padding: 7px var(--space-4);
+}
+
+.fn-cat-name,
+.fn-cat-amount {
+  font-size: var(--fs-sm);
+}
+
+.fn-cat-count {
+  color: var(--text-3);
+}
+
+.fn-cat-bar {
+  grid-column: 1 / -1;
+  height: 4px;
+  background: var(--heat-0);
+}
+
+.fn-cat-fill {
+  display: block;
+  height: 100%;
+  background: var(--text);
+}
+
+/* ---- Nothing yet ---- */
+.fn-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-8) var(--space-5);
+  text-align: center;
+}
+
+.fn-empty .empty-text {
+  max-width: 48ch;
+  margin: 0;
+}
+
+.fn-starters {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-2);
+  max-width: 640px;
+  margin-bottom: var(--space-2);
+}
+
+/* ---- The dialog ---- */
+.fn-ed {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.fn-ed-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+}
+
+.fn-ed-grid > [hidden] {
+  display: none;
+}
+
+.fn-ed-pair {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.fn-ed-pair > * {
+  min-width: 0;
+}
+
+.fn-ed-amount,
+.fn-ed-unit {
+  flex: 1 1 auto;
+}
+
+.fn-ed-currency {
+  flex: 0 0 96px;
+}
+
+.fn-ed-every {
+  flex: 0 0 72px;
+}
+
+.fn-ed-status {
+  flex-wrap: wrap;
+}
+
+.fn-ed-hint {
+  margin: 0;
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+}
+
+.fn-ed-error {
+  margin: 0;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--text);
+}
+
+/* ---- Narrower windows ---- */
+@media (max-width: 1100px) {
+  .fn-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .fn-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .fn-row {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+
+  /* Tap the row to edit; the site link stays in the dialog's field */
+  .fn-row-actions {
+    display: none;
+  }
+
+  .fn-ed-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .fn-stat-value {
+    font-size: var(--fs-xl);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fn-row,
+  .fn-caret {
+    transition: none;
+  }
+}

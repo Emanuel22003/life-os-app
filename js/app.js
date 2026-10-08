@@ -31,7 +31,7 @@ import { openSyncPanel, syncLabel } from './sync.panel.js';
 import { provideShell } from './shell.js';
 import { isNewerVersion, startPage } from './features/settings.logic.js';
 
-const VERSION = 'v0.16';
+const VERSION = 'v0.17';
 
 // Read before any feature module can seed data: tells a first-ever run from an upgrade
 const hadSavedData = hasSavedData();
@@ -42,10 +42,11 @@ registerIcon('open-app', '<rect x="3" y="4" width="18" height="16" rx="2"/><path
 registerIcon('home', '<path d="M3.5 10.5 12 3.5l8.5 7"/><path d="M5.5 9v10.5a1 1 0 0 0 1 1H10v-6h4v6h3.5a1 1 0 0 0 1-1V9"/>');
 registerIcon('gear', '<path d="M19.08 9.84 21.45 10.33 21.45 13.67 19.08 14.16 18.53 15.47 19.86 17.51 17.51 19.86 15.47 18.53 14.16 19.08 13.67 21.45 10.33 21.45 9.84 19.08 8.53 18.53 6.49 19.86 4.14 17.51 5.47 15.47 4.92 14.16 2.55 13.67 2.55 10.33 4.92 9.84 5.47 8.53 4.14 6.49 6.49 4.14 8.53 5.47 9.84 4.92 10.33 2.55 13.67 2.55 14.16 4.92 15.47 5.47 17.51 4.14 19.86 6.49 18.53 8.53Z"/><circle cx="12" cy="12" r="3"/>');
 registerIcon('dumbbell', '<path d="M6.5 6.5v11M17.5 6.5v11M3.5 9.5v5M20.5 9.5v5M6.5 12h11"/>');
+registerIcon('wallet', '<path d="M4 7.5V18a2 2 0 0 0 2 2h14V9.5H6a2 2 0 0 1-2-2Zm0 0A2 2 0 0 1 6 5.5h11V9.5"/><circle cx="16.5" cy="14.75" r="1.1" fill="currentColor" stroke="none"/>');
 registerIcon('heart', '<path d="M12 20s-7.5-4.6-7.5-10.1A4.4 4.4 0 0 1 12 7.3a4.4 4.4 0 0 1 7.5 2.6C19.5 15.4 12 20 12 20Z"/>');
 registerIcon('timer', '<circle cx="12" cy="13.5" r="7.5"/><path d="M12 9.5v4l2.5 1.5M9.5 2.5h5M12 2.5V6M18.5 6.5l1.5-1.5"/>');
 
-// Order = nav order and number keys (1 Home … 7 Training). `short`: the phone tab bar's label.
+// Order = nav order and number keys (1 Home … 8 Finance). `short`: the phone tab bar's label.
 // `hidden`: a page outside the module nav (Settings opens from the gear in the sidebar foot).
 // `soon`: on stand-by: grayed out at the end of the sidebar ("Soon"), no number key or phone tab.
 const MANIFEST = [
@@ -56,6 +57,7 @@ const MANIFEST = [
   { id: 'calendar', title: 'Calendar', icon: 'calendar', short: 'Cal' },
   { id: 'pomodoro', title: 'Pomodoro', icon: 'timer', short: 'Timer' },
   { id: 'training', title: 'Training', icon: 'dumbbell', short: 'Train' },
+  { id: 'finance', title: 'Finance', icon: 'wallet', short: 'Money' },
   { id: 'health', title: 'Health', icon: 'heart', soon: true },
   { id: 'settings', title: 'Settings', icon: 'gear', hidden: true },
 ];

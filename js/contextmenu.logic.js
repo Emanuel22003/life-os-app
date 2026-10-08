@@ -12,7 +12,7 @@
 // - insertAfter()       a new item right after another one, by id
 
 export const ACTIONS = Object.freeze(['copy', 'paste', 'delete', 'duplicate']);
-export const KINDS = Object.freeze(['task', 'note', 'habit', 'event']);
+export const KINDS = Object.freeze(['task', 'note', 'habit', 'event', 'subscription']);
 
 const isObject = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 const finite = (n, fallback = 0) => (Number.isFinite(n) ? n : fallback);

@@ -853,6 +853,17 @@
   text-transform: uppercase;
 }
 
+[data-skin="oldmoney"] .fn-root .fn-panel-title {
+  font-family: var(--om-caps);
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+
+[data-skin="oldmoney"] .fn-avatar {
+  font-weight: 400;
+}
+
 [data-skin="oldmoney"] .hm-more {
   font-style: italic;
 }
