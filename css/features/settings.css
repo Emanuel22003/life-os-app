@@ -33,6 +33,11 @@
 }
 
 /* A switch that belongs to the one above it (Color coding → Sections, Tasks, …) */
+/* A row whose control needs the width (the color swatches): the control goes under the text */
+.st-row--wide {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .st-row--sub {
   padding-left: var(--space-5);
   padding-block: var(--space-3);

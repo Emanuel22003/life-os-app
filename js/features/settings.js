@@ -8,6 +8,7 @@ import { h, icon, pageHeader, toast, confirmDialog, formatDay, dateKey, uid } fr
 import { settings } from '../store.js';
 import { SKINS, normalizeSkin, THEMES } from '../skins.js';
 import { COLOR_KINDS, normalizeColorPrefs } from '../colors.logic.js';
+import { paletteEditor } from '../palette.js';
 import { shell } from '../shell.js';
 import { SITE_URL } from '../origin.js';
 import { syncConfig, syncStatus, onSyncStatus } from '../sync.js';
@@ -261,6 +262,15 @@ function mount(root) {
     },
   });
 
+  /* Your own colors for the template showing (with Reset) */
+  const palette = paletteEditor();
+  const paletteRow = row({
+    title: 'Colors',
+    hint: 'Change the template’s two or three main colors. Reset brings its own back.',
+    control: palette.el,
+  });
+  paletteRow.el.classList.add('st-row--wide');
+
   /* Color coding (this computer): one master switch, then one per kind */
   const colorSwitches = new Map();
   const setColorPref = (key, on) => settings.update({ colors: { ...normalizeColorPrefs(settings.get().colors), [key]: on } });
@@ -400,7 +410,7 @@ function mount(root) {
       'div',
       { class: 'st-cards' },
       card('Sound & notifications', [soundRow, notifyRow, miniRow]),
-      card('Appearance', [templateRow, themeRow, motionRow]),
+      card('Appearance', [templateRow, themeRow, paletteRow, motionRow]),
       card('Color coding', [colorsRow, ...colorKindRows]),
       card('Start-up', [startRow]),
       card('Sync & backup', [syncRow, backupRow, restoreRow, storageRow]),
@@ -420,6 +430,7 @@ function mount(root) {
   );
   paintSettings();
   cleanups.push(settings.subscribe(paintSettings));
+  cleanups.push(() => palette.destroy());
   paintSync();
   cleanups.push(onSyncStatus(paintSync));
   paintStorage();

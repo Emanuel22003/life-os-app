@@ -81,6 +81,8 @@ const CORE = [
   'js/sync.panel.js',
   'js/colors.js',
   'js/colors.logic.js',
+  'js/palette.js',
+  'js/palette.logic.js',
   'css/tokens.css',
   'css/base.css',
   'css/shell.css',
@@ -92,6 +94,11 @@ const CORE = [
   'css/skins/terminal.css',
   'css/skins/oldmoney.css',
   'css/skins/oldmoney-horse.png',
+  'css/skins/coquette.css',
+  'css/skins/coquette-bow.webp',
+  'css/skins/y2k.css',
+  'css/skins/y2k-butterflies.webp',
+  'css/palette.css',
   'css/colors.css',
 ].map(keyFor);
 

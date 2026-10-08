@@ -1,0 +1,563 @@
+/* ==========================================================================
+   LIFE/OS — skin: Y2K (data-skin="y2k")
+   Baby pink, lilac and baby blue by day, a midnight-violet night with neon pink by dark. A
+   holographic gradient (pink → lilac → blue) on the main button, the open page and the titles;
+   bubble letters for page titles (Rubik Bubbles), round Fredoka for text, pixel captions
+   (Silkscreen); glassy cards with a bright rim, sparkles on the page, a sparkle in every ticked
+   box, and chrome butterflies as the crest and behind the pages (y2k-butterflies.webp,
+   generated with Yapper).
+
+   A plain template: Simple underneath (css/skins/simple.css is scoped to [data-plain]); this
+   file restyles it. Its main colors (Appearance → Colors) are Background (--bg), Text (--text)
+   and Glitter (--accent): the holographic lilac and blue are the accent turned around the color
+   wheel (oklch), so one color re-tints the whole shimmer. Conventions as in the other skins.
+   After changing --bg, update SKIN_BOOT (js/skins.js and index.html's head script).
+   ========================================================================== */
+
+/* ---- Midnight (dark) and everything that doesn't change with the mode ---- */
+[data-skin="y2k"] {
+  --font-sans: "Fredoka", "Nunito", ui-rounded, "Varela Round", system-ui, sans-serif;
+  --font-display: "Rubik Bubbles", "Fredoka", ui-rounded, sans-serif;
+  --font-mono: var(--font-sans);
+  --y2k-pixel: "Silkscreen", ui-monospace, "SF Mono", Menlo, monospace;
+
+  --fs-2xs: 12px;
+  --fs-xs: 13px;
+  --fs-sm: 14.5px;
+  --fs-md: 15.5px;
+  --fs-lg: 18px;
+  --fs-xl: 23px;
+  --fs-2xl: 30px;
+  --fs-3xl: 40px;
+
+  --radius-xs: 10px;
+  --radius-sm: 14px;
+  --radius: 20px;
+  --radius-lg: 26px;
+
+  /* Captions as in Simple (sentence case); the .label class gets pixel capitals below */
+  --label-font: var(--font-sans);
+  --label-size: var(--fs-xs);
+  --label-weight: 500;
+  --label-case: none;
+  --label-tracking: 0;
+
+  /* The shimmer: the accent and two neighbours on the color wheel */
+  --y2k-a: var(--accent);
+  --y2k-b: oklch(from var(--accent) l c calc(h - 50));
+  --y2k-c: oklch(from var(--accent) l c calc(h - 100));
+  --y2k-holo: linear-gradient(115deg, var(--y2k-a), var(--y2k-b) 52%, var(--y2k-c));
+  --y2k-rim: rgba(230, 200, 255, 0.16);
+  --y2k-art-alpha: 0.5;
+  --y2k-sparkle: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 1.5c.9 6.1 3.4 8.6 9.5 10.5-6.1 1.9-8.6 4.4-9.5 10.5-.9-6.1-3.4-8.6-9.5-10.5C8.6 10.1 11.1 7.6 12 1.5Z'/%3E%3C/svg%3E");
+
+  /* Sparkles over a haze of the three colors */
+  --page-bg-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cg fill='%23ffffff' fill-opacity='.5'%3E%3Cpath transform='translate(28 36) scale(.55)' d='M12 1.5c.9 6.1 3.4 8.6 9.5 10.5-6.1 1.9-8.6 4.4-9.5 10.5-.9-6.1-3.4-8.6-9.5-10.5C8.6 10.1 11.1 7.6 12 1.5Z'/%3E%3Cpath transform='translate(150 18) scale(.38)' d='M12 1.5c.9 6.1 3.4 8.6 9.5 10.5-6.1 1.9-8.6 4.4-9.5 10.5-.9-6.1-3.4-8.6-9.5-10.5C8.6 10.1 11.1 7.6 12 1.5Z'/%3E%3Cpath transform='translate(118 146) scale(.7)' d='M12 1.5c.9 6.1 3.4 8.6 9.5 10.5-6.1 1.9-8.6 4.4-9.5 10.5-.9-6.1-3.4-8.6-9.5-10.5C8.6 10.1 11.1 7.6 12 1.5Z'/%3E%3Ccircle cx='82' cy='118' r='1.4'/%3E%3Ccircle cx='196' cy='96' r='1.1'/%3E%3Ccircle cx='40' cy='190' r='1.2'/%3E%3C/g%3E%3C/svg%3E"),
+    radial-gradient(42% 52% at 10% 16%, color-mix(in srgb, var(--y2k-a) 22%, transparent), transparent 70%),
+    radial-gradient(46% 56% at 90% 10%, color-mix(in srgb, var(--y2k-b) 22%, transparent), transparent 70%),
+    radial-gradient(52% 60% at 76% 94%, color-mix(in srgb, var(--y2k-c) 20%, transparent), transparent 70%);
+  --page-bg-size: 220px 220px, 100% 100%, 100% 100%, 100% 100%;
+
+  --simple-card-shadow: 0 10px 32px rgba(0, 0, 0, 0.35);
+  --simple-ring: 0 0 0 3px color-mix(in srgb, var(--accent) 40%, transparent);
+
+  color-scheme: dark;
+
+  --bg: #140a26;
+  --bg-elev: #180c2e;
+  --surface: rgba(36, 19, 66, 0.78);
+  --surface-2: #2a1650;
+  --surface-3: #351d63;
+  --surface-solid: #1f1040;
+  --surface-solid-2: #2a1650;
+
+  --line: rgba(230, 200, 255, 0.13);
+  --line-strong: rgba(230, 200, 255, 0.26);
+  --line-focus: #ff8ad1;
+
+  --text: #f7ecff;
+  --text-2: #dcc6f5;
+  --text-3: #ad93cf;
+  --text-4: #5e4683;
+
+  --accent: #ff8ad1;
+  --accent-ink: #22093a;
+  --accent-soft: rgba(255, 138, 209, 0.16);
+
+  --glow: var(--simple-ring);
+  --glow-strong: 0 0 22px color-mix(in srgb, var(--accent) 40%, transparent);
+  --shadow: 0 24px 64px rgba(0, 0, 0, 0.55);
+  --shadow-sm: 0 6px 22px rgba(0, 0, 0, 0.35);
+
+  --grid-line: transparent;
+  --scrim: rgba(10, 4, 22, 0.62);
+  --hatch: rgba(230, 200, 255, 0.08);
+
+  --heat-0: rgba(255, 138, 209, 0.1);
+  --heat-1: rgba(255, 138, 209, 0.28);
+  --heat-2: rgba(255, 138, 209, 0.48);
+  --heat-3: rgba(255, 138, 209, 0.72);
+  --heat-4: #ff8ad1;
+
+  /* Color coding in candy brights */
+  --cc-red: #ff7a9c;
+  --cc-orange: #ffae6b;
+  --cc-yellow: #ffe17a;
+  --cc-green: #8ff0b0;
+  --cc-teal: #7ff0e6;
+  --cc-blue: #8ec8ff;
+  --cc-purple: #c79bff;
+  --cc-pink: #ff8ad1;
+  --cc-ink: #22093a;
+}
+
+/* ---- Pastel (light) ---- */
+[data-skin="y2k"][data-theme="light"] {
+  --y2k-rim: rgba(255, 255, 255, 0.95);
+  --y2k-art-alpha: 0.62;
+  --page-bg-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cg fill='%23b98cff' fill-opacity='.32'%3E%3Cpath transform='translate(28 36) scale(.55)' d='M12 1.5c.9 6.1 3.4 8.6 9.5 10.5-6.1 1.9-8.6 4.4-9.5 10.5-.9-6.1-3.4-8.6-9.5-10.5C8.6 10.1 11.1 7.6 12 1.5Z'/%3E%3Cpath transform='translate(150 18) scale(.38)' d='M12 1.5c.9 6.1 3.4 8.6 9.5 10.5-6.1 1.9-8.6 4.4-9.5 10.5-.9-6.1-3.4-8.6-9.5-10.5C8.6 10.1 11.1 7.6 12 1.5Z'/%3E%3Cpath transform='translate(118 146) scale(.7)' d='M12 1.5c.9 6.1 3.4 8.6 9.5 10.5-6.1 1.9-8.6 4.4-9.5 10.5-.9-6.1-3.4-8.6-9.5-10.5C8.6 10.1 11.1 7.6 12 1.5Z'/%3E%3Ccircle cx='82' cy='118' r='1.4'/%3E%3Ccircle cx='196' cy='96' r='1.1'/%3E%3Ccircle cx='40' cy='190' r='1.2'/%3E%3C/g%3E%3C/svg%3E"),
+    radial-gradient(42% 52% at 10% 16%, color-mix(in srgb, var(--y2k-a) 24%, transparent), transparent 70%),
+    radial-gradient(46% 56% at 90% 10%, color-mix(in srgb, var(--y2k-b) 26%, transparent), transparent 70%),
+    radial-gradient(52% 60% at 76% 94%, color-mix(in srgb, var(--y2k-c) 24%, transparent), transparent 70%);
+
+  --simple-card-shadow: 0 10px 30px color-mix(in srgb, var(--y2k-b) 20%, transparent);
+
+  color-scheme: light;
+
+  --bg: #fff0fa;
+  --bg-elev: #fff6fc;
+  --surface: rgba(255, 255, 255, 0.76);
+  --surface-2: #fde4f5;
+  --surface-3: #f4d4f0;
+  --surface-solid: #ffffff;
+  --surface-solid-2: #fff3fb;
+
+  --line: rgba(120, 60, 160, 0.14);
+  --line-strong: rgba(120, 60, 160, 0.26);
+  --line-focus: #b36bff;
+
+  --text: #3b1d5c;
+  --text-2: #5f3f84;
+  --text-3: #7a5a9c;
+  --text-4: #cdb6e3;
+
+  --accent: #ff6ec4;
+  --accent-ink: #2b1240;
+  --accent-soft: rgba(255, 110, 196, 0.16);
+
+  --glow-strong: 0 0 22px color-mix(in srgb, var(--accent) 35%, transparent);
+  --shadow: 0 24px 64px rgba(90, 40, 140, 0.18);
+  --shadow-sm: 0 6px 22px rgba(90, 40, 140, 0.12);
+
+  --scrim: rgba(70, 30, 110, 0.22);
+  --hatch: rgba(120, 60, 160, 0.07);
+
+  --heat-0: rgba(185, 140, 255, 0.14);
+  --heat-1: rgba(255, 110, 196, 0.3);
+  --heat-2: rgba(255, 110, 196, 0.5);
+  --heat-3: rgba(255, 110, 196, 0.74);
+  --heat-4: #ff6ec4;
+
+  --cc-red: #f0507a;
+  --cc-orange: #f5893d;
+  --cc-yellow: #d9a514;
+  --cc-green: #2fb36a;
+  --cc-teal: #1fb2a6;
+  --cc-blue: #3d8ef0;
+  --cc-purple: #9a5cf0;
+  --cc-pink: #f0479f;
+  --cc-ink: #ffffff;
+}
+
+/* ==========================================================================
+   Page
+   ========================================================================== */
+
+[data-skin="y2k"] .lo-page {
+  font-feature-settings: normal;
+  letter-spacing: 0.005em;
+}
+
+[data-skin="y2k"] .label {
+  font-family: var(--y2k-pixel);
+  font-size: 9.5px;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+[data-skin="y2k"] :focus-visible {
+  outline: 2px solid var(--line-focus);
+  outline-offset: 2px;
+}
+
+[data-skin="y2k"] ::selection {
+  background: color-mix(in srgb, var(--accent) 38%, transparent);
+}
+
+[data-skin="y2k"] .main,
+[data-skin="y2k"] .sidebar {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--y2k-b) 60%, transparent) transparent;
+}
+
+/* Butterflies behind the page, in the lower right */
+[data-skin="y2k"] .main {
+  isolation: isolate;
+}
+
+[data-skin="y2k"] .main::before {
+  content: "";
+  position: fixed;
+  z-index: -1;
+  right: clamp(8px, 2.5vw, 56px);
+  bottom: clamp(24px, 5vh, 72px);
+  width: clamp(240px, 30vw, 460px);
+  aspect-ratio: 1400 / 1172;
+  background: url("y2k-butterflies.webp") center / contain no-repeat;
+  opacity: var(--y2k-art-alpha);
+  pointer-events: none;
+}
+
+@media (max-width: 640px) {
+  [data-skin="y2k"] .main::before {
+    width: 64vw;
+    right: 2vw;
+    bottom: calc(var(--tabbar-h) + 16px);
+  }
+}
+
+/* ==========================================================================
+   Shell: butterflies as the crest, a shimmering pill on the open page
+   ========================================================================== */
+
+[data-skin="y2k"] .sidebar {
+  border-right: 1px solid var(--line);
+  padding-top: 22px;
+}
+
+[data-skin="y2k"] .brand {
+  flex-direction: column;
+  align-items: center;
+  height: auto;
+  gap: 0;
+  padding: 0 0 16px;
+  border-bottom: 1px solid var(--line);
+  text-align: center;
+}
+
+[data-skin="y2k"] .brand-mark {
+  display: none;
+}
+
+[data-skin="y2k"] .brand::before {
+  content: "";
+  width: 128px;
+  aspect-ratio: 1400 / 1172;
+  margin-bottom: 2px;
+  background: url("y2k-butterflies.webp") center / contain no-repeat;
+}
+
+[data-skin="y2k"] .brand-name {
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  line-height: 1.1;
+  background: var(--y2k-holo);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+}
+
+[data-skin="y2k"] .brand::after {
+  content: "✦ est. 2026 ✦";
+  margin-top: 6px;
+  font-family: var(--y2k-pixel);
+  font-size: 8px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+[data-skin="y2k"] .nav-item {
+  border-radius: var(--radius-pill);
+  font-size: 15px;
+  font-weight: 500;
+}
+
+[data-skin="y2k"] .nav-item:hover {
+  background: color-mix(in srgb, var(--y2k-b) 16%, transparent);
+}
+
+[data-skin="y2k"] .nav-item[aria-current="page"] {
+  background: var(--y2k-holo);
+  color: var(--accent-ink);
+  font-weight: 600;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6), 0 4px 14px color-mix(in srgb, var(--accent) 30%, transparent);
+}
+
+[data-skin="y2k"] .nav-item[aria-current="page"]::before {
+  content: none;
+}
+
+[data-skin="y2k"] .nav-badge {
+  background: color-mix(in srgb, var(--y2k-b) 22%, transparent);
+  color: var(--text);
+  font-family: var(--font-sans);
+}
+
+[data-skin="y2k"] .nav-item[aria-current="page"] .nav-badge {
+  background: rgba(255, 255, 255, 0.7);
+  color: var(--accent-ink);
+}
+
+@media (max-width: 900px) {
+  [data-skin="y2k"] .brand::before {
+    width: 50px;
+  }
+
+  [data-skin="y2k"] .brand::after {
+    content: none;
+  }
+}
+
+[data-skin="y2k"] .topbar {
+  background: color-mix(in srgb, var(--bg) 80%, transparent);
+}
+
+[data-skin="y2k"] .tab[aria-current="page"] {
+  color: var(--accent);
+}
+
+/* ---- Page header: bubble letters in the shimmer over a shimmering line ---- */
+[data-skin="y2k"] .page-header {
+  position: relative;
+  padding-bottom: 22px;
+  margin-bottom: 28px;
+}
+
+[data-skin="y2k"] .page-header::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: auto;
+  height: 3px;
+  border: 0;
+  border-radius: 3px;
+  background: var(--y2k-holo);
+  opacity: 0.85;
+}
+
+[data-skin="y2k"] .page-title {
+  width: fit-content;
+  font-family: var(--font-display);
+  font-size: clamp(38px, 4.4vw, 54px);
+  font-weight: 400;
+  line-height: 1.12;
+  letter-spacing: 0.01em;
+  background: var(--y2k-holo);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 2px 0 color-mix(in srgb, var(--text) 22%, transparent));
+}
+
+[data-skin="y2k"] .page-subtitle {
+  font-size: 16px;
+  color: var(--text-2);
+}
+
+/* ==========================================================================
+   Shared kit: glassy, round, shiny
+   ========================================================================== */
+
+.panel:where([data-skin="y2k"] *) {
+  border: 1.5px solid var(--y2k-rim);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--simple-card-shadow), inset 0 1px 0 rgba(255, 255, 255, 0.45);
+}
+
+.btn:where([data-skin="y2k"] *) {
+  border-width: 1.5px;
+  border-radius: var(--radius-pill);
+  font-family: var(--font-sans);
+  font-weight: 600;
+}
+
+.btn--primary:where([data-skin="y2k"] *) {
+  border-color: transparent;
+  background: var(--y2k-holo);
+  color: var(--accent-ink);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65), 0 4px 16px color-mix(in srgb, var(--accent) 32%, transparent);
+}
+
+.btn--primary:where([data-skin="y2k"] *):hover {
+  border-color: transparent;
+  background: var(--y2k-holo);
+  color: var(--accent-ink);
+  filter: brightness(1.06) saturate(1.1);
+}
+
+[data-skin="y2k"] .seg {
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--y2k-b) 15%, transparent);
+}
+
+[data-skin="y2k"] .seg .seg-btn {
+  border-radius: var(--radius-pill);
+}
+
+[data-skin="y2k"] .seg .seg-btn:is([aria-pressed="true"], [aria-selected="true"]) {
+  background: var(--surface-solid);
+  color: var(--text);
+  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--y2k-b) 55%, transparent), 0 2px 10px color-mix(in srgb, var(--y2k-b) 25%, transparent);
+}
+
+.tag:where([data-skin="y2k"] *) {
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--y2k-b) 16%, transparent);
+  color: var(--text-2);
+}
+
+.tag--solid:where([data-skin="y2k"] *) {
+  background: var(--y2k-holo);
+  color: var(--accent-ink);
+}
+
+.input:where([data-skin="y2k"] *),
+.select:where([data-skin="y2k"] *),
+.textarea:where([data-skin="y2k"] *) {
+  border-width: 1.5px;
+  border-radius: var(--radius-sm);
+}
+
+/* Ticked: a sparkle on the shimmer */
+.check:where([data-skin="y2k"] *) {
+  border-width: 1.5px;
+  border-radius: 50%;
+  border-color: color-mix(in srgb, var(--y2k-b) 70%, var(--text-3));
+}
+
+.check:where([data-skin="y2k"] *)::after {
+  content: "";
+  position: absolute;
+  inset: 16%;
+  background: #ffffff;
+  -webkit-mask: var(--y2k-sparkle) center / contain no-repeat;
+  mask: var(--y2k-sparkle) center / contain no-repeat;
+  opacity: 0;
+  transform: scale(0.3) rotate(-45deg);
+  transition: opacity var(--dur-fast) var(--ease), transform var(--dur) var(--ease-out);
+}
+
+.check:where([data-skin="y2k"] *):is([aria-checked="true"], .is-checked) {
+  border-color: transparent;
+  background: var(--y2k-holo);
+}
+
+.check:where([data-skin="y2k"] *):is([aria-checked="true"], .is-checked) svg {
+  opacity: 0;
+}
+
+.check:where([data-skin="y2k"] *):is([aria-checked="true"], .is-checked)::after {
+  opacity: 1;
+  transform: none;
+}
+
+/* Dialogs: a glass card in a shimmering rim */
+.modal:where([data-skin="y2k"] *) {
+  border: 2px solid transparent;
+  border-radius: 28px;
+  background: linear-gradient(var(--surface-solid), var(--surface-solid)) padding-box, var(--y2k-holo) border-box;
+}
+
+.modal-title:where([data-skin="y2k"] *) {
+  width: fit-content;
+  font-family: var(--font-display);
+  font-size: 30px;
+  font-weight: 400;
+  letter-spacing: 0.01em;
+  background: var(--y2k-holo);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+}
+
+.toast:where([data-skin="y2k"] *) {
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: var(--text);
+  color: var(--bg);
+}
+
+.toast-action:where([data-skin="y2k"] *) {
+  color: var(--accent);
+}
+
+[data-skin="y2k"] .ctx-menu {
+  border-radius: var(--radius);
+  border-color: var(--y2k-rim);
+}
+
+[data-skin="y2k"] .ctx-item {
+  border-radius: var(--radius-sm);
+}
+
+/* ==========================================================================
+   Pages
+   ========================================================================== */
+
+[data-skin="y2k"] .stat-value {
+  font-family: var(--font-sans);
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+[data-skin="y2k"] .pm-time {
+  font-family: var(--font-display);
+  font-weight: 400;
+  letter-spacing: 0.02em;
+}
+
+[data-skin="y2k"] .hm-card-title,
+[data-skin="y2k"] .fn-root .fn-panel-title {
+  font-family: var(--font-sans);
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+[data-skin="y2k"] .fn-avatar {
+  border: 0;
+  background: var(--y2k-holo);
+  color: var(--accent-ink);
+  font-family: var(--font-sans);
+}
+
+/* ==========================================================================
+   Forced colors: the butterflies and the shimmer are decoration
+   ========================================================================== */
+
+@media (forced-colors: active) {
+  [data-skin="y2k"] .main::before,
+  [data-skin="y2k"] .brand::before {
+    display: none;
+  }
+
+  [data-skin="y2k"] :is(.page-title, .brand-name, .modal-title) {
+    background: none;
+    color: CanvasText;
+    -webkit-text-fill-color: CanvasText;
+  }
+}

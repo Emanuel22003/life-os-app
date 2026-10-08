@@ -21,7 +21,8 @@
 
 import { h, icon, registerIcon, brandMark, emptyState, isTyping, modalOpen, openModal, closeAllModals, onDayChange, toast, ensureToastRegion, skin, num, term, WEEKDAYS_SHORT, MONTHS_SHORT } from './ui.js';
 import { settings } from './store.js';
-import { DEFAULT_SKIN, SKIN_BOOT, normalizeSkin, resolveTheme } from './skins.js';
+import { DEFAULT_SKIN, SKIN_BOOT, normalizeSkin, resolveTheme, isPlainSkin } from './skins.js';
+import { applyPalette } from './palette.js';
 import { applyColorPrefs } from './colors.js';
 import { openAppearance, loadSkinFonts } from './appearance.js';
 import { installContextMenu } from './contextmenu.js';
@@ -31,7 +32,7 @@ import { openSyncPanel, syncLabel } from './sync.panel.js';
 import { provideShell } from './shell.js';
 import { isNewerVersion, startPage } from './features/settings.logic.js';
 
-const VERSION = 'v0.17';
+const VERSION = 'v0.18';
 
 // Read before any feature module can seed data: tells a first-ever run from an upgrade
 const hadSavedData = hasSavedData();
@@ -105,6 +106,11 @@ function applyAppearance(s) {
   const previous = root.dataset.skin;
   root.dataset.skin = next;
   root.dataset.theme = theme;
+  // Plain templates are Simple underneath (css/skins/simple.css is scoped to [data-plain])
+  if (isPlainSkin(next)) root.dataset.plain = '';
+  else delete root.dataset.plain;
+  // Your own colors for this template and mode (Appearance → Colors)
+  applyPalette(s, root, next, theme);
   // Settings → Reduce animations (the computer's own setting is honoured by CSS either way)
   if (s.motion === 'reduced') root.dataset.motion = 'reduced';
   else delete root.dataset.motion;

@@ -5,19 +5,19 @@
    this file: .lo-deco / .lo-hint are hidden (base.css) and ui.idx()/num() print plain numbers.
 
    Old Money (data-skin="oldmoney") is Simple underneath: every rule here is scoped to
-   :is([data-skin="simple"], [data-skin="oldmoney"]) (the specificity of one attribute, as
+   [data-plain] (the specificity of one attribute, as
    before), and css/skins/oldmoney.css restyles it on top.
 
    Conventions (README → Appearance, and the picker in js/appearance.js):
-   - Every selector starts at the skin scope: [data-skin="simple"] .btn { … }.
-     Exception: the shared kit (and .tk-add-btn) use .btn:where([data-skin="simple"] *),
+   - Every selector starts at the plain scope: [data-plain] .btn { … }.
+     Exception: the shared kit (and .tk-add-btn) use .btn:where([data-plain] *),
      the same scope at base strength, so feature rules and phone layouts still win.
      The scope is <html> for the app and a <div> inside each Appearance preview,
      so never use :root, html or body here; the page surface is .lo-page
-     ([data-skin="simple"] .lo-page), on <body> and on each preview.
+     ([data-plain] .lo-page), on <body> and on each preview.
    - Tokens: override css/tokens.css names on the scope itself:
-       [data-skin="simple"] { …dark… }
-       [data-skin="simple"][data-theme="light"] { …light… }
+       [data-plain] { …dark… }
+       [data-plain][data-theme="light"] { …light… }
      Both attributes always sit on the same element.
    - HUD decoration switches: --page-bg-image, --hud-corners, --glow-c,
      --glow-c-soft, --label-* (font, size, weight, case, tracking), plus
@@ -42,7 +42,7 @@
    ========================================================================== */
 
 /* ---- Dark (and everything that doesn't change with the mode) ---- */
-:is([data-skin="simple"], [data-skin="oldmoney"]) {
+[data-plain] {
   --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   /* No monospace readouts: numbers use the same calm sans (tabular where it matters) */
   --font-mono: var(--font-sans);
@@ -125,7 +125,7 @@
 }
 
 /* ---- Light ---- */
-:is([data-skin="simple"], [data-skin="oldmoney"])[data-theme="light"] {
+[data-plain][data-theme="light"] {
   --simple-card-shadow: 0 1px 2px rgba(0, 0, 0, 0.05), 0 2px 10px rgba(0, 0, 0, 0.04);
   --simple-ring: 0 0 0 3px rgba(0, 0, 0, 0.1);
 
@@ -172,24 +172,24 @@
    Page
    ========================================================================== */
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .lo-page {
+[data-plain] .lo-page {
   font-feature-settings: "cv11" 1, "ss01" 0;
   letter-spacing: -0.006em;
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) h1,
-:is([data-skin="simple"], [data-skin="oldmoney"]) h2,
-:is([data-skin="simple"], [data-skin="oldmoney"]) h3,
-:is([data-skin="simple"], [data-skin="oldmoney"]) h4 {
+[data-plain] h1,
+[data-plain] h2,
+[data-plain] h3,
+[data-plain] h4 {
   letter-spacing: -0.015em;
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) :focus-visible {
+[data-plain] :focus-visible {
   outline: 2px solid var(--line-focus);
   outline-offset: 2px;
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .label {
+[data-plain] .label {
   letter-spacing: 0;
 }
 
@@ -197,12 +197,12 @@
    Shell: sidebar, top bar, page header, tab bar
    ========================================================================== */
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .sidebar {
+[data-plain] .sidebar {
   background: var(--bg-elev);
   gap: var(--space-5);
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .brand-name {
+[data-plain] .brand-name {
   font-family: var(--font-sans);
   font-size: var(--fs-md);
   font-weight: 700;
@@ -210,35 +210,35 @@
 }
 
 /* The version number is for the developer, not the reader */
-:is([data-skin="simple"], [data-skin="oldmoney"]) .brand-version {
+[data-plain] .brand-version {
   display: none;
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .nav {
+[data-plain] .nav {
   gap: 4px;
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .nav-heading {
+[data-plain] .nav-heading {
   margin-bottom: var(--space-1);
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .nav-item {
+[data-plain] .nav-item {
   height: 42px;
   border: 0;
   border-radius: var(--radius-sm);
   font-size: var(--fs-md);
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .nav-item[aria-current="page"] {
+[data-plain] .nav-item[aria-current="page"] {
   background: var(--surface-3);
   font-weight: 600;
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .nav-item[aria-current="page"]::before {
+[data-plain] .nav-item[aria-current="page"]::before {
   content: none;
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .nav-badge {
+[data-plain] .nav-badge {
   min-width: 24px;
   padding: 1px 7px;
   border: 0;
@@ -251,14 +251,14 @@
   color: var(--text-2);
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .nav-item[aria-current="page"] .nav-badge {
+[data-plain] .nav-item[aria-current="page"] .nav-badge {
   background: var(--accent);
   color: var(--accent-ink);
 }
 
 /* Icon rail (tablet) and tab bar (phone): the badge shrinks back to a corner count */
 @media (max-width: 900px) {
-  :is([data-skin="simple"], [data-skin="oldmoney"]) .nav-badge {
+  [data-plain] .nav-badge {
     min-width: 0;
     padding: 0 5px;
     font-size: 10px;
@@ -267,7 +267,7 @@
 }
 
 @media (max-width: 640px) {
-  :is([data-skin="simple"], [data-skin="oldmoney"]) .tab .nav-badge {
+  [data-plain] .tab .nav-badge {
     min-width: 0;
     padding: 0 5px;
     font-size: 10px;
@@ -275,7 +275,7 @@
   }
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .sidebar-foot {
+[data-plain] .sidebar-foot {
   border: 0;
   background: transparent;
   padding: var(--space-2) 0 0;
@@ -283,11 +283,11 @@
   border-radius: 0;
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .sys-status {
+[data-plain] .sys-status {
   padding: 0 var(--space-3);
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .sys-dot {
+[data-plain] .sys-dot {
   width: 7px;
   height: 7px;
   background: var(--text-3);
@@ -295,17 +295,17 @@
   animation: none;
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .sys-app {
+[data-plain] .sys-app {
   border-radius: var(--radius-pill);
   padding: 0 7px;
   line-height: 18px;
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .appearance-row .appearance-btn {
+[data-plain] .appearance-row .appearance-btn {
   font-size: var(--fs-sm);
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .install-steps li::before {
+[data-plain] .install-steps li::before {
   font-family: var(--font-sans);
   font-size: var(--fs-sm);
   font-weight: 600;
@@ -314,7 +314,7 @@
   color: var(--text-2);
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .install-note {
+[data-plain] .install-note {
   border-style: solid;
   border-color: var(--line);
   border-radius: var(--radius-sm);
@@ -322,193 +322,193 @@
 }
 
 /* ---- Top bar ---- */
-:is([data-skin="simple"], [data-skin="oldmoney"]) .topbar {
+[data-plain] .topbar {
   background: color-mix(in srgb, var(--bg) 85%, transparent);
   border-bottom-color: var(--line);
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .crumbs {
+[data-plain] .crumbs {
   font-size: var(--fs-sm);
 }
 
 /* The LIFE ticker is a trading readout: Simple keeps the top bar quiet (Habits still works fully) */
-:is([data-skin="simple"], [data-skin="oldmoney"]) .topbar-widget[data-feature="habits"] {
+[data-plain] .topbar-widget[data-feature="habits"] {
   display: none;
 }
 
 /* With the ticker gone, the crumbs keep their place on narrow screens */
 @media (max-width: 760px) {
-  :is([data-skin="simple"], [data-skin="oldmoney"]) .topbar:has(.topbar-widget) .crumbs > .crumb-current {
+  [data-plain] .topbar:has(.topbar-widget) .crumbs > .crumb-current {
     display: inline;
   }
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .clock {
+[data-plain] .clock {
   font-family: var(--font-sans);
   font-weight: 500;
   letter-spacing: 0;
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .topbar-date {
+[data-plain] .topbar-date {
   color: var(--text-2);
 }
 
 /* ---- Main + page header ---- */
-:is([data-skin="simple"], [data-skin="oldmoney"]) .view {
+[data-plain] .view {
   padding-top: var(--space-8);
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .page-header {
+[data-plain] .page-header {
   align-items: center;
   border-bottom: 0;
   padding-bottom: 0;
   margin-bottom: var(--space-6);
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .page-header::after {
+[data-plain] .page-header::after {
   content: none;
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .page-heading {
+[data-plain] .page-heading {
   gap: var(--space-1);
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .page-title {
+[data-plain] .page-title {
   font-size: var(--fs-3xl);
   font-weight: 700;
   letter-spacing: -0.025em;
   line-height: 1.15;
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .page-subtitle {
+[data-plain] .page-subtitle {
   font-size: var(--fs-md);
   color: var(--text-2);
 }
 
 /* ==========================================================================
    Shared kit
-   Written as `.thing:where(:is([data-skin="simple"], [data-skin="oldmoney"]) *)`: the same skin scope with no
+   Written as `.thing:where([data-plain] *)`: the same skin scope with no
    extra specificity, so these act as Simple's version of components.css and a
    feature's own tweak (.hb-check's size, .nt-pin's pressed state) still wins.
    ========================================================================== */
 
-.panel:where(:is([data-skin="simple"], [data-skin="oldmoney"]) *) {
+.panel:where([data-plain] *) {
   border-color: var(--line);
   box-shadow: var(--simple-card-shadow);
 }
 
 /* ---- Buttons: the base styling already reads Simple's tokens ---- */
-.btn--primary:where(:is([data-skin="simple"], [data-skin="oldmoney"]) *) {
+.btn--primary:where([data-plain] *) {
   font-weight: 600;
 }
 
-.btn--primary:where(:is([data-skin="simple"], [data-skin="oldmoney"]) *):hover {
+.btn--primary:where([data-plain] *):hover {
   filter: brightness(0.9);
 }
 
-.btn--primary:where(:is([data-skin="simple"], [data-skin="oldmoney"])[data-theme="light"] *):hover {
+.btn--primary:where([data-plain][data-theme="light"] *):hover {
   filter: none;
   background: #333333;
   border-color: #333333;
 }
 
 /* Destructive stays plain: no dashes or hatching, the label and dialog say what happens */
-.btn--danger:where(:is([data-skin="simple"], [data-skin="oldmoney"]) *) {
+.btn--danger:where([data-plain] *) {
   border-style: solid;
 }
 
-.btn--danger:where(:is([data-skin="simple"], [data-skin="oldmoney"]) *):hover {
+.btn--danger:where([data-plain] *):hover {
   background: var(--surface-2);
   border-color: var(--text-3);
 }
 
 /* ---- Fields ---- */
-.input:where(:is([data-skin="simple"], [data-skin="oldmoney"]) *),
-.textarea:where(:is([data-skin="simple"], [data-skin="oldmoney"]) *),
-.select:where(:is([data-skin="simple"], [data-skin="oldmoney"]) *) {
+.input:where([data-plain] *),
+.textarea:where([data-plain] *),
+.select:where([data-plain] *) {
   background: var(--surface);
 }
 
-.input:where(:is([data-skin="simple"], [data-skin="oldmoney"]) *):focus,
-.textarea:where(:is([data-skin="simple"], [data-skin="oldmoney"]) *):focus,
-.select:where(:is([data-skin="simple"], [data-skin="oldmoney"]) *):focus {
+.input:where([data-plain] *):focus,
+.textarea:where([data-plain] *):focus,
+.select:where([data-plain] *):focus {
   background: var(--surface);
 }
 
 /* ---- Checkbox: a soft rounded square ---- */
-.check:where(:is([data-skin="simple"], [data-skin="oldmoney"]) *) {
+.check:where([data-plain] *) {
   border-radius: max(6px, calc(var(--size) * 0.3));
 }
 
-.check:where(:is([data-skin="simple"], [data-skin="oldmoney"]) *):hover {
+.check:where([data-plain] *):hover {
   box-shadow: none;
 }
 
 /* ---- Segmented control: a soft track with a raised selection ---- */
-.seg:where(:is([data-skin="simple"], [data-skin="oldmoney"]) *) {
+.seg:where([data-plain] *) {
   border: 0;
   border-radius: 10px;
   background: var(--surface-3);
 }
 
-.seg-btn:where(:is([data-skin="simple"], [data-skin="oldmoney"]) *) {
+.seg-btn:where([data-plain] *) {
   border-radius: 7px;
   font-size: var(--fs-sm);
   color: var(--text-2);
 }
 
-.seg-btn:where(:is([data-skin="simple"], [data-skin="oldmoney"]) *)[aria-pressed="true"],
-.seg-btn:where(:is([data-skin="simple"], [data-skin="oldmoney"]) *)[aria-selected="true"] {
+.seg-btn:where([data-plain] *)[aria-pressed="true"],
+.seg-btn:where([data-plain] *)[aria-selected="true"] {
   background: var(--surface);
   color: var(--text);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
 }
 
-.seg-btn:where(:is([data-skin="simple"], [data-skin="oldmoney"])[data-theme="light"] *)[aria-pressed="true"],
-.seg-btn:where(:is([data-skin="simple"], [data-skin="oldmoney"])[data-theme="light"] *)[aria-selected="true"] {
+.seg-btn:where([data-plain][data-theme="light"] *)[aria-pressed="true"],
+.seg-btn:where([data-plain][data-theme="light"] *)[aria-selected="true"] {
   background: #ffffff;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.14);
 }
 
-.seg-count:where(:is([data-skin="simple"], [data-skin="oldmoney"]) *) {
+.seg-count:where([data-plain] *) {
   opacity: 1;
   color: var(--text-3);
   font-variant-numeric: tabular-nums;
 }
 
 /* ---- Tags: small rounded pills ---- */
-.tag:where(:is([data-skin="simple"], [data-skin="oldmoney"]) *) {
+.tag:where([data-plain] *) {
   padding: 0 8px;
   border-width: 1px;
   border-radius: var(--radius-pill);
   font-weight: 500;
 }
 
-.tag--dashed:where(:is([data-skin="simple"], [data-skin="oldmoney"]) *) {
+.tag--dashed:where([data-plain] *) {
   border-style: solid;
 }
 
 /* ---- Progress, meter, ring, stat ---- */
-.meter-tick:where(:is([data-skin="simple"], [data-skin="oldmoney"]) *) {
+.meter-tick:where([data-plain] *) {
   border-radius: 3px;
 }
 
-.ring-fill:where(:is([data-skin="simple"], [data-skin="oldmoney"]) *) {
+.ring-fill:where([data-plain] *) {
   filter: none;
 }
 
-.stat-value:where(:is([data-skin="simple"], [data-skin="oldmoney"]) *) {
+.stat-value:where([data-plain] *) {
   font-weight: 600;
 }
 
 /* ---- Empty state: quiet, no hatching ---- */
-.empty:where(:is([data-skin="simple"], [data-skin="oldmoney"]) *) {
+.empty:where([data-plain] *) {
   border: 1px solid var(--line);
   background: var(--surface);
   color: var(--text-2);
 }
 
-.empty-icon:where(:is([data-skin="simple"], [data-skin="oldmoney"]) *) {
+.empty-icon:where([data-plain] *) {
   width: 48px;
   height: 48px;
   border: 0;
@@ -516,34 +516,34 @@
   background: var(--surface-3);
 }
 
-.empty-title:where(:is([data-skin="simple"], [data-skin="oldmoney"]) *) {
+.empty-title:where([data-plain] *) {
   font-size: var(--fs-lg);
   font-weight: 600;
 }
 
-.empty-text:where(:is([data-skin="simple"], [data-skin="oldmoney"]) *) {
+.empty-text:where([data-plain] *) {
   font-size: var(--fs-md);
   color: var(--text-2);
 }
 
-.kbd:where(:is([data-skin="simple"], [data-skin="oldmoney"]) *) {
+.kbd:where([data-plain] *) {
   border-radius: 5px;
 }
 
 /* ---- Toasts: a dark rounded bubble in both modes ---- */
-.toast:where(:is([data-skin="simple"], [data-skin="oldmoney"]) *) {
+.toast:where([data-plain] *) {
   border: 0;
   border-radius: var(--radius);
   background: var(--surface-solid-2);
   padding: var(--space-3) var(--space-3) var(--space-3) var(--space-5);
 }
 
-.toast:where(:is([data-skin="simple"], [data-skin="oldmoney"])[data-theme="light"] *) {
+.toast:where([data-plain][data-theme="light"] *) {
   background: #1f1f1f;
   color: #f2f2f2;
 }
 
-.toast-action:where(:is([data-skin="simple"], [data-skin="oldmoney"]) *) {
+.toast-action:where([data-plain] *) {
   font-size: var(--fs-sm);
   font-weight: 600;
   border: 0;
@@ -553,24 +553,24 @@
   color: var(--text);
 }
 
-.toast-action:where(:is([data-skin="simple"], [data-skin="oldmoney"])[data-theme="light"] *) {
+.toast-action:where([data-plain][data-theme="light"] *) {
   background: #3a3a3a;
   color: #ffffff;
 }
 
-.toast-action:where(:is([data-skin="simple"], [data-skin="oldmoney"]) *):hover {
+.toast-action:where([data-plain] *):hover {
   background: var(--accent);
   color: var(--accent-ink);
 }
 
-.toast-action:where(:is([data-skin="simple"], [data-skin="oldmoney"])[data-theme="light"] *):hover {
+.toast-action:where([data-plain][data-theme="light"] *):hover {
   background: #ffffff;
   color: #1a1a1a;
 }
 
 /* ---- Context menu (right-click): a soft card, sentence case, a gentle fill on the lit item.
    The shortcut hints are .lo-hint, so they are hidden here. ---- */
-:is([data-skin="simple"], [data-skin="oldmoney"]) .ctx-menu {
+[data-plain] .ctx-menu {
   --ctx-hi: var(--surface-3);
   min-width: 176px;
   padding: 6px;
@@ -580,12 +580,12 @@
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"])[data-theme="light"] .ctx-menu {
+[data-plain][data-theme="light"] .ctx-menu {
   --ctx-hi: var(--surface-2);
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.06);
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .ctx-item {
+[data-plain] .ctx-item {
   grid-template-columns: 16px minmax(0, 1fr);
   min-height: 34px;
   padding: 0 10px;
@@ -595,46 +595,46 @@
   color: var(--text);
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .ctx-icon {
+[data-plain] .ctx-icon {
   color: var(--text-2);
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .ctx-item:not([aria-disabled="true"]):is(:hover, :focus),
-:is([data-skin="simple"], [data-skin="oldmoney"]) .ctx-item:focus-visible {
+[data-plain] .ctx-item:not([aria-disabled="true"]):is(:hover, :focus),
+[data-plain] .ctx-item:focus-visible {
   background: var(--ctx-hi);
   box-shadow: none;
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .ctx-item[aria-disabled="true"],
-:is([data-skin="simple"], [data-skin="oldmoney"]) .ctx-item[aria-disabled="true"] .ctx-icon {
+[data-plain] .ctx-item[aria-disabled="true"],
+[data-plain] .ctx-item[aria-disabled="true"] .ctx-icon {
   color: var(--text-4);
 }
 
 /* ---- Dialogs ---- */
-.modal-root:where(:is([data-skin="simple"], [data-skin="oldmoney"]) *) {
+.modal-root:where([data-plain] *) {
   backdrop-filter: blur(2px);
   -webkit-backdrop-filter: blur(2px);
 }
 
-.modal:where(:is([data-skin="simple"], [data-skin="oldmoney"]) *) {
+.modal:where([data-plain] *) {
   border: 0;
   border-radius: var(--radius-lg);
 }
 
-.modal-head:where(:is([data-skin="simple"], [data-skin="oldmoney"]) *) {
+.modal-head:where([data-plain] *) {
   border-bottom: 0;
   padding: var(--space-5) var(--space-6) var(--space-2);
 }
 
-.modal-title:where(:is([data-skin="simple"], [data-skin="oldmoney"]) *) {
+.modal-title:where([data-plain] *) {
   font-weight: 650;
 }
 
-.modal-body:where(:is([data-skin="simple"], [data-skin="oldmoney"]) *) {
+.modal-body:where([data-plain] *) {
   padding: var(--space-4) var(--space-6);
 }
 
-.modal-foot:where(:is([data-skin="simple"], [data-skin="oldmoney"]) *) {
+.modal-foot:where([data-plain] *) {
   border-top: 0;
   padding: var(--space-3) var(--space-6) var(--space-5);
 }
@@ -643,171 +643,171 @@
    Tasks
    ========================================================================== */
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .tk-command {
+[data-plain] .tk-command {
   background: var(--surface);
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .tk-command:focus-within {
+[data-plain] .tk-command:focus-within {
   border-color: var(--line-strong);
   box-shadow: var(--simple-card-shadow), var(--simple-ring);
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .tk-command-main::after {
+[data-plain] .tk-command-main::after {
   content: none;
 }
 
 /* The › prompt is terminal talk: a plain text field instead */
-:is([data-skin="simple"], [data-skin="oldmoney"]) .tk-prompt {
+[data-plain] .tk-prompt {
   display: none;
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .tk-command-main {
+[data-plain] .tk-command-main {
   padding-left: var(--space-5);
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .tk-add-input {
+[data-plain] .tk-add-input {
   font-size: var(--fs-lg);
   font-weight: 400;
 }
 
 /* :where keeps this at base strength, so the phone layout's icon-only button still wins */
-.tk-add-btn:where(:is([data-skin="simple"], [data-skin="oldmoney"]) *) {
+.tk-add-btn:where([data-plain] *) {
   padding: 0 var(--space-4) 0 var(--space-3);
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .tk-command-tools {
+[data-plain] .tk-command-tools {
   padding: var(--space-2) var(--space-3) var(--space-2) var(--space-5);
   gap: var(--space-2) var(--space-6);
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .tk-tool-label {
+[data-plain] .tk-tool-label {
   min-width: 0;
   color: var(--text-2);
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .tk-command-tools .seg-btn {
+[data-plain] .tk-command-tools .seg-btn {
   height: 28px;
   font-size: var(--fs-sm);
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .tk-date {
+[data-plain] .tk-date {
   height: 34px;
   font-family: var(--font-sans);
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .tk-token {
+[data-plain] .tk-token {
   height: 26px;
   border-color: var(--line-strong);
   background: var(--surface-2);
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .tk-token:hover {
+[data-plain] .tk-token:hover {
   border-style: solid;
   background: var(--surface-3);
 }
 
 /* Filter and section counts: the subtitle already says what today holds */
-:is([data-skin="simple"], [data-skin="oldmoney"]) .tk-filters .seg-count,
-:is([data-skin="simple"], [data-skin="oldmoney"]) .tk-sec-seg .seg-count {
+[data-plain] .tk-filters .seg-count,
+[data-plain] .tk-sec-seg .seg-count {
   display: none;
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .tk-toolbar {
+[data-plain] .tk-toolbar {
   margin-bottom: var(--space-4);
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .tk-sort > .label {
+[data-plain] .tk-sort > .label {
   color: var(--text-2);
 }
 
 /* ---- Rows ---- */
-:is([data-skin="simple"], [data-skin="oldmoney"]) .tk-row {
+[data-plain] .tk-row {
   --row-line: 24px;
   grid-template-columns: 28px auto minmax(0, 1fr) auto;
   padding-top: 14px;
   padding-bottom: 14px;
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .tk-row:focus-visible {
+[data-plain] .tk-row:focus-visible {
   box-shadow: inset 0 0 0 2px var(--line-focus);
 }
 
 /* No priority bars or hatching: the Low / Medium / High tag says it in words */
-:is([data-skin="simple"], [data-skin="oldmoney"]) .tk-row::before {
+[data-plain] .tk-row::before {
   content: none;
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .tk-row.is-overdue .tk-grip {
+[data-plain] .tk-row.is-overdue .tk-grip {
   background: none;
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .tk-grip {
+[data-plain] .tk-grip {
   padding-top: 14px;
   margin-top: -14px;
   margin-bottom: -14px;
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .tk-title-line {
+[data-plain] .tk-title-line {
   font-size: var(--fs-md);
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .tk-meta .tag {
+[data-plain] .tk-meta .tag {
   height: 22px;
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .tk-pri.tag--dashed {
+[data-plain] .tk-pri.tag--dashed {
   border-style: solid;
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .tk-due-tag--overdue {
+[data-plain] .tk-due-tag--overdue {
   background: var(--surface-3);
   border-color: transparent;
   color: var(--text);
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .tk-due-tag--overdue strong {
+[data-plain] .tk-due-tag--overdue strong {
   font-weight: 600;
 }
 
 /* "Overdue · 2 days ago": a calm dot instead of a blinking light and a slash */
-:is([data-skin="simple"], [data-skin="oldmoney"]) .tk-blink {
+[data-plain] .tk-blink {
   display: none;
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .tk-sep {
+[data-plain] .tk-sep {
   font-size: 0;
   opacity: 1;
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .tk-sep::before {
+[data-plain] .tk-sep::before {
   content: "·";
   font-size: var(--fs-2xs);
   color: var(--text-2);
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .tk-note {
+[data-plain] .tk-note {
   font-size: var(--fs-sm);
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .tk-row.is-dragging {
+[data-plain] .tk-row.is-dragging {
   border-radius: var(--radius);
   box-shadow: var(--shadow);
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .tk-placeholder {
+[data-plain] .tk-placeholder {
   border-radius: var(--radius-sm);
 }
 
 /* ---- Completed ---- */
-:is([data-skin="simple"], [data-skin="oldmoney"]) .tk-done-toggle {
+[data-plain] .tk-done-toggle {
   color: var(--text-2);
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .tk-done-toggle .label {
+[data-plain] .tk-done-toggle .label {
   font-size: var(--fs-sm);
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .tk-done-count {
+[data-plain] .tk-done-count {
   border: 0;
   border-radius: var(--radius-pill);
   background: var(--surface-3);
@@ -816,11 +816,11 @@
 }
 
 /* ---- Details dialog ---- */
-:is([data-skin="simple"], [data-skin="oldmoney"]) .tk-field-error::before {
+[data-plain] .tk-field-error::before {
   content: none;
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .tk-detail-foot {
+[data-plain] .tk-detail-foot {
   border-top-style: solid;
 }
 
@@ -829,115 +829,115 @@
    ========================================================================== */
 
 /* Footers that only advertise shortcuts go (the shortcuts still work); the board keeps its own */
-:is([data-skin="simple"], [data-skin="oldmoney"]) .nt-rail > .nt-foot,
-:is([data-skin="simple"], [data-skin="oldmoney"]) .nt-list > .nt-foot,
-:is([data-skin="simple"], [data-skin="oldmoney"]) .nt-editor > .nt-foot,
-:is([data-skin="simple"], [data-skin="oldmoney"]) .nt-strip-hint {
+[data-plain] .nt-rail > .nt-foot,
+[data-plain] .nt-list > .nt-foot,
+[data-plain] .nt-editor > .nt-foot,
+[data-plain] .nt-strip-hint {
   display: none;
 }
 
 /* ---- List ---- */
-:is([data-skin="simple"], [data-skin="oldmoney"]) .nt-list-head {
+[data-plain] .nt-list-head {
   gap: var(--space-2);
   padding: var(--space-3);
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .nt-new {
+[data-plain] .nt-new {
   justify-content: center;
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .nt-search .input {
+[data-plain] .nt-search .input {
   border-radius: var(--radius-sm);
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .nt-list-meta {
+[data-plain] .nt-list-meta {
   border-bottom: 0;
   padding: var(--space-1) var(--space-4) var(--space-2);
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .nt-list-count {
+[data-plain] .nt-list-count {
   font-size: var(--fs-sm);
 }
 
 /* "Pinned" / "Notes" group heads: a quiet heading, no rule or count */
-:is([data-skin="simple"], [data-skin="oldmoney"]) .nt-group {
+[data-plain] .nt-group {
   padding: var(--space-3) var(--space-2) var(--space-1);
   font-weight: 600;
   color: var(--text-2);
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .nt-group::after,
-:is([data-skin="simple"], [data-skin="oldmoney"]) .nt-group-count {
+[data-plain] .nt-group::after,
+[data-plain] .nt-group-count {
   display: none;
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .nt-items {
+[data-plain] .nt-items {
   gap: 4px;
 }
 
 /* No index column: the title leads */
-:is([data-skin="simple"], [data-skin="oldmoney"]) .nt-item {
+[data-plain] .nt-item {
   grid-template-columns: minmax(0, 1fr);
   padding: var(--space-3);
   border: 0;
   border-radius: 10px;
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .nt-item[aria-current="true"] {
+[data-plain] .nt-item[aria-current="true"] {
   background: var(--surface-3);
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .nt-item[aria-current="true"]::before {
+[data-plain] .nt-item[aria-current="true"]::before {
   content: none;
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .nt-item-title {
+[data-plain] .nt-item-title {
   font-weight: 600;
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .nt-item-time {
+[data-plain] .nt-item-time {
   font-size: var(--fs-2xs);
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .nt-item-tag {
+[data-plain] .nt-item-tag {
   height: 20px;
   border-radius: var(--radius-pill);
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .nt-hit {
+[data-plain] .nt-hit {
   border-radius: 3px;
 }
 
 /* ---- Editor ---- */
-:is([data-skin="simple"], [data-skin="oldmoney"]) .nt-toolbar {
+[data-plain] .nt-toolbar {
   border-bottom: 0;
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .nt-pin[aria-pressed="true"],
-:is([data-skin="simple"], [data-skin="oldmoney"]) .nt-pin[aria-pressed="true"]:hover {
+[data-plain] .nt-pin[aria-pressed="true"],
+[data-plain] .nt-pin[aria-pressed="true"]:hover {
   box-shadow: none;
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .nt-title {
+[data-plain] .nt-title {
   font-weight: 700;
   letter-spacing: -0.02em;
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .nt-meta {
+[data-plain] .nt-meta {
   border-bottom: 0;
   font-size: var(--fs-sm);
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .nt-meta b {
+[data-plain] .nt-meta b {
   font-weight: 500;
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .nt-meta-item + .nt-meta-item::before {
+[data-plain] .nt-meta-item + .nt-meta-item::before {
   content: none;
 }
 
 /* Save status: a soft pill with a still dot */
-:is([data-skin="simple"], [data-skin="oldmoney"]) .nt-status {
+[data-plain] .nt-status {
   height: 22px;
   padding: 0 10px;
   border: 0;
@@ -945,25 +945,25 @@
   background: var(--surface-3);
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .nt-status[data-state="saved"] .nt-status-dot {
+[data-plain] .nt-status[data-state="saved"] .nt-status-dot {
   box-shadow: none;
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .nt-status[data-state="saving"] {
+[data-plain] .nt-status[data-state="saving"] {
   border-style: solid;
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .nt-status.is-flash {
+[data-plain] .nt-status.is-flash {
   box-shadow: none;
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .nt-body {
+[data-plain] .nt-body {
   font-size: var(--fs-md);
   line-height: 1.7;
 }
 
 /* "Move to section" button */
-:is([data-skin="simple"], [data-skin="oldmoney"]) .nt-move {
+[data-plain] .nt-move {
   height: 26px;
   padding: 0 8px 0 10px;
   border-style: solid;
@@ -972,84 +972,84 @@
   font-size: var(--fs-2xs);
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .nt-menu {
+[data-plain] .nt-menu {
   border-radius: var(--radius);
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .nt-menu-item {
+[data-plain] .nt-menu-item {
   border-radius: var(--radius-sm);
 }
 
 /* ---- Markdown preview ---- */
-:is([data-skin="simple"], [data-skin="oldmoney"]) .nt-prose {
+[data-plain] .nt-prose {
   font-size: var(--fs-md);
   line-height: 1.7;
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .nt-prose code,
-:is([data-skin="simple"], [data-skin="oldmoney"]) .nt-prose pre {
+[data-plain] .nt-prose code,
+[data-plain] .nt-prose pre {
   border-radius: var(--radius-sm);
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .nt-prose pre[data-lang]::before {
+[data-plain] .nt-prose pre[data-lang]::before {
   text-transform: none;
   letter-spacing: 0;
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .nt-prose blockquote {
+[data-plain] .nt-prose blockquote {
   border-left-width: 3px;
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .nt-prose hr::after {
+[data-plain] .nt-prose hr::after {
   content: none;
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .nt-prose ul > li::before {
+[data-plain] .nt-prose ul > li::before {
   border-radius: 50%;
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .nt-task-box {
+[data-plain] .nt-task-box {
   border-radius: 5px;
 }
 
 /* ---- Sections rail ---- */
-:is([data-skin="simple"], [data-skin="oldmoney"]) .nt-rail-head {
+[data-plain] .nt-rail-head {
   border-bottom: 0;
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .nt-rail-head > .label {
+[data-plain] .nt-rail-head > .label {
   font-size: var(--fs-sm);
   font-weight: 600;
   color: var(--text);
 }
 
 /* "Sections 4": the list right below already shows them */
-:is([data-skin="simple"], [data-skin="oldmoney"]) .nt-rail-total {
+[data-plain] .nt-rail-total {
   display: none;
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .nt-rail-sep::after {
+[data-plain] .nt-rail-sep::after {
   content: none;
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .nt-rail-item {
+[data-plain] .nt-rail-item {
   height: 38px;
   border: 0;
   font-size: var(--fs-md);
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .nt-rail-item[aria-current="true"] {
+[data-plain] .nt-rail-item[aria-current="true"] {
   background: var(--surface-3);
   font-weight: 600;
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .nt-rail-item[aria-current="true"]::before {
+[data-plain] .nt-rail-item[aria-current="true"]::before {
   content: none;
 }
 
 /* Counts read as quiet plain numbers, not badges */
-:is([data-skin="simple"], [data-skin="oldmoney"]) .nt-rail-count,
-:is([data-skin="simple"], [data-skin="oldmoney"]) .nt-srow.is-drop .nt-rail-count {
+[data-plain] .nt-rail-count,
+[data-plain] .nt-srow.is-drop .nt-rail-count {
   min-width: 0;
   padding: 0;
   border: 0;
@@ -1059,22 +1059,22 @@
   color: var(--text-3);
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .nt-rail-item[aria-current="true"] .nt-rail-count {
+[data-plain] .nt-rail-item[aria-current="true"] .nt-rail-count {
   background: none;
   color: var(--text-2);
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .nt-rail.is-dropzone .nt-srow.is-drop .nt-rail-item {
+[data-plain] .nt-rail.is-dropzone .nt-srow.is-drop .nt-rail-item {
   box-shadow: inset 0 0 0 2px var(--line-focus);
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .nt-suggest-chip {
+[data-plain] .nt-suggest-chip {
   border-style: solid;
   border-radius: var(--radius-pill);
 }
 
 /* ---- Section chips (narrow workspaces) ---- */
-:is([data-skin="simple"], [data-skin="oldmoney"]) .nt-chip {
+[data-plain] .nt-chip {
   height: 34px;
   padding: 0 12px;
   border-color: var(--line-strong);
@@ -1083,11 +1083,11 @@
   font-size: var(--fs-sm);
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .nt-chip[aria-current="true"] {
+[data-plain] .nt-chip[aria-current="true"] {
   box-shadow: none;
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .nt-chip-count {
+[data-plain] .nt-chip-count {
   border: 0;
   background: none;
   font-family: var(--font-sans);
@@ -1095,20 +1095,20 @@
   color: var(--text-3);
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .nt-chip[aria-current="true"] .nt-chip-count {
+[data-plain] .nt-chip[aria-current="true"] .nt-chip-count {
   background: none;
   color: inherit;
   opacity: 0.75;
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .nt-chip--add,
-:is([data-skin="simple"], [data-skin="oldmoney"]) .nt-chip--suggest {
+[data-plain] .nt-chip--add,
+[data-plain] .nt-chip--suggest {
   border-style: solid;
   border-color: var(--line);
 }
 
 /* ---- Drag ghost ---- */
-:is([data-skin="simple"], [data-skin="oldmoney"]) .nt-drag-ghost {
+[data-plain] .nt-drag-ghost {
   border-radius: var(--radius);
   box-shadow: var(--shadow);
 }
@@ -1118,36 +1118,36 @@
    ========================================================================== */
 
 /* Column pager chips: off-screen columns are dimmer, not dashed */
-:is([data-skin="simple"], [data-skin="oldmoney"]) .nt-pager-chip:not(.is-inview) {
+[data-plain] .nt-pager-chip:not(.is-inview) {
   border-style: solid;
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .nt-pager.is-docking .nt-pager-chip {
+[data-plain] .nt-pager.is-docking .nt-pager-chip {
   border-style: solid;
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .nt-pager.is-docking .nt-pager-chip.is-home {
+[data-plain] .nt-pager.is-docking .nt-pager-chip.is-home {
   background: var(--surface-2);
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .nt-col {
+[data-plain] .nt-col {
   border-radius: var(--radius);
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .nt-col-head {
+[data-plain] .nt-col-head {
   border-bottom-color: transparent;
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .nt-col-head::after {
+[data-plain] .nt-col-head::after {
   content: none;
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .nt-col-name {
+[data-plain] .nt-col-name {
   font-weight: 600;
 }
 
 /* Note count beside the column name: a quiet number, not a box */
-:is([data-skin="simple"], [data-skin="oldmoney"]) .nt-col-count {
+[data-plain] .nt-col-count {
   min-width: 0;
   padding: 0;
   border: 0;
@@ -1156,7 +1156,7 @@
   color: var(--text-3);
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .nt-col-empty {
+[data-plain] .nt-col-empty {
   border-style: solid;
   border-color: var(--line);
   background: none;
@@ -1164,38 +1164,38 @@
   font-size: var(--fs-sm);
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .nt-col-new {
+[data-plain] .nt-col-new {
   font-family: var(--font-sans);
   font-size: var(--fs-sm);
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .nt-col-addsection {
+[data-plain] .nt-col-addsection {
   border-style: solid;
   border-color: var(--line);
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .nt-col-addsection-label {
+[data-plain] .nt-col-addsection-label {
   font-family: var(--font-sans);
   font-size: var(--fs-sm);
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .nt-card {
+[data-plain] .nt-card {
   border-color: var(--line);
   border-radius: 10px;
   background: var(--surface-solid);
   box-shadow: var(--simple-card-shadow);
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .nt-card[aria-current="true"] {
+[data-plain] .nt-card[aria-current="true"] {
   border-color: var(--line-focus);
   box-shadow: var(--simple-card-shadow);
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .nt-card[aria-current="true"]::before {
+[data-plain] .nt-card[aria-current="true"]::before {
   content: none;
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .nt-lift-to {
+[data-plain] .nt-lift-to {
   font-family: var(--font-sans);
 }
 
@@ -1206,154 +1206,154 @@
    ========================================================================== */
 
 /* ---- Week selector ---- */
-:is([data-skin="simple"], [data-skin="oldmoney"]) .hb-sel {
+[data-plain] .hb-sel {
   border-radius: 10px;
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .hb-sel.is-future {
+[data-plain] .hb-sel.is-future {
   border-style: solid;
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .hb-sel-wd {
+[data-plain] .hb-sel-wd {
   font-family: var(--font-sans);
   font-size: var(--fs-xs);
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .hb-sel-date {
+[data-plain] .hb-sel-date {
   font-weight: 600;
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .hb-sel-seg {
+[data-plain] .hb-sel-seg {
   border-radius: 2px;
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .hb-sel-meter[data-mode="rest"] .hb-sel-seg {
+[data-plain] .hb-sel-meter[data-mode="rest"] .hb-sel-seg {
   background: currentColor;
   opacity: 0.12;
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .hb-sel[aria-checked="true"] {
+[data-plain] .hb-sel[aria-checked="true"] {
   box-shadow: none;
 }
 
 /* ---- Selected day: a plain progress ring, no gauge ticks ---- */
-:is([data-skin="simple"], [data-skin="oldmoney"]) .hb-dayhead {
+[data-plain] .hb-dayhead {
   background: none;
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .hb-dial-ticks {
+[data-plain] .hb-dial-ticks {
   display: none;
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .hb-ring-frac {
+[data-plain] .hb-ring-frac {
   font-family: var(--font-sans);
   font-weight: 600;
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .hb-status {
+[data-plain] .hb-status {
   font-size: var(--fs-md);
   color: var(--text-2);
 }
 
 /* ---- Cards ---- */
-:is([data-skin="simple"], [data-skin="oldmoney"]) .hb-card-fx {
+[data-plain] .hb-card-fx {
   display: none;
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .hb-card.is-done {
+[data-plain] .hb-card.is-done {
   border-color: var(--line);
   background: var(--surface);
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .hb-card.is-future {
+[data-plain] .hb-card.is-future {
   border-style: solid;
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .hb-card-name {
+[data-plain] .hb-card-name {
   font-weight: 600;
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .hb-card.is-done .hb-check {
+[data-plain] .hb-card.is-done .hb-check {
   box-shadow: none;
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .hb-card.is-miss .hb-check,
-:is([data-skin="simple"], [data-skin="oldmoney"]) .hb-card.is-future .hb-check {
+[data-plain] .hb-card.is-miss .hb-check,
+[data-plain] .hb-card.is-future .hb-check {
   border-style: solid;
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .hb-stat-num {
+[data-plain] .hb-stat-num {
   font-family: var(--font-sans);
   font-weight: 600;
 }
 
 /* ---- Day states: week strip, heatmap and legend ---- */
-:is([data-skin="simple"], [data-skin="oldmoney"]) .hb-day {
+[data-plain] .hb-day {
   border-radius: var(--radius-sm);
   font-family: var(--font-sans);
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .hb-day[data-state="pending"] {
+[data-plain] .hb-day[data-state="pending"] {
   border-style: solid;
   border-width: 1.5px;
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .hb-day[data-state="future"][data-planned="true"],
-:is([data-skin="simple"], [data-skin="oldmoney"]) .hb-swatch[data-s="planned"] {
+[data-plain] .hb-day[data-state="future"][data-planned="true"],
+[data-plain] .hb-swatch[data-s="planned"] {
   border-style: solid;
   border-color: var(--line-strong);
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .hb-day[data-state="rest"],
-:is([data-skin="simple"], [data-skin="oldmoney"]) .hb-swatch[data-s="rest"],
-:is([data-skin="simple"], [data-skin="oldmoney"]) .hb-heat-cell[data-s="rest"] {
+[data-plain] .hb-day[data-state="rest"],
+[data-plain] .hb-swatch[data-s="rest"],
+[data-plain] .hb-heat-cell[data-s="rest"] {
   background: none;
   border-color: transparent;
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .hb-swatch[data-s="rest"] {
+[data-plain] .hb-swatch[data-s="rest"] {
   border-color: var(--line);
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .hb-day[data-state="bonus"],
-:is([data-skin="simple"], [data-skin="oldmoney"]) .hb-swatch[data-s="bonus"],
-:is([data-skin="simple"], [data-skin="oldmoney"]) .hb-heat-cell[data-s="bonus"],
-:is([data-skin="simple"], [data-skin="oldmoney"]) .hb-np-row.is-bonus .hb-np-check {
+[data-plain] .hb-day[data-state="bonus"],
+[data-plain] .hb-swatch[data-s="bonus"],
+[data-plain] .hb-heat-cell[data-s="bonus"],
+[data-plain] .hb-np-row.is-bonus .hb-np-check {
   background: var(--heat-2);
   border-color: transparent;
   color: var(--text);
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .hb-day[data-state="pre"] {
+[data-plain] .hb-day[data-state="pre"] {
   border-style: solid;
   border-color: transparent;
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .hb-swatch {
+[data-plain] .hb-swatch {
   border-radius: 3px;
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .hb-heat-cell {
+[data-plain] .hb-heat-cell {
   border-radius: 3px;
 }
 
 /* ---- Week plan ---- */
-:is([data-skin="simple"], [data-skin="oldmoney"]) .hb-plan-cell.is-draft {
+[data-plain] .hb-plan-cell.is-draft {
   border-style: solid;
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .hb-plan-cell.is-draft[aria-pressed="true"] {
+[data-plain] .hb-plan-cell.is-draft[aria-pressed="true"] {
   background: var(--heat-2);
   border-color: transparent;
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .hb-plan-addrow > * {
+[data-plain] .hb-plan-addrow > * {
   border-top-style: solid;
   border-top-color: var(--line);
 }
 
 /* ---- Habit editor ---- */
-:is([data-skin="simple"], [data-skin="oldmoney"]) .hb-f-name[aria-invalid="true"] {
+[data-plain] .hb-f-name[aria-invalid="true"] {
   border-style: solid;
   background: none;
 }
@@ -1362,27 +1362,27 @@
    Habits insights
    ========================================================================== */
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .hbi-tile::before {
+[data-plain] .hbi-tile::before {
   content: none;
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .hbi-tile-value {
+[data-plain] .hbi-tile-value {
   font-weight: 600;
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .hbi-card-title {
+[data-plain] .hbi-card-title {
   font-weight: 600;
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .hbi-rank-tag {
+[data-plain] .hbi-rank-tag {
   border-style: solid;
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .hbi-note {
+[data-plain] .hbi-note {
   background: var(--surface-2);
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .hbi-axis {
+[data-plain] .hbi-axis {
   font-family: var(--font-sans);
   letter-spacing: 0;
 }
@@ -1392,105 +1392,105 @@
    ========================================================================== */
 
 /* "Today" while today is already on screen: dimmed, not dashed */
-:is([data-skin="simple"], [data-skin="oldmoney"]) .cal-today-btn.is-here {
+[data-plain] .cal-today-btn.is-here {
   border-style: solid;
   color: var(--text-3);
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .cal-title {
+[data-plain] .cal-title {
   font-weight: 700;
   letter-spacing: -0.02em;
 }
 
 /* ---- Month: no week-number column. It stays in the grid at zero width so the
    seven day columns keep their places ---- */
-:is([data-skin="simple"], [data-skin="oldmoney"]) .cal-month,
-:is([data-skin="simple"], [data-skin="oldmoney"]) .cal-month.is-compact {
+[data-plain] .cal-month,
+[data-plain] .cal-month.is-compact {
   --cal-gutter: 0px;
   border-radius: var(--radius);
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .cal-mhead-wk,
-:is([data-skin="simple"], [data-skin="oldmoney"]) .cal-wkhead {
+[data-plain] .cal-mhead-wk,
+[data-plain] .cal-wkhead {
   visibility: hidden;
   overflow: hidden;
   padding: 0;
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .cal-mhead {
+[data-plain] .cal-mhead {
   border-bottom-color: var(--line);
   background: var(--surface);
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .cal-mhead-wk + .cal-mhead-day,
-:is([data-skin="simple"], [data-skin="oldmoney"]) .cal-wkhead + .cal-cell {
+[data-plain] .cal-mhead-wk + .cal-mhead-day,
+[data-plain] .cal-wkhead + .cal-cell {
   border-left: 0;
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .cal-cell.is-out {
+[data-plain] .cal-cell.is-out {
   background-image: none;
   background-color: var(--bg-elev);
 }
 
 /* The week view's "W41" corner */
-:is([data-skin="simple"], [data-skin="oldmoney"]) .cal-wk-gutter {
+[data-plain] .cal-wk-gutter {
   visibility: hidden;
 }
 
 /* Habit dots stay; the "3/4" beside them goes (it still shows when the dots can't fit) */
-:is([data-skin="simple"], [data-skin="oldmoney"]) .cal-hb:not(.is-count) .cal-hb-n {
+[data-plain] .cal-hb:not(.is-count) .cal-hb-n {
   display: none;
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .cal-hb-n {
+[data-plain] .cal-hb-n {
   font-family: var(--font-sans);
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .cal-hb.is-perfect .cal-hb-dot.is-done {
+[data-plain] .cal-hb.is-perfect .cal-hb-dot.is-done {
   box-shadow: none;
 }
 
 /* ---- Task chips: overdue is a firmer outline, priority letters stay in the day list ---- */
-:is([data-skin="simple"], [data-skin="oldmoney"]) .cal-task {
+[data-plain] .cal-task {
   border-radius: 6px;
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .cal-task.is-overdue,
-:is([data-skin="simple"], [data-skin="oldmoney"]) .cal-trow.is-overdue {
+[data-plain] .cal-task.is-overdue,
+[data-plain] .cal-trow.is-overdue {
   border-style: solid;
   border-color: var(--text-3);
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .cal-month .cal-pri {
+[data-plain] .cal-month .cal-pri {
   display: none;
 }
 
 /* ---- Events ---- */
-:is([data-skin="simple"], [data-skin="oldmoney"]) .cal-ev {
+[data-plain] .cal-ev {
   border-radius: 6px;
 }
 
 /* ---- Day list: habit checks ---- */
-:is([data-skin="simple"], [data-skin="oldmoney"]) .cal-hcheck:disabled,
-:is([data-skin="simple"], [data-skin="oldmoney"]) .cal-hrow.is-miss .cal-hcheck {
+[data-plain] .cal-hcheck:disabled,
+[data-plain] .cal-hrow.is-miss .cal-hcheck {
   border-style: solid;
 }
 
 /* ---- Unscheduled tray and drop targets ---- */
-:is([data-skin="simple"], [data-skin="oldmoney"]) .cal-tray-empty {
+[data-plain] .cal-tray-empty {
   border-style: solid;
   border-color: var(--line);
   border-radius: var(--radius-sm);
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) [data-drop-day].is-drop,
-:is([data-skin="simple"], [data-skin="oldmoney"]) [data-drop-tray].is-drop {
+[data-plain] [data-drop-day].is-drop,
+[data-plain] [data-drop-tray].is-drop {
   background-image: none;
   background-color: var(--accent-soft);
 }
 
 /* Week view: priority letters stay in the day list only */
-:is([data-skin="simple"], [data-skin="oldmoney"]) .cal-wk-allday .cal-pri {
+[data-plain] .cal-wk-allday .cal-pri {
   display: none;
 }
 
@@ -1498,7 +1498,7 @@
    Home: soft cards, a plain week (no hatching), small round priority dots
    ========================================================================== */
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .hm-next {
+[data-plain] .hm-next {
   padding: 6px 14px 6px 10px;
   border-color: var(--line);
   background: var(--surface);
@@ -1506,60 +1506,60 @@
   font-size: var(--fs-sm);
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .hm-next.is-empty {
+[data-plain] .hm-next.is-empty {
   border-style: solid;
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .hm-card-title {
+[data-plain] .hm-card-title {
   font-size: var(--fs-sm);
   font-weight: 600;
   color: var(--text);
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .hm-more,
-:is([data-skin="simple"], [data-skin="oldmoney"]) .hm-count {
+[data-plain] .hm-more,
+[data-plain] .hm-count {
   font-size: var(--fs-sm);
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .hm-more {
+[data-plain] .hm-more {
   color: var(--text-2);
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .hm-days {
+[data-plain] .hm-days {
   border-color: var(--line);
   border-radius: var(--radius);
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .hm-day {
+[data-plain] .hm-day {
   background: var(--surface);
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .hm-day:hover {
+[data-plain] .hm-day:hover {
   background: var(--surface-2);
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .hm-day.is-weekend {
+[data-plain] .hm-day.is-weekend {
   background: var(--surface-solid-2);
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .hm-day.is-today {
+[data-plain] .hm-day.is-today {
   background: var(--surface);
   box-shadow: inset 0 3px 0 var(--text);
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .hm-day-num {
+[data-plain] .hm-day-num {
   min-width: 24px;
   border-radius: var(--radius-pill);
   text-align: center;
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .hm-day-tag {
+[data-plain] .hm-day-tag {
   font-size: var(--fs-2xs);
   font-weight: 600;
 }
 
 /* Priority stays visible on Home, as a small round letter */
-:is([data-skin="simple"], [data-skin="oldmoney"]) .hm-day .cal-pri {
+[data-plain] .hm-day .cal-pri {
   min-width: 15px;
   height: 15px;
   padding: 0;
@@ -1567,62 +1567,62 @@
   font-size: 9px;
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .hm-pomo-digits {
+[data-plain] .hm-pomo-digits {
   font-weight: 600;
   letter-spacing: -0.035em;
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .hm-pomo-meta {
+[data-plain] .hm-pomo-meta {
   font-size: var(--fs-sm);
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .hm-pomo:not([data-phase="focus"]) .hm-pomo-fill {
+[data-plain] .hm-pomo:not([data-phase="focus"]) .hm-pomo-fill {
   background: var(--text-3);
   box-shadow: none;
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .hm-empty {
+[data-plain] .hm-empty {
   border: 0;
   background: var(--surface-2);
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .hm-empty-icon {
+[data-plain] .hm-empty-icon {
   border: 0;
   border-radius: var(--radius-pill);
   background: var(--surface-3);
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .hm-bar-track,
-:is([data-skin="simple"], [data-skin="oldmoney"]) .hm-bar-fill {
+[data-plain] .hm-bar-track,
+[data-plain] .hm-bar-fill {
   border-radius: 5px;
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .hm-bar-fill {
+[data-plain] .hm-bar-fill {
   box-shadow: none;
 }
 
 /* Today so far: a lighter bar, no hatching */
-:is([data-skin="simple"], [data-skin="oldmoney"]) .hm-bar.is-today .hm-bar-fill {
+[data-plain] .hm-bar.is-today .hm-bar-fill {
   background: var(--text-3);
   box-shadow: none;
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .hm-bar.is-rest .hm-bar-track,
-:is([data-skin="simple"], [data-skin="oldmoney"]) .hm-bar.is-none .hm-bar-track {
+[data-plain] .hm-bar.is-rest .hm-bar-track,
+[data-plain] .hm-bar.is-none .hm-bar-track {
   border-bottom: 2px solid var(--line);
   border-radius: 0;
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .hm-bar-day {
+[data-plain] .hm-bar-day {
   font-size: 11px;
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .hm-graph-note,
-:is([data-skin="simple"], [data-skin="oldmoney"]) .hm-recent-time {
+[data-plain] .hm-graph-note,
+[data-plain] .hm-recent-time {
   font-size: var(--fs-xs);
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .hm-add-input {
+[data-plain] .hm-add-input {
   height: 38px;
 }
 
@@ -1630,109 +1630,109 @@
    Pomodoro: big, clear digits on a soft ring; a switch that looks like one
    ========================================================================== */
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .pm-card-title {
+[data-plain] .pm-card-title {
   font-size: var(--fs-md);
   font-weight: 600;
   color: var(--text);
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .pm-digits {
+[data-plain] .pm-digits {
   font-size: clamp(56px, 13vw, 88px);
   font-weight: 600;
   letter-spacing: -0.045em;
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .pm-dial-phase,
-:is([data-skin="simple"], [data-skin="oldmoney"]) .pm-dial-round {
+[data-plain] .pm-dial-phase,
+[data-plain] .pm-dial-round {
   font-size: var(--fs-sm);
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .pm-ring .ring-track {
+[data-plain] .pm-ring .ring-track {
   stroke: var(--surface-3);
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .pm-timer:not([data-phase="focus"]) .pm-ring .ring-track {
+[data-plain] .pm-timer:not([data-phase="focus"]) .pm-ring .ring-track {
   stroke: var(--surface-3);
   stroke-dasharray: none;
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .pm-timer:not([data-phase="focus"]) .pm-ring .ring-fill {
+[data-plain] .pm-timer:not([data-phase="focus"]) .pm-ring .ring-fill {
   stroke: var(--text-3);
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .pm-preset {
+[data-plain] .pm-preset {
   border-color: var(--line);
   border-radius: var(--radius);
   background: var(--surface);
   box-shadow: var(--simple-card-shadow);
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .pm-preset[aria-pressed="true"] {
+[data-plain] .pm-preset[aria-pressed="true"] {
   border-color: var(--text);
   background: var(--text);
   color: var(--bg);
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .pm-step-unit {
+[data-plain] .pm-step-unit {
   font-size: var(--fs-xs);
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .pm-switch-track {
+[data-plain] .pm-switch-track {
   width: 38px;
   height: 22px;
   border: 0;
   background: var(--surface-3);
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .pm-switch-thumb {
+[data-plain] .pm-switch-thumb {
   left: 3px;
   width: 16px;
   height: 16px;
   background: var(--text-2);
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .pm-switch[aria-checked="true"] .pm-switch-track {
+[data-plain] .pm-switch[aria-checked="true"] .pm-switch-track {
   background: var(--text);
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .pm-switch[aria-checked="true"] .pm-switch-thumb {
+[data-plain] .pm-switch[aria-checked="true"] .pm-switch-thumb {
   background: var(--bg);
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .pm-log-tag {
+[data-plain] .pm-log-tag {
   font-size: var(--fs-xs);
 }
 
 /* The mini timer: a soft pill; focus running is the dark (light: black) one */
-:is([data-skin="simple"], [data-skin="oldmoney"]) .pm-mini {
+[data-plain] .pm-mini {
   border-color: var(--line);
   box-shadow: var(--simple-card-shadow);
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .pm-mini-phase {
+[data-plain] .pm-mini-phase {
   font-size: var(--fs-sm);
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .pm-mini[data-status="running"][data-phase="focus"] {
+[data-plain] .pm-mini[data-status="running"][data-phase="focus"] {
   border-color: var(--text);
   background: var(--text);
   color: var(--bg);
   box-shadow: var(--simple-card-shadow);
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .pm-mini[data-status="running"]:not([data-phase="focus"]) {
+[data-plain] .pm-mini[data-status="running"]:not([data-phase="focus"]) {
   border-color: var(--line-strong);
   background: var(--surface-3);
 }
 
-:is([data-skin="simple"], [data-skin="oldmoney"]) .pm-mini[data-status="paused"] {
+[data-plain] .pm-mini[data-status="paused"] {
   border-style: solid;
   border-color: var(--line-strong);
 }
 
 /* Six tabs on a phone: counts like "2/5" stay inside their tab */
 @media (max-width: 640px) {
-  :is([data-skin="simple"], [data-skin="oldmoney"]) .tab .nav-badge {
+  [data-plain] .tab .nav-badge {
     padding: 0 3px;
   }
 }
@@ -1745,32 +1745,32 @@
    ========================================================================== */
 
 @media (forced-colors: active) {
-  :is([data-skin="simple"], [data-skin="oldmoney"]) .seg,
-  :is([data-skin="simple"], [data-skin="oldmoney"]) .modal,
-  :is([data-skin="simple"], [data-skin="oldmoney"]) .toast,
-  :is([data-skin="simple"], [data-skin="oldmoney"]) .ctx-menu,
-  :is([data-skin="simple"], [data-skin="oldmoney"]) .nt-status,
-  :is([data-skin="simple"], [data-skin="oldmoney"]) .nav-badge,
-  :is([data-skin="simple"], [data-skin="oldmoney"]) .nt-col-count,
-  :is([data-skin="simple"], [data-skin="oldmoney"]) .nt-rail-count {
+  [data-plain] .seg,
+  [data-plain] .modal,
+  [data-plain] .toast,
+  [data-plain] .ctx-menu,
+  [data-plain] .nt-status,
+  [data-plain] .nav-badge,
+  [data-plain] .nt-col-count,
+  [data-plain] .nt-rail-count {
     border: 1px solid CanvasText;
   }
 
-  :is([data-skin="simple"], [data-skin="oldmoney"]) .seg-btn[aria-pressed="true"],
-  :is([data-skin="simple"], [data-skin="oldmoney"]) .seg-btn[aria-selected="true"],
-  :is([data-skin="simple"], [data-skin="oldmoney"]) .pm-preset[aria-pressed="true"],
-  :is([data-skin="simple"], [data-skin="oldmoney"]) .nav-item[aria-current="page"],
-  :is([data-skin="simple"], [data-skin="oldmoney"]) .nt-item[aria-current="true"],
-  :is([data-skin="simple"], [data-skin="oldmoney"]) .nt-rail-item[aria-current="true"],
-  :is([data-skin="simple"], [data-skin="oldmoney"]) .nt-card[aria-current="true"],
-  :is([data-skin="simple"], [data-skin="oldmoney"]) .hb-sel[aria-checked="true"] {
+  [data-plain] .seg-btn[aria-pressed="true"],
+  [data-plain] .seg-btn[aria-selected="true"],
+  [data-plain] .pm-preset[aria-pressed="true"],
+  [data-plain] .nav-item[aria-current="page"],
+  [data-plain] .nt-item[aria-current="true"],
+  [data-plain] .nt-rail-item[aria-current="true"],
+  [data-plain] .nt-card[aria-current="true"],
+  [data-plain] .hb-sel[aria-checked="true"] {
     outline: 2px solid Highlight;
     outline-offset: -2px;
   }
 
   /* Planned days lost their dashes: keep them visibly outlined */
-  :is([data-skin="simple"], [data-skin="oldmoney"]) .hb-day[data-state="future"][data-planned="true"],
-  :is([data-skin="simple"], [data-skin="oldmoney"]) .hb-day[data-state="pending"] {
+  [data-plain] .hb-day[data-state="future"][data-planned="true"],
+  [data-plain] .hb-day[data-state="pending"] {
     border-color: CanvasText;
   }
 }

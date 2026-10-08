@@ -1,4 +1,5 @@
-// LIFE/OS — Appearance picker: five templates (skins) as live mini previews, plus light/dark.
+// LIFE/OS — Appearance picker: the templates (skins) as live mini previews, light/dark, and your
+// own colors for the template showing (js/palette.js).
 //
 // Each preview is a tiny page built from the shared kit (pageHeader, .panel .hud, .check, .tag,
 // .btn, .seg) inside its own shadow root with the app's shared stylesheets and every skin file,
@@ -8,7 +9,8 @@
 
 import { h, icon, registerIcon, openModal, pageHeader, uid } from './ui.js';
 import { settings } from './store.js';
-import { SKINS, SKIN_BOOT, normalizeSkin, THEMES, resolveTheme } from './skins.js';
+import { SKINS, SKIN_BOOT, normalizeSkin, THEMES, resolveTheme, isPlainSkin } from './skins.js';
+import { applyPalette, paletteEditor } from './palette.js';
 
 registerIcon('monitor', '<rect x="3" y="4" width="18" height="12.5" rx="2"/><path d="M8.5 20h7M12 16.5V20"/>');
 
@@ -66,7 +68,7 @@ function buildPreview(id, theme, sheets) {
   // Decorative and out of reach: the card around it is the control
   const host = h('div', { class: 'skin-card-preview', 'aria-hidden': 'true', inert: true });
   const shadow = host.attachShadow({ mode: 'open' });
-  const scope = h('div', { class: 'skin-scope', dataset: { skin: id, theme } }, previewPage());
+  const scope = h('div', { class: 'skin-scope', dataset: isPlainSkin(id) ? { skin: id, theme, plain: '' } : { skin: id, theme } }, previewPage());
   let pending = sheets.length;
   const settle = () => {
     pending -= 1;
@@ -178,10 +180,20 @@ export function openAppearance({ onClose } = {}) {
     });
     modeButtons.forEach((btn) => btn.setAttribute('aria-pressed', String(btn.dataset.mode === m)));
     const shown = shownMode();
-    previews.forEach((p) => (p.scope.dataset.theme = shown));
+    previews.forEach((p) => {
+      p.scope.dataset.theme = shown;
+      // Each preview in your own colors for it, if you set some
+      applyPalette(settings.get(), p.scope, p.scope.dataset.skin, shown);
+    });
   };
   sync();
   const unsubscribe = settings.subscribe(sync);
+
+  // Your own colors for the template and mode showing, with Reset
+  const colors = paletteEditor();
+  const colorsLabelId = `appearance-colors-${uid()}`;
+  colors.el.setAttribute('aria-labelledby', colorsLabelId);
+  const colorsRow = h('div', { class: 'appearance-colors' }, h('span', { class: 'label', id: colorsLabelId }, 'Colors'), colors.el);
 
   const m = openModal({
     title: 'Appearance',
@@ -191,11 +203,13 @@ export function openAppearance({ onClose } = {}) {
       h('p', { class: 'muted appearance-intro' }, 'Pick a template. It only changes how LIFE/OS looks: your tasks, notes, habits and events stay exactly as they are.'),
       group,
       modeRow,
+      colorsRow,
     ],
     footer: [h('button', { type: 'button', class: 'btn btn--primary', onClick: () => m.close() }, 'Done')],
     initialFocus: cards.find((card) => card.dataset.skinId === current()),
     onClose: () => {
       unsubscribe();
+      colors.destroy();
       previews.forEach((p) => p.disconnect());
       onClose?.();
     },

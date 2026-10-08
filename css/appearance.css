@@ -105,10 +105,22 @@
   transform: none;
 }
 
-.appearance-mode {
+.appearance-mode,
+.appearance-colors {
   display: flex;
   align-items: center;
   gap: var(--space-3);
+}
+
+.appearance-colors {
+  align-items: flex-start;
+  margin-top: var(--space-4);
+}
+
+.appearance-colors > .label {
+  flex: none;
+  min-width: 48px;
+  padding-top: 7px;
 }
 
 @media (max-width: 480px) {

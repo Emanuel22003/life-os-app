@@ -1,0 +1,548 @@
+/* ==========================================================================
+   LIFE/OS — skin: Coquette (data-skin="coquette")
+   Blush pink and cream on faint pink gingham by day, rosé night (wine, blush, pink) by dark,
+   with polka dots. Page titles in a script hand over a string of pearls, Playfair Display for
+   headings and numbers, Lora for text. Soft round shapes, pill buttons, a little heart in every
+   ticked box, dialogs with a stitched inner seam, a pink satin bow as the crest above the menu
+   and behind the pages (coquette-bow.webp, a watercolor generated with Yapper).
+
+   A plain template: Simple underneath (css/skins/simple.css is scoped to [data-plain]); this
+   file restyles it. Its main colors (Appearance → Colors) are Background (--bg), Ink (--text) and
+   Ribbon (--accent): the gingham, dots, hearts and pills are drawn from them, so changing one
+   re-colors the template. Conventions as in the other skins (scope selectors, :where() kit).
+   After changing --bg, update SKIN_BOOT (js/skins.js and index.html's head script).
+   ========================================================================== */
+
+/* ---- Rosé night (dark) and everything that doesn't change with the mode ---- */
+[data-skin="coquette"] {
+  --font-sans: "Lora", "Iowan Old Style", Georgia, serif;
+  --font-display: "Playfair Display", Didot, Georgia, serif;
+  --font-mono: var(--font-sans);
+  --cq-script: "Pinyon Script", "Snell Roundhand", "Apple Chancery", cursive;
+
+  --fs-2xs: 12px;
+  --fs-xs: 13px;
+  --fs-sm: 14.5px;
+  --fs-md: 16px;
+  --fs-lg: 18.5px;
+  --fs-xl: 23px;
+  --fs-2xl: 30px;
+  --fs-3xl: 40px;
+
+  --radius-xs: 8px;
+  --radius-sm: 12px;
+  --radius: 16px;
+  --radius-lg: 22px;
+
+  /* Captions as in Simple (sentence case); the .label class gets small spaced capitals below */
+  --label-font: var(--font-sans);
+  --label-size: var(--fs-xs);
+  --label-weight: 500;
+  --label-case: none;
+  --label-tracking: 0;
+
+  /* Polka dots in the ribbon color */
+  --page-bg-image: radial-gradient(color-mix(in srgb, var(--accent) 11%, transparent) 1.7px, transparent 2.2px);
+  --page-bg-size: 24px 24px;
+
+  --cq-rose: color-mix(in srgb, var(--accent) 70%, var(--text));
+  --cq-pearl: #fbf5f1;
+  --cq-pearl-shade: #dcc2ca;
+  --cq-art-alpha: 0.32;
+  --cq-heart: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 21s-7.6-4.6-9.7-9.5C.8 7.9 3.1 4.4 6.7 4.4c2.1 0 3.6 1.2 5.3 3.1 1.7-1.9 3.2-3.1 5.3-3.1 3.6 0 5.9 3.5 4.4 7.1C19.6 16.4 12 21 12 21Z'/%3E%3C/svg%3E");
+
+  --simple-card-shadow: 0 6px 24px rgba(0, 0, 0, 0.28);
+  --simple-ring: 0 0 0 3px color-mix(in srgb, var(--accent) 38%, transparent);
+
+  color-scheme: dark;
+
+  --bg: #26141c;
+  --bg-elev: #2b1720;
+  --surface: rgba(55, 30, 41, 0.86);
+  --surface-2: #3b2130;
+  --surface-3: #47283a;
+  --surface-solid: #331b26;
+  --surface-solid-2: #3b2130;
+
+  --line: rgba(248, 213, 224, 0.12);
+  --line-strong: rgba(248, 213, 224, 0.24);
+  --line-focus: #f2a5bd;
+
+  --text: #f9e4ea;
+  --text-2: #e5c3ce;
+  --text-3: #c09aa8;
+  --text-4: #6e4a58;
+
+  --accent: #f2a5bd;
+  --accent-ink: #2a1019;
+  --accent-soft: rgba(242, 165, 189, 0.16);
+
+  --glow: var(--simple-ring);
+  --glow-strong: 0 4px 18px rgba(0, 0, 0, 0.35);
+  --shadow: 0 22px 60px rgba(0, 0, 0, 0.5);
+  --shadow-sm: 0 6px 20px rgba(0, 0, 0, 0.3);
+
+  --grid-line: transparent;
+  --scrim: rgba(20, 8, 13, 0.62);
+  --hatch: rgba(248, 213, 224, 0.08);
+
+  --heat-0: rgba(242, 165, 189, 0.09);
+  --heat-1: rgba(242, 165, 189, 0.26);
+  --heat-2: rgba(242, 165, 189, 0.45);
+  --heat-3: rgba(242, 165, 189, 0.7);
+  --heat-4: #f2a5bd;
+
+  /* Color coding, sweet but readable: rose, peach, butter, sage, aqua, periwinkle, lavender, pink */
+  --cc-red: #ef8aa0;
+  --cc-orange: #f1ab7f;
+  --cc-yellow: #ecd27f;
+  --cc-green: #a3cfa2;
+  --cc-teal: #8fd1cc;
+  --cc-blue: #a9b8f2;
+  --cc-purple: #c9a8ee;
+  --cc-pink: #f7a9d0;
+  --cc-ink: #2a1019;
+}
+
+/* ---- Blush (light) ---- */
+[data-skin="coquette"][data-theme="light"] {
+  /* Gingham: two sets of soft stripes in the ribbon color */
+  --page-bg-image:
+    repeating-linear-gradient(0deg, color-mix(in srgb, var(--accent) 8%, transparent) 0 14px, transparent 14px 28px),
+    repeating-linear-gradient(90deg, color-mix(in srgb, var(--accent) 8%, transparent) 0 14px, transparent 14px 28px);
+  --page-bg-size: auto;
+
+  --cq-art-alpha: 0.45;
+  --simple-card-shadow: 0 6px 24px color-mix(in srgb, var(--accent) 16%, transparent);
+
+  color-scheme: light;
+
+  --bg: #fdf3f3;
+  --bg-elev: #fff8f8;
+  --surface: rgba(255, 252, 252, 0.9);
+  --surface-2: #fbe7ec;
+  --surface-3: #f6d6df;
+  --surface-solid: #fffafa;
+  --surface-solid-2: #fdf0f2;
+
+  --line: rgba(140, 60, 85, 0.13);
+  --line-strong: rgba(140, 60, 85, 0.25);
+  --line-focus: #c95a7f;
+
+  --text: #4a2731;
+  --text-2: #6e4652;
+  --text-3: #8a6470;
+  --text-4: #d4b4bf;
+
+  --accent: #e58fab;
+  --accent-ink: #3d1d27;
+  --accent-soft: rgba(229, 143, 171, 0.16);
+
+  --glow-strong: 0 4px 18px color-mix(in srgb, var(--accent) 22%, transparent);
+  --shadow: 0 22px 60px rgba(120, 40, 70, 0.16);
+  --shadow-sm: 0 6px 20px rgba(120, 40, 70, 0.1);
+
+  --scrim: rgba(80, 30, 50, 0.24);
+  --hatch: rgba(140, 60, 85, 0.07);
+
+  --heat-0: rgba(229, 143, 171, 0.12);
+  --heat-1: rgba(229, 143, 171, 0.3);
+  --heat-2: rgba(229, 143, 171, 0.5);
+  --heat-3: rgba(217, 113, 143, 0.75);
+  --heat-4: #d9718f;
+
+  --cc-red: #cc5a7a;
+  --cc-orange: #d7865a;
+  --cc-yellow: #c4a03a;
+  --cc-green: #6b9a70;
+  --cc-teal: #4d9a97;
+  --cc-blue: #6a7ec6;
+  --cc-purple: #9672c4;
+  --cc-pink: #df76a6;
+  --cc-ink: #ffffff;
+}
+
+/* ==========================================================================
+   Page
+   ========================================================================== */
+
+[data-skin="coquette"] .lo-page {
+  font-feature-settings: normal;
+  letter-spacing: 0;
+}
+
+[data-skin="coquette"] .label {
+  font-family: var(--font-sans);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+[data-skin="coquette"] :focus-visible {
+  outline: 2px solid var(--line-focus);
+  outline-offset: 2px;
+}
+
+[data-skin="coquette"] ::selection {
+  background: color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+[data-skin="coquette"] .main,
+[data-skin="coquette"] .sidebar {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--accent) 50%, transparent) transparent;
+}
+
+/* The bow behind the page, in the lower right */
+[data-skin="coquette"] .main {
+  isolation: isolate;
+}
+
+[data-skin="coquette"] .main::before {
+  content: "";
+  position: fixed;
+  z-index: -1;
+  right: clamp(8px, 2vw, 48px);
+  bottom: clamp(16px, 4vh, 56px);
+  width: clamp(170px, 17vw, 300px);
+  aspect-ratio: 774 / 1100;
+  background: url("coquette-bow.webp") center / contain no-repeat;
+  opacity: var(--cq-art-alpha);
+  pointer-events: none;
+}
+
+@media (max-width: 640px) {
+  [data-skin="coquette"] .main::before {
+    width: 46vw;
+    right: 4vw;
+    bottom: calc(var(--tabbar-h) + 16px);
+  }
+}
+
+/* ==========================================================================
+   Shell: the bow as a crest, a soft menu with a heart on the open page
+   ========================================================================== */
+
+[data-skin="coquette"] .sidebar {
+  border-right: 1px solid var(--line);
+  padding-top: 26px;
+}
+
+[data-skin="coquette"] .brand {
+  flex-direction: column;
+  align-items: center;
+  height: auto;
+  gap: 0;
+  padding: 0 0 18px;
+  border-bottom: 1px solid var(--line);
+  text-align: center;
+}
+
+[data-skin="coquette"] .brand-mark {
+  display: none;
+}
+
+[data-skin="coquette"] .brand::before {
+  content: "";
+  width: 64px;
+  aspect-ratio: 774 / 1100;
+  margin-bottom: 6px;
+  background: url("coquette-bow.webp") center / contain no-repeat;
+}
+
+[data-skin="coquette"] .brand-name {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-style: italic;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  line-height: 1.1;
+}
+
+[data-skin="coquette"] .brand::after {
+  content: "est. 2026";
+  margin-top: 2px;
+  font-family: var(--cq-script);
+  font-size: 19px;
+  color: var(--cq-rose);
+}
+
+[data-skin="coquette"] .nav-item {
+  border-radius: var(--radius-pill);
+  font-size: 15px;
+}
+
+[data-skin="coquette"] .nav-item:hover {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+[data-skin="coquette"] .nav-item[aria-current="page"] {
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+  color: var(--text);
+}
+
+/* The open page: a small heart in the ribbon color */
+[data-skin="coquette"] .nav-item[aria-current="page"]::before {
+  content: "";
+  position: absolute;
+  left: 2px;
+  top: 50%;
+  bottom: auto;
+  width: 9px;
+  height: 9px;
+  margin-top: -4.5px;
+  border: 0;
+  background: var(--cq-rose);
+  box-shadow: none;
+  -webkit-mask: var(--cq-heart) center / contain no-repeat;
+  mask: var(--cq-heart) center / contain no-repeat;
+}
+
+[data-skin="coquette"] .nav-badge {
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+  color: var(--text);
+  font-family: var(--font-sans);
+}
+
+[data-skin="coquette"] .nav-item[aria-current="page"] .nav-badge {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+@media (max-width: 900px) {
+  [data-skin="coquette"] .brand::before {
+    width: 34px;
+    margin-bottom: 0;
+  }
+
+  [data-skin="coquette"] .brand::after {
+    content: none;
+  }
+
+  [data-skin="coquette"] .nav-item[aria-current="page"]::before {
+    left: 1px;
+  }
+}
+
+[data-skin="coquette"] .topbar {
+  background: color-mix(in srgb, var(--bg) 86%, transparent);
+}
+
+[data-skin="coquette"] .crumbs {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 14px;
+  letter-spacing: 0.02em;
+  text-transform: none;
+}
+
+/* ---- Page header: a script title over a string of pearls ---- */
+[data-skin="coquette"] .page-header {
+  position: relative;
+  padding-bottom: 26px;
+  margin-bottom: 30px;
+}
+
+[data-skin="coquette"] .page-header::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: auto;
+  height: 12px;
+  border: 0;
+  background: radial-gradient(circle at 36% 32%, #ffffff 0 1.3px, var(--cq-pearl) 2.4px, var(--cq-pearl-shade) 4.6px, color-mix(in srgb, var(--cq-pearl-shade) 80%, var(--text)) 5.3px, transparent 5.9px) 0 50% / 14px 12px repeat-x;
+}
+
+[data-skin="coquette"] .page-title {
+  font-family: var(--cq-script);
+  font-size: clamp(46px, 5vw, 64px);
+  font-weight: 400;
+  letter-spacing: 0;
+  line-height: 1.05;
+}
+
+[data-skin="coquette"] .page-subtitle {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 16.5px;
+  color: var(--text-2);
+}
+
+/* ==========================================================================
+   Shared kit: soft and round
+   ========================================================================== */
+
+.panel:where([data-skin="coquette"] *) {
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--simple-card-shadow);
+}
+
+.btn:where([data-skin="coquette"] *) {
+  border-radius: var(--radius-pill);
+  font-family: var(--font-sans);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.btn--primary:where([data-skin="coquette"] *) {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.btn--primary:where([data-skin="coquette"] *):hover {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 86%, var(--text));
+  color: var(--accent-ink);
+}
+
+[data-skin="coquette"] .seg {
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+
+[data-skin="coquette"] .seg .seg-btn {
+  border-radius: var(--radius-pill);
+}
+
+[data-skin="coquette"] .seg .seg-btn:is([aria-pressed="true"], [aria-selected="true"]) {
+  background: var(--surface-solid);
+  color: var(--text);
+  box-shadow: 0 1px 6px color-mix(in srgb, var(--accent) 30%, transparent);
+}
+
+.tag:where([data-skin="coquette"] *) {
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+  color: var(--text-2);
+}
+
+.tag--solid:where([data-skin="coquette"] *) {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.input:where([data-skin="coquette"] *),
+.select:where([data-skin="coquette"] *),
+.textarea:where([data-skin="coquette"] *) {
+  border-radius: var(--radius-sm);
+}
+
+/* Ticked: a heart instead of the check mark */
+.check:where([data-skin="coquette"] *) {
+  border-radius: 50%;
+  border-color: color-mix(in srgb, var(--accent) 70%, var(--text-3));
+}
+
+.check:where([data-skin="coquette"] *)::after {
+  content: "";
+  position: absolute;
+  inset: 21%;
+  background: var(--accent-ink);
+  -webkit-mask: var(--cq-heart) center / contain no-repeat;
+  mask: var(--cq-heart) center / contain no-repeat;
+  opacity: 0;
+  transform: scale(0.4);
+  transition: opacity var(--dur-fast) var(--ease), transform var(--dur) var(--ease-out);
+}
+
+.check:where([data-skin="coquette"] *):is([aria-checked="true"], .is-checked) svg {
+  opacity: 0;
+}
+
+.check:where([data-skin="coquette"] *):is([aria-checked="true"], .is-checked)::after {
+  opacity: 1;
+  transform: none;
+}
+
+/* Dialogs: a soft card with a stitched seam */
+.modal:where([data-skin="coquette"] *) {
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
+  border-radius: 26px;
+  outline: 1.5px dashed color-mix(in srgb, var(--accent) 60%, transparent);
+  outline-offset: -9px;
+}
+
+.modal-title:where([data-skin="coquette"] *) {
+  font-family: var(--cq-script);
+  font-size: 40px;
+  font-weight: 400;
+  line-height: 1.1;
+  letter-spacing: 0;
+}
+
+.toast:where([data-skin="coquette"] *) {
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: var(--text);
+  color: var(--bg);
+}
+
+.toast-action:where([data-skin="coquette"] *) {
+  color: var(--accent);
+}
+
+.empty-title:where([data-skin="coquette"] *) {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-weight: 500;
+}
+
+[data-skin="coquette"] .ctx-menu {
+  border-radius: var(--radius);
+  border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+}
+
+[data-skin="coquette"] .ctx-item {
+  border-radius: var(--radius-sm);
+}
+
+/* ==========================================================================
+   Pages
+   ========================================================================== */
+
+[data-skin="coquette"] .stat-value,
+[data-skin="coquette"] .pm-time {
+  font-family: var(--font-display);
+  font-weight: 500;
+  letter-spacing: 0;
+}
+
+[data-skin="coquette"] .nt-title {
+  font-family: var(--font-display);
+  font-style: italic;
+}
+
+[data-skin="coquette"] .hm-card-title,
+[data-skin="coquette"] .fn-root .fn-panel-title {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 17px;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+[data-skin="coquette"] .fn-avatar {
+  border-color: color-mix(in srgb, var(--accent) 50%, transparent);
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  color: var(--text);
+  font-style: italic;
+}
+
+/* ==========================================================================
+   Forced colors: the bow is decoration
+   ========================================================================== */
+
+@media (forced-colors: active) {
+  [data-skin="coquette"] .main::before,
+  [data-skin="coquette"] .brand::before {
+    display: none;
+  }
+}

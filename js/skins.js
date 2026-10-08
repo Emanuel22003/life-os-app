@@ -15,6 +15,8 @@ export const SKINS = Object.freeze(
     { id: 'brutalist', name: 'Brutalist', description: 'Loud black-and-white blocks, hard shadows, hazard-yellow accent.' },
     { id: 'terminal', name: 'Terminal', description: 'A retro computer terminal in phosphor green, all monospace.' },
     { id: 'oldmoney', name: 'Old Money', description: 'Ivory paper, black ink and brass, Bodoni titles, an engraved horse.', plain: true },
+    { id: 'coquette', name: 'Coquette', description: 'Blush pink and cream, a satin bow, pearls, hearts and a script hand.', plain: true },
+    { id: 'y2k', name: 'Y2K', description: 'Baby pink, lilac and blue, holographic shine, chrome butterflies, sparkles.', plain: true },
   ].map((skin) => Object.freeze(skin)),
 );
 
@@ -52,7 +54,8 @@ export function skinInfo(id) {
 /**
  * What the page needs before its first paint, per skin: the Google Fonts stylesheet (only the
  * active skin's loads; the picker loads the others for its previews) and the title-bar color
- * for dark and light. index.html's head script holds the same object as SKIN_BOOT:
+ * for dark and light, and `plain` for the plain templates (data-plain goes on <html> with
+ * data-skin). index.html's head script holds the same object as SKIN_BOOT:
  * change both together (tools/tests/skins.test.js fails when they differ). After boot the shell
  * takes the title-bar color from the skin's computed --bg, so these colors only cover first paint.
  */
@@ -61,6 +64,7 @@ export const SKIN_BOOT = Object.freeze({
     font: 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap',
     dark: '#111111',
     light: '#f7f7f5',
+    plain: true,
   }),
   hud: Object.freeze({
     font: 'https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap',
@@ -81,6 +85,19 @@ export const SKIN_BOOT = Object.freeze({
     font: 'https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400..700;1,6..96,400..700&family=EB+Garamond:ital,wght@0,400..700;1,400..700&family=Montserrat:wght@400;500;600&display=swap',
     dark: '#141311',
     light: '#f2eee5',
+    plain: true,
+  }),
+  coquette: Object.freeze({
+    font: 'https://fonts.googleapis.com/css2?family=Pinyon+Script&family=Playfair+Display:ital,wght@0,400..700;1,400..700&family=Lora:ital,wght@0,400..700;1,400..700&display=swap',
+    dark: '#26141c',
+    light: '#fdf3f3',
+    plain: true,
+  }),
+  y2k: Object.freeze({
+    font: 'https://fonts.googleapis.com/css2?family=Fredoka:wght@400..700&family=Rubik+Bubbles&family=Silkscreen&display=swap',
+    dark: '#140a26',
+    light: '#fff0fa',
+    plain: true,
   }),
 });
 
@@ -94,6 +111,8 @@ export const SKIN_NUMBERS = Object.freeze({
   brutalist: Object.freeze({ padIndex: true, padCount: true }),
   terminal: Object.freeze({ padIndex: true, padCount: true }),
   oldmoney: Object.freeze({ padIndex: false, padCount: false }),
+  coquette: Object.freeze({ padIndex: false, padCount: false }),
+  y2k: Object.freeze({ padIndex: false, padCount: false }),
 });
 
 function numberRules(skin) {

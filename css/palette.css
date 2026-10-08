@@ -1,0 +1,137 @@
+/* ==========================================================================
+   LIFE/OS — your own colors (Appearance → Colors; js/palette.js, js/palette.logic.js)
+   <html data-palette="bg text accent"> lists the main colors you changed for the template and
+   mode showing; their values are --u-bg, --u-text, --u-accent (and --u-accent-ink, a readable
+   text color on it) on <html>. These rules derive the template's other colors from them; a
+   color you didn't change keeps the template's own hand-tuned values. Every selector carries
+   three attributes, so it beats any template's tokens ([data-skin="x"][data-theme="light"]).
+   ========================================================================== */
+
+/* ---- Background: the page, and surfaces a step towards the text ---- */
+[data-skin][data-theme][data-palette~="bg"] {
+  --bg: var(--u-bg);
+  --bg-elev: color-mix(in srgb, var(--u-bg) 97%, var(--text));
+  --surface-2: color-mix(in srgb, var(--u-bg) 93%, var(--text));
+  --surface-3: color-mix(in srgb, var(--u-bg) 86%, var(--text));
+  --surface-solid-2: color-mix(in srgb, var(--u-bg) 95%, var(--text));
+  --scrim: color-mix(in srgb, var(--u-bg) 62%, transparent);
+}
+
+/* Cards: lighter than the page in light mode, a little lighter in the dark */
+[data-skin][data-theme="light"][data-palette~="bg"] {
+  --surface: color-mix(in srgb, color-mix(in srgb, var(--u-bg) 40%, #ffffff) 92%, transparent);
+  --surface-solid: color-mix(in srgb, var(--u-bg) 40%, #ffffff);
+}
+
+[data-skin][data-theme="dark"][data-palette~="bg"] {
+  --surface: color-mix(in srgb, color-mix(in srgb, var(--u-bg) 90%, #ffffff) 92%, transparent);
+  --surface-solid: color-mix(in srgb, var(--u-bg) 90%, #ffffff);
+}
+
+/* ---- Text: lighter steps towards the background, lines and charts in the same ink ---- */
+[data-skin][data-theme][data-palette~="text"] {
+  --text: var(--u-text);
+  --text-2: color-mix(in srgb, var(--u-text) 78%, var(--bg));
+  --text-3: color-mix(in srgb, var(--u-text) 62%, var(--bg));
+  --text-4: color-mix(in srgb, var(--u-text) 30%, var(--bg));
+  --line: color-mix(in srgb, var(--u-text) 11%, transparent);
+  --line-strong: color-mix(in srgb, var(--u-text) 22%, transparent);
+  --line-focus: color-mix(in srgb, var(--u-text) 70%, transparent);
+  --hatch: color-mix(in srgb, var(--u-text) 8%, transparent);
+  --grid-line: color-mix(in srgb, var(--u-text) 4%, transparent);
+  --heat-0: color-mix(in srgb, var(--u-text) 6%, transparent);
+  --heat-1: color-mix(in srgb, var(--u-text) 18%, transparent);
+  --heat-2: color-mix(in srgb, var(--u-text) 36%, transparent);
+  --heat-3: color-mix(in srgb, var(--u-text) 60%, transparent);
+  --heat-4: var(--u-text);
+}
+
+/* Templates whose accent is their ink: the accent follows a new ink (unless you set one too) */
+:is([data-skin="simple"], [data-skin="hud"], [data-skin="brutalist"], [data-skin="terminal"], [data-skin="oldmoney"])[data-theme][data-palette~="text"]:not([data-palette~="accent"]) {
+  --accent: var(--u-text);
+  --accent-ink: var(--bg);
+  --accent-soft: color-mix(in srgb, var(--u-text) 10%, transparent);
+}
+
+/* Terminal: the phosphor glows in the new color */
+[data-skin="terminal"][data-theme][data-palette~="text"] {
+  --terminal-inv-bg: var(--u-text);
+  --terminal-inv-ink: var(--bg);
+  --terminal-text-glow: 0 0 5px color-mix(in srgb, var(--u-text) 32%, transparent);
+  --terminal-bloom: color-mix(in srgb, var(--u-text) 6%, transparent);
+  --terminal-icon-glow: drop-shadow(0 0 3px color-mix(in srgb, var(--u-text) 45%, transparent));
+}
+
+/* ---- Accent: each template names its own ---- */
+:is([data-skin="simple"], [data-skin="coquette"], [data-skin="y2k"])[data-theme][data-palette~="accent"] {
+  --accent: var(--u-accent);
+  --accent-ink: var(--u-accent-ink);
+  --accent-soft: color-mix(in srgb, var(--u-accent) 14%, transparent);
+}
+
+[data-skin="brutalist"][data-theme][data-palette~="accent"] {
+  --bru-hi: var(--u-accent);
+  --bru-on-hi: var(--u-accent-ink);
+}
+
+[data-skin="oldmoney"][data-theme][data-palette~="accent"] {
+  --om-brass: var(--u-accent);
+  --om-rule: color-mix(in srgb, var(--u-accent) 48%, transparent);
+  --line-focus: var(--u-accent);
+}
+
+/* ---- The editor (Appearance and Settings) ---- */
+.pal-editor {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3) var(--space-4);
+}
+
+.pal-slot {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  cursor: pointer;
+}
+
+.pal-slot-name {
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+}
+
+.pal-swatch {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: 50%;
+  background: none;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.pal-swatch::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.pal-swatch::-webkit-color-swatch {
+  border: 0;
+  border-radius: 50%;
+}
+
+.pal-swatch::-moz-color-swatch {
+  border: 0;
+  border-radius: 50%;
+}
+
+.pal-slot.is-custom .pal-swatch {
+  box-shadow: 0 0 0 2px var(--bg), 0 0 0 3.5px var(--text-3);
+}
+
+.pal-note {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+}

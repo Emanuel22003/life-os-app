@@ -34,7 +34,7 @@
         }
       } catch (e) {}
       (function () {
-        var SKIN_BOOT = {"simple": {"font": "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap", "dark": "#111111", "light": "#f7f7f5"}, "hud": {"font": "https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap", "dark": "#060606", "light": "#f4f4f4"}, "brutalist": {"font": "https://fonts.googleapis.com/css2?family=Anton&family=Archivo:wght@400;500;600;700;800;900&family=Space+Mono:wght@400;700&display=swap", "dark": "#000000", "light": "#ffffff"}, "terminal": {"font": "https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=VT323&display=swap", "dark": "#050a05", "light": "#e9f2e1"}, "oldmoney": {"font": "https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400..700;1,6..96,400..700&family=EB+Garamond:ital,wght@0,400..700;1,400..700&family=Montserrat:wght@400;500;600&display=swap", "dark": "#141311", "light": "#f2eee5"}};
+        var SKIN_BOOT = {"simple": {"font": "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap", "dark": "#111111", "light": "#f7f7f5", "plain": true}, "hud": {"font": "https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap", "dark": "#060606", "light": "#f4f4f4"}, "brutalist": {"font": "https://fonts.googleapis.com/css2?family=Anton&family=Archivo:wght@400;500;600;700;800;900&family=Space+Mono:wght@400;700&display=swap", "dark": "#000000", "light": "#ffffff"}, "terminal": {"font": "https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=VT323&display=swap", "dark": "#050a05", "light": "#e9f2e1"}, "oldmoney": {"font": "https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400..700;1,6..96,400..700&family=EB+Garamond:ital,wght@0,400..700;1,400..700&family=Montserrat:wght@400;500;600&display=swap", "dark": "#141311", "light": "#f2eee5", "plain": true}, "coquette": {"font": "https://fonts.googleapis.com/css2?family=Pinyon+Script&family=Playfair+Display:ital,wght@0,400..700;1,400..700&family=Lora:ital,wght@0,400..700;1,400..700&display=swap", "dark": "#26141c", "light": "#fdf3f3", "plain": true}, "y2k": {"font": "https://fonts.googleapis.com/css2?family=Fredoka:wght@400..700&family=Rubik+Bubbles&family=Silkscreen&display=swap", "dark": "#140a26", "light": "#fff0fa", "plain": true}};
         var root = document.documentElement;
         var skin = 'simple';
         var theme = 'dark';
@@ -49,6 +49,30 @@
         } catch (e) {}
         root.setAttribute('data-skin', skin);
         root.setAttribute('data-theme', theme);
+        if (SKIN_BOOT[skin].plain) root.setAttribute('data-plain', '');
+        // Your own colors for this template and mode (js/palette.logic.js paletteStyle)
+        try {
+          var pal = ((s && s.palettes) || {})[skin + ':' + theme] || {};
+          var keys = [];
+          ['bg', 'text', 'accent'].forEach(function (k) {
+            if (typeof pal[k] === 'string' && /^#[0-9a-f]{6}$/i.test(pal[k])) {
+              root.style.setProperty('--u-' + k, pal[k]);
+              keys.push(k);
+            }
+          });
+          if (keys.indexOf('accent') !== -1) {
+            var lum = function (hex) {
+              var c = [1, 3, 5].map(function (i) {
+                var v = parseInt(hex.substr(i, 2), 16) / 255;
+                return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+              });
+              return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+            };
+            var L = lum(pal.accent);
+            root.style.setProperty('--u-accent-ink', (L + 0.05) / (lum('#111111') + 0.05) >= 1.05 / (L + 0.05) ? '#111111' : '#ffffff');
+          }
+          if (keys.length) root.setAttribute('data-palette', keys.join(' '));
+        } catch (e) {}
         document.querySelector('meta[name="theme-color"]').setAttribute('content', SKIN_BOOT[skin][theme]);
         var fonts = document.createElement('link');
         fonts.rel = 'stylesheet';
@@ -86,6 +110,10 @@
     <link rel="stylesheet" href="css/skins/brutalist.css" />
     <link rel="stylesheet" href="css/skins/terminal.css" />
     <link rel="stylesheet" href="css/skins/oldmoney.css" />
+    <link rel="stylesheet" href="css/skins/coquette.css" />
+    <link rel="stylesheet" href="css/skins/y2k.css" />
+    <!-- Your own colors (Appearance → Colors): rebuild a template's palette from its main colors -->
+    <link rel="stylesheet" href="css/palette.css" />
     <!-- Color coding (Settings): after the templates, so its colors win at the same specificity -->
     <link rel="stylesheet" href="css/colors.css" />
   </head>
