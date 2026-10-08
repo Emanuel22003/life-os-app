@@ -81,6 +81,7 @@ import {
 } from './notes.logic.js';
 import { columnOf, columnSection } from './notes.board.logic.js';
 import { registerContextProvider } from '../contextmenu.js';
+import { paintColor, colorButton, colorKey } from '../colors.js';
 import { splitText, copyName, pasteName } from '../contextmenu.logic.js';
 import { createBoard } from './notes.board.js';
 import { renderMarkdown, toggleTask } from './notes.markdown.js';
@@ -656,6 +657,9 @@ function mount(root) {
     { type: 'button', class: 'btn btn--danger btn--icon btn--sm', 'aria-label': 'Delete note', title: 'Delete note', onClick: () => deleteCurrent() },
     icon('trash'),
   );
+  // Color coding: the open note's color
+  const colorBtn = colorButton({ title: 'Note color', className: 'nt-color', onPick: (c) => setNoteColor(ui.editorId, c) });
+  colorBtn.el.dataset.ccFor = 'notes';
 
   // The open note's section; opens the move menu.
   const moveIcon = h('span', { class: 'nt-move-icon', 'aria-hidden': 'true' });
@@ -736,6 +740,7 @@ function mount(root) {
       backBtn,
       h('div', { class: 'seg nt-seg', role: 'group', 'aria-label': 'Editor mode' }, editBtn, previewBtn),
       h('span', { class: 'spacer' }),
+      colorBtn.el,
       pinBtn,
       deleteBtn,
       peekClose,
@@ -980,6 +985,8 @@ function mount(root) {
       itemCache.set(note.id, entry);
     }
     const key = section ? `${baseKey}\u0002${section.id}\u0001${section.name}\u0001${section.icon}` : baseKey;
+    // Color coding: the note's own color, else its section's
+    paintColor(entry.btn, 'notes', note.color, sectionColor(note.sectionId));
     if (entry.dirty || entry.note !== note || entry.index !== index || entry.selected !== selected || entry.key !== key) {
       Object.assign(entry, { note, index, selected, key, section, dirty: false });
       fillItem(entry.btn, note, index, section);
@@ -1071,6 +1078,7 @@ function mount(root) {
     // Toggle button: constant name, state via aria-pressed; only the tooltip changes.
     pinBtn.setAttribute('aria-pressed', String(note.pinned));
     pinBtn.title = note.pinned ? 'Unpin note' : 'Pin note';
+    colorBtn.set(note.color ?? null);
     metaCreated.replaceChildren('Created ', h('b', null, formatStamp(note.createdAt)));
     metaEdited.replaceChildren('Edited ', h('b', { dataset: { ts: String(note.updatedAt) } }, timeAgo(note.updatedAt)));
     paintMoveButton(findSection(s.sections, note.sectionId));
@@ -1397,6 +1405,27 @@ function mount(root) {
     revealItem(ui.selectedId);
   }
 
+  /** The color a note shows when it has none of its own: its section's. */
+  function sectionColor(sectionId) {
+    return sectionId != null ? findSection(getState().sections, sectionId)?.color ?? null : null;
+  }
+
+  /** Color coding: set (palette id) or clear (null) a note's color. Not an edit: updatedAt stays. */
+  function setNoteColor(id, color) {
+    if (!id || !findNote(id)) return;
+    if (id === ui.editorId) flushSave();
+    commitIfChanged((s) => {
+      let changed = false;
+      const items = s.items.map((n) => {
+        if (n.id !== id) return n;
+        const next = colorKey(color) ? { ...n, color: colorKey(color) } : (({ color: _c, ...rest }) => rest)(n);
+        changed = (n.color ?? null) !== (colorKey(color) ?? null);
+        return changed ? next : n;
+      });
+      return changed ? { ...s, items } : s;
+    });
+  }
+
   function togglePin() {
     const id = ui.editorId;
     if (!id) return;
@@ -1466,7 +1495,7 @@ function mount(root) {
   /* ---- Copy, paste, duplicate (the right-click menu) ---- */
 
   /** What a copy of a note carries. */
-  const noteSnapshot = (note) => ({ title: note.title, body: note.body, pinned: !!note.pinned });
+  const noteSnapshot = (note) => ({ title: note.title, body: note.body, pinned: !!note.pinned, color: note.color ?? null });
 
   /**
    * A new note from `snap` in section `sectionId` (Unsorted when null or gone), named by
@@ -1486,7 +1515,8 @@ function mount(root) {
       return null;
     }
     if (ui.query) setQuery('');
-    const note = createNote({ id: uid(), title, body, pinned: !!src.pinned, sectionId: sid });
+    const created = createNote({ id: uid(), title, body, pinned: !!src.pinned, sectionId: sid });
+    const note = colorKey(src.color) ? { ...created, color: colorKey(src.color) } : created;
     commit((st) => ({ ...st, items: [note, ...st.items] }));
     if (!disposed) {
       revealItem(note.id);
@@ -1584,6 +1614,7 @@ function mount(root) {
       remove: () => deleteNote(id),
       duplicate: () => duplicateNote(id),
       can: { copy: !blank, duplicate: !blank },
+      color: { kind: 'notes', value: note.color ?? null, set: (c) => setNoteColor(id, c) },
     };
   }
 

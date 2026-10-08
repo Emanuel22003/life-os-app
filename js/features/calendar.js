@@ -8,11 +8,11 @@
 // - Views are built by calendar.views.js; this file owns state, rendering, every click / key /
 //   drag (by delegation) and the zoom transitions.
 
-import { h, icon, pageHeader, term, skin, toast, openModal, isTyping, modalOpen, todayKey, onDayChange, debounce, weekday, uid, MONTHS_SHORT, reducedMotion } from '../ui.js';
+import { h, icon, pageHeader, term, toast, openModal, isTyping, modalOpen, todayKey, onDayChange, debounce, weekday, uid, MONTHS_SHORT, reducedMotion, plainSkin } from '../ui.js';
 import { tasksApi } from './tasks.js';
 import { habitsApi } from './habits.js';
 import * as L from './calendar.logic.js';
-import { getCalendar, getEvents, getEvent, replaceEvents, setView as saveView, setLayer, toggleLayer, subscribeCalendar, isNewerFormat } from './calendar.store.js';
+import { getCalendar, getEvents, getEvent, saveEvent, replaceEvents, setView as saveView, setLayer, toggleLayer, subscribeCalendar, isNewerFormat, getDayColors, setDayColor } from './calendar.store.js';
 import { openEventEditor, askScope, deleteEvent, NEWER_COPY, SPLIT_NOTE } from './calendar.editor.js';
 import { monthView, weekView, dayView, agendaView, trayView, legend, fillEdges, priorityBadge } from './calendar.views.js';
 import { parseQuickAdd } from './tasks.logic.js';
@@ -549,7 +549,19 @@ function mount(root) {
       habits: layers.habits ? L.habitsByDay(habitsApi.source.getItems(), range.from, range.to, today) : null,
       events: calState.events,
       eventCount: calState.events.length,
+      // Color coding: day colors, and each task section's color (a task without its own shows it)
+      dayColors: getDayColors(),
+      secColors: tasksApi.sectionColors(),
     };
+  }
+
+  /** Color coding: set or clear an event's color (the whole series). */
+  function setEventColor(id, color) {
+    const ev = getEvent(id);
+    if (!ev || isNewerFormat(id)) return;
+    if ((ev.color ?? null) === (color ?? null)) return;
+    const res = L.updateEvent(ev, { color: color ?? null });
+    if (res.event) saveEvent(res.event);
   }
 
   /** Distance from the top of the scrolled page to `el` (stable while .main scrolls). */
@@ -726,7 +738,7 @@ function mount(root) {
   function updateToolbar(ctx) {
     // The title is a live region: rewrite it only when it changes, or it is announced again
     // Simple leaves the week number out of the title (the tooltip keeps it)
-    const text = L.viewTitle(state.view, state.cursor, { short: ctx.phone, weekNumber: skin() !== 'simple' });
+    const text = L.viewTitle(state.view, state.cursor, { short: ctx.phone, weekNumber: !plainSkin() });
     if (title.textContent !== text) title.textContent = text;
     const long = L.viewTitle(state.view, state.cursor);
     if (title.title !== long) title.title = long;
@@ -1126,6 +1138,7 @@ function mount(root) {
         remove: () => deleteOccurrenceAt(occ.occId),
         duplicate: () => duplicateEvent(ev.id),
         can: { copy: !newer, duplicate: !newer },
+        color: newer ? null : { kind: 'events', value: ev.color ?? null, set: (c) => setEventColor(ev.id, c) },
       };
     }
     const taskEl = el.closest('[data-task]');
@@ -1150,6 +1163,7 @@ function mount(root) {
           const snapshot = tasksApi.snapshot(id);
           if (snapshot) pasteTask(snapshot, findTask(id)?.due ?? null, { afterId: id, verb: 'Duplicated' });
         },
+        color: { kind: 'tasks', value: task.color ?? null, set: (c) => tasksApi.setColor(id, c) },
       };
     }
     if (inTray) return { kind: null, id: null, label: 'Unscheduled tasks', el: null, accepts: ['task'], paste: (c) => pasteTask(c.snapshot, null) };
@@ -1165,6 +1179,8 @@ function mount(root) {
       el: null,
       accepts,
       paste: (c) => pasteOnDay(c, key, c.kind === 'event' ? minute : null),
+      // A day (cell, header, timeline column): its color
+      color: el.closest('[data-drop-day], [data-key], .cal-dh') ? { kind: 'days', value: getDayColors()[key] ?? null, set: (c) => setDayColor(key, c) } : null,
     };
   }
 
@@ -1631,7 +1647,7 @@ function mount(root) {
   /* ---- live updates ---- */
   // Saving the zoom level is a store write too; only events and layers need a new frame
   const offCal = subscribeCalendar((s) => {
-    if (lastCtx && s.events === lastCtx.events && s.layers === lastCtx.layers) return;
+    if (lastCtx && s.events === lastCtx.events && s.layers === lastCtx.layers && (s.dayColors ?? lastCtx.dayColors) === lastCtx.dayColors) return;
     scheduleRender();
   });
   const offTasks = tasksApi.subscribe(scheduleRender);

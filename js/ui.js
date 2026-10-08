@@ -1,7 +1,7 @@
 // LIFE/OS — UI kit: DOM builder, icons, shared widgets, dates, helpers, skin-aware text.
 // Features import from here instead of re-implementing. Keep it dependency-free (skins.js is pure).
 
-import { DEFAULT_SKIN, normalizeSkin, formatIndex, formatCount, termFor } from './skins.js';
+import { DEFAULT_SKIN, normalizeSkin, formatIndex, formatCount, termFor, isPlainSkin } from './skins.js';
 
 /* ==========================================================================
    DOM builder
@@ -498,10 +498,15 @@ export function plural(n, one, many = `${one}s`) {
    Skin-aware text — the active template decides how numbers and some words read
    ========================================================================== */
 
-/** The active template: 'simple' | 'hud' | 'brutalist' | 'terminal' (from <html data-skin>). */
+/** The active template: 'simple' | 'hud' | 'brutalist' | 'terminal' | 'oldmoney' (from <html data-skin>). */
 export function skin() {
   if (typeof document === 'undefined') return DEFAULT_SKIN;
   return normalizeSkin(document.documentElement.dataset.skin);
+}
+
+/** True in a plain template (Simple, Old Money): everyday words, fewer numbers (skins.js PLAIN_SKINS). */
+export function plainSkin() {
+  return isPlainSkin(skin());
 }
 
 /** Index label: idx(3) -> '03' (Mission Control, Brutalist, Terminal) or '3' (Simple). */

@@ -12,6 +12,7 @@
 
 import { h, icon, registerIcon, num, plural, timeAgo, clamp, reducedMotion } from '../ui.js';
 import { VIEW_UNSORTED, excerpt, highlight, clip, findSection } from './notes.logic.js';
+import { paintColor } from '../colors.js';
 import {
   boardColumns,
   boardFocusTarget,
@@ -393,6 +394,7 @@ export function createBoard(ctx) {
   }
 
   function paintColumn(col, c) {
+    paintColor(col.el, 'sections', c.section?.color ?? null);
     const name = c.section ? c.section.name : 'Unsorted';
     const iconName = c.section ? glyphOf(c.section) : 'inbox';
     const searching = model.terms.length > 0;
@@ -478,6 +480,9 @@ export function createBoard(ctx) {
       card.dirty = false;
       fillCard(card, note, terms);
     }
+    // Color coding: the note's own color, else its section's
+    const sec = note.sectionId != null ? model.sections?.find((x) => x.id === note.sectionId) : null;
+    paintColor(card.btn, 'notes', note.color, sec?.color ?? null);
     const open = note.id === model.openId;
     if (open) card.btn.setAttribute('aria-current', 'true');
     else card.btn.removeAttribute('aria-current');

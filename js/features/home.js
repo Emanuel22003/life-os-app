@@ -23,12 +23,12 @@ import {
   onDayChange,
   num,
   term,
-  skin,
   plural,
   isTyping,
   modalOpen,
   WEEKDAYS_SHORT,
   WEEKDAYS_MIN,
+  plainSkin,
 } from '../ui.js';
 import { createStore } from '../store.js';
 import { registerContextProvider } from '../contextmenu.js';
@@ -177,7 +177,7 @@ function openQuickNote() {
 
 function mount(root) {
   root.classList.add('hm-page');
-  const simple = skin() === 'simple';
+  const simple = plainSkin();
   const state = { today: todayKey(), week: mondayOf(todayKey()) };
   let todoHoldUntil = 0;
   let todoTimer = 0;

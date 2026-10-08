@@ -79,6 +79,8 @@ const CORE = [
   'js/sync.js',
   'js/sync.logic.js',
   'js/sync.panel.js',
+  'js/colors.js',
+  'js/colors.logic.js',
   'css/tokens.css',
   'css/base.css',
   'css/shell.css',
@@ -88,6 +90,9 @@ const CORE = [
   'css/skins/simple.css',
   'css/skins/brutalist.css',
   'css/skins/terminal.css',
+  'css/skins/oldmoney.css',
+  'css/skins/oldmoney-horse.svg',
+  'css/colors.css',
 ].map(keyFor);
 
 // Where each open page's document came from: 'network', or the snapshot cache that served it.

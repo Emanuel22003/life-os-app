@@ -13,6 +13,7 @@
 // are round dots and a done / planned readout, never squares.
 
 import { h, icon, registerIcon, idx, term, plural, weekday, WEEKDAYS_SHORT, MONTHS_SHORT } from '../ui.js';
+import { paintColor } from '../colors.js';
 import {
   WEEK_ORDER,
   STYLES,
@@ -92,7 +93,7 @@ const isPastOcc = (occ, ctx) => occ.end < ctx.today || (occ.end === ctx.today &&
  * opts: { prefix (focus id scope), tab (tabindex), cl / cr (continues left / right), drag, extra }
  */
 export function eventBar(occ, ctx, { prefix = 'm', tab = '-1', cl = false, cr = false, drag = true, extra = null, glyph = true } = {}) {
-  return h(
+  const bar = h(
     'button',
     {
       type: 'button',
@@ -107,6 +108,7 @@ export function eventBar(occ, ctx, { prefix = 'm', tab = '-1', cl = false, cr = 
     extra,
     glyph && occ.recurring ? h('span', { class: 'cal-ev-rep', 'aria-hidden': 'true' }, icon('repeat', { size: 10, stroke: 2 })) : null,
   );
+  return paintColor(bar, 'events', occ.color);
 }
 
 /** Outlined task chip with a tiny square check (month cells, all-day lanes, agenda, tray). */
@@ -114,7 +116,7 @@ export function taskChip(task, ctx, { prefix = 'm', tab = '-1', schedule = false
   const overdue = !task.done && task.due && task.due < ctx.today;
   const pri = PRIORITY_TAG[task.priority];
   const tip = `Task: ${task.title}${task.priority !== 'none' ? ` · ${pri.text} priority` : ''}${task.due ? ` · due ${shortDay(task.due)}` : ''}`;
-  return h(
+  const chip = h(
     'div',
     {
       class: ['cal-task', task.done && 'is-done', `pri-${task.priority}`, overdue && 'is-overdue'],
@@ -161,6 +163,7 @@ export function taskChip(task, ctx, { prefix = 'm', tab = '-1', schedule = false
         )
       : null,
   );
+  return paintColor(chip, 'tasks', task.color, ctx.secColors?.get(task.sectionId));
 }
 
 /** Round habit dots + done / planned readout for one day (null when nothing is planned or logged). */
@@ -273,6 +276,11 @@ function dateText(day, compact) {
   return String(day.date);
 }
 
+/** Color coding: tag a month cell or day header with that day's color. */
+function dayColor(ctx, key, el) {
+  return paintColor(el, 'days', ctx.dayColors?.[key]);
+}
+
 function cellClasses(ctx, day) {
   return [
     'cal-cell',
@@ -374,7 +382,7 @@ function weekRow(ctx, week) {
         icon('plus', { size: 12, stroke: 2 }),
       ),
     );
-    row.append(cell);
+    row.append(dayColor(ctx, day.key, cell));
     const ev = hiddenEv[c];
     const tk = hiddenTask[c];
     if (ev || tk) {
@@ -413,7 +421,7 @@ function weekRowCompact(ctx, week) {
     const tasks = ctx.layers.tasks ? ctx.tasksByDay.get(day.key) ?? [] : [];
     const info = ctx.layers.habits ? ctx.habits?.get(day.key) : null;
     const marks = h('span', { class: 'cal-marks', 'aria-hidden': 'true' });
-    occs.slice(0, 3).forEach((o) => marks.append(h('span', { class: ['cal-mark-ev', `cal-ev--${o.style}`] })));
+    occs.slice(0, 3).forEach((o) => marks.append(paintColor(h('span', { class: ['cal-mark-ev', `cal-ev--${o.style}`] }), 'events', o.color)));
     tasks.slice(0, 3).forEach((t) => marks.append(h('span', { class: ['cal-mark-task', t.done && 'is-done', t.priority === 'high' && 'is-high', `pri-${t.priority}`] })));
     const extra = Math.max(0, occs.length - 3) + Math.max(0, tasks.length - 3);
     if (extra) marks.append(h('span', { class: 'cal-mark-more tnum' }, `+${extra}`));
@@ -426,7 +434,7 @@ function weekRowCompact(ctx, week) {
           )
         : null;
     row.append(
-      h(
+      dayColor(ctx, day.key, h(
         'div',
         {
           class: cellClasses(ctx, day),
@@ -440,7 +448,7 @@ function weekRowCompact(ctx, week) {
         h('span', { class: 'cal-date tnum' }, dateText(day, true)),
         marks,
         meter,
-      ),
+      )),
     );
   }
   return row;
@@ -497,7 +505,7 @@ function taskBlock(b, ctx, wide) {
   const narrow = !wide && b.colSpan / b.cols < 0.6;
   const end = formatTime(b.occ.endMin);
   const overdue = !task.done && (task.due < ctx.today || (task.due === ctx.today && b.occ.endMin <= ctx.nowMin));
-  return h(
+  const block = h(
     'div',
     {
       class: ['cal-tltask', task.done && 'is-done', `pri-${task.priority}`, short && 'is-short', narrow && 'is-narrow', wide && 'is-wide', overdue && 'is-past'],
@@ -530,6 +538,7 @@ function taskBlock(b, ctx, wide) {
     priorityBadge(task.priority),
     h('span', { class: 'cal-tlev-resize', dataset: { tlResize: '' }, 'aria-hidden': 'true' }),
   );
+  return paintColor(block, 'tasks', task.color, ctx.secColors?.get(task.sectionId));
 }
 
 // Line boxes of a timed block (px), so the title clamps to whole lines that really fit
@@ -574,7 +583,7 @@ function timedBlock(b, ctx, wide) {
     h('span', { class: 'cal-tlev-resize', dataset: { tlResize: '' }, 'aria-hidden': 'true' }),
   );
   block.style.setProperty('--cal-lines', String(lines));
-  return block;
+  return paintColor(block, 'events', occ.color);
 }
 
 /**
@@ -676,7 +685,7 @@ function dayHeader(ctx, key, { link = true } = {}) {
   const wd = weekday(key);
   const info = ctx.layers.habits ? ctx.habits?.get(key) : null;
   const inner = [h('span', { class: 'cal-dh-dow label' }, WEEKDAYS_SHORT[wd]), h('span', { class: 'cal-dh-num tnum' }, idx(Number(key.slice(8))))];
-  return h(
+  return dayColor(ctx, key, h(
     'div',
     { class: ['cal-dh', key === ctx.today && 'is-today', key === ctx.cursor && 'is-selected', key < ctx.today && 'is-past', info?.planned && 'has-hb'] },
     link
@@ -687,7 +696,7 @@ function dayHeader(ctx, key, { link = true } = {}) {
         )
       : h('span', { class: 'cal-dh-btn' }, inner),
     habitMeter(info, { max: 5 }),
-  );
+  ));
 }
 
 /** Week view: day headers, all-day lane and a 24-hour timeline. The scroller survives updates. */

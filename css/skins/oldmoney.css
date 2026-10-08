@@ -1,0 +1,459 @@
+/* ==========================================================================
+   LIFE/OS — skin: Old Money (data-skin="oldmoney")
+   Ivory paper and navy ink by day, a navy evening with cream and brass by night. Bodoni
+   titles, Garamond text, small wide-spaced capitals for labels and buttons (Montserrat), fine
+   hairlines instead of shadows, and a galloping horse behind the page (oldmoney-horse.svg).
+
+   Simple underneath: css/skins/simple.css styles this template too (its rules are scoped to
+   :is([data-skin="simple"], [data-skin="oldmoney"])), and ui.plainSkin() gives it Simple's
+   words and plain numbers. This file only restyles. Same conventions as the other skins:
+   every selector starts at the skin scope, never :root / html / body (the scope is also a
+   <div> inside each Appearance preview); the shared kit uses .thing:where([data-skin] *).
+   Loaded after simple.css, so a rule here beats Simple's at the same specificity.
+   After changing --bg, update SKIN_BOOT (js/skins.js and index.html's head script).
+   ========================================================================== */
+
+/* ==========================================================================
+   Tokens
+   ========================================================================== */
+
+/* ---- Dark: navy evening, cream and brass ---- */
+[data-skin="oldmoney"] {
+  --font-sans: "EB Garamond", Garamond, "Hoefler Text", "Iowan Old Style", Baskerville, Georgia, serif;
+  --font-display: "Bodoni Moda", "Bodoni 72", Didot, "Bodoni MT", "Playfair Display", Georgia, serif;
+  /* Small capitals (labels, buttons, the menu): a calm geometric sans. Readouts and note text
+     stay in Garamond (--font-mono, as in Simple), with lining numbers */
+  --om-caps: "Montserrat", "Avenir Next", "Century Gothic", "Helvetica Neue", Arial, sans-serif;
+  --font-mono: var(--font-sans);
+  --om-script: "Pinyon Script", "Snell Roundhand", "Edwardian Script ITC", cursive;
+
+  /* Garamond runs small: one step up from Simple */
+  --fs-2xs: 12px;
+  --fs-xs: 13.5px;
+  --fs-sm: 15px;
+  --fs-md: 16.5px;
+  --fs-lg: 19px;
+  --fs-xl: 24px;
+  --fs-2xl: 32px;
+  --fs-3xl: 42px;
+
+  --radius-xs: 1px;
+  --radius-sm: 2px;
+  --radius: 3px;
+  --radius-lg: 4px;
+
+  --label-font: var(--om-caps);
+  --label-size: 10.5px;
+  --label-weight: 500;
+  --label-case: uppercase;
+  --label-tracking: 1.15;
+
+  --om-gold: #c9ad74;
+  --om-rule: rgba(201, 173, 116, 0.35);
+  --om-horse: #ece4d2;
+  --om-horse-alpha: 0.075;
+
+  --simple-card-shadow: none;
+  --simple-ring: 0 0 0 3px rgba(201, 173, 116, 0.28);
+
+  color-scheme: dark;
+
+  --bg: #0f1621;
+  --bg-elev: #111a27;
+  /* Cards let the horse show through a little */
+  --surface: rgba(24, 34, 51, 0.8);
+  --surface-2: #1b2638;
+  --surface-3: #233149;
+  --surface-solid: #172131;
+  --surface-solid-2: #1c2739;
+
+  --line: rgba(236, 228, 210, 0.1);
+  --line-strong: rgba(236, 228, 210, 0.2);
+  --line-focus: rgba(201, 173, 116, 0.8);
+
+  --text: #ece4d2;
+  --text-2: #c4bba8;
+  --text-3: #9d9682;
+  --text-4: #5d5c58;
+
+  --accent: #c9ad74;
+  --accent-ink: #0f1621;
+  --accent-soft: rgba(201, 173, 116, 0.14);
+
+  --glow: var(--simple-ring);
+  --glow-strong: 0 2px 12px rgba(0, 0, 0, 0.35);
+  --shadow: 0 18px 50px rgba(0, 0, 0, 0.5);
+  --shadow-sm: 0 4px 16px rgba(0, 0, 0, 0.3);
+
+  --scrim: rgba(8, 12, 19, 0.66);
+  --hatch: rgba(236, 228, 210, 0.07);
+
+  --heat-0: rgba(236, 228, 210, 0.07);
+  --heat-1: rgba(201, 173, 116, 0.25);
+  --heat-2: rgba(201, 173, 116, 0.45);
+  --heat-3: rgba(201, 173, 116, 0.7);
+  --heat-4: #c9ad74;
+
+  /* Color coding in heritage shades: claret, cognac, ochre, hunter, loden, navy, plum, rose */
+  --cc-red: #d0717a;
+  --cc-orange: #d39461;
+  --cc-yellow: #d6b86e;
+  --cc-green: #7eae86;
+  --cc-teal: #7fb0aa;
+  --cc-blue: #8ea8d6;
+  --cc-purple: #b394bd;
+  --cc-pink: #e0a3ad;
+  --cc-ink: #0f1621;
+}
+
+/* ---- Light: ivory paper, navy ink, a brass rule ---- */
+[data-skin="oldmoney"][data-theme="light"] {
+  --om-gold: #a2803f;
+  --om-rule: rgba(162, 128, 63, 0.4);
+  --om-horse: #18233a;
+  --om-horse-alpha: 0.07;
+
+  --simple-ring: 0 0 0 3px rgba(162, 128, 63, 0.24);
+
+  color-scheme: light;
+
+  --bg: #f3efe6;
+  --bg-elev: #f7f4ec;
+  --surface: rgba(252, 250, 245, 0.8);
+  --surface-2: #ede7da;
+  --surface-3: #e4dccb;
+  --surface-solid: #fcfaf5;
+  --surface-solid-2: #f5f1e8;
+
+  --line: rgba(24, 35, 58, 0.12);
+  --line-strong: rgba(24, 35, 58, 0.24);
+  --line-focus: rgba(162, 128, 63, 0.85);
+
+  --text: #18233a;
+  --text-2: #444e62;
+  --text-3: #626a79;
+  --text-4: #b8b1a2;
+
+  --accent: #18233a;
+  --accent-ink: #f7f4ec;
+  --accent-soft: rgba(24, 35, 58, 0.07);
+
+  --glow-strong: 0 2px 12px rgba(24, 35, 58, 0.1);
+  --shadow: 0 18px 50px rgba(24, 35, 58, 0.14);
+  --shadow-sm: 0 4px 16px rgba(24, 35, 58, 0.08);
+
+  --scrim: rgba(40, 36, 28, 0.3);
+  --hatch: rgba(24, 35, 58, 0.07);
+
+  --heat-0: rgba(24, 35, 58, 0.06);
+  --heat-1: rgba(24, 35, 58, 0.18);
+  --heat-2: rgba(24, 35, 58, 0.36);
+  --heat-3: rgba(24, 35, 58, 0.6);
+  --heat-4: #18233a;
+
+  --cc-red: #8f2d3a;
+  --cc-orange: #a8612b;
+  --cc-yellow: #a7832c;
+  --cc-green: #2f5e3e;
+  --cc-teal: #356b69;
+  --cc-blue: #2a4675;
+  --cc-purple: #5f3d66;
+  --cc-pink: #b0626f;
+  --cc-ink: #f7f4ec;
+}
+
+/* ==========================================================================
+   Page: Garamond, lining numbers, the horse
+   ========================================================================== */
+
+[data-skin="oldmoney"] .lo-page {
+  font-feature-settings: normal;
+  font-variant-numeric: lining-nums;
+  letter-spacing: 0.005em;
+}
+
+[data-skin="oldmoney"] h1,
+[data-skin="oldmoney"] h2,
+[data-skin="oldmoney"] h3,
+[data-skin="oldmoney"] h4 {
+  letter-spacing: 0.005em;
+}
+
+[data-skin="oldmoney"] .tnum,
+[data-skin="oldmoney"] .mono {
+  font-variant-numeric: lining-nums tabular-nums;
+}
+
+[data-skin="oldmoney"] .label {
+  letter-spacing: 0.16em;
+}
+
+/* The galloping horse, large and faint behind the page (fixed, so it stays while pages scroll).
+   The main column is its own layer: the horse sits above its background, below its content. */
+[data-skin="oldmoney"] .main {
+  isolation: isolate;
+}
+
+[data-skin="oldmoney"] .main::before {
+  content: "";
+  position: fixed;
+  z-index: -1;
+  right: clamp(16px, 4vw, 72px);
+  bottom: clamp(72px, 7vh, 96px);
+  width: clamp(260px, 40vw, 620px);
+  aspect-ratio: 192 / 140;
+  background: var(--om-horse);
+  opacity: var(--om-horse-alpha);
+  -webkit-mask: url("oldmoney-horse.svg") center / contain no-repeat;
+  mask: url("oldmoney-horse.svg") center / contain no-repeat;
+  pointer-events: none;
+}
+
+@media (max-width: 640px) {
+  [data-skin="oldmoney"] .main::before {
+    width: 78vw;
+    right: 6vw;
+    bottom: calc(var(--tabbar-h) + 24px);
+  }
+}
+
+/* ==========================================================================
+   Shell: the crest, a quiet menu in small capitals
+   ========================================================================== */
+
+[data-skin="oldmoney"] .sidebar {
+  border-right: 1px solid var(--line);
+}
+
+/* The brand: the horse as a crest, LIFE/OS in Bodoni with wide spacing */
+[data-skin="oldmoney"] .brand-mark {
+  display: none;
+}
+
+[data-skin="oldmoney"] .brand::before {
+  content: "";
+  flex: none;
+  width: 34px;
+  height: 25px;
+  background: var(--om-gold);
+  -webkit-mask: url("oldmoney-horse.svg") center / contain no-repeat;
+  mask: url("oldmoney-horse.svg") center / contain no-repeat;
+}
+
+[data-skin="oldmoney"] .brand-name {
+  font-family: var(--font-display);
+  font-size: 19px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+}
+
+[data-skin="oldmoney"] .nav-item {
+  font-family: var(--om-caps);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  border-radius: var(--radius-xs);
+}
+
+[data-skin="oldmoney"] .nav-item[aria-current="page"] {
+  background: transparent;
+  font-weight: 600;
+  color: var(--text);
+  box-shadow: inset 2px 0 0 var(--om-gold);
+}
+
+[data-skin="oldmoney"] .nav-badge {
+  font-family: var(--om-caps);
+  letter-spacing: 0.04em;
+  background: transparent;
+  border: 1px solid var(--line-strong);
+}
+
+[data-skin="oldmoney"] .nav-item[aria-current="page"] .nav-badge {
+  background: transparent;
+  border-color: var(--om-gold);
+  color: var(--om-gold);
+}
+
+[data-skin="oldmoney"] .tab {
+  font-family: var(--om-caps);
+  font-size: 9px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* ---- Page header: a Bodoni title over a fine brass rule ---- */
+[data-skin="oldmoney"] .page-header {
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--om-rule);
+}
+
+[data-skin="oldmoney"] .page-title {
+  font-family: var(--font-display);
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  line-height: 1.1;
+}
+
+[data-skin="oldmoney"] .page-subtitle {
+  font-style: italic;
+}
+
+/* ==========================================================================
+   Shared kit: hairlines, square corners, buttons in small capitals
+   ========================================================================== */
+
+.panel:where([data-skin="oldmoney"] *) {
+  border-color: var(--line);
+  box-shadow: none;
+}
+
+.btn:where([data-skin="oldmoney"] *) {
+  font-family: var(--om-caps);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  border-radius: var(--radius-xs);
+}
+
+.btn--primary:where([data-skin="oldmoney"] *) {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}
+
+.seg:where([data-skin="oldmoney"] *) {
+  border-radius: var(--radius-xs);
+}
+
+.seg-btn:where([data-skin="oldmoney"] *) {
+  font-family: var(--om-caps);
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  border-radius: var(--radius-xs);
+}
+
+/* Every segmented control in the same small capitals (feature rules size theirs up) */
+[data-skin="oldmoney"] .seg .seg-btn {
+  font-size: 10.5px;
+}
+
+/* The sidebar's foot stays in the text face: wide capitals don't fit there */
+[data-skin="oldmoney"] .sidebar-foot .btn {
+  font-family: var(--font-sans);
+  font-size: var(--fs-sm);
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.tag:where([data-skin="oldmoney"] *) {
+  font-family: var(--om-caps);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  border-radius: var(--radius-xs);
+}
+
+.input:where([data-skin="oldmoney"] *),
+.select:where([data-skin="oldmoney"] *),
+.textarea:where([data-skin="oldmoney"] *) {
+  font-family: var(--font-sans);
+  font-size: var(--fs-md);
+  border-radius: var(--radius-xs);
+}
+
+.modal:where([data-skin="oldmoney"] *) {
+  border-radius: var(--radius);
+  border: 1px solid var(--om-rule);
+}
+
+.modal-title:where([data-skin="oldmoney"] *) {
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: var(--fs-xl);
+  letter-spacing: 0.01em;
+}
+
+.toast:where([data-skin="oldmoney"] *) {
+  border-radius: var(--radius-xs);
+}
+
+.check:where([data-skin="oldmoney"] *) {
+  border-radius: 50%;
+}
+
+.empty-title:where([data-skin="oldmoney"] *) {
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: var(--fs-lg);
+}
+
+.empty-text:where([data-skin="oldmoney"] *) {
+  font-style: italic;
+}
+
+[data-skin="oldmoney"] .ctx-menu {
+  border-radius: var(--radius-xs);
+  border-color: var(--om-rule);
+}
+
+[data-skin="oldmoney"] .ctx-label {
+  font-family: var(--font-sans);
+  font-size: var(--fs-md);
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+/* ==========================================================================
+   Pages: a few touches
+   ========================================================================== */
+
+/* Section titles and card headings read as engraved captions */
+[data-skin="oldmoney"] .panel-head,
+[data-skin="oldmoney"] .st-card-title {
+  font-family: var(--om-caps);
+  letter-spacing: 0.16em;
+}
+
+/* Tasks and notes titles in the text face, a touch larger */
+[data-skin="oldmoney"] .tk-title,
+[data-skin="oldmoney"] .nt-item-title,
+[data-skin="oldmoney"] .nt-card-title {
+  font-size: var(--fs-md);
+}
+
+[data-skin="oldmoney"] .nt-title {
+  font-family: var(--font-display);
+  font-weight: 500;
+}
+
+/* Calendar: today in brass */
+[data-skin="oldmoney"] .cal-cell.is-today .cal-date,
+[data-skin="oldmoney"] .cal-dh.is-today .cal-dh-num {
+  color: var(--om-gold);
+}
+
+/* Big numbers (timer, stats, home) in Bodoni */
+[data-skin="oldmoney"] .pm-time,
+[data-skin="oldmoney"] .stat-value,
+[data-skin="oldmoney"] .hm-clock {
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-variant-numeric: lining-nums tabular-nums;
+  letter-spacing: 0;
+}
+
+/* ==========================================================================
+   Motion and forced colors: nothing of its own beyond Simple's; the horse is decoration
+   ========================================================================== */
+
+@media (forced-colors: active) {
+  [data-skin="oldmoney"] .main::before,
+  [data-skin="oldmoney"] .brand::before {
+    display: none;
+  }
+}

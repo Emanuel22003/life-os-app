@@ -23,6 +23,7 @@
 // are written in a single store update, and every delete or series-wide edit offers Undo.
 
 import { h, icon, registerIcon, openModal, toast, todayKey, formatDay, plural, WEEKDAYS_SHORT } from '../ui.js';
+import { colorPicker, colorKey, paintColor } from '../colors.js';
 import { isValidKey, weekdayOfKey } from './habits.logic.js';
 import {
   STYLES,
@@ -401,6 +402,7 @@ function fromDefaults(raw, today) {
     location: '',
     notes: '',
     style: STYLES.includes(d.style) ? d.style : 'solid',
+    color: colorKey(d.color),
     repeat: null,
   };
 }
@@ -420,6 +422,7 @@ function fromEvent(ev, occ) {
     location: ev.location ?? '',
     notes: ev.notes ?? '',
     style: STYLES.includes(ev.style) ? ev.style : 'solid',
+    color: colorKey(ev.color),
     repeat: ev.repeat ?? null,
   };
 }
@@ -659,6 +662,8 @@ export function openEventEditor({ event = null, occurrenceKey = null, defaults =
   const previewTitle = h('span', { class: 'cal-ed-preview-title' });
   const preview = h('div', { class: 'cal-ed-preview' }, previewTime, previewTitle);
   const selectedStyle = () => STYLES.find((s) => styleInputs.get(s).checked) ?? 'solid';
+  // Color coding: the event's color (shown in the preview too)
+  const colorIn = colorPicker({ value: init.color, label: 'Color', onChange: () => syncPreview() });
 
   /* ---- Banner (repeating) + notice (deleted elsewhere) ---- */
   const banner =
@@ -724,6 +729,7 @@ export function openEventEditor({ event = null, occurrenceKey = null, defaults =
       { class: 'cal-ed-group', role: 'group', 'aria-labelledby': fid('look-label') },
       h('div', { class: 'cal-ed-group-head' }, h('span', { class: 'label', id: fid('look-label') }, 'Look'), h('span', { class: 'cal-ed-hint' }, 'Tell kinds of events apart')),
       styleGroup,
+      h('div', { class: 'cal-ed-color cc-field', dataset: { ccFor: 'events' } }, h('span', { class: 'label' }, 'Color'), colorIn.el),
       h('div', { class: 'cal-ed-preview-row', 'aria-hidden': 'true' }, h('span', { class: 'label' }, 'Preview'), preview),
     ),
   );
@@ -867,6 +873,7 @@ export function openEventEditor({ event = null, occurrenceKey = null, defaults =
     const style = selectedStyle();
     styleOpts.forEach((opt, s) => opt.classList.toggle('is-on', s === style));
     preview.className = `cal-ed-preview cal-ev--${style}`;
+    paintColor(preview, 'events', colorIn.get());
     previewTime.textContent = allDay ? 'All day' : `${formatTime(sMin)}–${formatTime(eMin)}`;
     previewTitle.textContent = cleanText(titleIn.value) || 'Untitled event';
     previewTitle.classList.toggle('is-placeholder', !cleanText(titleIn.value));
@@ -886,6 +893,7 @@ export function openEventEditor({ event = null, occurrenceKey = null, defaults =
       location: locIn.value,
       notes: notesIn.value.replace(/\s+$/, ''),
       style: selectedStyle(),
+      color: colorIn.get(),
       repeat: readRepeat(),
     };
   }
@@ -905,6 +913,7 @@ export function openEventEditor({ event = null, occurrenceKey = null, defaults =
     if (cleanText(input.location) !== cleanText(initial.location)) p.location = input.location;
     if (input.notes !== initial.notes) p.notes = input.notes;
     if (input.style !== initial.style) p.style = input.style;
+    if ((input.color ?? null) !== (initial.color ?? null)) p.color = input.color;
     if (JSON.stringify(input.repeat) !== JSON.stringify(initial.repeat)) p.repeat = input.repeat;
     return p;
   }

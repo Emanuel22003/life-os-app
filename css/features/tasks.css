@@ -431,6 +431,15 @@ button.tk-stat:active {
   gap: var(--space-3);
 }
 
+/* With color coding on, each section starts with its color button */
+.cc-sections .tk-secs-row {
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+}
+
+.tk-sec-seg .seg-btn .cc-dot {
+  margin-right: 6px;
+}
+
 .tk-secs-count {
   white-space: nowrap;
 }

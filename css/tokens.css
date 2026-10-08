@@ -135,6 +135,16 @@
   --heat-2: rgba(255, 255, 255, 0.34);
   --heat-3: rgba(255, 255, 255, 0.6);
   --heat-4: #ffffff;
+  /* Color coding (css/colors.css): the one place hue is allowed, and only when the user turns it on */
+  --cc-red: #f07171;
+  --cc-orange: #f19a4f;
+  --cc-yellow: #e6c14a;
+  --cc-green: #5ec98b;
+  --cc-teal: #4fc3c0;
+  --cc-blue: #64a0f2;
+  --cc-purple: #a882f0;
+  --cc-pink: #ee7db8;
+  --cc-ink: #111111;
 }
 
 /* ---- Light: inverted — white paper, black ink ---- */
@@ -176,4 +186,13 @@
   --heat-2: rgba(0, 0, 0, 0.34);
   --heat-3: rgba(0, 0, 0, 0.6);
   --heat-4: #000000;
+  --cc-red: #d64545;
+  --cc-orange: #d9741a;
+  --cc-yellow: #b8890b;
+  --cc-green: #2e9a5c;
+  --cc-teal: #18908d;
+  --cc-blue: #3a76d4;
+  --cc-purple: #7c55d6;
+  --cc-pink: #cf5596;
+  --cc-ink: #ffffff;
 }

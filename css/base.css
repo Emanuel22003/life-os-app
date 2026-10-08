@@ -146,11 +146,11 @@ button:disabled {
 
 /* ---- Skin hooks ----
    .lo-deco: number-heavy or jargon decoration (index numbers, kickers, clock seconds,
-   stat strips, readouts). .lo-hint: advertised keyboard shortcuts. The Simple template
-   hides both, so nothing inside them may be the only way to reach an action.
+   stat strips, readouts). .lo-hint: advertised keyboard shortcuts. The plain templates
+   (Simple, Old Money) hide both, so nothing inside them may be the only way to reach an action.
    (!important, like [hidden]: a hidden hook must win over any feature's display rule.) */
-[data-skin="simple"] .lo-deco,
-[data-skin="simple"] .lo-hint {
+:is([data-skin="simple"], [data-skin="oldmoney"]) .lo-deco,
+:is([data-skin="simple"], [data-skin="oldmoney"]) .lo-hint {
   display: none !important;
 }
 

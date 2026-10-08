@@ -14,8 +14,20 @@ export const SKINS = Object.freeze(
     { id: 'hud', name: 'Mission Control', description: 'The grayscale HUD: blueprint grid, readouts, zero-padded counters.' },
     { id: 'brutalist', name: 'Brutalist', description: 'Loud black-and-white blocks, hard shadows, hazard-yellow accent.' },
     { id: 'terminal', name: 'Terminal', description: 'A retro computer terminal in phosphor green, all monospace.' },
+    { id: 'oldmoney', name: 'Old Money', description: 'Ivory paper and navy ink, Bodoni titles, a galloping horse. Quiet and elegant.', plain: true },
   ].map((skin) => Object.freeze(skin)),
 );
+
+/**
+ * Plain templates read like Simple: everyday words, no index numbers, kickers or shortcut tips
+ * (base.css hides .lo-deco / .lo-hint for them). Old Money is Simple underneath, dressed up:
+ * css/skins/simple.css styles both, css/skins/oldmoney.css adds its own look on top.
+ */
+export const PLAIN_SKINS = Object.freeze(['simple', ...SKINS.filter((s) => s.plain).map((s) => s.id)]);
+
+export function isPlainSkin(id) {
+  return PLAIN_SKINS.includes(normalizeSkin(id));
+}
 
 export const SKIN_IDS = Object.freeze(SKINS.map((s) => s.id));
 
@@ -65,6 +77,11 @@ export const SKIN_BOOT = Object.freeze({
     dark: '#050a05',
     light: '#e9f2e1',
   }),
+  oldmoney: Object.freeze({
+    font: 'https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400..700;1,6..96,400..700&family=EB+Garamond:ital,wght@0,400..700;1,400..700&family=Montserrat:wght@400;500;600&family=Pinyon+Script&display=swap',
+    dark: '#0f1621',
+    light: '#f3efe6',
+  }),
 });
 
 /**
@@ -76,6 +93,7 @@ export const SKIN_NUMBERS = Object.freeze({
   hud: Object.freeze({ padIndex: true, padCount: true }),
   brutalist: Object.freeze({ padIndex: true, padCount: true }),
   terminal: Object.freeze({ padIndex: true, padCount: true }),
+  oldmoney: Object.freeze({ padIndex: false, padCount: false }),
 });
 
 function numberRules(skin) {
@@ -131,6 +149,8 @@ export const TERMS = Object.freeze({
 });
 
 export function termFor(skin, key, fallback) {
-  const table = TERMS[normalizeSkin(skin)];
+  const id = normalizeSkin(skin);
+  // A plain template without words of its own speaks Simple's
+  const table = TERMS[id] ?? (isPlainSkin(id) ? TERMS.simple : null);
   return table && Object.prototype.hasOwnProperty.call(table, key) ? table[key] : fallback;
 }

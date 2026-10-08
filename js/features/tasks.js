@@ -22,11 +22,11 @@ import {
   idx,
   num,
   term,
-  skin,
   plural,
   clamp,
   isTyping,
   modalOpen,
+  plainSkin,
 } from '../ui.js';
 import { createStore } from '../store.js';
 import {
@@ -63,7 +63,9 @@ import {
   SECTION_NAME_MAX,
   isTimeOfDay,
   DEFAULT_TASK_MINUTES,
+  recolorSection,
 } from './tasks.logic.js';
+import { paintColor, colorDot, colorPicker, colorButton } from '../colors.js';
 import { registerContextProvider } from '../contextmenu.js';
 import { splitText } from '../contextmenu.logic.js';
 
@@ -142,7 +144,7 @@ const TITLE_MAX = 500; // the quick-add input's maxlength
 
 /** What a copy of a task carries. The copy is a new, open task: done state and dates stay behind. */
 function taskSnapshot(t) {
-  return { title: t.title, notes: t.notes, priority: t.priority, due: t.due, sectionId: t.sectionId };
+  return { title: t.title, notes: t.notes, priority: t.priority, due: t.due, sectionId: t.sectionId, color: t.color ?? null };
 }
 
 /** Same task, field by field (its position aside). */
@@ -162,7 +164,7 @@ function insertCopy(snap, { afterId = null, due, sectionId } = {}) {
   if (!title) return null;
   const wanted = sectionId !== undefined ? sectionId : src.sectionId;
   const section = getState().sections.some((sec) => sec.id === wanted) ? wanted : null;
-  const task = createTask({ title, notes: src.notes, priority: src.priority, due: due !== undefined ? due : src.due, sectionId: section });
+  const task = createTask({ title, notes: src.notes, priority: src.priority, due: due !== undefined ? due : src.due, sectionId: section, color: src.color });
   setItems((items) => insertTaskAfter(items, task, afterId));
   return findTask(task.id) ?? null;
 }
@@ -226,9 +228,11 @@ function segGroup({ label, options, value, onChange, className }) {
       const btn = h(
         'button',
         { type: 'button', class: 'seg-btn', 'aria-pressed': String(o.value === value), 'aria-label': o.aria, title: o.aria, onClick: () => onChange(o.value) },
+        'color' in o ? colorDot() : null,
         o.label,
         count,
       );
+      if ('color' in o) paintColor(btn, 'sections', o.color);
       buttons.set(o.value, btn);
       return btn;
     }),
@@ -341,7 +345,7 @@ function mount(root) {
   // Same voice as Notes and Habits: a short static tagline. The live counts are in the stats strip.
   const header = pageHeader({ index: '02', title: 'Tasks', subtitle: 'Capture in one line. Sort by what matters. Clear the queue.' });
   // Simple has no stats strip: its subtitle says, in one line, what today holds instead
-  const summaryEl = skin() === 'simple' ? header.querySelector('.page-subtitle') : null;
+  const summaryEl = plainSkin() ? header.querySelector('.page-subtitle') : null;
 
   /* ---- sections: All · Work · Life … (tabs; the open one scopes the whole page) ---- */
   const sectionBar = h('div', { class: 'tk-sections' });
@@ -562,6 +566,8 @@ function mount(root) {
     const sectionName = sections.find((sec) => sec.id === view.section)?.name ?? null;
     // In All, each row says which section it's in
     const names = view.section === 'all' && sections.length ? new Map(sections.map((sec) => [sec.id, sec.name])) : null;
+    // Color coding: a task without its own color shows its section's
+    const secColors = new Map(sections.map((sec) => [sec.id, sec.color ?? null]));
 
     paintSections(sections, sectionCounts(items), view.section);
     paintStats(stats);
@@ -580,7 +586,7 @@ function mount(root) {
 
     // main list
     const used = new Set();
-    reconcile(mainList, main, used, (t, i) => ({ index: i, today, draggable: manual && !t.done, section: names?.get(t.sectionId) ?? null }));
+    reconcile(mainList, main, used, (t, i) => ({ index: i, today, draggable: manual && !t.done, section: names?.get(t.sectionId) ?? null, secColor: secColors.get(t.sectionId) ?? null }));
     mainIds = main.map((t) => t.id);
     mainPanel.hidden = main.length === 0;
     paintEmpty(main.length === 0 ? emptyKind(view.filter, counts, sectionName) : '', sectionName ?? '');
@@ -605,7 +611,7 @@ function mount(root) {
       doneCount.textContent = doneText;
     }
     lastDoneCount = view.filter === 'all' ? completed.length : -1;
-    reconcile(doneList, showDone && view.completedOpen ? completed : [], used, (t, i) => ({ index: i, today, draggable: false, section: names?.get(t.sectionId) ?? null }));
+    reconcile(doneList, showDone && view.completedOpen ? completed : [], used, (t, i) => ({ index: i, today, draggable: false, section: names?.get(t.sectionId) ?? null, secColor: secColors.get(t.sectionId) ?? null }));
 
     // The row being renamed left the view (a change from another tab filtered it out
     // or completed it into a collapsed section): keep what was typed rather than drop it.
@@ -668,13 +674,13 @@ function mount(root) {
 
   /** The section tabs: rebuilt when sections change, counts and the open tab updated every paint. */
   function paintSections(sections, counts, active) {
-    const sig = sections.map((sec) => `${sec.id}\u241f${sec.name}`).join('\u241e');
+    const sig = sections.map((sec) => `${sec.id}\u241f${sec.name}\u241f${sec.color ?? ''}`).join('\u241e');
     if (sig !== sectionSig) {
       sectionSig = sig;
       if (sections.length) {
         sectionSeg = segGroup({
           label: 'Sections',
-          options: [{ value: 'all', label: 'All', count: true }, ...sections.map((sec) => ({ value: sec.id, label: sec.name, count: true }))],
+          options: [{ value: 'all', label: 'All', count: true }, ...sections.map((sec) => ({ value: sec.id, label: sec.name, count: true, color: sec.color ?? null }))],
           value: active,
           className: 'tk-sec-seg',
           onChange: (id) => setSection(id),
@@ -844,14 +850,15 @@ function mount(root) {
     return { row, grip, idxEl, check, title, titleWrap, meta, details, del, input: null, sig: '' };
   }
 
-  function updateRow(r, t, { index, today, draggable, section = null }) {
+  function updateRow(r, t, { index, today, draggable, section = null, secColor = null }) {
     const overdue = isOverdue(t, today);
     const doneAgo = t.done && t.completedAt ? timeAgo(t.completedAt) : '';
-    const sig = [t.title, t.done, t.priority, t.due, t.time, t.notes, doneAgo, today, index, draggable, editingId === t.id, section].join('␟');
+    const sig = [t.title, t.done, t.priority, t.due, t.time, t.notes, doneAgo, today, index, draggable, editingId === t.id, section, t.color, secColor].join('␟');
     if (r.sig === sig) return;
     r.sig = sig;
 
     const { row } = r;
+    paintColor(row, 'tasks', t.color, secColor);
     row.classList.toggle('is-done', t.done);
     row.classList.toggle('is-overdue', overdue);
     row.classList.toggle('is-draggable', draggable);
@@ -1182,9 +1189,22 @@ function mount(root) {
             }
           });
           const n = items.filter((t) => t.sectionId === sec.id).length;
+          const colorBtn = colorButton({
+            value: sec.color ?? null,
+            title: `Color of ${sec.name}`,
+            className: 'tk-secs-color',
+            onPick: (c) => {
+              const cur = getState();
+              const next = recolorSection(cur.sections, sec.id, c);
+              if (next !== cur.sections) commit({ ...cur, sections: next });
+              paintList();
+            },
+          });
+          colorBtn.el.dataset.ccFor = 'sections';
           return h(
             'li',
             { class: 'tk-secs-row' },
+            colorBtn.el,
             nameIn,
             h('span', { class: 'tk-secs-count label' }, plural(n, 'task')),
             h(
@@ -1301,6 +1321,7 @@ function mount(root) {
       },
       remove: () => deleteTask(id),
       duplicate: () => duplicateTask(id),
+      color: { kind: 'tasks', value: task.color ?? null, set: (c) => setItems((items) => updateTask(items, id, { color: c })) },
     };
   }
 
@@ -1478,6 +1499,7 @@ function mount(root) {
       : null;
     if (secSel) secSel.value = task.sectionId ?? '';
     const err = h('p', { class: 'tk-field-error label', id: 'tk-d-err', hidden: true }, 'A task needs a title');
+    const colorIn = colorPicker({ value: task.color ?? null, label: 'Color' });
 
     const created = `Created ${formatDay(dateKey(new Date(task.createdAt)))}`;
     const meta = h('p', { class: 'label tk-detail-meta' }, task.done && task.completedAt ? `${created} · Completed ${timeAgo(task.completedAt)}` : created);
@@ -1498,7 +1520,7 @@ function mount(root) {
       // A section deleted while the dialog was open counts as none
       const sectionId = secSel && getState().sections.some((sec) => sec.id === secSel.value) ? secSel.value : null;
       const time = due.get() && isTimeOfDay(timeIn.value) ? timeIn.value : null;
-      setItems((items) => updateTask(items, id, { title, notes: notesIn.value.replace(/\s+$/, ''), priority: pri.get(), due: due.get(), time, minutes: Number(lengthSel.value), ...(secSel ? { sectionId } : {}) }));
+      setItems((items) => updateTask(items, id, { title, notes: notesIn.value.replace(/\s+$/, ''), priority: pri.get(), due: due.get(), time, minutes: Number(lengthSel.value), color: colorIn.get(), ...(secSel ? { sectionId } : {}) }));
       m.close();
     };
 
@@ -1524,6 +1546,7 @@ function mount(root) {
         h('div', { class: 'field' }, h('span', { class: 'label' }, 'Due'), due.el),
         h('div', { class: 'field' }, h('label', { class: 'label', for: 'tk-d-time' }, 'Time'), h('div', { class: 'tk-time-row' }, timeIn, lengthSel), timeHint),
         secSel ? h('div', { class: 'field' }, h('label', { class: 'label', for: 'tk-d-section' }, 'Section'), secSel) : null,
+        h('div', { class: 'field cc-field', dataset: { ccFor: 'tasks' } }, h('span', { class: 'label' }, 'Color'), colorIn.el),
       ),
       h('div', { class: 'tk-detail-foot' }, meta, h('span', { class: 'tk-detail-keys label lo-hint' }, kbd(MOD_KEY), kbd('⏎'), 'Save')),
     ];
@@ -1947,6 +1970,21 @@ function apiRemove(id) {
   return deleteWithUndo(id);
 }
 
+/** Color coding: set (a palette id) or clear (null) a task's color. True when it changed. */
+function apiSetColor(id, color) {
+  const task = findTask(id);
+  if (!task) return false;
+  return setItems((items) => {
+    const next = updateTask(items, id, { color });
+    return next.find((t) => t.id === id) === task ? items : next;
+  });
+}
+
+/** sectionId -> its color (or null), so other pages can show a task in its section's color. */
+function apiSectionColors() {
+  return new Map(getState().sections.map((sec) => [sec.id, sec.color ?? null]));
+}
+
 function takePendingReveal() {
   const p = pendingReveal;
   pendingReveal = null;
@@ -1965,6 +2003,8 @@ export const tasksApi = Object.freeze({
   insertCopy: apiInsertCopy,
   removeCopy: apiRemoveCopy,
   remove: apiRemove,
+  setColor: apiSetColor,
+  sectionColors: apiSectionColors,
 });
 
 export default {

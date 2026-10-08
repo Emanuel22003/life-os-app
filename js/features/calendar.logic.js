@@ -490,6 +490,7 @@ export function createEvent(input, { now = Date.now(), makeId = uid } = {}) {
       location: src.location,
       notes: src.notes,
       style: src.style,
+      ...(typeof src.color === 'string' && src.color ? { color: src.color } : {}),
       repeat: src.repeat ?? null,
       exdates: [],
       createdAt: now,
@@ -500,7 +501,7 @@ export function createEvent(input, { now = Date.now(), makeId = uid } = {}) {
   return { event };
 }
 
-const EDITABLE = ['title', 'allDay', 'start', 'end', 'startTime', 'endTime', 'location', 'notes', 'style', 'repeat', 'exdates'];
+const EDITABLE = ['title', 'allDay', 'start', 'end', 'startTime', 'endTime', 'location', 'notes', 'style', 'color', 'repeat', 'exdates'];
 
 /**
  * Apply a patch to an event's editable fields, keeping what the user did not touch:
@@ -553,7 +554,10 @@ export function updateEvent(event, patch, { now = Date.now() } = {}) {
   const d = mergePatch(event, patch);
   const v = validateEvent(d);
   if (!v.ok) return { error: v.error, field: v.field };
-  const next = normalizeEvent({ ...event, ...d, id: event.id, createdAt: event.createdAt, updatedAt: now }, { now });
+  const merged = { ...event, ...d, id: event.id, createdAt: event.createdAt, updatedAt: now };
+  // Color coding: no color is no field (a color set by a newer version is kept until changed here)
+  if (merged.color == null) delete merged.color;
+  const next = normalizeEvent(merged, { now });
   return { event: next };
 }
 
@@ -778,6 +782,7 @@ function makeOcc(c, n) {
     allDay: !c.timed,
     title: typeof ev.title === 'string' ? ev.title : '',
     style: STYLES.includes(ev.style) ? ev.style : 'solid',
+    color: typeof ev.color === 'string' ? ev.color : null,
     location: typeof ev.location === 'string' ? ev.location : '',
     recurring: !!c.repeat,
     spanDays: c.span,

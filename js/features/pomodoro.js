@@ -9,7 +9,7 @@
 // a fresh read of the store (so it lands once), and exactly one window plays the chime and shows
 // the desktop notification: the first to claim that session's id under the same lock.
 
-import { h, icon, registerIcon, pageHeader, toast, isTyping, modalOpen, uid, num, term, skin, onSkinChange, onDayChange, plural } from '../ui.js';
+import { h, icon, registerIcon, pageHeader, toast, isTyping, modalOpen, uid, num, term, skin, onSkinChange, onDayChange, plural, plainSkin } from '../ui.js';
 import { createStore } from '../store.js';
 import * as P from './pomodoro.logic.js';
 import { tasksApi } from './tasks.js';
@@ -538,7 +538,7 @@ export const pomodoroApi = Object.freeze({
 
 /** 'Round 2 of 4' (Simple) or 'Round 02/04'. */
 export function roundText(round, rounds) {
-  return skin() === 'simple' ? `Round ${round} of ${rounds}` : `Round ${num(round)}/${num(rounds)}`;
+  return plainSkin() ? `Round ${round} of ${rounds}` : `Round ${num(round)}/${num(rounds)}`;
 }
 
 /** The task being focused on, from Tasks (null when none or it's gone). */
@@ -675,7 +675,7 @@ function switchRow({ label, hint, onToggle }) {
 function mount(root) {
   ensureService();
   root.classList.add('pm-page');
-  const simple = skin() === 'simple';
+  const simple = plainSkin();
 
   const header = pageHeader({
     index: '06',

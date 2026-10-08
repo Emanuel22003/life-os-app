@@ -1,4 +1,4 @@
-// LIFE/OS — Appearance picker: four templates (skins) as live mini previews, plus light/dark.
+// LIFE/OS — Appearance picker: five templates (skins) as live mini previews, plus light/dark.
 //
 // Each preview is a tiny page built from the shared kit (pageHeader, .panel .hud, .check, .tag,
 // .btn, .seg) inside its own shadow root with the app's shared stylesheets and every skin file,

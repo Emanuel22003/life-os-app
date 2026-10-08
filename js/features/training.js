@@ -8,7 +8,7 @@
 // a history table). The workout dialog starts each exercise from last time, so the next session
 // can go a little further. Store 'training' (shape in training.logic.js); it syncs, the view doesn't.
 
-import { h, icon, registerIcon, pageHeader, emptyState, toast, openModal, confirmDialog, todayKey, formatDay, relativeDay, uid, onDayChange, isTyping, modalOpen, plural, clamp, skin } from '../ui.js';
+import { h, icon, registerIcon, pageHeader, emptyState, toast, openModal, confirmDialog, todayKey, formatDay, relativeDay, uid, onDayChange, isTyping, modalOpen, plural, clamp, plainSkin } from '../ui.js';
 import { createStore } from '../store.js';
 import { registerContextProvider } from '../contextmenu.js';
 import {
@@ -921,7 +921,7 @@ function openRoutineEditor(routine = null) {
 
 function mount(root) {
   root.classList.add('tr-root');
-  const simple = skin() === 'simple';
+  const simple = plainSkin();
   let shown = LOG_PAGE;
   const cleanups = [];
 

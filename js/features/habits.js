@@ -21,7 +21,6 @@ import {
   idx,
   num,
   term,
-  skin,
   plural,
   isTyping,
   modalOpen,
@@ -29,6 +28,7 @@ import {
   WEEKDAYS_MIN,
   MONTHS_SHORT,
   reducedMotion,
+  plainSkin,
 } from '../ui.js';
 import { createStore } from '../store.js';
 import * as L from './habits.logic.js';
@@ -254,7 +254,7 @@ function dayBadge(day, isToday, future) {
 }
 
 function dayStatusLine(day, { isToday, future, perfect }) {
-  if (skin() === 'simple') return plainStatusLine(day, { isToday, future });
+  if (plainSkin()) return plainStatusLine(day, { isToday, future });
   const left = day.planned - day.done;
   if (!day.planned) {
     if (future) return 'Nothing planned yet — a rest day, unless you give it a lineup.';
@@ -1100,7 +1100,7 @@ function createConsole(ctx) {
     const rate = L.overallRate(items, today);
 
     titleEl.textContent =
-      skin() === 'simple'
+      plainSkin()
         ? plainDayTitle(day, key, today)
         : [shortDate(key, today), idle ? 'No habits' : resting ? 'Rest day' : plural(day.planned, 'habit'), resting ? null : future ? 'Planned' : `${day.done}/${day.planned} done`]
             .filter(Boolean)

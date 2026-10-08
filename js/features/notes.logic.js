@@ -9,6 +9,9 @@
 //     layout: 'list' | 'board',                            // last layout chosen (each tab keeps its own)
 //     boardCollapsed: ['unsorted' | <section id>] }       // board columns folded to a strip
 // State functions never mutate their input and return the same object on a no-op.
+// Color coding adds an optional `color` (a palette id, js/colors.logic.js) to notes and sections.
+
+import { colorKey, withColor } from '../colors.logic.js';
 
 export const EXCERPT_LENGTH = 140;
 
@@ -485,7 +488,7 @@ export function sectionCounts(items, sections) {
  * Add a section at the end.
  *   { state, section }   or   { error, code } when the name is refused (see validateSectionName)
  */
-export function createSection(state, { name, icon = null } = {}, { now = Date.now(), makeId = fallbackId } = {}) {
+export function createSection(state, { name, icon = null, color = null } = {}, { now = Date.now(), makeId = fallbackId } = {}) {
   const sections = sectionsOf(state);
   const check = validateSectionName(name, sections);
   if (!check.ok) return { error: check.error, code: check.code };
@@ -496,6 +499,7 @@ export function createSection(state, { name, icon = null } = {}, { now = Date.no
     icon: cleanSectionIcon(icon),
     createdAt: now,
     order: sections.length,
+    ...(colorKey(color) ? { color: colorKey(color) } : {}),
   };
   return { state: { ...state, sections: [...sections, section] }, section };
 }
@@ -505,7 +509,7 @@ export function createSection(state, { name, icon = null } = {}, { now = Date.no
  *   { state, section }   or   { error, code } (code 'missing' when the section is gone)
  * Unchanged values return the same state.
  */
-export function updateSection(state, id, { name, icon } = {}) {
+export function updateSection(state, id, { name, icon, color } = {}) {
   const sections = sectionsOf(state);
   const at = sections.findIndex((s) => s.id === id);
   if (at === -1) return { error: 'That section no longer exists.', code: 'missing' };
@@ -520,6 +524,8 @@ export function updateSection(state, id, { name, icon } = {}) {
     const clean = cleanSectionIcon(icon);
     if (clean !== current.icon) next = { ...next, icon: clean };
   }
+  // Color coding: a palette id, or null to clear it
+  if (color !== undefined) next = withColor(next, color);
   if (next === current) return { state, section: current };
   return { state: { ...state, sections: sections.map((s, i) => (i === at ? next : s)) }, section: next };
 }

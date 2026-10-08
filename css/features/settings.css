@@ -32,6 +32,16 @@
   border-top: 0;
 }
 
+/* A switch that belongs to the one above it (Color coding → Sections, Tasks, …) */
+.st-row--sub {
+  padding-left: var(--space-5);
+  padding-block: var(--space-3);
+}
+
+.st-row--sub .st-row-title {
+  font-weight: 500;
+}
+
 .st-row-title {
   font-weight: 600;
   color: var(--text);
@@ -95,4 +105,10 @@
   .st-row-control {
     justify-content: flex-start;
   }
+}
+
+/* A switch that can't change right now (Color coding is off) */
+.st-switch:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }

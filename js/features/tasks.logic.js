@@ -2,6 +2,7 @@
 // Everything here takes plain data and returns new data; nothing is mutated.
 
 import { dateKey, parseKey, shiftKey, weekday, clamp, uid } from '../ui.js';
+import { colorKey, withColor } from '../colors.logic.js';
 
 /* ==========================================================================
    Vocabulary
@@ -339,10 +340,10 @@ export function computeStats(items, today) {
    Mutations (pure: items in, items out)
    ========================================================================== */
 
-export function createTask({ title, priority = 'none', due = null, notes = '', sectionId = null, time = null, minutes = null } = {}, now = Date.now()) {
+export function createTask({ title, priority = 'none', due = null, notes = '', sectionId = null, time = null, minutes = null, color = null } = {}, now = Date.now()) {
   const day = isDateKey(due) ? due : null;
   const at = day && isTimeOfDay(time) ? time : null;
-  return {
+  const task = {
     id: uid(),
     title: cleanTitle(title),
     notes: typeof notes === 'string' ? notes : '',
@@ -356,6 +357,7 @@ export function createTask({ title, priority = 'none', due = null, notes = '', s
     order: 0,
     sectionId: typeof sectionId === 'string' && sectionId ? sectionId : null,
   };
+  return colorKey(color) ? { ...task, color: colorKey(color) } : task;
 }
 
 /** New tasks land at the top of the manual order, right under the command bar. */
@@ -395,6 +397,8 @@ export function updateTask(items, id, patch = {}) {
     if (!next.due) next.time = null;
     next.minutes = next.time ? taskMinutes(next.minutes) : null;
     if ('sectionId' in patch) next.sectionId = typeof patch.sectionId === 'string' && patch.sectionId ? patch.sectionId : null;
+    // Color coding: a palette id, or null to clear it (the field is then left out)
+    if ('color' in patch) return withColor(next, patch.color);
     return next;
   });
 }
@@ -564,4 +568,16 @@ export function parseQuickAdd(text, today, ignore = new Set()) {
 export function notePreview(notes, max = 90) {
   const line = String(notes ?? '').split('\n').map((l) => l.trim()).find(Boolean) ?? '';
   return line.length > max ? `${line.slice(0, max - 1)}…` : line;
+}
+
+/** Sections with one section's color set (null clears it): the same list when nothing changes. */
+export function recolorSection(sections, id, color) {
+  let changed = false;
+  const next = sections.map((sec) => {
+    if (sec.id !== id) return sec;
+    const out = withColor(sec, color);
+    changed = out !== sec;
+    return out;
+  });
+  return changed ? next : sections;
 }

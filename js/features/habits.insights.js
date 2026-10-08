@@ -10,7 +10,7 @@
 // Contract: mountInsights(container, source) -> cleanup
 //   source = { getItems(), today(), subscribe(fn) -> unsub, openTab(name) }
 
-import { h, icon, emptyState, formatDay, onDayChange, plural, idx, skin, clamp, MONTHS_SHORT, WEEKDAYS_SHORT } from '../ui.js';
+import { h, icon, emptyState, formatDay, onDayChange, plural, idx, clamp, MONTHS_SHORT, WEEKDAYS_SHORT, plainSkin } from '../ui.js';
 import { createStore } from '../store.js';
 import * as L from './habits.logic.js';
 import * as S from './habits.stats.js';
@@ -27,7 +27,7 @@ const METRICS = [
 const prefs = createStore('habits-insights', { range: '30d', metric: 'pct', table: false });
 
 /** Axis and tile captions: 'SAT' in the readout templates, 'Sat' in Simple (sentence case throughout). */
-const caps = (text) => (skin() === 'simple' ? text : text.toUpperCase());
+const caps = (text) => (plainSkin() ? text : text.toUpperCase());
 /** Day of the month on an axis: '07' or '7' (Simple), by the template's number rules. */
 const dayNum = (key) => idx(Number(key.slice(8)));
 

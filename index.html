@@ -34,7 +34,7 @@
         }
       } catch (e) {}
       (function () {
-        var SKIN_BOOT = {"simple": {"font": "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap", "dark": "#111111", "light": "#f7f7f5"}, "hud": {"font": "https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap", "dark": "#060606", "light": "#f4f4f4"}, "brutalist": {"font": "https://fonts.googleapis.com/css2?family=Anton&family=Archivo:wght@400;500;600;700;800;900&family=Space+Mono:wght@400;700&display=swap", "dark": "#000000", "light": "#ffffff"}, "terminal": {"font": "https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=VT323&display=swap", "dark": "#050a05", "light": "#e9f2e1"}};
+        var SKIN_BOOT = {"simple": {"font": "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap", "dark": "#111111", "light": "#f7f7f5"}, "hud": {"font": "https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap", "dark": "#060606", "light": "#f4f4f4"}, "brutalist": {"font": "https://fonts.googleapis.com/css2?family=Anton&family=Archivo:wght@400;500;600;700;800;900&family=Space+Mono:wght@400;700&display=swap", "dark": "#000000", "light": "#ffffff"}, "terminal": {"font": "https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=VT323&display=swap", "dark": "#050a05", "light": "#e9f2e1"}, "oldmoney": {"font": "https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400..700;1,6..96,400..700&family=EB+Garamond:ital,wght@0,400..700;1,400..700&family=Montserrat:wght@400;500;600&family=Pinyon+Script&display=swap", "dark": "#0f1621", "light": "#f3efe6"}};
         var root = document.documentElement;
         var skin = 'simple';
         var theme = 'dark';
@@ -84,6 +84,9 @@
     <link rel="stylesheet" href="css/skins/simple.css" />
     <link rel="stylesheet" href="css/skins/brutalist.css" />
     <link rel="stylesheet" href="css/skins/terminal.css" />
+    <link rel="stylesheet" href="css/skins/oldmoney.css" />
+    <!-- Color coding (Settings): after the templates, so its colors win at the same specificity -->
+    <link rel="stylesheet" href="css/colors.css" />
   </head>
   <body class="lo-page">
     <div id="app"></div>

@@ -22,7 +22,8 @@
 //     remove()                  // the module's own delete (confirmation, Undo)
 //     duplicate()               // copy + paste next to the original
 //     can: { copy, paste, delete, duplicate }             // false greys out an action it has
-//   }
+//     color: { kind, value, set(id | null) }               // optional: a row of color swatches
+//   }                                                      // (shown while that kind's colors are on)
 //
 // Providers are asked newest first; the first target wins. Every mutation stays in the module
 // (its store helpers, normalization, Undo toast): this file only routes the action and keeps the
@@ -30,6 +31,7 @@
 // route change), plus the plain text on the system clipboard.
 
 import { h, icon, registerIcon, toast, isTyping, modalOpen, reducedMotion } from './ui.js';
+import { colorPicker } from './colors.js';
 import { menuPosition, stepIndex, shortcutLabels, actionForKey, isMenuKey, makeClip, readClip, pasteMode, sameText } from './contextmenu.logic.js';
 
 registerIcon('ctx-copy', '<rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1"/>');
@@ -243,6 +245,17 @@ function openMenu(t, at, { keyboard = false } = {}) {
     'aria-orientation': 'vertical',
   });
   el.append(...items.map((it) => it.btn));
+  // Color coding: a row of swatches under the actions (arrow keys reach them too)
+  const color = t.color && document.documentElement.classList.contains(`cc-${t.color.kind}`) ? t.color : null;
+  if (color) {
+    const picker = colorPicker({ value: color.value, label: 'Color', compact: true });
+    picker.buttons.forEach((btn) => {
+      btn.setAttribute('role', 'menuitemradio');
+      btn.tabIndex = -1;
+      items.push({ action: 'color', label: btn.title, enabled: true, btn, color: btn.dataset.swatch === 'none' ? null : btn.dataset.swatch });
+    });
+    el.append(h('div', { class: 'ctx-colors', role: 'group', 'aria-label': 'Color' }, picker.el));
+  }
   el.style.visibility = 'hidden';
   document.body.append(el);
 
@@ -268,13 +281,23 @@ function openMenu(t, at, { keyboard = false } = {}) {
     if (!it?.enabled) return;
     const target = state.target;
     closeMenu();
+    if (it.action === 'color') {
+      try {
+        target.color.set(it.color);
+      } catch (err) {
+        console.error('[contextmenu] color failed', err);
+        toast('That didn’t work. Nothing was changed.');
+      }
+      return;
+    }
     run(target, it.action);
   }
 
   function onKeydown(e) {
     // Everything typed while the menu is open is the menu's: no page shortcut fires behind it
     e.stopPropagation();
-    if (e.isComposing) return;
+    // The swatch row moves with the arrows itself
+    if (e.isComposing || e.defaultPrevented) return;
     const nav = stepIndex(
       items.map((it) => it.enabled),
       current(),
@@ -327,13 +350,13 @@ function openMenu(t, at, { keyboard = false } = {}) {
 
   el.addEventListener('keydown', onKeydown);
   el.addEventListener('click', (e) => {
-    const btn = e.target.closest('.ctx-item');
+    const btn = e.target.closest('.ctx-item, .cc-swatch');
     const it = btn && items.find((x) => x.btn === btn);
     if (it) activate(it);
   });
   // The pointer and the keyboard share one highlight: hovering an item focuses it
   el.addEventListener('pointermove', (e) => {
-    const btn = e.target.closest('.ctx-item');
+    const btn = e.target.closest('.ctx-item, .cc-swatch');
     const it = btn && items.find((x) => x.btn === btn);
     if (it?.enabled && document.activeElement !== btn) btn.focus({ preventScroll: true });
     else if (it && !it.enabled && document.activeElement !== el) el.focus({ preventScroll: true });

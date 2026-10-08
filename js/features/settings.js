@@ -7,6 +7,7 @@
 import { h, icon, pageHeader, toast, confirmDialog, formatDay, dateKey, uid } from '../ui.js';
 import { settings } from '../store.js';
 import { SKINS, normalizeSkin, THEMES } from '../skins.js';
+import { COLOR_KINDS, normalizeColorPrefs } from '../colors.logic.js';
 import { shell } from '../shell.js';
 import { SITE_URL } from '../origin.js';
 import { syncConfig, syncStatus, onSyncStatus } from '../sync.js';
@@ -260,6 +261,32 @@ function mount(root) {
     },
   });
 
+  /* Color coding (this computer): one master switch, then one per kind */
+  const colorSwitches = new Map();
+  const setColorPref = (key, on) => settings.update({ colors: { ...normalizeColorPrefs(settings.get().colors), [key]: on } });
+  const colorsRow = row({
+    title: 'Color coding',
+    hint: 'Give sections, tasks, notes, events and days a color, from their right-click menu or their edit dialog. Off shows everything in the template’s own colors; your colors are kept.',
+    control: (id) => {
+      const sw = switchControl(id, (on) => setColorPref('on', on));
+      colorSwitches.set('on', sw);
+      return sw.el;
+    },
+  });
+  const colorKindRows = COLOR_KINDS.map((k) => {
+    const r = row({
+      title: k.name,
+      hint: k.hint,
+      control: (id) => {
+        const sw = switchControl(id, (on) => setColorPref(k.id, on));
+        colorSwitches.set(k.id, sw);
+        return sw.el;
+      },
+    });
+    r.el.classList.add('st-row--sub');
+    return r;
+  });
+
   /* Start-up (this computer) */
   const pageIds = shell.pages.map((p) => p.id);
   let startSelect;
@@ -282,6 +309,8 @@ function mount(root) {
     templateRow.hint(current ? `${current.name}: ${current.description}` : '');
     theme.set(THEMES.includes(s.theme) ? s.theme : 'dark');
     motion.set(s.motion === 'reduced');
+    const colors = normalizeColorPrefs(s.colors);
+    colorSwitches.forEach((sw, key) => sw.set(colors[key], { disabled: key !== 'on' && !colors.on }));
     if (pageIds.length && document.activeElement !== startSelect) startSelect.value = startPage(s.startPage, pageIds);
   }
 
@@ -372,6 +401,7 @@ function mount(root) {
       { class: 'st-cards' },
       card('Sound & notifications', [soundRow, notifyRow, miniRow]),
       card('Appearance', [templateRow, themeRow, motionRow]),
+      card('Color coding', [colorsRow, ...colorKindRows]),
       card('Start-up', [startRow]),
       card('Sync & backup', [syncRow, backupRow, restoreRow, storageRow]),
       card('About', [versionRow, elsewhereRow, projectRow]),

@@ -25,6 +25,7 @@
 
 import { createStore } from '../store.js';
 import { DEFAULT_STATE, LAYERS, VIEWS, normalizeCalendar, normalizeEvent, isForeignEvent } from './calendar.logic.js';
+import { withDayColor } from '../colors.logic.js';
 
 export const calendarStore = createStore('calendar', DEFAULT_STATE);
 
@@ -172,4 +173,21 @@ export function toggleLayer(name) {
 /** fn(normalizedState) after every calendar change, from this tab or another. */
 export function subscribeCalendar(fn) {
   return calendarStore.subscribe(() => fn(getCalendar()));
+}
+
+/* ---- Color coding: a color per day (dayColors { 'YYYY-MM-DD': palette id }, synced) ---- */
+
+export function getDayColors() {
+  const d = getCalendar().dayColors;
+  return d && typeof d === 'object' && !Array.isArray(d) ? d : {};
+}
+
+/** Set (palette id) or clear (null) a day's color. True when it changed. */
+export function setDayColor(key, color) {
+  const s = getCalendar();
+  const cur = getDayColors();
+  const next = withDayColor(cur, key, color);
+  if (next === cur) return false;
+  commit({ ...s, dayColors: next });
+  return true;
 }

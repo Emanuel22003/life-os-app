@@ -1,0 +1,201 @@
+/* ==========================================================================
+   LIFE/OS — color coding (js/colors.js, js/colors.logic.js)
+   The palette is tokens (--cc-red … --cc-pink, --cc-ink in css/tokens.css; a skin may restate
+   them). Elements are tagged data-cc-kind / data-cc / data-cc-sec by paintColor(); the classes
+   on <html> (cc-on, cc-sections, cc-tasks, cc-notes, cc-events, cc-days) decide what shows, so
+   Settings' switches work at once. Loaded after the skins: same specificity, this file wins.
+   ========================================================================== */
+
+/* ---- Palette id -> color ---- */
+[data-cc="red"] { --cc-own: var(--cc-red); }
+[data-cc="orange"] { --cc-own: var(--cc-orange); }
+[data-cc="yellow"] { --cc-own: var(--cc-yellow); }
+[data-cc="green"] { --cc-own: var(--cc-green); }
+[data-cc="teal"] { --cc-own: var(--cc-teal); }
+[data-cc="blue"] { --cc-own: var(--cc-blue); }
+[data-cc="purple"] { --cc-own: var(--cc-purple); }
+[data-cc="pink"] { --cc-own: var(--cc-pink); }
+[data-cc-sec="red"] { --cc-sec: var(--cc-red); }
+[data-cc-sec="orange"] { --cc-sec: var(--cc-orange); }
+[data-cc-sec="yellow"] { --cc-sec: var(--cc-yellow); }
+[data-cc-sec="green"] { --cc-sec: var(--cc-green); }
+[data-cc-sec="teal"] { --cc-sec: var(--cc-teal); }
+[data-cc-sec="blue"] { --cc-sec: var(--cc-blue); }
+[data-cc-sec="purple"] { --cc-sec: var(--cc-purple); }
+[data-cc-sec="pink"] { --cc-sec: var(--cc-pink); }
+
+/* ---- What shows: the item's own color, else its section's; nothing while switched off ----
+   --cc is reset on every tagged element (an event inside a colored day keeps its own) */
+[data-cc-kind] { --cc: initial; }
+.cc-sections [data-cc-kind][data-cc-sec] { --cc: var(--cc-sec); }
+.cc-on [data-cc-kind="any"][data-cc],
+.cc-sections [data-cc-kind="sections"][data-cc],
+.cc-tasks [data-cc-kind="tasks"][data-cc],
+.cc-notes [data-cc-kind="notes"][data-cc],
+.cc-events [data-cc-kind="events"][data-cc],
+.cc-days [data-cc-kind="days"][data-cc] { --cc: var(--cc-own); }
+
+/* Which items currently show a color (own color of a kind that is on, or a section color) */
+.cc-tasks [data-cc-kind="tasks"][data-cc],
+.cc-notes [data-cc-kind="notes"][data-cc],
+.cc-sections [data-cc-kind]:is([data-cc-kind="tasks"], [data-cc-kind="notes"])[data-cc-sec] {
+  --cc-bar: 3px;
+}
+
+/* ---- Rows and cards: a colored edge and a faint wash ---- */
+:is(.tk-row, .nt-item, .nt-card, .cal-task, .cal-tltask, .hm-task)[data-cc-kind] {
+  --cc-wash: color-mix(in srgb, var(--cc) 5%, transparent);
+}
+:is(.tk-row, .nt-item, .nt-card, .cal-task, .cal-tltask, .hm-task)[data-cc-kind]:is([data-cc], [data-cc-sec]) {
+  background-image: linear-gradient(90deg, var(--cc) 0 var(--cc-bar, 0), transparent var(--cc-bar, 0)), linear-gradient(var(--cc-wash), var(--cc-wash));
+}
+
+/* ---- Events: a solid event fills with the color, the other looks take it on their spine ---- */
+.cc-events .cal-ev--solid[data-cc] {
+  background: var(--cc);
+  border-color: var(--cc);
+  color: var(--cc-ink);
+}
+.cc-events .cal-ev--outline[data-cc] {
+  background: linear-gradient(color-mix(in srgb, var(--cc) 8%, transparent), color-mix(in srgb, var(--cc) 8%, transparent)), var(--surface-solid);
+  border-color: color-mix(in srgb, var(--cc) 55%, transparent);
+}
+.cc-events .cal-ev--hatched[data-cc] {
+  background: repeating-linear-gradient(-45deg, color-mix(in srgb, var(--cc) 32%, transparent) 0 3px, transparent 3px 7px), var(--surface-solid);
+  border-color: color-mix(in srgb, var(--cc) 55%, transparent);
+}
+.cc-events .cal-ev--ink[data-cc] {
+  background: color-mix(in srgb, var(--cc) 18%, var(--surface-solid));
+  border-color: color-mix(in srgb, var(--cc) 40%, transparent);
+}
+.cc-events :is(.cal-ev--outline, .cal-ev--hatched, .cal-ev--ink)[data-cc]::before {
+  width: 3px;
+  background: var(--cc);
+}
+
+/* ---- Days (month cells, week / day headers): a band on top and a wash ---- */
+.cc-days :is(.cal-cell, .cal-dh)[data-cc] {
+  background-image: linear-gradient(var(--cc) 0 3px, transparent 3px), linear-gradient(color-mix(in srgb, var(--cc) 13%, transparent), color-mix(in srgb, var(--cc) 13%, transparent));
+}
+
+/* ---- Sections: a dot on tabs, a colored icon in the notes rail, chips and board columns ---- */
+.cc-dot {
+  display: none;
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--cc);
+}
+.cc-sections [data-cc-kind="sections"][data-cc] .cc-dot {
+  display: inline-block;
+}
+.cc-sections [data-cc-kind="sections"][data-cc] :is(.nt-rail-icon, .nt-chip > .icon:first-child, .nt-col-icon) {
+  color: var(--cc);
+}
+.cc-sections .nt-col[data-cc] {
+  box-shadow: inset 0 3px 0 var(--cc);
+}
+
+/* ---- Pickers: hidden while color coding (or that kind) is off ---- */
+:root:not(.cc-on) :is(.cc-field, .cc-btn, .ctx-colors),
+:root:not(.cc-sections) [data-cc-for="sections"],
+:root:not(.cc-tasks) [data-cc-for="tasks"],
+:root:not(.cc-notes) [data-cc-for="notes"],
+:root:not(.cc-events) [data-cc-for="events"],
+:root:not(.cc-days) [data-cc-for="days"] {
+  display: none !important;
+}
+
+.cc-picker {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.cc-swatch {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid color-mix(in srgb, var(--text) 18%, transparent);
+  border-radius: 50%;
+  color: var(--text-3);
+  cursor: pointer;
+  transition: transform var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease);
+}
+.cc-picker--compact .cc-swatch {
+  width: 20px;
+  height: 20px;
+}
+.cc-swatch:hover {
+  transform: scale(1.12);
+}
+.cc-swatch[aria-checked="true"] {
+  box-shadow: 0 0 0 2px var(--surface-solid), 0 0 0 4px var(--text);
+}
+.cc-swatch:focus-visible {
+  outline: 2px solid var(--line-focus);
+  outline-offset: 3px;
+}
+.cc-swatch--none {
+  background: transparent;
+  border-style: dashed;
+}
+.cc-swatch[data-swatch="red"] { background: var(--cc-red); }
+.cc-swatch[data-swatch="orange"] { background: var(--cc-orange); }
+.cc-swatch[data-swatch="yellow"] { background: var(--cc-yellow); }
+.cc-swatch[data-swatch="green"] { background: var(--cc-green); }
+.cc-swatch[data-swatch="teal"] { background: var(--cc-teal); }
+.cc-swatch[data-swatch="blue"] { background: var(--cc-blue); }
+.cc-swatch[data-swatch="purple"] { background: var(--cc-purple); }
+.cc-swatch[data-swatch="pink"] { background: var(--cc-pink); }
+.cc-swatch:not(.cc-swatch--none) {
+  border-color: transparent;
+}
+
+/* The pop-up (and the row inside the right-click menu) */
+.cc-pop {
+  min-width: 0;
+  gap: var(--space-2);
+  padding: var(--space-3);
+}
+.cc-pop-title {
+  color: var(--text-3);
+}
+.ctx-colors {
+  padding: var(--space-2) var(--space-2) var(--space-1);
+  border-top: 1px solid var(--line);
+  margin-top: 2px;
+}
+.ctx-colors .cc-picker {
+  gap: 5px;
+}
+
+/* A button that shows the current color and opens the pop-up */
+.cc-btn-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--cc, transparent);
+}
+.cc-btn-dot.is-none {
+  border: 1.5px dashed var(--text-3);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cc-swatch { transition: none; }
+  .cc-swatch:hover { transform: none; }
+}
+:root[data-motion="reduced"] .cc-swatch { transition: none; }
+:root[data-motion="reduced"] .cc-swatch:hover { transform: none; }
+
+/* Forced colors: the system palette has no hues, so the bars become plain borders */
+@media (forced-colors: active) {
+  :is(.tk-row, .nt-item, .nt-card, .cal-task, .cal-tltask)[data-cc-kind]:is([data-cc], [data-cc-sec]) {
+    border-left: 3px solid CanvasText;
+  }
+}

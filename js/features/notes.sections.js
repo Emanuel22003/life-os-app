@@ -5,6 +5,7 @@
 // through callbacks; notes.js owns the store, the selection and the autosave.
 
 import { h, icon, registerIcon, openModal, num, plural, clamp, reducedMotion } from '../ui.js';
+import { paintColor, colorPicker } from '../colors.js';
 import {
   VIEW_ALL,
   VIEW_UNSORTED,
@@ -235,7 +236,8 @@ export function createSectionNav(ctx) {
     return row;
   }
 
-  function paint(row, { name, iconName, count, selected }) {
+  function paint(row, { name, iconName, count, selected, color = null }) {
+    paintColor(row.btn, 'sections', color);
     const sig = [name, iconName, count, selected].join('\u0001');
     if (row.sig === sig) return;
     row.sig = sig;
@@ -276,7 +278,7 @@ export function createSectionNav(ctx) {
         row = createRow(s.id);
         rows.set(s.id, row);
       }
-      paint(row, { name: s.name, iconName: glyphOf(s), count: counts.bySection[s.id] ?? 0, selected: s.id === view });
+      paint(row, { name: s.name, iconName: glyphOf(s), count: counts.bySection[s.id] ?? 0, selected: s.id === view, color: s.color ?? null });
       return row.li;
     });
     if (!drag) placeRows(nodes);
@@ -545,9 +547,9 @@ export function createSectionNav(ctx) {
   resizeWatch?.observe(chips);
 
   // Only the open view's chip is a Tab stop; arrow keys reach the others.
-  function chip(view, name, iconName, count) {
+  function chip(view, name, iconName, count, color = null) {
     const current = view === model.view;
-    return h(
+    const el = h(
       'button',
       { type: 'button', class: 'nt-chip', dataset: { view }, tabindex: current ? '0' : '-1', 'aria-current': current ? 'true' : null, title: name, onClick: () => ctx.onView(view) },
       icon(iconName, { size: 12 }),
@@ -555,6 +557,7 @@ export function createSectionNav(ctx) {
       h('span', { class: 'nt-chip-count', 'aria-hidden': 'true' }, num(count)),
       h('span', { class: 'sr-only' }, `, ${plural(count, 'note')}`),
     );
+    return color ? paintColor(el, 'sections', color) : el;
   }
 
   /** A one-click starter ("TikTok ideas +") while there are no sections yet. */
@@ -570,7 +573,7 @@ export function createSectionNav(ctx) {
 
   function renderStrip() {
     const { sections, view, counts } = model;
-    const sig = JSON.stringify([view, counts.all, counts.unsorted, sections.map((s) => [s.id, s.name, s.icon, counts.bySection[s.id] ?? 0])]);
+    const sig = JSON.stringify([view, counts.all, counts.unsorted, sections.map((s) => [s.id, s.name, s.icon, s.color ?? null, counts.bySection[s.id] ?? 0])]);
     if (sig === stripSig) return;
     stripSig = sig;
     const active = document.activeElement;
@@ -578,7 +581,7 @@ export function createSectionNav(ctx) {
     chips.replaceChildren(
       chip(VIEW_ALL, 'All', 'nt-all', counts.all),
       chip(VIEW_UNSORTED, 'Unsorted', 'inbox', counts.unsorted),
-      ...sections.map((s) => chip(s.id, s.name, glyphOf(s), counts.bySection[s.id] ?? 0)),
+      ...sections.map((s) => chip(s.id, s.name, glyphOf(s), counts.bySection[s.id] ?? 0, s.color ?? null)),
       ...(sections.length ? [] : availableSuggestions([]).map(starterChip)),
       addChip,
     );
@@ -1105,6 +1108,7 @@ export function openSectionEditor({ section = null, getSections, onSubmit, onClo
     },
   });
   const picker = iconPicker({ value: iconName, labelledBy: iconLabelId, onChange: (name) => (iconName = name) });
+  const colorIn = colorPicker({ value: section?.color ?? null, label: 'Color' });
 
   const suggestions = editing ? [] : availableSuggestions(getSections());
   const useSuggestion = (s) => {
@@ -1125,6 +1129,7 @@ export function openSectionEditor({ section = null, getSections, onSubmit, onClo
       msg,
     ),
     h('div', { class: 'field' }, h('span', { class: 'label', id: iconLabelId }, 'Icon'), picker.el),
+    h('div', { class: 'field cc-field', dataset: { ccFor: 'sections' } }, h('span', { class: 'label' }, 'Color'), colorIn.el),
     suggestions.length
       ? h('div', { class: 'field' }, h('span', { class: 'label' }, 'Suggestions'), suggestionChips(suggestions, useSuggestion, { verb: 'Use' }))
       : null,
@@ -1156,7 +1161,7 @@ export function openSectionEditor({ section = null, getSections, onSubmit, onClo
       fail(v.error);
       return;
     }
-    const result = onSubmit({ name: v.name, icon: iconName });
+    const result = onSubmit({ name: v.name, icon: iconName, color: colorIn.get() });
     if (result?.error) {
       fail(result.error);
       return;

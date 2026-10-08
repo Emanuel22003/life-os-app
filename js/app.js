@@ -22,6 +22,7 @@
 import { h, icon, registerIcon, brandMark, emptyState, isTyping, modalOpen, openModal, closeAllModals, onDayChange, toast, ensureToastRegion, skin, num, term, WEEKDAYS_SHORT, MONTHS_SHORT } from './ui.js';
 import { settings } from './store.js';
 import { DEFAULT_SKIN, SKIN_BOOT, normalizeSkin, resolveTheme } from './skins.js';
+import { applyColorPrefs } from './colors.js';
 import { openAppearance, loadSkinFonts } from './appearance.js';
 import { installContextMenu } from './contextmenu.js';
 import { LOCAL_ORIGIN, isRealCopy } from './origin.js';
@@ -30,7 +31,7 @@ import { openSyncPanel, syncLabel } from './sync.panel.js';
 import { provideShell } from './shell.js';
 import { isNewerVersion, startPage } from './features/settings.logic.js';
 
-const VERSION = 'v0.14';
+const VERSION = 'v0.15';
 
 // Read before any feature module can seed data: tells a first-ever run from an upgrade
 const hadSavedData = hasSavedData();
@@ -106,6 +107,8 @@ function applyAppearance(s) {
   if (s.motion === 'reduced') root.dataset.motion = 'reduced';
   else delete root.dataset.motion;
   loadSkinFonts(next);
+  // Color coding switches (settings.colors): classes on <html>, read by css/colors.css
+  applyColorPrefs(s.colors);
   // Title bar of the installed app: the template's own background in this mode
   const bg = getComputedStyle(root).getPropertyValue('--bg').trim();
   document.querySelector('meta[name="theme-color"]')?.setAttribute('content', bg || SKIN_BOOT[next][theme]);
