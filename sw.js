@@ -91,7 +91,7 @@ const CORE = [
   'css/skins/brutalist.css',
   'css/skins/terminal.css',
   'css/skins/oldmoney.css',
-  'css/skins/oldmoney-horse.svg',
+  'css/skins/oldmoney-horse.png',
   'css/colors.css',
 ].map(keyFor);
 

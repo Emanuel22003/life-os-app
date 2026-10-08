@@ -14,7 +14,7 @@ export const SKINS = Object.freeze(
     { id: 'hud', name: 'Mission Control', description: 'The grayscale HUD: blueprint grid, readouts, zero-padded counters.' },
     { id: 'brutalist', name: 'Brutalist', description: 'Loud black-and-white blocks, hard shadows, hazard-yellow accent.' },
     { id: 'terminal', name: 'Terminal', description: 'A retro computer terminal in phosphor green, all monospace.' },
-    { id: 'oldmoney', name: 'Old Money', description: 'Ivory paper and navy ink, Bodoni titles, a galloping horse. Quiet and elegant.', plain: true },
+    { id: 'oldmoney', name: 'Old Money', description: 'Ivory paper, black ink and brass, Bodoni titles, an engraved horse.', plain: true },
   ].map((skin) => Object.freeze(skin)),
 );
 
@@ -78,9 +78,9 @@ export const SKIN_BOOT = Object.freeze({
     light: '#e9f2e1',
   }),
   oldmoney: Object.freeze({
-    font: 'https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400..700;1,6..96,400..700&family=EB+Garamond:ital,wght@0,400..700;1,400..700&family=Montserrat:wght@400;500;600&family=Pinyon+Script&display=swap',
-    dark: '#0f1621',
-    light: '#f3efe6',
+    font: 'https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400..700;1,6..96,400..700&family=EB+Garamond:ital,wght@0,400..700;1,400..700&family=Montserrat:wght@400;500;600&display=swap',
+    dark: '#141311',
+    light: '#f2eee5',
   }),
 });
 

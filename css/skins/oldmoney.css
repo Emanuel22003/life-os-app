@@ -1,15 +1,18 @@
 /* ==========================================================================
    LIFE/OS — skin: Old Money (data-skin="oldmoney")
-   Ivory paper and navy ink by day, a navy evening with cream and brass by night. Bodoni
-   titles, Garamond text, small wide-spaced capitals for labels and buttons (Montserrat), fine
-   hairlines instead of shadows, and a galloping horse behind the page (oldmoney-horse.svg).
+   Fine stationery: warm ivory paper and black ink by day, black tie by night (charcoal,
+   cream and brass). Bodoni titles over a brass double rule, Garamond text, small capitals with
+   wide spacing for every label and button (Montserrat). Controls lose their boxes: tabs are
+   underlined words, fields are underlined, tags are plain small capitals. An engraved
+   galloping horse is the crest at the top of the menu and stands faintly behind every page
+   (oldmoney-horse.png: black ink on transparency, colored here through a CSS mask).
 
    Simple underneath: css/skins/simple.css styles this template too (its rules are scoped to
    :is([data-skin="simple"], [data-skin="oldmoney"])), and ui.plainSkin() gives it Simple's
    words and plain numbers. This file only restyles. Same conventions as the other skins:
    every selector starts at the skin scope, never :root / html / body (the scope is also a
-   <div> inside each Appearance preview); the shared kit uses .thing:where([data-skin] *).
-   Loaded after simple.css, so a rule here beats Simple's at the same specificity.
+   <div> inside each Appearance preview); the shared kit uses .thing:where([data-skin] *) so a
+   feature's own rule still wins. Loaded after simple.css: at equal specificity this file wins.
    After changing --bg, update SKIN_BOOT (js/skins.js and index.html's head script).
    ========================================================================== */
 
@@ -17,148 +20,152 @@
    Tokens
    ========================================================================== */
 
-/* ---- Dark: navy evening, cream and brass ---- */
+/* ---- Dark: black tie (charcoal, cream, brass) ---- */
 [data-skin="oldmoney"] {
   --font-sans: "EB Garamond", Garamond, "Hoefler Text", "Iowan Old Style", Baskerville, Georgia, serif;
   --font-display: "Bodoni Moda", "Bodoni 72", Didot, "Bodoni MT", "Playfair Display", Georgia, serif;
-  /* Small capitals (labels, buttons, the menu): a calm geometric sans. Readouts and note text
-     stay in Garamond (--font-mono, as in Simple), with lining numbers */
-  --om-caps: "Montserrat", "Avenir Next", "Century Gothic", "Helvetica Neue", Arial, sans-serif;
+  /* Readouts stay in Garamond (as in Simple), with lining numbers */
   --font-mono: var(--font-sans);
-  --om-script: "Pinyon Script", "Snell Roundhand", "Edwardian Script ITC", cursive;
+  /* Small capitals: labels, buttons, tabs, the menu */
+  --om-caps: "Montserrat", "Avenir Next", "Century Gothic", "Helvetica Neue", Arial, sans-serif;
 
-  /* Garamond runs small: one step up from Simple */
   --fs-2xs: 12px;
   --fs-xs: 13.5px;
   --fs-sm: 15px;
   --fs-md: 16.5px;
   --fs-lg: 19px;
-  --fs-xl: 24px;
+  --fs-xl: 25px;
   --fs-2xl: 32px;
-  --fs-3xl: 42px;
+  --fs-3xl: 44px;
 
-  --radius-xs: 1px;
-  --radius-sm: 2px;
-  --radius: 3px;
-  --radius-lg: 4px;
+  --radius-xs: 0;
+  --radius-sm: 0;
+  --radius: 0;
+  --radius-lg: 0;
 
-  --label-font: var(--om-caps);
-  --label-size: 10.5px;
+  /* Feature captions read in quiet Garamond, as in Simple; the .label class itself (and the
+     menu, buttons, tabs, tags and card titles) gets the small spaced capitals below */
+  --label-font: var(--font-sans);
+  --label-size: var(--fs-xs);
   --label-weight: 500;
-  --label-case: uppercase;
-  --label-tracking: 1.15;
+  --label-case: none;
+  --label-tracking: 0;
 
-  --om-gold: #c9ad74;
-  --om-rule: rgba(201, 173, 116, 0.35);
-  --om-horse: #ece4d2;
+  /* A faint grain, like laid paper */
+  --page-bg-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .035 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  --page-bg-size: 240px 240px;
+
+  --om-brass: #c9a96b;
+  --om-rule: rgba(201, 169, 107, 0.42);
+  --om-claret: #d27a80;
   --om-horse-alpha: 0.075;
 
   --simple-card-shadow: none;
-  --simple-ring: 0 0 0 3px rgba(201, 173, 116, 0.28);
+  --simple-ring: 0 0 0 1px var(--om-brass);
 
   color-scheme: dark;
 
-  --bg: #0f1621;
-  --bg-elev: #111a27;
+  --bg: #141311;
+  --bg-elev: #141311;
   /* Cards let the horse show through a little */
-  --surface: rgba(24, 34, 51, 0.8);
-  --surface-2: #1b2638;
-  --surface-3: #233149;
-  --surface-solid: #172131;
-  --surface-solid-2: #1c2739;
+  --surface: rgba(30, 29, 26, 0.84);
+  --surface-2: #23221e;
+  --surface-3: #2d2b26;
+  --surface-solid: #1b1a17;
+  --surface-solid-2: #23221e;
 
-  --line: rgba(236, 228, 210, 0.1);
-  --line-strong: rgba(236, 228, 210, 0.2);
-  --line-focus: rgba(201, 173, 116, 0.8);
+  --line: rgba(236, 229, 214, 0.1);
+  --line-strong: rgba(236, 229, 214, 0.22);
+  --line-focus: #c9a96b;
 
-  --text: #ece4d2;
-  --text-2: #c4bba8;
-  --text-3: #9d9682;
-  --text-4: #5d5c58;
+  --text: #ece5d6;
+  --text-2: #c7bfae;
+  --text-3: #9d9686;
+  --text-4: #5f5b53;
 
-  --accent: #c9ad74;
-  --accent-ink: #0f1621;
-  --accent-soft: rgba(201, 173, 116, 0.14);
+  --accent: #ece5d6;
+  --accent-ink: #141311;
+  --accent-soft: rgba(236, 229, 214, 0.08);
 
-  --glow: var(--simple-ring);
-  --glow-strong: 0 2px 12px rgba(0, 0, 0, 0.35);
-  --shadow: 0 18px 50px rgba(0, 0, 0, 0.5);
-  --shadow-sm: 0 4px 16px rgba(0, 0, 0, 0.3);
+  --glow: 0 0 0 1px var(--om-brass);
+  --glow-strong: 0 2px 14px rgba(0, 0, 0, 0.4);
+  --shadow: 0 28px 70px rgba(0, 0, 0, 0.55);
+  --shadow-sm: 0 6px 22px rgba(0, 0, 0, 0.35);
 
-  --scrim: rgba(8, 12, 19, 0.66);
-  --hatch: rgba(236, 228, 210, 0.07);
+  --scrim: rgba(10, 9, 8, 0.7);
+  --hatch: rgba(236, 229, 214, 0.07);
 
-  --heat-0: rgba(236, 228, 210, 0.07);
-  --heat-1: rgba(201, 173, 116, 0.25);
-  --heat-2: rgba(201, 173, 116, 0.45);
-  --heat-3: rgba(201, 173, 116, 0.7);
-  --heat-4: #c9ad74;
+  --heat-0: rgba(236, 229, 214, 0.07);
+  --heat-1: rgba(236, 229, 214, 0.2);
+  --heat-2: rgba(236, 229, 214, 0.38);
+  --heat-3: rgba(236, 229, 214, 0.62);
+  --heat-4: #ece5d6;
 
   /* Color coding in heritage shades: claret, cognac, ochre, hunter, loden, navy, plum, rose */
-  --cc-red: #d0717a;
-  --cc-orange: #d39461;
-  --cc-yellow: #d6b86e;
-  --cc-green: #7eae86;
-  --cc-teal: #7fb0aa;
-  --cc-blue: #8ea8d6;
-  --cc-purple: #b394bd;
-  --cc-pink: #e0a3ad;
-  --cc-ink: #0f1621;
+  --cc-red: #cf747c;
+  --cc-orange: #d1925e;
+  --cc-yellow: #d4b46c;
+  --cc-green: #86b08b;
+  --cc-teal: #82b1ab;
+  --cc-blue: #92a9d4;
+  --cc-purple: #b598bf;
+  --cc-pink: #dea4ad;
+  --cc-ink: #141311;
 }
 
-/* ---- Light: ivory paper, navy ink, a brass rule ---- */
+/* ---- Light: ivory paper, black ink, a brass rule ---- */
 [data-skin="oldmoney"][data-theme="light"] {
-  --om-gold: #a2803f;
-  --om-rule: rgba(162, 128, 63, 0.4);
-  --om-horse: #18233a;
-  --om-horse-alpha: 0.07;
+  --page-bg-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .35 0 0 0 0 .28 0 0 0 0 .18 0 0 0 .05 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 
-  --simple-ring: 0 0 0 3px rgba(162, 128, 63, 0.24);
+  --om-brass: #9a7a3d;
+  --om-rule: rgba(154, 122, 61, 0.5);
+  --om-claret: #8a2a35;
+  --om-horse-alpha: 0.11;
 
   color-scheme: light;
 
-  --bg: #f3efe6;
-  --bg-elev: #f7f4ec;
-  --surface: rgba(252, 250, 245, 0.8);
-  --surface-2: #ede7da;
-  --surface-3: #e4dccb;
-  --surface-solid: #fcfaf5;
-  --surface-solid-2: #f5f1e8;
+  --bg: #f2eee5;
+  --bg-elev: #f2eee5;
+  --surface: rgba(251, 249, 243, 0.86);
+  --surface-2: #ebe6da;
+  --surface-3: #e2dbcb;
+  --surface-solid: #fbf9f3;
+  --surface-solid-2: #f4f0e7;
 
-  --line: rgba(24, 35, 58, 0.12);
-  --line-strong: rgba(24, 35, 58, 0.24);
-  --line-focus: rgba(162, 128, 63, 0.85);
+  --line: rgba(26, 24, 20, 0.11);
+  --line-strong: rgba(26, 24, 20, 0.24);
+  --line-focus: #9a7a3d;
 
-  --text: #18233a;
-  --text-2: #444e62;
-  --text-3: #626a79;
-  --text-4: #b8b1a2;
+  --text: #1a1814;
+  --text-2: #4a463e;
+  --text-3: #6b665c;
+  --text-4: #b8b1a1;
 
-  --accent: #18233a;
+  --accent: #1a1814;
   --accent-ink: #f7f4ec;
-  --accent-soft: rgba(24, 35, 58, 0.07);
+  --accent-soft: rgba(26, 24, 20, 0.06);
 
-  --glow-strong: 0 2px 12px rgba(24, 35, 58, 0.1);
-  --shadow: 0 18px 50px rgba(24, 35, 58, 0.14);
-  --shadow-sm: 0 4px 16px rgba(24, 35, 58, 0.08);
+  --glow-strong: 0 2px 14px rgba(26, 24, 20, 0.1);
+  --shadow: 0 28px 70px rgba(26, 24, 20, 0.16);
+  --shadow-sm: 0 6px 22px rgba(26, 24, 20, 0.09);
 
-  --scrim: rgba(40, 36, 28, 0.3);
-  --hatch: rgba(24, 35, 58, 0.07);
+  --scrim: rgba(40, 35, 27, 0.3);
+  --hatch: rgba(26, 24, 20, 0.07);
 
-  --heat-0: rgba(24, 35, 58, 0.06);
-  --heat-1: rgba(24, 35, 58, 0.18);
-  --heat-2: rgba(24, 35, 58, 0.36);
-  --heat-3: rgba(24, 35, 58, 0.6);
-  --heat-4: #18233a;
+  --heat-0: rgba(26, 24, 20, 0.06);
+  --heat-1: rgba(26, 24, 20, 0.17);
+  --heat-2: rgba(26, 24, 20, 0.34);
+  --heat-3: rgba(26, 24, 20, 0.58);
+  --heat-4: #1a1814;
 
-  --cc-red: #8f2d3a;
-  --cc-orange: #a8612b;
-  --cc-yellow: #a7832c;
-  --cc-green: #2f5e3e;
-  --cc-teal: #356b69;
-  --cc-blue: #2a4675;
-  --cc-purple: #5f3d66;
-  --cc-pink: #b0626f;
+  --cc-red: #8a2a35;
+  --cc-orange: #a45f2a;
+  --cc-yellow: #a3802b;
+  --cc-green: #2f5b3c;
+  --cc-teal: #346764;
+  --cc-blue: #2a4472;
+  --cc-purple: #5d3c64;
+  --cc-pink: #ad5f6c;
   --cc-ink: #f7f4ec;
 }
 
@@ -169,14 +176,14 @@
 [data-skin="oldmoney"] .lo-page {
   font-feature-settings: normal;
   font-variant-numeric: lining-nums;
-  letter-spacing: 0.005em;
+  letter-spacing: 0.004em;
 }
 
 [data-skin="oldmoney"] h1,
 [data-skin="oldmoney"] h2,
 [data-skin="oldmoney"] h3,
 [data-skin="oldmoney"] h4 {
-  letter-spacing: 0.005em;
+  letter-spacing: 0;
 }
 
 [data-skin="oldmoney"] .tnum,
@@ -185,11 +192,30 @@
 }
 
 [data-skin="oldmoney"] .label {
-  letter-spacing: 0.16em;
+  font-family: var(--om-caps);
+  font-size: 9.5px;
+  font-weight: 500;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
 }
 
-/* The galloping horse, large and faint behind the page (fixed, so it stays while pages scroll).
-   The main column is its own layer: the horse sits above its background, below its content. */
+[data-skin="oldmoney"] :focus-visible {
+  outline: 1px solid var(--om-brass);
+  outline-offset: 3px;
+}
+
+[data-skin="oldmoney"] ::selection {
+  background: color-mix(in srgb, var(--om-brass) 32%, transparent);
+}
+
+[data-skin="oldmoney"] .main,
+[data-skin="oldmoney"] .sidebar {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--text) 22%, transparent) transparent;
+}
+
+/* The engraved horse, large and faint behind the page. Fixed, so it stays while pages scroll;
+   the main column is its own layer, so it sits above the page and below every card. */
 [data-skin="oldmoney"] .main {
   isolation: isolate;
 }
@@ -198,207 +224,564 @@
   content: "";
   position: fixed;
   z-index: -1;
-  right: clamp(16px, 4vw, 72px);
-  bottom: clamp(72px, 7vh, 96px);
-  width: clamp(260px, 40vw, 620px);
-  aspect-ratio: 192 / 140;
-  background: var(--om-horse);
+  right: clamp(8px, 2.5vw, 56px);
+  bottom: clamp(56px, 6vh, 88px);
+  width: clamp(380px, 50vw, 880px);
+  aspect-ratio: 1600 / 823;
+  background: var(--text);
   opacity: var(--om-horse-alpha);
-  -webkit-mask: url("oldmoney-horse.svg") center / contain no-repeat;
-  mask: url("oldmoney-horse.svg") center / contain no-repeat;
+  -webkit-mask: url("oldmoney-horse.png") center / contain no-repeat;
+  mask: url("oldmoney-horse.png") center / contain no-repeat;
   pointer-events: none;
 }
 
 @media (max-width: 640px) {
   [data-skin="oldmoney"] .main::before {
-    width: 78vw;
-    right: 6vw;
-    bottom: calc(var(--tabbar-h) + 24px);
+    width: 94vw;
+    right: 3vw;
+    bottom: calc(var(--tabbar-h) + 28px);
   }
 }
 
 /* ==========================================================================
-   Shell: the crest, a quiet menu in small capitals
+   Shell: a crest over a menu of small capitals
    ========================================================================== */
 
 [data-skin="oldmoney"] .sidebar {
+  background: transparent;
   border-right: 1px solid var(--line);
+  padding: 30px 18px 18px;
+  gap: 26px;
 }
 
-/* The brand: the horse as a crest, LIFE/OS in Bodoni with wide spacing */
+/* The crest: the horse, LIFE/OS in Bodoni, and the year it was founded */
+[data-skin="oldmoney"] .brand {
+  flex-direction: column;
+  align-items: center;
+  height: auto;
+  gap: 0;
+  padding: 0 0 22px;
+  border-bottom: 1px solid var(--om-rule);
+  text-align: center;
+}
+
 [data-skin="oldmoney"] .brand-mark {
   display: none;
 }
 
 [data-skin="oldmoney"] .brand::before {
   content: "";
-  flex: none;
-  width: 34px;
-  height: 25px;
-  background: var(--om-gold);
-  -webkit-mask: url("oldmoney-horse.svg") center / contain no-repeat;
-  mask: url("oldmoney-horse.svg") center / contain no-repeat;
+  width: 150px;
+  aspect-ratio: 1600 / 823;
+  margin-bottom: 14px;
+  background: var(--text);
+  -webkit-mask: url("oldmoney-horse.png") center / contain no-repeat;
+  mask: url("oldmoney-horse.png") center / contain no-repeat;
 }
 
 [data-skin="oldmoney"] .brand-name {
   font-family: var(--font-display);
-  font-size: 19px;
+  font-size: 20px;
+  font-weight: 400;
+  letter-spacing: 0.3em;
+  /* the tracking after the last letter would push it off centre */
+  margin-right: -0.3em;
+  line-height: 1;
+}
+
+[data-skin="oldmoney"] .brand::after {
+  content: "Est. MMXXVI";
+  margin-top: 10px;
+  margin-right: -0.36em;
+  font-family: var(--om-caps);
+  font-size: 8px;
   font-weight: 500;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.36em;
+  text-transform: uppercase;
+  color: var(--om-brass);
+}
+
+/* The menu heading is for screen readers: the crest says where you are */
+[data-skin="oldmoney"] .nav-heading {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+[data-skin="oldmoney"] .nav {
+  gap: 2px;
 }
 
 [data-skin="oldmoney"] .nav-item {
+  height: 36px;
+  padding: 0 8px 0 24px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
   font-family: var(--om-caps);
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 500;
-  letter-spacing: 0.18em;
+  letter-spacing: 0.24em;
   text-transform: uppercase;
-  border-radius: var(--radius-xs);
+  color: var(--text-3);
+}
+
+[data-skin="oldmoney"] .nav-item:hover {
+  background: transparent;
+  color: var(--text);
 }
 
 [data-skin="oldmoney"] .nav-item[aria-current="page"] {
   background: transparent;
-  font-weight: 600;
   color: var(--text);
-  box-shadow: inset 2px 0 0 var(--om-gold);
+  font-weight: 600;
+  box-shadow: none;
+}
+
+/* The open page: a small brass diamond */
+[data-skin="oldmoney"] .nav-item[aria-current="page"]::before {
+  content: "";
+  position: absolute;
+  left: 8px;
+  top: 50%;
+  bottom: auto;
+  width: 5px;
+  height: 5px;
+  margin-top: -2.5px;
+  border: 0;
+  background: var(--om-brass);
+  box-shadow: none;
+  transform: rotate(45deg);
+}
+
+/* A menu of words: the icons return only in the narrow icon rail */
+@media (min-width: 901px) {
+  [data-skin="oldmoney"] .nav-item > svg {
+    display: none;
+  }
 }
 
 [data-skin="oldmoney"] .nav-badge {
-  font-family: var(--om-caps);
-  letter-spacing: 0.04em;
+  min-width: 0;
+  padding: 0;
+  border: 0;
   background: transparent;
-  border: 1px solid var(--line-strong);
+  font-family: var(--font-sans);
+  font-size: 15px;
+  font-style: italic;
+  font-weight: 400;
+  letter-spacing: 0;
+  color: var(--text-3);
 }
 
 [data-skin="oldmoney"] .nav-item[aria-current="page"] .nav-badge {
   background: transparent;
-  border-color: var(--om-gold);
-  color: var(--om-gold);
+  color: var(--om-brass);
 }
 
-[data-skin="oldmoney"] .tab {
-  font-family: var(--om-caps);
-  font-size: 9px;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+[data-skin="oldmoney"] .nav-item.is-soon {
+  opacity: 0.55;
 }
 
-/* ---- Page header: a Bodoni title over a fine brass rule ---- */
-[data-skin="oldmoney"] .page-header {
-  padding-bottom: var(--space-4);
-  border-bottom: 1px solid var(--om-rule);
+[data-skin="oldmoney"] .nav-soon {
+  border: 0;
+  padding: 0;
+  font-size: 8px;
+  letter-spacing: 0.24em;
 }
 
-[data-skin="oldmoney"] .page-title {
-  font-family: var(--font-display);
-  font-weight: 500;
-  letter-spacing: 0.01em;
-  line-height: 1.1;
+[data-skin="oldmoney"] .sidebar-foot {
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
 }
 
-[data-skin="oldmoney"] .page-subtitle {
-  font-style: italic;
-}
-
-/* ==========================================================================
-   Shared kit: hairlines, square corners, buttons in small capitals
-   ========================================================================== */
-
-.panel:where([data-skin="oldmoney"] *) {
-  border-color: var(--line);
-  box-shadow: none;
-}
-
-.btn:where([data-skin="oldmoney"] *) {
-  font-family: var(--om-caps);
-  font-size: 11px;
-  font-weight: 500;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  border-radius: var(--radius-xs);
-}
-
-.btn--primary:where([data-skin="oldmoney"] *) {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--accent-ink);
-}
-
-.seg:where([data-skin="oldmoney"] *) {
-  border-radius: var(--radius-xs);
-}
-
-.seg-btn:where([data-skin="oldmoney"] *) {
-  font-family: var(--om-caps);
-  font-size: 10.5px;
-  font-weight: 500;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  border-radius: var(--radius-xs);
-}
-
-/* Every segmented control in the same small capitals (feature rules size theirs up) */
-[data-skin="oldmoney"] .seg .seg-btn {
-  font-size: 10.5px;
-}
-
-/* The sidebar's foot stays in the text face: wide capitals don't fit there */
+/* The foot stays in the text face: wide capitals don't fit there */
 [data-skin="oldmoney"] .sidebar-foot .btn {
+  border-color: transparent;
+  background: transparent;
   font-family: var(--font-sans);
-  font-size: var(--fs-sm);
+  font-size: 15px;
+  font-style: italic;
+  font-weight: 400;
   letter-spacing: 0;
   text-transform: none;
 }
 
-.tag:where([data-skin="oldmoney"] *) {
+[data-skin="oldmoney"] .sidebar-foot .btn:hover {
+  background: transparent;
+  color: var(--text);
+}
+
+/* The icon rail (tablets, narrow windows): a small crest, the icons back */
+@media (max-width: 900px) {
+  [data-skin="oldmoney"] .sidebar {
+    padding: 22px 8px 14px;
+  }
+
+  [data-skin="oldmoney"] .brand {
+    padding-bottom: 14px;
+  }
+
+  [data-skin="oldmoney"] .brand::before {
+    width: 50px;
+    margin-bottom: 0;
+  }
+
+  [data-skin="oldmoney"] .brand::after {
+    content: none;
+  }
+
+  [data-skin="oldmoney"] .nav-item {
+    padding: 0;
+  }
+
+  [data-skin="oldmoney"] .nav-item[aria-current="page"]::before {
+    left: 2px;
+  }
+
+  [data-skin="oldmoney"] .nav-badge {
+    font-size: 12px;
+  }
+}
+
+/* ---- Top bar: quiet, on the same paper ---- */
+[data-skin="oldmoney"] .topbar {
+  background: color-mix(in srgb, var(--bg) 84%, transparent);
+  border-bottom: 1px solid var(--line);
+}
+
+[data-skin="oldmoney"] .crumbs {
+  font-size: 9.5px;
+  letter-spacing: 0.28em;
+  color: var(--text-3);
+}
+
+[data-skin="oldmoney"] .crumb-current {
+  color: var(--text);
+}
+
+[data-skin="oldmoney"] .crumb-sep {
+  color: var(--om-brass);
+}
+
+/* ---- Phone tab bar ---- */
+[data-skin="oldmoney"] .tabbar {
+  background: color-mix(in srgb, var(--bg) 94%, transparent);
+  border-top: 1px solid var(--line);
+}
+
+[data-skin="oldmoney"] .tab {
+  font-family: var(--om-caps);
+  font-size: 8.5px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* ---- Page header: a Bodoni title, an italic line, a brass double rule ---- */
+[data-skin="oldmoney"] .view {
+  padding-top: 60px;
+}
+
+[data-skin="oldmoney"] .page-header {
+  position: relative;
+  padding-bottom: 26px;
+  margin-bottom: 34px;
+  border-bottom: 0;
+}
+
+[data-skin="oldmoney"] .page-header::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: auto;
+  height: 4px;
+  border-top: 1px solid var(--om-rule);
+  border-bottom: 1px solid var(--om-rule);
+  background: none;
+}
+
+[data-skin="oldmoney"] .page-heading {
+  gap: 8px;
+}
+
+[data-skin="oldmoney"] .page-title {
+  font-family: var(--font-display);
+  font-size: clamp(40px, 4.2vw, 58px);
+  font-weight: 400;
+  letter-spacing: -0.005em;
+  line-height: 1.04;
+}
+
+[data-skin="oldmoney"] .page-subtitle {
+  font-size: 17px;
+  font-style: italic;
+  color: var(--text-2);
+}
+
+/* ==========================================================================
+   Shared kit: hairlines, no boxes, small capitals
+   ========================================================================== */
+
+.panel:where([data-skin="oldmoney"] *) {
+  border: 1px solid var(--line);
+  border-radius: 0;
+  background: var(--surface);
+  box-shadow: none;
+}
+
+[data-skin="oldmoney"] .panel-head,
+[data-skin="oldmoney"] .st-card-title {
+  font-family: var(--om-caps);
+  letter-spacing: 0.22em;
+}
+
+/* ---- Buttons: small capitals; primary in ink, the rest in outline or bare ---- */
+.btn:where([data-skin="oldmoney"] *) {
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
   font-family: var(--om-caps);
   font-size: 10px;
-  letter-spacing: 0.1em;
+  font-weight: 500;
+  letter-spacing: 0.22em;
   text-transform: uppercase;
-  border-radius: var(--radius-xs);
 }
 
+.btn:where([data-skin="oldmoney"] *):hover {
+  border-color: var(--text);
+  background: transparent;
+}
+
+.btn--ghost:where([data-skin="oldmoney"] *),
+.btn--ghost:where([data-skin="oldmoney"] *):hover {
+  border-color: transparent;
+}
+
+.btn--ghost:where([data-skin="oldmoney"] *):hover {
+  background: var(--accent-soft);
+}
+
+.btn--primary:where([data-skin="oldmoney"] *) {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.btn--primary:where([data-skin="oldmoney"] *):hover {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 86%, var(--bg));
+  color: var(--accent-ink);
+}
+
+.btn--danger:where([data-skin="oldmoney"] *) {
+  border-color: color-mix(in srgb, var(--om-claret) 45%, transparent);
+  background: transparent;
+  color: var(--om-claret);
+}
+
+.btn--danger:where([data-skin="oldmoney"] *):hover {
+  border-color: var(--om-claret);
+  background: transparent;
+  color: var(--om-claret);
+}
+
+/* ---- Segmented controls become underlined words ---- */
+[data-skin="oldmoney"] .seg {
+  gap: 4px 20px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+[data-skin="oldmoney"] .seg .seg-btn {
+  height: auto;
+  min-height: 28px;
+  padding: 0 1px;
+  border: 0;
+  border-bottom: 1px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  font-family: var(--om-caps);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+[data-skin="oldmoney"] .seg .seg-btn:hover {
+  background: transparent;
+  color: var(--text);
+}
+
+[data-skin="oldmoney"] .seg .seg-btn:is([aria-pressed="true"], [aria-selected="true"]) {
+  border-bottom-color: var(--text);
+  background: transparent;
+  box-shadow: none;
+  color: var(--text);
+}
+
+[data-skin="oldmoney"] .seg-count {
+  margin-left: 6px;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-style: italic;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--text-3);
+}
+
+/* ---- Tags: plain small capitals, separated by a middle dot ---- */
+.tag:where([data-skin="oldmoney"] *) {
+  height: auto;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  font-family: var(--om-caps);
+  font-size: 9.5px;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+.tag:where([data-skin="oldmoney"] *) + .tag::before {
+  content: "·";
+  margin-right: 0.7em;
+  color: var(--text-4);
+}
+
+.tag--solid:where([data-skin="oldmoney"] *) {
+  background: transparent;
+  color: var(--om-claret);
+  font-weight: 600;
+}
+
+/* ---- Fields: a single underline ---- */
 .input:where([data-skin="oldmoney"] *),
-.select:where([data-skin="oldmoney"] *),
-.textarea:where([data-skin="oldmoney"] *) {
+.select:where([data-skin="oldmoney"] *) {
+  padding-inline: 2px;
+  border: 0;
+  border-bottom: 1px solid var(--line-strong);
+  border-radius: 0;
+  background-color: transparent;
+  box-shadow: none;
   font-family: var(--font-sans);
   font-size: var(--fs-md);
-  border-radius: var(--radius-xs);
 }
 
+.textarea:where([data-skin="oldmoney"] *) {
+  border: 1px solid var(--line-strong);
+  border-radius: 0;
+  background-color: transparent;
+  box-shadow: none;
+  font-family: var(--font-sans);
+  font-size: var(--fs-md);
+}
+
+.input:where([data-skin="oldmoney"] *):focus,
+.select:where([data-skin="oldmoney"] *):focus {
+  border-bottom-color: var(--text);
+  background-color: transparent;
+  box-shadow: 0 1px 0 var(--text);
+  outline: none;
+}
+
+.textarea:where([data-skin="oldmoney"] *):focus {
+  border-color: var(--text);
+  background-color: transparent;
+  box-shadow: none;
+  outline: none;
+}
+
+.input-group:where([data-skin="oldmoney"] *) > svg {
+  left: 4px;
+}
+
+.input-group:where([data-skin="oldmoney"] *) > .input {
+  padding-left: 28px;
+}
+
+/* ---- Checkboxes: a fine circle, filled with ink when done ---- */
+.check:where([data-skin="oldmoney"] *) {
+  border-width: 1px;
+  border-color: color-mix(in srgb, var(--text) 45%, transparent);
+  border-radius: 50%;
+}
+
+/* ---- Dialogs: a card with an inner brass frame ---- */
 .modal:where([data-skin="oldmoney"] *) {
-  border-radius: var(--radius);
-  border: 1px solid var(--om-rule);
+  border: 1px solid var(--line-strong);
+  border-radius: 0;
+  background: var(--surface-solid);
+  box-shadow: var(--shadow);
+  outline: 1px solid var(--om-rule);
+  outline-offset: -8px;
+}
+
+.modal-head:where([data-skin="oldmoney"] *) {
+  padding: 28px 32px 6px;
 }
 
 .modal-title:where([data-skin="oldmoney"] *) {
   font-family: var(--font-display);
-  font-weight: 500;
-  font-size: var(--fs-xl);
-  letter-spacing: 0.01em;
+  font-size: 30px;
+  font-weight: 400;
+  letter-spacing: 0;
+  line-height: 1.1;
 }
 
+/* ---- Toasts: a card of ink ---- */
 .toast:where([data-skin="oldmoney"] *) {
-  border-radius: var(--radius-xs);
+  border: 0;
+  border-radius: 0;
+  background: var(--text);
+  color: var(--bg);
+  box-shadow: var(--shadow-sm);
+  font-family: var(--font-sans);
+  font-size: var(--fs-md);
 }
 
-.check:where([data-skin="oldmoney"] *) {
-  border-radius: 50%;
+.toast-action:where([data-skin="oldmoney"] *) {
+  border-radius: 0;
+  color: var(--om-brass);
+  font-family: var(--om-caps);
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
 }
 
+/* ---- Empty states: an italic line ---- */
 .empty-title:where([data-skin="oldmoney"] *) {
   font-family: var(--font-display);
-  font-weight: 500;
-  font-size: var(--fs-lg);
+  font-size: var(--fs-xl);
+  font-weight: 400;
 }
 
 .empty-text:where([data-skin="oldmoney"] *) {
   font-style: italic;
 }
 
+/* ---- The right-click menu and the color pop-up ---- */
 [data-skin="oldmoney"] .ctx-menu {
-  border-radius: var(--radius-xs);
-  border-color: var(--om-rule);
+  border: 1px solid var(--line-strong);
+  border-radius: 0;
+  background: var(--surface-solid);
+  box-shadow: var(--shadow-sm);
+}
+
+[data-skin="oldmoney"] .ctx-item {
+  border-radius: 0;
 }
 
 [data-skin="oldmoney"] .ctx-label {
@@ -409,46 +792,107 @@
 }
 
 /* ==========================================================================
-   Pages: a few touches
+   Pages
    ========================================================================== */
 
-/* Section titles and card headings read as engraved captions */
-[data-skin="oldmoney"] .panel-head,
-[data-skin="oldmoney"] .st-card-title {
-  font-family: var(--om-caps);
-  letter-spacing: 0.16em;
-}
-
-/* Tasks and notes titles in the text face, a touch larger */
+/* Titles of tasks and notes in the text face, a touch larger */
 [data-skin="oldmoney"] .tk-title,
 [data-skin="oldmoney"] .nt-item-title,
 [data-skin="oldmoney"] .nt-card-title {
-  font-size: var(--fs-md);
+  font-size: 17px;
 }
 
 [data-skin="oldmoney"] .nt-title {
   font-family: var(--font-display);
-  font-weight: 500;
+  font-weight: 400;
 }
 
-/* Calendar: today in brass */
+[data-skin="oldmoney"] .nt-body {
+  font-family: var(--font-sans);
+  font-size: 17px;
+  line-height: 1.65;
+}
+
+/* Calendar: today in brass, underlined rather than filled */
+[data-skin="oldmoney"] .cal-cell.is-today::before {
+  height: 1px;
+  background: var(--om-brass);
+  box-shadow: none;
+}
+
 [data-skin="oldmoney"] .cal-cell.is-today .cal-date,
 [data-skin="oldmoney"] .cal-dh.is-today .cal-dh-num {
-  color: var(--om-gold);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: inset 0 -1px 0 var(--om-brass);
+  color: var(--om-brass);
+  font-weight: 600;
 }
 
-/* Big numbers (timer, stats, home) in Bodoni */
+/* Events and task chips: square cut, like cards */
+[data-skin="oldmoney"] :is(.cal-ev, .cal-tlev, .cal-task, .cal-tltask, .cal-mark-ev) {
+  border-radius: 1px;
+}
+
+/* Hints under fields read as an italic sentence, not as capitals */
+[data-skin="oldmoney"] :is(.tk-field-hint, .cal-ed-hint, .cal-ed-summary) {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-style: italic;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+/* Home: card titles in small capitals, links in italic, today in brass */
+[data-skin="oldmoney"] .hm-card-title {
+  font-family: var(--om-caps);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+
+[data-skin="oldmoney"] .hm-more {
+  font-style: italic;
+}
+
+[data-skin="oldmoney"] .hm-day.is-today {
+  box-shadow: inset 0 2px 0 var(--om-brass);
+}
+
+[data-skin="oldmoney"] .hm-day.is-today .hm-day-num {
+  border-radius: 0;
+  background: transparent;
+  box-shadow: inset 0 -1px 0 var(--om-brass);
+  color: var(--om-brass);
+}
+
+[data-skin="oldmoney"] .hm-day-tag {
+  font-style: italic;
+  color: var(--om-brass);
+}
+
+/* Big numbers (timer, statistics) in Bodoni */
 [data-skin="oldmoney"] .pm-time,
-[data-skin="oldmoney"] .stat-value,
-[data-skin="oldmoney"] .hm-clock {
+[data-skin="oldmoney"] .stat-value {
   font-family: var(--font-display);
-  font-weight: 500;
+  font-weight: 400;
   font-variant-numeric: lining-nums tabular-nums;
   letter-spacing: 0;
 }
 
+[data-skin="oldmoney"] .st-row-title {
+  font-weight: 600;
+}
+
+/* Color coding: an edge and only a whisper of the color on paper */
+[data-skin="oldmoney"] :is(.tk-row, .nt-item, .nt-card, .cal-task, .cal-tltask)[data-cc-kind] {
+  --cc-wash: color-mix(in srgb, var(--cc) 4%, transparent);
+}
+
 /* ==========================================================================
-   Motion and forced colors: nothing of its own beyond Simple's; the horse is decoration
+   Forced colors: the horse is decoration
    ========================================================================== */
 
 @media (forced-colors: active) {
