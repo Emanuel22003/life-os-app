@@ -181,6 +181,28 @@ function applyDue(id, key) {
   return true;
 }
 
+/** Change when a task happens ({ due, time, minutes }), with Undo. */
+function applySchedule(id, next) {
+  const task = findTask(id);
+  if (!task) return false;
+  const prev = { due: task.due, time: task.time ?? null, minutes: task.minutes ?? null };
+  if (!tasksApi.setSchedule(id, next)) return false;
+  const now = findTask(id);
+  const what = `“${clip(task.title)}”`;
+  const when = !now?.due
+    ? 'unscheduled'
+    : now.time
+      ? `${shortDay(now.due)}, ${now.time}–${L.formatTime(L.parseTime(now.time) + (now.minutes || 30))}`
+      : `${shortDay(now.due)}, all day`;
+  undoToast(`${what} ${when}`, () => {
+    const cur = findTask(id);
+    if (!cur || cur.due !== now?.due || (cur.time ?? null) !== (now?.time ?? null) || (cur.minutes ?? null) !== (now?.minutes ?? null)) return refuse(`Nothing undone: ${what} changed since.`);
+    tasksApi.setSchedule(id, prev);
+    return true;
+  });
+  return true;
+}
+
 function toggleTaskDone(id) {
   const task = findTask(id);
   if (!task) return;
@@ -217,6 +239,21 @@ function openTaskSheet(id, cursor, onClose) {
   };
   const dateId = `cal-sheet-date-${id}`;
   const dateIn = h('input', { type: 'date', class: 'input', id: dateId, value: task.due ?? cursor, min: '1970-01-01', max: '9999-12-31' });
+  // Optional time of day: the task then sits on the timeline at that time
+  const timeId = `cal-sheet-time-${id}`;
+  const timeIn = h('input', { type: 'time', class: 'input', id: timeId, step: '300', value: task.time ?? '' });
+  const length = task.minutes ?? 30;
+  const lengthSel = h(
+    'select',
+    { class: 'select', 'aria-label': 'How long' },
+    [...new Set([15, 30, 45, 60, 90, 120, 180, 240, length])].sort((a, b) => a - b).map((n) => h('option', { value: String(n) }, n < 60 ? `${n} min` : `${Math.floor(n / 60)} h${n % 60 ? ` ${n % 60} min` : ''}`)),
+  );
+  lengthSel.value = String(length);
+  const setWhen = () => {
+    if (!dateIn.value) return;
+    m.close();
+    applySchedule(id, { due: dateIn.value, time: timeIn.value || null, minutes: Number(lengthSel.value) });
+  };
   const quick = h(
     'div',
     { class: 'cal-sheet-quick', role: 'group', 'aria-label': 'Quick dates' },
@@ -232,10 +269,10 @@ function openTaskSheet(id, cursor, onClose) {
       class: 'btn btn--primary',
       onClick: (e) => {
         e.preventDefault();
-        if (dateIn.value) set(dateIn.value);
+        setWhen();
       },
     },
-    'Set date',
+    'Set',
   );
   const pri = priorityBadge(task.priority, { hidden: false });
   m = openModal({
@@ -243,7 +280,7 @@ function openTaskSheet(id, cursor, onClose) {
     className: 'cal-sheet',
     body: [
       h('div', { class: 'cal-sheet-task' }, h('span', { class: ['cal-sheet-box', task.done && 'is-done'], 'aria-hidden': 'true' }), h('span', { class: 'cal-sheet-title cal-wrap' }, task.title), pri),
-      h('p', { class: 'label' }, task.due ? `Due ${L.viewTitle('day', task.due)}` : 'No due date yet'),
+      h('p', { class: 'label' }, task.due ? `Due ${L.viewTitle('day', task.due)}${task.time ? `, ${task.time}` : ''}` : 'No due date yet'),
       quick,
       h(
         'form',
@@ -251,11 +288,14 @@ function openTaskSheet(id, cursor, onClose) {
           class: 'cal-sheet-pick',
           onSubmit: (e) => {
             e.preventDefault();
-            if (dateIn.value) set(dateIn.value);
+            setWhen();
           },
         },
         h('label', { class: 'label', for: dateId }, 'Pick a date'),
         dateIn,
+        h('label', { class: 'label', for: timeId }, 'Time (optional)'),
+        h('div', { class: 'cal-sheet-time' }, timeIn, lengthSel),
+        h('button', { type: 'submit', hidden: true, tabindex: '-1' }),
       ),
     ],
     footer: [
@@ -1216,6 +1256,8 @@ function mount(root) {
     if (t.closest('.cal-task-check, .cal-trow-check, .cal-task-sched, .cal-hcheck, .cal-cell-add, .cal-date, .cal-wknum, .cal-more, input, form')) return;
     const block = t.closest('[data-tl="event"]');
     if (block && cal.contains(block)) return dragTimed(e, block, !!t.closest('[data-tl-resize]'));
+    const taskBlock = t.closest('[data-tl="task"]');
+    if (taskBlock && cal.contains(taskBlock)) return dragTimedTask(e, taskBlock, !!t.closest('[data-tl-resize]'));
     const chip = t.closest('[data-drag="task"]');
     if (chip && cal.contains(chip)) return dragTask(e, chip);
     const bar = t.closest('[data-drag="event"]');
@@ -1245,11 +1287,15 @@ function mount(root) {
         ghost.move(ev.clientX, ev.clientY);
         target = setDropHighlight(target, dropTargetAt(ev.clientX, ev.clientY));
       },
-      onEnd: () => {
+      onEnd: (ev) => {
         const drop = target;
         cleanup();
         if (drop?.tray) applyDue(id, null);
-        else if (drop?.day) applyDue(id, drop.day);
+        else if (drop?.el.hasAttribute('data-tl-day')) {
+          // On a timeline: that day, at the time under the pointer
+          const start = Math.min(L.snapMinutes(minuteAt(drop.el, ev.clientY)), L.DAY_MINUTES - L.SNAP_MINUTES);
+          applySchedule(id, { due: drop.day, time: L.formatTime(start) });
+        } else if (drop?.day) applyDue(id, drop.day);
         scheduleRender();
       },
       onCancel: () => {
@@ -1361,6 +1407,82 @@ function mount(root) {
       onCancel: () => {
         edge.stop();
         block.classList.remove('is-dragging');
+        scheduleRender();
+      },
+    });
+  }
+
+  function dragTimedTask(e, block, resize) {
+    const id = block.dataset.task;
+    const task = findTask(id);
+    const s0 = task?.time ? L.parseTime(task.time) : null;
+    if (s0 === null) return;
+    const e0 = Math.min(L.DAY_MINUTES - 1, s0 + (task.minutes || 30));
+    const H = lastCtx.hourH;
+    const cols = [...body.querySelectorAll('[data-tl-day]')];
+    const timeEl = block.querySelector('.cal-tlev-time');
+    const anchor = minuteAt(block.parentElement, e.clientY);
+    let slot = { startMin: s0, endMin: e0, startTime: task.time };
+    let col = block.parentElement;
+    let px = e.clientX;
+    let py = e.clientY;
+    let lane = null; // the all-day lane or the tray under the pointer: a whole-day task again
+    const colAt = (x) => {
+      for (const c of cols) {
+        const r = c.getBoundingClientRect();
+        if (x >= r.left && x < r.right) return c;
+      }
+      return x < cols[0].getBoundingClientRect().left ? cols[0] : cols[cols.length - 1];
+    };
+    const follow = () => {
+      const delta = minuteAt(col, py) - anchor;
+      if (resize) slot = L.resizeTimed(s0, e0 + delta);
+      else {
+        slot = L.moveTimed(s0, e0, delta);
+        const next = colAt(px);
+        if (next !== col) {
+          col = next;
+          col.append(block);
+        }
+      }
+      block.style.top = `${(slot.startMin / 60) * H}px`;
+      block.style.height = `${Math.max(((slot.endMin - slot.startMin) / 60) * H, 18)}px`;
+      if (timeEl) timeEl.textContent = `${slot.startTime}–${slot.endTime}`;
+    };
+    const edge = edgeScroller(bodyView.scroller, follow);
+    trackPointer(e, {
+      onStart: () => {
+        block.classList.add('is-dragging');
+        Object.assign(block.style, { left: '2px', width: 'calc(100% - 4px)' });
+      },
+      onMove: (ev) => {
+        px = ev.clientX;
+        py = ev.clientY;
+        const over = resize ? null : dropTargetAt(px, py);
+        const nextLane = over && !over.el.hasAttribute('data-tl-day') ? over : null;
+        lane = setDropHighlight(lane, nextLane);
+        block.classList.toggle('is-leaving', !!lane);
+        if (!lane) {
+          follow();
+          edge.update(py);
+        }
+      },
+      onEnd: () => {
+        edge.stop();
+        block.classList.remove('is-dragging', 'is-leaving');
+        const drop = lane;
+        lane = setDropHighlight(lane, null);
+        scheduleRender();
+        if (drop?.tray) return applySchedule(id, { due: null, time: null });
+        if (drop?.day) return applySchedule(id, { due: drop.day, time: null });
+        const day = col.dataset.tlDay;
+        if (day === task.due && slot.startMin === s0 && slot.endMin === e0) return;
+        applySchedule(id, { due: day, time: slot.startTime, minutes: slot.endMin - slot.startMin });
+      },
+      onCancel: () => {
+        edge.stop();
+        block.classList.remove('is-dragging', 'is-leaving');
+        lane = setDropHighlight(lane, null);
         scheduleRender();
       },
     });

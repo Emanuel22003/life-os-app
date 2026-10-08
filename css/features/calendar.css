@@ -2244,3 +2244,106 @@ html.cal-vt::view-transition {
     display: none;
   }
 }
+
+/* ==========================================================================
+   Tasks with a time on the timeline: outlined like a task chip, with its square check and
+   priority letter, so they never read as events. Drag to move, the bottom edge to resize, onto
+   the all-day lane to make it a whole-day task again.
+   ========================================================================== */
+
+.cal-tltask {
+  position: absolute;
+  z-index: 1;
+  display: flex;
+  align-items: flex-start;
+  gap: 5px;
+  min-width: 0;
+  padding: 4px 6px;
+  border: 1px solid var(--line-strong);
+  border-left: 3px solid var(--text-2);
+  border-radius: var(--radius-xs);
+  background: var(--surface-solid);
+  font-size: var(--fs-xs);
+  line-height: 1.25;
+  overflow: hidden;
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: pan-y;
+  transition: box-shadow var(--dur-fast) var(--ease), opacity var(--dur-fast) var(--ease);
+}
+
+.cal-tltask:hover,
+.cal-tltask:focus-within {
+  z-index: 3;
+  box-shadow: var(--glow-strong);
+}
+
+.cal-tltask.pri-high {
+  border-left-color: var(--text);
+}
+
+.cal-tltask .cal-task-check {
+  margin-top: 2px;
+}
+
+.cal-tltask-body {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+  cursor: inherit;
+}
+
+.cal-tltask.is-short .cal-tltask-body {
+  flex-direction: row;
+  gap: 5px;
+}
+
+.cal-tltask .cal-tlev-title {
+  color: var(--text);
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+.cal-tltask.is-done .cal-tlev-title {
+  color: var(--text-3);
+  text-decoration: line-through;
+}
+
+.cal-tltask.is-past:not(.is-done) {
+  border-style: dashed;
+}
+
+.cal-tltask.is-dragging {
+  z-index: 5;
+  cursor: grabbing;
+  box-shadow: var(--glow-strong);
+}
+
+/* Over the all-day lane: it will become a whole-day task */
+.cal-tltask.is-leaving {
+  opacity: 0.35;
+}
+
+.cal-task-time {
+  margin-right: 4px;
+  color: var(--text-2);
+  font-size: 0.92em;
+}
+
+.cal-sheet-time {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.cal-sheet-time .input,
+.cal-sheet-time .select {
+  width: auto;
+}

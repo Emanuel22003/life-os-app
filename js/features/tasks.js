@@ -61,6 +61,8 @@ import {
   renameSection,
   removeSection,
   SECTION_NAME_MAX,
+  isTimeOfDay,
+  DEFAULT_TASK_MINUTES,
 } from './tasks.logic.js';
 import { registerContextProvider } from '../contextmenu.js';
 import { splitText } from '../contextmenu.logic.js';
@@ -845,7 +847,7 @@ function mount(root) {
   function updateRow(r, t, { index, today, draggable, section = null }) {
     const overdue = isOverdue(t, today);
     const doneAgo = t.done && t.completedAt ? timeAgo(t.completedAt) : '';
-    const sig = [t.title, t.done, t.priority, t.due, t.notes, doneAgo, today, index, draggable, editingId === t.id, section].join('␟');
+    const sig = [t.title, t.done, t.priority, t.due, t.time, t.notes, doneAgo, today, index, draggable, editingId === t.id, section].join('␟');
     if (r.sig === sig) return;
     r.sig = sig;
 
@@ -883,7 +885,8 @@ function mount(root) {
       );
     }
     if (t.due) {
-      const rel = relativeDay(t.due, today);
+      // A timed task says when: 'Today · 17:30'
+      const rel = t.time ? `${relativeDay(t.due, today)} · ${t.time}` : relativeDay(t.due, today);
       const long = formatDay(t.due, 'long');
       if (overdue) {
         out.push(
@@ -1446,6 +1449,29 @@ function mount(root) {
     notesIn.value = task.notes;
     const pri = priorityPicker(task.priority);
     const due = duePicker(task.due, { extended: true });
+    // Optional time of day: the calendar then shows the task on its timeline
+    const timeIn = h('input', { class: 'input tk-field-time', id: 'tk-d-time', type: 'time', step: '300', value: task.time ?? '' });
+    const lengthSel = h(
+      'select',
+      { class: 'select tk-field-length', id: 'tk-d-length', 'aria-label': 'How long' },
+      [15, 30, 45, 60, 90, 120, 180, 240].map((n) => h('option', { value: String(n) }, n < 60 ? `${n} min` : `${Math.floor(n / 60)} h${n % 60 ? ` ${n % 60} min` : ''}`)),
+    );
+    const length = task.minutes ?? DEFAULT_TASK_MINUTES;
+    // A length set by dragging on the calendar (say 75 min) gets its own option
+    if (![...lengthSel.options].some((o) => o.value === String(length))) lengthSel.append(h('option', { value: String(length) }, `${length} min`));
+    lengthSel.value = String(length);
+    const timeHint = h('p', { class: 'tk-field-hint label' });
+    const paintTime = () => {
+      const hasDate = !!due.get();
+      timeIn.disabled = !hasDate;
+      lengthSel.disabled = !hasDate || !timeIn.value;
+      timeHint.textContent = hasDate ? (timeIn.value ? 'Shown at this time in the Calendar.' : 'Optional: a time puts it on the Calendar’s timeline.') : 'Pick a due date first.';
+    };
+    timeIn.addEventListener('input', paintTime);
+    // The due picker has no change hook: re-check after any click or edit in it
+    due.el.addEventListener('click', () => setTimeout(paintTime));
+    due.el.addEventListener('change', () => setTimeout(paintTime));
+    paintTime();
     const { sections } = getState();
     const secSel = sections.length
       ? h('select', { class: 'select tk-field-section', id: 'tk-d-section' }, h('option', { value: '' }, 'No section'), sections.map((sec) => h('option', { value: sec.id }, sec.name)))
@@ -1471,7 +1497,8 @@ function mount(root) {
       }
       // A section deleted while the dialog was open counts as none
       const sectionId = secSel && getState().sections.some((sec) => sec.id === secSel.value) ? secSel.value : null;
-      setItems((items) => updateTask(items, id, { title, notes: notesIn.value.replace(/\s+$/, ''), priority: pri.get(), due: due.get(), ...(secSel ? { sectionId } : {}) }));
+      const time = due.get() && isTimeOfDay(timeIn.value) ? timeIn.value : null;
+      setItems((items) => updateTask(items, id, { title, notes: notesIn.value.replace(/\s+$/, ''), priority: pri.get(), due: due.get(), time, minutes: Number(lengthSel.value), ...(secSel ? { sectionId } : {}) }));
       m.close();
     };
 
@@ -1495,6 +1522,7 @@ function mount(root) {
         { class: 'tk-detail-grid' },
         h('div', { class: 'field' }, h('span', { class: 'label' }, 'Priority'), pri.el),
         h('div', { class: 'field' }, h('span', { class: 'label' }, 'Due'), due.el),
+        h('div', { class: 'field' }, h('label', { class: 'label', for: 'tk-d-time' }, 'Time'), h('div', { class: 'tk-time-row' }, timeIn, lengthSel), timeHint),
         secSel ? h('div', { class: 'field' }, h('label', { class: 'label', for: 'tk-d-section' }, 'Section'), secSel) : null,
       ),
       h('div', { class: 'tk-detail-foot' }, meta, h('span', { class: 'tk-detail-keys label lo-hint' }, kbd(MOD_KEY), kbd('⏎'), 'Save')),
@@ -1849,6 +1877,27 @@ function apiSetDue(id, key) {
   return setItems((items) => updateTask(items, id, { due: key }));
 }
 
+/**
+ * When a task happens: { due, time, minutes } (any of them; time null = the whole day). The
+ * calendar's timeline drags use it. True when something changed.
+ */
+function apiSetSchedule(id, { due, time, minutes } = {}) {
+  if (due !== undefined && due !== null && !isDateKey(due)) return false;
+  if (time !== undefined && time !== null && !isTimeOfDay(time)) return false;
+  const task = findTask(id);
+  if (!task) return false;
+  const patch = {};
+  if (due !== undefined) patch.due = due;
+  if (time !== undefined) patch.time = time;
+  if (minutes !== undefined) patch.minutes = minutes;
+  return setItems((items) => {
+    const next = updateTask(items, id, patch);
+    const a = items.find((t) => t.id === id);
+    const b = next.find((t) => t.id === id);
+    return a.due === b.due && a.time === b.time && a.minutes === b.minutes ? items : next;
+  });
+}
+
 /** Complete / reopen with the Tasks view's bookkeeping (completedAt set / cleared). True when it changed. */
 function apiSetDone(id, done) {
   if (typeof done !== 'boolean') return false;
@@ -1908,6 +1957,7 @@ export const tasksApi = Object.freeze({
   getItems: apiGetItems,
   subscribe: apiSubscribe,
   setDue: apiSetDue,
+  setSchedule: apiSetSchedule,
   setDone: apiSetDone,
   addTask: apiAddTask,
   reveal: apiReveal,

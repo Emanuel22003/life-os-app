@@ -1365,3 +1365,23 @@ button.tk-stat:active {
     max-width: none;
   }
 }
+
+/* Task details: optional time of day + length (puts the task on the Calendar's timeline) */
+.tk-time-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.tk-time-row .input,
+.tk-time-row .select {
+  width: auto;
+}
+
+.tk-time-row :disabled {
+  opacity: 0.5;
+}
+
+.tk-field-hint {
+  margin: 0;
+}

@@ -22,6 +22,7 @@ import {
   isoWeek,
   layoutSpans,
   layoutTimed,
+  parseTime,
   laneCount,
   viewTitle,
   timeLabel,
@@ -138,9 +139,10 @@ export function taskChip(task, ctx, { prefix = 'm', tab = '-1', schedule = false
         type: 'button',
         class: 'cal-task-title',
         tabindex: tab,
-        'aria-label': `${taskLabel(task, ctx)}. Open to schedule`,
+        'aria-label': `${taskLabel(task, ctx)}${task.time ? `, at ${task.time}` : ''}. Open to schedule`,
         dataset: { act: 'task-open', task: task.id, fid: `tt:${prefix}:${task.id}` },
       },
+      task.time ? h('span', { class: 'cal-task-time tnum' }, task.time) : null,
       h('span', { class: 'cal-task-name', title: tip }, task.title),
     ),
     priorityBadge(task.priority),
@@ -465,14 +467,69 @@ function fillTimeline(tl, ctx, keys) {
       'aria-label': `Timeline for ${longDay(key)}`,
       dataset: { tlDay: key, dropDay: key, zoom: keys.length > 1 ? `day:${key}` : null },
     });
-    if (ctx.layers.events) {
-      const dayOccs = ctx.occs.filter((o) => !o.allDay && o.start === key);
-      for (const b of layoutTimed(dayOccs)) col.append(timedBlock(b, ctx, keys.length === 1));
-    }
+    // Timed events and tasks with a time share the column, side by side when they overlap
+    const items = ctx.layers.events ? ctx.occs.filter((o) => !o.allDay && o.start === key) : [];
+    if (ctx.layers.tasks) items.push(...timedTasks(ctx.tasksByDay.get(key)));
+    for (const b of layoutTimed(items)) col.append(b.occ.task ? taskBlock(b, ctx, keys.length === 1) : timedBlock(b, ctx, keys.length === 1));
     if (key === ctx.today) col.append(nowLine(ctx.nowMin, H));
     return col;
   });
   tl.replaceChildren(hours, ...cols);
+}
+
+/** A day's tasks that have a time, as timeline items { occId, startMin, endMin, task }. */
+function timedTasks(tasks) {
+  const out = [];
+  for (const t of tasks ?? []) {
+    const s = t.time ? parseTime(t.time) : null;
+    if (s === null) continue;
+    out.push({ occId: `task:${t.id}`, allDay: false, startMin: s, endMin: Math.min(1439, s + (t.minutes || 30)), task: t });
+  }
+  return out;
+}
+
+/** A task with a time on the timeline: check box, time, title, priority; drag to move or resize. */
+function taskBlock(b, ctx, wide) {
+  const { task } = b.occ;
+  const H = ctx.hourH;
+  const height = Math.max((b.height / 60) * H, MIN_BLOCK_PX);
+  const short = height < 40;
+  const narrow = !wide && b.colSpan / b.cols < 0.6;
+  const end = formatTime(b.occ.endMin);
+  const overdue = !task.done && (task.due < ctx.today || (task.due === ctx.today && b.occ.endMin <= ctx.nowMin));
+  return h(
+    'div',
+    {
+      class: ['cal-tltask', task.done && 'is-done', `pri-${task.priority}`, short && 'is-short', narrow && 'is-narrow', wide && 'is-wide', overdue && 'is-past'],
+      style: { top: `${(b.top / 60) * H}px`, height: `${height}px`, left: `calc(${(b.col / b.cols) * 100}% + 2px)`, width: `calc(${(b.colSpan / b.cols) * 100}% - 4px)` },
+      dataset: { tl: 'task', task: task.id },
+    },
+    h(
+      'button',
+      {
+        type: 'button',
+        class: 'cal-task-check',
+        role: 'checkbox',
+        'aria-checked': String(!!task.done),
+        'aria-label': `${task.done ? 'Reopen' : 'Complete'} task ${task.title}`,
+        dataset: { act: 'task-check', task: task.id, fid: `tlc:${task.id}` },
+      },
+      icon('check', { size: 9, stroke: 3 }),
+    ),
+    h(
+      'button',
+      {
+        type: 'button',
+        class: 'cal-tltask-body',
+        'aria-label': `${taskLabel(task, ctx)}, ${task.time} to ${end}. Open to schedule; drag to move`,
+        dataset: { act: 'task-open', task: task.id, fid: `tlt:${task.id}` },
+      },
+      h('span', { class: 'cal-tlev-time tnum' }, short || narrow ? task.time : `${task.time}–${end}`),
+      h('span', { class: 'cal-tlev-title', title: `Task: ${task.title}` }, task.title),
+    ),
+    priorityBadge(task.priority),
+    h('span', { class: 'cal-tlev-resize', dataset: { tlResize: '' }, 'aria-hidden': 'true' }),
+  );
 }
 
 // Line boxes of a timed block (px), so the title clamps to whole lines that really fit
@@ -588,7 +645,8 @@ function fillAllday(el, ctx, keys) {
   for (const s of spans) for (let c = s.startCol; c <= s.endCol; c++) top[c] = Math.max(top[c], s.lane + 1);
   let rowsUsed = lanes;
   keys.forEach((key, c) => {
-    const tasks = ctx.layers.tasks ? ctx.tasksByDay.get(key) ?? [] : [];
+    // Tasks with a time are on the timeline below
+    const tasks = ctx.layers.tasks ? (ctx.tasksByDay.get(key) ?? []).filter((t) => !t.time) : [];
     tasks.forEach((t, i) => {
       const chip = taskChip(t, ctx, { prefix: 'ad', tab: '0' });
       chip.style.gridColumn = String(c + 2);
@@ -685,6 +743,7 @@ function taskRow(task, ctx, { prefix, showDue = false }) {
       { type: 'button', class: 'cal-trow-title', 'aria-label': `${taskLabel(task, ctx)}. Open to schedule`, dataset: { act: 'task-open', task: task.id, fid: `rt:${prefix}:${task.id}` } },
       task.title,
     ),
+    task.time ? h('span', { class: 'cal-trow-due label tnum', title: `${task.time}–${formatTime(parseTime(task.time) + (task.minutes || 30))}` }, task.time) : null,
     showDue && task.due ? h('span', { class: 'cal-trow-due label tnum' }, shortDay(task.due)) : null,
     priorityBadge(task.priority),
   );
@@ -782,7 +841,8 @@ export function dayView({ onAddTask }) {
 
       // Tasks
       const all = ctx.tasksForDay(key);
-      const open = all.filter((t) => !t.done);
+      // Tasks with a time first, in time order; then the rest as before
+      const open = all.filter((t) => !t.done).sort((a, b) => (a.time ? 0 : 1) - (b.time ? 0 : 1) || (a.time && b.time ? (a.time < b.time ? -1 : a.time > b.time ? 1 : 0) : 0));
       const done = all.filter((t) => t.done);
       const overdue = isToday ? ctx.overdue : [];
       const tasksTitle = isToday ? 'Tasks · due today' : `Tasks · due ${shortDay(key)}`;

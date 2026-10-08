@@ -24,6 +24,17 @@ export const DEFAULT_STATE = Object.freeze({ items: [], sections: Object.freeze(
 /** Sections split the list (Work, Life …): [{ id, name }] in display order; a task's sectionId points at one or is null. */
 export const SECTION_NAME_MAX = 40;
 
+/**
+ * A task with a due date can also get a time of day ('HH:MM') and a length in minutes: the
+ * calendar then places it on its timeline (drag it up and down). Without a time it is a task
+ * for the whole day, as before.
+ */
+export const DEFAULT_TASK_MINUTES = 30;
+export const TASK_MINUTES_MAX = 12 * 60;
+const TIME_OF_DAY = /^([01]\d|2[0-3]):[0-5]\d$/;
+export const isTimeOfDay = (v) => typeof v === 'string' && TIME_OF_DAY.test(v);
+const taskMinutes = (v) => (Number.isFinite(v) && v >= 5 && v <= TASK_MINUTES_MAX ? Math.round(v) : DEFAULT_TASK_MINUTES);
+
 // Older / hand-edited data may spell priorities differently. Maps, not object
 // literals, so words like "constructor" never resolve to Object.prototype members.
 const PRIORITY_ALIASES = new Map([
@@ -68,6 +79,8 @@ export function normalizeTask(raw, i = 0, now = Date.now()) {
   // Legacy spellings of title / done are read above, not kept
   const { text: _text, name: _name, completed: _completed, ...extra } = raw;
 
+  const due = isDateKey(raw.due) ? raw.due : null;
+  const time = due && isTimeOfDay(raw.time) ? raw.time : null;
   return {
     ...extra,
     id,
@@ -75,7 +88,9 @@ export function normalizeTask(raw, i = 0, now = Date.now()) {
     notes: typeof raw.notes === 'string' ? raw.notes : '',
     done,
     priority,
-    due: isDateKey(raw.due) ? raw.due : null,
+    due,
+    time,
+    minutes: time ? taskMinutes(raw.minutes) : null,
     createdAt: Number.isFinite(raw.createdAt) ? raw.createdAt : now,
     completedAt: done && Number.isFinite(raw.completedAt) ? raw.completedAt : null,
     order: Number.isFinite(raw.order) ? raw.order : i,
@@ -324,14 +339,18 @@ export function computeStats(items, today) {
    Mutations (pure: items in, items out)
    ========================================================================== */
 
-export function createTask({ title, priority = 'none', due = null, notes = '', sectionId = null } = {}, now = Date.now()) {
+export function createTask({ title, priority = 'none', due = null, notes = '', sectionId = null, time = null, minutes = null } = {}, now = Date.now()) {
+  const day = isDateKey(due) ? due : null;
+  const at = day && isTimeOfDay(time) ? time : null;
   return {
     id: uid(),
     title: cleanTitle(title),
     notes: typeof notes === 'string' ? notes : '',
     done: false,
     priority: PRIORITIES.includes(priority) ? priority : 'none',
-    due: isDateKey(due) ? due : null,
+    due: day,
+    time: at,
+    minutes: at ? taskMinutes(minutes) : null,
     createdAt: now,
     completedAt: null,
     order: 0,
@@ -355,7 +374,11 @@ export function toggleTask(items, id, done, now = Date.now()) {
   return items.map((t) => (t.id === id && t.done !== done ? { ...t, done, completedAt: done ? now : null } : t));
 }
 
-/** Patch title / notes / priority / due / sectionId. Invalid values are ignored; an empty title keeps the old one. */
+/**
+ * Patch title / notes / priority / due / time / minutes / sectionId. Invalid values are ignored; an
+ * empty title keeps the old one. A task without a due date has no time either; a new time without
+ * a length gets the default length.
+ */
 export function updateTask(items, id, patch = {}) {
   return items.map((t) => {
     if (t.id !== id) return t;
@@ -367,6 +390,10 @@ export function updateTask(items, id, patch = {}) {
     if ('notes' in patch) next.notes = typeof patch.notes === 'string' ? patch.notes : '';
     if ('priority' in patch && PRIORITIES.includes(patch.priority)) next.priority = patch.priority;
     if ('due' in patch) next.due = isDateKey(patch.due) ? patch.due : null;
+    if ('time' in patch) next.time = isTimeOfDay(patch.time) ? patch.time : null;
+    if ('minutes' in patch && next.time) next.minutes = taskMinutes(patch.minutes);
+    if (!next.due) next.time = null;
+    next.minutes = next.time ? taskMinutes(next.minutes) : null;
     if ('sectionId' in patch) next.sectionId = typeof patch.sectionId === 'string' && patch.sectionId ? patch.sectionId : null;
     return next;
   });
