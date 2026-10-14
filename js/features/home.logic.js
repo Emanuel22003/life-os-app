@@ -102,3 +102,88 @@ export function graphBars(series) {
     });
   return { bars, average: planned ? done / planned : null };
 }
+
+/* ==========================================================================
+   Your own Home: which widgets, in which order, at which size (store 'home'.layout, per device)
+   ========================================================================== */
+
+/** Every widget Home can show, in the order the Add shelf lists them. */
+export const WIDGETS = Object.freeze(
+  [
+    { id: 'week', name: 'Week', text: 'Events and dated tasks of the week, day by day.', size: 'l' },
+    { id: 'pomodoro', name: 'Focus timer', text: 'Start, pause and skip Pomodoro rounds.', size: 's' },
+    { id: 'todo', name: 'To do', text: 'Today’s and overdue tasks, with a quick add.', size: 'm' },
+    { id: 'habits', name: 'Habits today', text: 'Tick off the habits planned for today.', size: 's' },
+    { id: 'graph', name: 'Habit graph', text: 'How the last two weeks of habits went.', size: 'm' },
+    { id: 'note', name: 'Quick note', text: 'Write a note fast; your latest notes.', size: 's' },
+    { id: 'clock', name: 'Clock', text: 'The time and date, large.', size: 's' },
+    { id: 'agenda', name: 'Agenda', text: 'Your next events, day by day.', size: 's' },
+    { id: 'payments', name: 'Payments', text: 'Subscriptions due soon and what they cost a month.', size: 's' },
+    { id: 'training', name: 'Training', text: 'Start a routine, or get back to the workout in progress.', size: 's' },
+  ].map((w) => Object.freeze(w)),
+);
+
+export const WIDGET_IDS = Object.freeze(WIDGETS.map((w) => w.id));
+
+/** Widths on Home's four-column board: a quarter, a half, three quarters, all of it. */
+export const SIZES = Object.freeze(['s', 'm', 'l', 'xl']);
+export const SIZE_LABEL = Object.freeze({ s: 'Small', m: 'Medium', l: 'Large', xl: 'Full width' });
+
+/** The Home everyone starts with (the six widgets Home always had). */
+export const DEFAULT_LAYOUT = Object.freeze(
+  [
+    { id: 'week', size: 'l' },
+    { id: 'pomodoro', size: 's' },
+    { id: 'todo', size: 'm' },
+    { id: 'habits', size: 's' },
+    { id: 'note', size: 's' },
+    { id: 'graph', size: 'm' },
+  ].map((w) => Object.freeze(w)),
+);
+
+const defaultSize = (id) => WIDGETS.find((w) => w.id === id)?.size ?? 's';
+
+/** A stored layout, repaired: known widgets once each, known sizes. No layout yet -> the default. */
+export function normalizeLayout(raw) {
+  if (!Array.isArray(raw)) return DEFAULT_LAYOUT.map((w) => ({ ...w }));
+  const seen = new Set();
+  const out = [];
+  for (const it of raw) {
+    const id = typeof it === 'string' ? it : it?.id;
+    if (!WIDGET_IDS.includes(id) || seen.has(id)) continue;
+    seen.add(id);
+    out.push({ id, size: SIZES.includes(it?.size) ? it.size : defaultSize(id) });
+  }
+  return out;
+}
+
+/** The widgets not on Home, in catalog order. */
+export function hiddenWidgets(layout) {
+  const shown = new Set(normalizeLayout(layout).map((w) => w.id));
+  return WIDGETS.filter((w) => !shown.has(w.id));
+}
+
+/** The layout with `id` moved to position `to` (clamped). */
+export function moveWidget(layout, id, to) {
+  const list = normalizeLayout(layout);
+  const from = list.findIndex((w) => w.id === id);
+  if (from === -1) return list;
+  const [item] = list.splice(from, 1);
+  list.splice(Math.max(0, Math.min(to, list.length)), 0, item);
+  return list;
+}
+
+export function resizeWidget(layout, id, size) {
+  return normalizeLayout(layout).map((w) => (w.id === id && SIZES.includes(size) ? { ...w, size } : w));
+}
+
+export function removeWidget(layout, id) {
+  return normalizeLayout(layout).filter((w) => w.id !== id);
+}
+
+/** Put a widget on Home (at the end, at its usual size); a widget already there stays put. */
+export function addWidget(layout, id, size = null) {
+  const list = normalizeLayout(layout);
+  if (!WIDGET_IDS.includes(id) || list.some((w) => w.id === id)) return list;
+  return [...list, { id, size: SIZES.includes(size) ? size : defaultSize(id) }];
+}

@@ -1689,6 +1689,13 @@ function mount(root) {
   return () => cleanups.forEach((off) => off());
 }
 
+/** For Home's Training widget: the data, its changes, and starting a workout. */
+export const trainingApi = Object.freeze({
+  getState: () => getState(),
+  subscribe: (fn) => store.subscribe(fn),
+  startSession,
+});
+
 /* ---- Rename (right-click menus) ---- */
 
 async function renameWorkout(id) {

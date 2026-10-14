@@ -591,6 +591,14 @@ function openEditor(id = null, preset = {}) {
    Feature
    ========================================================================== */
 
+/** For Home's Payments widget: the subscriptions, their changes and the money format. */
+export const financeApi = Object.freeze({
+  subscriptions: () => getState().subscriptions,
+  subscribe: (fn) => store.subscribe(fn),
+  money,
+  add: () => openEditor(),
+});
+
 /** Payments due today or in the next 3 days, on the nav (empty when none). */
 function badge() {
   const n = F.dueSoon(getState().subscriptions, todayKey(), 3);

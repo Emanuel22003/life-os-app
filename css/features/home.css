@@ -62,66 +62,434 @@
   opacity: 0.55;
 }
 
-/* ---- Layout ----
-   Wide: the week, the habit graph and the quick note beside the timer, habits and to-do.
-   Tablet and narrow windows: the week across the top, the widgets in two columns.
-   Phones: one column, widgets first (timer, habits, to-do, quick note), then the week as a
-   list, then the graph. Below wide, the two column wrappers step aside (display: contents)
-   and every card takes its grid area. */
+/* ---- Layout: your own board ----
+   Widgets sit on a four-column grid in the order you chose, each a quarter, half, three
+   quarters or all of the width (data-size s · m · l · xl). Narrower pages have two columns
+   (small stays one, the rest take both), phones one. Gaps fill in when a later, smaller widget
+   fits (dense flow). Rows take the height of their tallest widget. */
 
-.hm-grid {
+.hm-board {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 344px;
-  grid-template-areas: "main side";
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-auto-flow: row dense;
   gap: var(--space-5);
-  align-items: start;
 }
 
-.hm-main,
-.hm-side {
+.hm-widget {
   display: flex;
   flex-direction: column;
-  gap: var(--space-5);
   min-width: 0;
+  grid-column: span 1;
 }
 
-.hm-main {
-  grid-area: main;
+.hm-widget[data-size="m"] { grid-column: span 2; }
+.hm-widget[data-size="l"] { grid-column: span 3; }
+.hm-widget[data-size="xl"] { grid-column: 1 / -1; }
+
+.hm-widget > .hm-card {
+  flex: 1 1 auto;
 }
 
-.hm-side {
-  grid-area: side;
+.hm-shelf,
+.hm-board-empty {
+  grid-column: 1 / -1;
 }
 
 @media (max-width: 1199px) {
-  .hm-grid {
+  .hm-board {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    grid-template-areas:
-      "week week"
-      "pomo todo"
-      "habits todo"
-      "note graph";
   }
 
-  .hm-main,
-  .hm-side {
-    display: contents;
+  .hm-widget[data-size="m"],
+  .hm-widget[data-size="l"] {
+    grid-column: 1 / -1;
   }
-
-  .hm-week { grid-area: week; }
-  .hm-pomo { grid-area: pomo; }
-  .hm-habits { grid-area: habits; }
-  .hm-todo { grid-area: todo; }
-  .hm-note { grid-area: note; }
-  .hm-graph { grid-area: graph; }
 }
 
 @media (max-width: 640px) {
-  .hm-grid {
+  .hm-board {
     grid-template-columns: minmax(0, 1fr);
-    grid-template-areas: "pomo" "habits" "todo" "note" "week" "graph";
     gap: var(--space-4);
   }
+
+  .hm-widget,
+  .hm-widget[data-size] {
+    grid-column: 1 / -1;
+  }
+}
+
+/* ---- Customize ---- */
+
+.hm-edit-hint {
+  margin: calc(var(--space-2) * -1) 0 var(--space-4);
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+}
+
+.hm-widget.is-editing {
+  gap: var(--space-2);
+  padding: var(--space-2);
+  border: 1.5px dashed var(--line-strong);
+  border-radius: calc(var(--radius) + 4px);
+}
+
+.hm-widget.is-editing > .hm-card {
+  opacity: 0.6;
+  pointer-events: none;
+  user-select: none;
+}
+
+.hm-wbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.hm-wgrip {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface-solid);
+  color: var(--text-2);
+  cursor: grab;
+  touch-action: none;
+}
+
+.hm-wgrip:hover {
+  color: var(--text);
+  border-color: var(--text);
+}
+
+.hm-wname {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hm-wsizes .seg-btn {
+  min-width: 32px;
+}
+
+.hm-hint-phone {
+  display: none;
+}
+
+/* A narrow widget: handle, name and remove on the first line, the sizes under them */
+.hm-widget.is-editing {
+  container-type: inline-size;
+}
+
+@container (max-width: 400px) {
+  .hm-wremove {
+    order: 2;
+  }
+
+  .hm-wsizes {
+    order: 3;
+  }
+}
+
+/* One column on a phone: every size is full width there, so the size picker would do nothing */
+@media (max-width: 640px) {
+  .hm-wsizes {
+    display: none;
+  }
+
+  .hm-hint-phone {
+    display: inline;
+  }
+}
+
+.hm-widget.is-dragging {
+  border-style: solid;
+  border-color: var(--text);
+  box-shadow: var(--shadow);
+}
+
+.hm-widget.is-dragging .hm-wgrip,
+.hm-board.is-sorting {
+  cursor: grabbing;
+}
+
+.hm-shelf {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+}
+
+.hm-shelf-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.hm-shelf-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+}
+
+.hm-shelf-icon {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text-2);
+}
+
+.hm-shelf-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.hm-shelf-text span {
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+}
+
+.hm-shelf-none {
+  margin: 0;
+  color: var(--text-3);
+}
+
+.hm-board-empty {
+  padding: var(--space-6);
+}
+
+/* ---- New widgets: clock, agenda, payments, training ---- */
+
+.hm-clock {
+  justify-content: center;
+  gap: var(--space-1);
+  padding: var(--space-5);
+}
+
+.hm-clock-time {
+  font-family: var(--font-display);
+  font-size: clamp(40px, 6vw, 64px);
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+
+.hm-clock-date {
+  color: var(--text-2);
+}
+
+.hm-agenda-body,
+.hm-pay-body,
+.hm-train-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.hm-agenda-day {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.hm-agenda-when {
+  margin: 0;
+}
+
+.hm-agenda-list,
+.hm-pay-list,
+.hm-train-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.hm-agenda-item {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr);
+  gap: var(--space-2);
+  width: 100%;
+  padding: 5px 0;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.hm-agenda-item:hover .hm-agenda-title {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.hm-agenda-time {
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+  padding-top: 2px;
+}
+
+.hm-agenda-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hm-pay-total,
+.hm-train-week {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 0;
+  color: var(--text-2);
+}
+
+.hm-pay-sum,
+.hm-train-count {
+  font-size: var(--fs-2xl);
+  color: var(--text);
+}
+
+.hm-pay-row {
+  display: grid;
+  grid-template-columns: 76px minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: var(--space-2);
+  padding: 5px 0;
+  border-top: 1px solid var(--line);
+  font-size: var(--fs-sm);
+}
+
+.hm-pay-row:first-child {
+  border-top: 0;
+}
+
+.hm-pay-when {
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+  white-space: nowrap;
+}
+
+.hm-pay-row.is-soon .hm-pay-when {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.hm-pay-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hm-pay-trial {
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+}
+
+.hm-pay-amount {
+  white-space: nowrap;
+}
+
+.hm-pay-none {
+  margin: 0;
+  font-size: var(--fs-sm);
+  color: var(--text-3);
+}
+
+.hm-train-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 6px 0;
+  border-top: 1px solid var(--line);
+}
+
+.hm-train-row:first-child {
+  border-top: 0;
+}
+
+.hm-train-name {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-width: 0;
+  font-weight: 600;
+}
+
+.hm-train-last {
+  font-size: var(--fs-xs);
+  font-weight: 400;
+  color: var(--text-3);
+}
+
+.hm-train-start {
+  align-self: flex-start;
+}
+
+.hm-train-live {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  background: var(--accent-soft);
+  color: var(--text);
+  text-decoration: none;
+}
+
+.hm-train-live-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.hm-train-live-text span {
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+}
+
+.hm-train-live-time {
+  font-family: var(--font-mono);
+  font-size: var(--fs-lg);
+  font-weight: 600;
+}
+
+.hm-train-go {
+  grid-column: 2 / -1;
+  display: inline-flex;
+  align-items: center;
+  justify-self: end;
+  gap: 2px;
+  font-size: var(--fs-sm);
+  font-weight: 600;
 }
 
 /* ---- Cards ---- */
@@ -738,9 +1106,9 @@
   margin-left: auto;
 }
 
-/* Wide: the card sits under the week, so the button keeps a button's width */
+/* A wide quick note keeps a button's width */
 @media (min-width: 1200px) {
-  .hm-main .hm-note-btn {
+  .hm-widget:is([data-size="l"], [data-size="xl"]) .hm-note-btn {
     align-self: flex-start;
     width: auto;
     min-width: 280px;
