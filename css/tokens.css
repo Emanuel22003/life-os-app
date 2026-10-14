@@ -196,3 +196,14 @@
   --cc-pink: #cf5596;
   --cc-ink: #ffffff;
 }
+
+/* ---- Mission Control: opaque cards ----
+   The page's grid would otherwise run behind the text of every card and widget (a 2% wash lets
+   it through). Same tone as that wash, mixed into the page color instead of laid over it. */
+[data-skin="hud"][data-theme="dark"] {
+  --surface: color-mix(in srgb, #ffffff 2.2%, var(--bg));
+}
+
+[data-skin="hud"][data-theme="light"] {
+  --surface: color-mix(in srgb, #000000 1.8%, var(--bg));
+}

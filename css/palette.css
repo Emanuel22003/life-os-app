@@ -28,6 +28,15 @@
   --surface-solid: color-mix(in srgb, var(--u-bg) 90%, #ffffff);
 }
 
+/* Mission Control keeps its cards opaque with your background too (its grid stays behind them) */
+[data-skin="hud"][data-theme="light"][data-palette~="bg"] {
+  --surface: color-mix(in srgb, color-mix(in srgb, var(--u-bg) 40%, #ffffff) 92%, var(--u-bg));
+}
+
+[data-skin="hud"][data-theme="dark"][data-palette~="bg"] {
+  --surface: color-mix(in srgb, color-mix(in srgb, var(--u-bg) 90%, #ffffff) 92%, var(--u-bg));
+}
+
 /* ---- Text: lighter steps towards the background, lines and charts in the same ink ---- */
 [data-skin][data-theme][data-palette~="text"] {
   --text: var(--u-text);
