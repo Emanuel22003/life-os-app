@@ -44,9 +44,10 @@ import { habitsApi } from './habits.js';
 import { habitsForDay } from './habits.logic.js';
 import { dailySeries } from './habits.stats.js';
 import { notesApi } from './notes.js';
-import { getEvents, subscribeCalendar } from './calendar.store.js';
+import { getEvents, subscribeCalendar, getDayColors } from './calendar.store.js';
+import { paintColor } from '../colors.js';
 import { calendarApi } from './calendar.js';
-import { occurrencesInRange, weekKeys, mondayOf, viewTitle, tasksByDay, overdueTasks, habitsByDay, daysBetween } from './calendar.logic.js';
+import { occurrencesInRange, weekKeys, mondayOf, viewTitle, viewRange, shiftCursor, monthGrid, tasksByDay, overdueTasks, habitsByDay, daysBetween } from './calendar.logic.js';
 import { eventBar, taskChip, habitMeter, priorityBadge, PRIORITY_TAG } from './calendar.views.js';
 import { pomodoroApi, roundText } from './pomodoro.js';
 import { financeApi } from './finance.js';
@@ -66,6 +67,7 @@ const AGENDA_MAX = 8;
 const PAY_MAX = 5;
 
 const DAY_ITEMS = 5; // per day in the week before "+N more"
+const MONTH_ITEMS = 3; // per day in the month
 const TODO_MAX = 7;
 const GRAPH_DAYS = 14;
 const AHEAD_DAYS = 14; // how far "Next:" looks
@@ -194,7 +196,7 @@ function openQuickNote() {
 function mount(root) {
   root.classList.add('hm-page');
   const simple = plainSkin();
-  const state = { today: todayKey(), week: mondayOf(todayKey()) };
+  const state = { today: todayKey(), cursor: todayKey() };
   let todoHoldUntil = 0;
   let todoTimer = 0;
 
@@ -238,18 +240,50 @@ function mount(root) {
     nextEl.title = up ? 'Open this day in the Calendar' : 'Open today in the Calendar';
   }
 
-  /* ---- Week overview ---- */
+  /* ---- Calendar: a day, the week or the month ----
+     You pick the view (Day · Week · Month) and what it shows (Events · Tasks · Habits · Done
+     tasks) right on the widget; both are kept per device in prefs.calendar. ‹ › move a period,
+     the "Today / This week / This month" button comes back. A day opens in the Calendar. */
 
+  const calNow = () => HM.normalizeCalView(prefs.get().calendar);
+  const setCal = (patch) => prefs.update({ calendar: HM.withCalView(prefs.get().calendar, patch) });
+  const isCurrent = (view) => HM.isCurrentPeriod(view, state.cursor, state.today, mondayOf);
+
+  const weekKicker = h('div', { class: 'hm-week-kicker label lo-deco' }, 'Week');
   const weekTitle = h('h2', { class: 'hm-week-title', id: 'hm-week-title', 'aria-live': 'polite' });
-  const prevBtn = h('button', { type: 'button', class: 'btn btn--ghost btn--icon btn--sm', 'aria-label': 'Previous week', title: 'Previous week (←)', onClick: () => moveWeek(-1) }, icon('chevron-left'));
-  const nextBtn = h('button', { type: 'button', class: 'btn btn--ghost btn--icon btn--sm', 'aria-label': 'Next week', title: 'Next week (→)', onClick: () => moveWeek(1) }, icon('chevron-right'));
-  const thisWeekBtn = h('button', { type: 'button', class: 'btn btn--sm hm-week-now', title: 'Back to this week (T)', onClick: () => goWeek(mondayOf(state.today)) }, 'This week');
+  const prevBtn = h('button', { type: 'button', class: 'btn btn--ghost btn--icon btn--sm', onClick: () => movePeriod(-1) }, icon('chevron-left'));
+  const nextBtn = h('button', { type: 'button', class: 'btn btn--ghost btn--icon btn--sm', onClick: () => movePeriod(1) }, icon('chevron-right'));
+  const thisWeekBtn = h('button', { type: 'button', class: 'btn btn--sm hm-week-now', onClick: () => goTo(state.today) }, 'This week');
+  const viewBtns = new Map(
+    HM.CAL_VIEWS.map((v) => [
+      v,
+      h('button', { type: 'button', class: 'seg-btn', 'aria-pressed': 'false', title: `${HM.CAL_VIEW_LABEL[v]} (${HM.CAL_VIEW_LABEL[v][0]})`, onClick: () => setCal({ view: v }) }, HM.CAL_VIEW_LABEL[v]),
+    ]),
+  );
+  const layerBtns = new Map(
+    HM.CAL_LAYERS.map((k) => [
+      k,
+      h(
+        'button',
+        { type: 'button', class: 'hm-cal-toggle', dataset: { layer: k }, 'aria-pressed': 'false', onClick: () => setCal({ layers: { [k]: !calNow().layers[k] } }) },
+        h('span', { class: 'hm-cal-tick', 'aria-hidden': 'true' }, icon('check', { size: 11 })),
+        HM.CAL_LAYER_LABEL[k],
+      ),
+    ]),
+  );
+  const calBar = h(
+    'div',
+    { class: 'hm-cal-bar' },
+    h('div', { class: 'seg hm-cal-views', role: 'group', 'aria-label': 'Show a day, the week or the month' }, [...viewBtns.values()]),
+    h('div', { class: 'hm-cal-layers', role: 'group', 'aria-label': 'What the calendar shows' }, [...layerBtns.values()]),
+  );
   const daysEl = h('div', { class: 'hm-days' });
+  const emptyText = h('span');
   const weekEmpty = h(
     'div',
     { class: 'hm-week-empty', hidden: true },
-    h('span', null, 'Nothing planned this week.'),
-    h('button', { type: 'button', class: 'btn btn--sm', onClick: () => calendarApi.open(state.week === mondayOf(state.today) ? state.today : state.week, 'week') }, icon('calendar', { size: 14 }), 'Plan the week'),
+    emptyText,
+    h('button', { type: 'button', class: 'btn btn--sm', onClick: () => calendarApi.open(state.cursor, calNow().view) }, icon('calendar', { size: 14 }), 'Plan in the Calendar'),
   );
   const weekCard = h(
     'section',
@@ -257,63 +291,178 @@ function mount(root) {
     h(
       'header',
       { class: 'hm-week-head' },
-      h('div', { class: 'hm-week-kicker label lo-deco' }, 'Week'),
+      weekKicker,
       weekTitle,
       h('div', { class: 'hm-week-nav' }, thisWeekBtn, prevBtn, nextBtn, moreLink({ href: '#/calendar', label: simple ? 'Calendar' : 'Open calendar' })),
     ),
+    calBar,
     daysEl,
     weekEmpty,
   );
 
-  function goWeek(monday) {
-    if (monday === state.week) return;
-    state.week = monday;
+  function goTo(key) {
+    if (key === state.cursor) return;
+    state.cursor = key;
     paintWeek();
   }
 
-  const moveWeek = (delta) => goWeek(shiftKey(state.week, 7 * delta));
+  const movePeriod = (delta) => goTo(shiftCursor(calNow().view, state.cursor, delta));
 
-  function dayCell(d, ctx, info) {
+  function dayCell(d, ctx, info, color) {
     const items = [...d.events.map((occ) => ({ occ })), ...d.tasks.map((task) => ({ task }))];
     const { shown, more } = HM.clipItems(items, DAY_ITEMS);
     const date = parseKey(d.key);
-    const openTasks = d.tasks.length;
-    const label = `${formatDay(d.key, 'long')}${d.isToday ? ', today' : ''}: ${plural(d.events.length, 'event')}, ${plural(openTasks, 'open task')}. Open in the Calendar`;
-    return h(
-      'div',
-      { class: ['hm-day', d.isToday && 'is-today', d.isPast && 'is-past', d.isWeekend && 'is-weekend'], dataset: { key: d.key } },
-      h(
-        'button',
-        { type: 'button', class: 'hm-day-head', 'aria-label': label, dataset: { fid: `day:${d.key}` } },
-        h('span', { class: 'hm-day-wd' }, WEEKDAYS_SHORT[date.getDay()]),
-        h('span', { class: 'hm-day-num tnum' }, String(date.getDate())),
-        d.isToday ? h('span', { class: 'hm-day-tag' }, 'Today') : null,
-      ),
+    const label = `${formatDay(d.key, 'long')}${d.isToday ? ', today' : ''}: ${plural(d.events.length, 'event')}, ${plural(d.tasks.length, 'task')}. Open in the Calendar`;
+    return paintColor(
       h(
         'div',
-        { class: 'hm-day-items' },
-        shown.map((it) => (it.occ ? eventBar(it.occ, ctx, { prefix: 'hm', tab: '-1', drag: false, glyph: false }) : taskChip(it.task, ctx, { prefix: 'hm', tab: '-1' }))),
-        more ? h('span', { class: 'hm-day-more' }, `+${more} more`) : null,
-        items.length ? null : h('span', { class: 'hm-day-free' }, d.isPast ? '—' : simple ? 'Free' : 'Clear'),
+        { class: ['hm-day', d.isToday && 'is-today', d.isPast && 'is-past', d.isWeekend && 'is-weekend'], dataset: { key: d.key, open: d.key } },
+        h(
+          'button',
+          { type: 'button', class: 'hm-day-head', 'aria-label': label, dataset: { fid: `day:${d.key}` } },
+          h('span', { class: 'hm-day-wd' }, WEEKDAYS_SHORT[date.getDay()]),
+          h('span', { class: 'hm-day-num tnum' }, String(date.getDate())),
+          d.isToday ? h('span', { class: 'hm-day-tag' }, 'Today') : null,
+        ),
+        h(
+          'div',
+          { class: 'hm-day-items' },
+          shown.map((it) => (it.occ ? eventBar(it.occ, ctx, { prefix: 'hm', tab: '-1', drag: false, glyph: false }) : taskChip(it.task, ctx, { prefix: 'hm', tab: '-1' }))),
+          more ? h('span', { class: 'hm-day-more' }, `+${more} more`) : null,
+          items.length ? null : h('span', { class: 'hm-day-free' }, d.isPast ? '—' : simple ? 'Free' : 'Clear'),
+        ),
+        habitMeter(info, { max: 5, readout: !simple }),
       ),
-      habitMeter(info, { max: 5, readout: !simple }),
+      'days',
+      color,
     );
   }
 
+  /** One day, listed: its events, its tasks (tick them here) and its habits (tick them up to today). */
+  function dayList(d, ctx, info, layers, color) {
+    const group = (title, rows) => h('section', { class: 'hm-dv-group' }, h('h3', { class: 'hm-dv-title label' }, title), h('div', { class: 'hm-dv-rows' }, rows));
+    const groups = [];
+    if (layers.events && d.events.length) {
+      groups.push(group('Events', d.events.map((occ) => {
+        const bar = eventBar(occ, ctx, { prefix: 'hm', tab: '0', drag: false, glyph: false, extra: occ.location ? h('span', { class: 'hm-dv-where' }, occ.location) : null });
+        bar.dataset.open = d.key;
+        return bar;
+      })));
+    }
+    if (layers.tasks && d.tasks.length) {
+      groups.push(group('Tasks', d.tasks.map((task) => {
+        const chip = taskChip(task, ctx, { prefix: 'hm', tab: '0' });
+        chip.dataset.open = d.key;
+        return chip;
+      })));
+    }
+    const habits = info ? [...info.scheduled, ...info.bonus] : [];
+    if (layers.habits && habits.length) {
+      groups.push(group(info.planned ? `Habits · ${info.done} of ${info.planned}` : 'Habits', habits.map((hb) => {
+        const canLog = d.key <= state.today;
+        const check = canLog
+          ? checkButton({ checked: hb.done, label: `${hb.name}: done ${d.isToday ? 'today' : formatDay(d.key)}`, onToggle: (next) => habitsApi.setLog(hb.id, d.key, next) })
+          : h('span', { class: 'hm-dv-planned', 'aria-hidden': 'true' });
+        if (canLog) check.dataset.fid = `dv-hb:${hb.id}`;
+        return h('div', { class: ['hm-dv-habit', `is-${hb.status}`] }, check, h('span', { class: 'hm-dv-habit-name' }, hb.name), hb.status === 'bonus' ? h('span', { class: 'hm-dv-tag' }, 'Extra') : !canLog ? h('span', { class: 'hm-dv-tag' }, 'Planned') : null);
+      })));
+    }
+    return paintColor(h('div', { class: ['hm-dayview', d.isToday && 'is-today'], dataset: { key: d.key } }, groups), 'days', color);
+  }
+
+  /** The month: a cell a day (its first items, or dots when the widget is narrow), and a habit bar. */
+  function monthCells(grid, occs, byDay, habits, colors) {
+    const head = h('div', { class: 'hm-mhead', 'aria-hidden': 'true' }, [1, 2, 3, 4, 5, 6, 0].map((wd) => h('span', null, WEEKDAYS_SHORT[wd])));
+    const cells = grid.weeks.flatMap((w) =>
+      HM.weekDays(w.days.map((x) => x.key), occs, byDay, state.today).map((d, i) => {
+        const day = w.days[i];
+        const items = [...d.events.map((occ) => ({ occ })), ...d.tasks.map((task) => ({ task }))];
+        const { shown, more } = HM.clipItems(items, MONTH_ITEMS);
+        const info = habits.get(d.key);
+        const habitsText = info?.planned ? `, habits ${info.done} of ${info.planned}` : '';
+        const label = `${formatDay(d.key, 'long')}${d.isToday ? ', today' : ''}: ${plural(d.events.length, 'event')}, ${plural(d.tasks.length, 'task')}${habitsText}. Open in the Calendar`;
+        const marks = shown.map((it) =>
+          it.occ
+            ? paintColor(h('span', { class: ['hm-mi', 'hm-mi--ev', `is-${it.occ.style}`] }, it.occ.allDay ? it.occ.title : `${it.occ.startTime} ${it.occ.title}`), 'events', it.occ.color)
+            : paintColor(h('span', { class: ['hm-mi', 'hm-mi--task', it.task.done && 'is-done', `pri-${it.task.priority}`] }, it.task.title), 'tasks', it.task.color),
+        );
+        const bar = info?.planned
+          ? h('span', { class: ['hm-mhab', info.done === info.planned && 'is-perfect', d.key > state.today && 'is-future'] }, h('span', { class: 'hm-mhab-fill', style: { width: `${Math.round((info.done / info.planned) * 100)}%` } }))
+          : null;
+        return paintColor(
+          h(
+            'button',
+            {
+              type: 'button',
+              class: ['hm-mcell', !day.inMonth && 'is-out', d.isToday && 'is-today', d.isPast && 'is-past', d.isWeekend && 'is-weekend'],
+              tabindex: d.key === focusKeyIn(grid) ? '0' : '-1',
+              'aria-label': label,
+              'aria-current': d.isToday ? 'date' : null,
+              dataset: { open: d.key, key: d.key, fid: `m:${d.key}` },
+            },
+            h('span', { class: 'hm-mnum tnum' }, String(day.date)),
+            h('span', { class: 'hm-mitems', 'aria-hidden': 'true' }, marks, more ? h('span', { class: 'hm-mmore tnum' }, `+${more}`) : null),
+            bar,
+          ),
+          'days',
+          colors[d.key],
+        );
+      }),
+    );
+    return [head, h('div', { class: 'hm-mgrid', role: 'group', 'aria-label': grid.title }, cells)];
+  }
+
+  // The cell that takes Tab in the month: today, or the first day of the month
+  const focusKeyIn = (grid) => (state.today.startsWith(grid.month) ? state.today : `${grid.month}-01`);
+
   function paintWeek() {
-    const keys = weekKeys(state.week);
-    const from = keys[0];
-    const to = keys[6];
-    const occs = occurrencesInRange(getEvents(), from, to);
-    const byDay = tasksByDay(tasksApi.getItems(), from, to);
-    const habits = habitsByDay(habitsApi.source.getItems(), from, to, state.today);
-    const days = HM.weekDays(keys, occs, byDay, state.today);
+    const { view, layers } = calNow();
+    const { from, to } = viewRange(view, state.cursor);
+    const occs = layers.events ? occurrencesInRange(getEvents(), from, to) : [];
+    const byDay = layers.tasks ? tasksByDay(tasksApi.getItems(), from, to, { includeCompleted: layers.completed }) : new Map();
+    const habits = layers.habits ? habitsByDay(habitsApi.source.getItems(), from, to, state.today) : new Map();
+    const colors = getDayColors();
     const ctx = { today: state.today, nowMin: nowMinutes() };
-    weekTitle.textContent = viewTitle('week', state.week, { weekNumber: !simple });
-    thisWeekBtn.hidden = state.week === mondayOf(state.today);
-    keepFocus(daysEl, () => daysEl.replaceChildren(...days.map((d) => dayCell(d, ctx, habits.get(d.key)))));
-    const quiet = days.every((d) => !d.events.length && !d.tasks.length);
+    const unit = view === 'day' ? 'day' : view === 'week' ? 'week' : 'month';
+
+    weekKicker.textContent = HM.CAL_VIEW_LABEL[view];
+    weekTitle.textContent = viewTitle(view, state.cursor, { weekNumber: !simple });
+    thisWeekBtn.textContent = HM.CAL_NOW_LABEL[view];
+    thisWeekBtn.title = `Back to ${HM.CAL_NOW_LABEL[view].toLowerCase()} (T)`;
+    thisWeekBtn.hidden = isCurrent(view);
+    prevBtn.setAttribute('aria-label', `Previous ${unit}`);
+    prevBtn.title = `Previous ${unit} (←)`;
+    nextBtn.setAttribute('aria-label', `Next ${unit}`);
+    nextBtn.title = `Next ${unit} (→)`;
+    for (const [v, btn] of viewBtns) btn.setAttribute('aria-pressed', String(v === view));
+    for (const [k, btn] of layerBtns) {
+      btn.setAttribute('aria-pressed', String(layers[k]));
+      // Done tasks only show with the tasks
+      btn.disabled = k === 'completed' && !layers.tasks;
+      btn.title = btn.disabled ? 'Turn on Tasks to show the done ones' : `${layers[k] ? 'Hide' : 'Show'} ${HM.CAL_LAYER_LABEL[k].toLowerCase()}`;
+    }
+    weekCard.dataset.view = view;
+    daysEl.dataset.view = view;
+
+    let quiet;
+    if (view === 'month') {
+      const grid = monthGrid(state.cursor, { today: state.today });
+      keepFocus(daysEl, () => daysEl.replaceChildren(...monthCells(grid, occs, byDay, habits, colors)));
+      quiet = !layers.events && !layers.tasks && !layers.habits;
+    } else {
+      const days = HM.weekDays(view === 'day' ? [state.cursor] : weekKeys(state.cursor), occs, byDay, state.today);
+      if (view === 'day') {
+        const d = days[0];
+        const info = habits.get(d.key);
+        keepFocus(daysEl, () => daysEl.replaceChildren(dayList(d, ctx, info, layers, colors[d.key])));
+        quiet = !d.events.length && !d.tasks.length && !(info && (info.scheduled.length || info.bonus.length));
+      } else {
+        keepFocus(daysEl, () => daysEl.replaceChildren(...days.map((d) => dayCell(d, ctx, habits.get(d.key), colors[d.key]))));
+        quiet = days.every((d) => !d.events.length && !d.tasks.length);
+      }
+    }
     daysEl.classList.toggle('is-quiet', quiet);
+    emptyText.textContent = HM.calEmptyText(view, layers);
     weekEmpty.hidden = !quiet;
   }
 
@@ -326,8 +475,22 @@ function mount(root) {
       else completeTask(id);
       return;
     }
-    const day = e.target.closest('.hm-day');
-    if (day && daysEl.contains(day)) calendarApi.open(day.dataset.key, 'day');
+    const day = e.target.closest('[data-open]');
+    if (day && daysEl.contains(day)) calendarApi.open(day.dataset.open, 'day');
+  });
+
+  // Arrow keys move between the month's days (the page's ← → would move the month)
+  daysEl.addEventListener('keydown', (e) => {
+    const cell = e.target.closest?.('.hm-mcell');
+    if (!cell || e.metaKey || e.ctrlKey || e.altKey) return;
+    const cells = [...daysEl.querySelectorAll('.hm-mcell')];
+    const at = cells.indexOf(cell);
+    const to = { ArrowLeft: at - 1, ArrowRight: at + 1, ArrowUp: at - 7, ArrowDown: at + 7, Home: at - (at % 7), End: at - (at % 7) + 6 }[e.key];
+    if (to === undefined) return;
+    e.preventDefault();
+    const next = cells[Math.max(0, Math.min(cells.length - 1, to))];
+    for (const c of cells) c.tabIndex = c === next ? 0 : -1;
+    next.focus();
   });
 
   /* ---- Pomodoro ---- */
@@ -1275,14 +1438,17 @@ function mount(root) {
     }),
     financeApi.subscribe(() => paintPayments()),
     trainingApi.subscribe(() => paintTraining()),
-    // The layout changed (here, or in another window)
-    prefs.subscribe(() => renderBoard()),
+    // The layout or the calendar's view changed (here, or in another window)
+    prefs.subscribe(() => {
+      renderBoard();
+      paintWeek();
+    }),
     notesApi.subscribe(() => paintRecent()),
     pomodoroApi.subscribe((v) => pomo.paint(v)),
     onDayChange(() => {
-      const onCurrent = state.week === mondayOf(state.today);
+      const onCurrent = isCurrent(calNow().view);
       state.today = todayKey();
-      if (onCurrent) state.week = mondayOf(state.today);
+      if (onCurrent) state.cursor = state.today;
       paintAll();
     }),
   ];
@@ -1319,10 +1485,13 @@ function mount(root) {
       addInput.focus();
     } else if (key === 'ArrowLeft' || key === 'ArrowRight') {
       e.preventDefault();
-      moveWeek(key === 'ArrowLeft' ? -1 : 1);
+      movePeriod(key === 'ArrowLeft' ? -1 : 1);
     } else if (key === 't' || key === 'T') {
       e.preventDefault();
-      goWeek(mondayOf(state.today));
+      goTo(state.today);
+    } else if (/^[dwm]$/i.test(key)) {
+      e.preventDefault();
+      setCal({ view: { d: 'day', w: 'week', m: 'month' }[key.toLowerCase()] });
     }
   }
   document.addEventListener('keydown', onKeydown);

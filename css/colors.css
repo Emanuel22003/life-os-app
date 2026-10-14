@@ -74,7 +74,7 @@
 }
 
 /* ---- Days (month cells, week / day headers): a band on top and a wash ---- */
-.cc-days :is(.cal-cell, .cal-dh)[data-cc] {
+.cc-days :is(.cal-cell, .cal-dh, .hm-day, .hm-mcell, .hm-dayview)[data-cc] {
   background-image: linear-gradient(var(--cc) 0 3px, transparent 3px), linear-gradient(color-mix(in srgb, var(--cc) 13%, transparent), color-mix(in srgb, var(--cc) 13%, transparent));
 }
 

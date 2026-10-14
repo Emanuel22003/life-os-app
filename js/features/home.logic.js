@@ -46,7 +46,7 @@ export function weekDays(keys, occs, tasksByKey, today) {
     key,
     isToday: key === today,
     isPast: key < today,
-    isWeekend: i >= 5,
+    isWeekend: i % 7 >= 5,
     events: list.filter((o) => o.start <= key && o.end >= key).sort((a, b) => Number(!a.allDay) - Number(!b.allDay) || (a.startMin ?? 0) - (b.startMin ?? 0) || String(a.title).localeCompare(String(b.title))),
     tasks: tasksByKey?.get?.(key) ?? [],
   }));
@@ -116,7 +116,7 @@ export function graphBars(series) {
 /** Every widget Home can show, in the order the Add shelf lists them. */
 export const WIDGETS = Object.freeze(
   [
-    { id: 'week', name: 'Week', text: 'Events and dated tasks of the week, day by day.', size: 'l' },
+    { id: 'week', name: 'Calendar', text: 'Your day, week or month, with the events, tasks and habits you pick.', size: 'l' },
     { id: 'pomodoro', name: 'Focus timer', text: 'Start, pause and skip Pomodoro rounds.', size: 's' },
     { id: 'todo', name: 'To do', text: 'Today’s and overdue tasks, with a quick add.', size: 'm' },
     { id: 'habits', name: 'Habits today', text: 'Tick off the habits planned for today.', size: 's' },
@@ -342,4 +342,43 @@ export function placeOf(placed, id, cols = COLUMNS) {
   const above = placed.items.filter((p) => p !== me && p.y < me.y && p.x < me.x + me.w && me.x < p.x + p.w).length;
   const nth = ['at the top', 'second', 'third', 'fourth', 'fifth'][above] ?? `${above + 1}th from the top`;
   return cols > 1 ? `column ${me.x + 1} of ${cols}, ${nth}` : nth;
+}
+
+/* ==========================================================================
+   The calendar widget: a day, the week or the month, and what it shows
+   (store 'home'.calendar, per device: { view, layers })
+   ========================================================================== */
+
+export const CAL_VIEWS = Object.freeze(['day', 'week', 'month']);
+export const CAL_VIEW_LABEL = Object.freeze({ day: 'Day', week: 'Week', month: 'Month' });
+export const CAL_NOW_LABEL = Object.freeze({ day: 'Today', week: 'This week', month: 'This month' });
+export const CAL_LAYERS = Object.freeze(['events', 'tasks', 'habits', 'completed']);
+export const CAL_LAYER_LABEL = Object.freeze({ events: 'Events', tasks: 'Tasks', habits: 'Habits', completed: 'Done tasks' });
+export const DEFAULT_CAL = Object.freeze({ view: 'week', layers: Object.freeze({ events: true, tasks: true, habits: true, completed: false }) });
+
+/** The widget's settings, repaired: a known view, every layer on or off (the default where unset). */
+export function normalizeCalView(raw) {
+  const src = raw && typeof raw === 'object' ? raw : {};
+  const layers = {};
+  for (const k of CAL_LAYERS) layers[k] = typeof src.layers?.[k] === 'boolean' ? src.layers[k] : DEFAULT_CAL.layers[k];
+  return { view: CAL_VIEWS.includes(src.view) ? src.view : DEFAULT_CAL.view, layers };
+}
+
+/** The settings with `patch` applied ({ view } and/or { layers: { name: bool } }). */
+export function withCalView(raw, patch = {}) {
+  const cur = normalizeCalView(raw);
+  return normalizeCalView({ view: patch.view ?? cur.view, layers: { ...cur.layers, ...(patch.layers ?? {}) } });
+}
+
+/** Whether `cursor` is in the period that holds `today` (same day, ISO week or month). */
+export function isCurrentPeriod(view, cursor, today, mondayOf) {
+  if (view === 'day') return cursor === today;
+  if (view === 'week') return mondayOf(cursor) === mondayOf(today);
+  return String(cursor).slice(0, 7) === String(today).slice(0, 7);
+}
+
+/** What to say when a period shows nothing. */
+export function calEmptyText(view, layers) {
+  if (!layers.events && !layers.tasks && !layers.habits) return 'Everything is switched off. Turn on Events, Tasks or Habits above.';
+  return `Nothing planned ${view === 'day' ? 'this day' : view === 'week' ? 'this week' : 'this month'}.`;
 }

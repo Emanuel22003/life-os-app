@@ -834,6 +834,444 @@
   padding: 0 2px;
 }
 
+/* ---- The calendar's bar: Day · Week · Month, and what it shows ---- */
+
+.hm-cal-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-3);
+  margin-top: calc(var(--space-1) * -1);
+}
+
+.hm-cal-views .seg-btn {
+  min-width: 0;
+  padding-inline: 10px;
+}
+
+.hm-cal-layers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.hm-cal-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 10px 0 6px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  font-size: var(--fs-xs);
+  color: var(--text-2);
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+}
+
+.hm-cal-toggle:hover:not(:disabled) {
+  border-color: var(--text-2);
+  color: var(--text);
+}
+
+.hm-cal-tick {
+  display: grid;
+  place-items: center;
+  width: 14px;
+  height: 14px;
+  border: 1.5px solid currentColor;
+  border-radius: 4px;
+}
+
+.hm-cal-tick .icon {
+  opacity: 0;
+}
+
+.hm-cal-toggle[aria-pressed="true"] {
+  border-color: var(--text-2);
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.hm-cal-toggle[aria-pressed="true"] .hm-cal-tick {
+  border-color: var(--text);
+  background: var(--text);
+  color: var(--bg);
+}
+
+.hm-cal-toggle[aria-pressed="true"] .hm-cal-tick .icon {
+  opacity: 1;
+}
+
+.hm-cal-toggle:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* ---- One day, listed ---- */
+
+.hm-days[data-view="day"] {
+  display: block;
+  overflow: visible;
+  border: 0;
+  background: none;
+}
+
+.hm-dayview {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--space-4) var(--space-5);
+  border-radius: var(--radius-sm);
+}
+
+.hm-dayview[data-cc] {
+  padding: var(--space-3);
+}
+
+.hm-dayview:empty {
+  display: none;
+}
+
+.hm-dv-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.hm-dv-title {
+  color: var(--text-3);
+}
+
+.hm-dv-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.hm-dayview .cal-ev {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 8px;
+  height: auto;
+  min-height: 30px;
+  padding: 6px 8px;
+  white-space: normal;
+  text-align: left;
+  cursor: pointer;
+}
+
+.hm-dayview .cal-ev-title {
+  overflow: visible;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.hm-dv-where {
+  flex-basis: 100%;
+  font-size: var(--fs-2xs);
+  opacity: 0.8;
+}
+
+.hm-dayview .cal-task {
+  height: auto;
+  min-height: 30px;
+  padding: 5px 8px;
+  cursor: pointer;
+}
+
+.hm-dayview .cal-task-title {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.hm-dv-habit {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 30px;
+  font-size: var(--fs-sm);
+}
+
+.hm-dv-habit-name {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.hm-dv-habit.is-miss .hm-dv-habit-name,
+.hm-dv-habit.is-future .hm-dv-habit-name {
+  color: var(--text-2);
+}
+
+.hm-dv-planned {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  border: 1.5px dashed var(--line-strong);
+  border-radius: var(--radius-xs);
+}
+
+.hm-dv-tag {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  color: var(--text-3);
+}
+
+/* ---- The month: a cell a day ---- */
+
+.hm-days[data-view="month"] {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  overflow: visible;
+  border: 0;
+  background: none;
+}
+
+.hm-mhead {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+
+.hm-mhead span {
+  padding: 0 6px;
+  font-family: var(--label-font);
+  font-size: var(--label-size);
+  font-weight: var(--label-weight);
+  letter-spacing: calc(0.14em * var(--label-tracking));
+  text-transform: var(--label-case);
+  color: var(--text-3);
+}
+
+.hm-mgrid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 1px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--line);
+}
+
+.hm-mcell {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  min-height: 92px;
+  padding: 4px 5px 6px;
+  border-radius: 0;
+  background: var(--surface-solid);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease);
+}
+
+.hm-mcell:hover {
+  background: var(--surface-solid-2);
+}
+
+.hm-mcell:focus-visible {
+  position: relative;
+  z-index: 1;
+  outline: 2px solid var(--line-focus, var(--accent));
+  outline-offset: -2px;
+}
+
+.hm-mcell.is-weekend {
+  background: repeating-linear-gradient(-45deg, var(--surface-2) 0 1px, transparent 1px 9px), var(--surface-solid);
+}
+
+.hm-mcell.is-out {
+  color: var(--text-3);
+}
+
+.hm-mcell.is-out .hm-mitems,
+.hm-mcell.is-out .hm-mhab {
+  opacity: 0.55;
+}
+
+.hm-mcell.is-today {
+  box-shadow: inset 0 2px 0 var(--accent);
+}
+
+.hm-mnum {
+  align-self: flex-start;
+  padding: 1px 4px;
+  border-radius: var(--radius-xs);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.hm-mcell.is-past:not(.is-out) .hm-mnum {
+  color: var(--text-2);
+}
+
+.hm-mcell.is-today .hm-mnum {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.hm-mitems {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.hm-mi {
+  display: block;
+  overflow: hidden;
+  padding: 0 4px;
+  border-radius: 3px;
+  font-size: 11px;
+  line-height: 16px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* An event: a tint and a spine in its color (the template's grey without one) */
+.hm-mi--ev {
+  --mi: var(--cc, var(--text-2));
+  background: color-mix(in srgb, var(--mi) 14%, transparent);
+  box-shadow: inset 2px 0 0 var(--mi);
+}
+
+.hm-mi--ev.is-solid {
+  background: color-mix(in srgb, var(--mi) 26%, transparent);
+}
+
+/* A task: a small box before its title, ticked when done */
+.hm-mi--task {
+  position: relative;
+  padding-left: 13px;
+  color: var(--text-2);
+}
+
+.hm-mi--task::before {
+  content: '';
+  position: absolute;
+  top: 4.5px;
+  left: 3px;
+  width: 7px;
+  height: 7px;
+  border: 1.5px solid var(--cc, currentColor);
+  border-radius: 2px;
+}
+
+.hm-mi--task.is-done {
+  color: var(--text-3);
+  text-decoration: line-through;
+}
+
+.hm-mi--task.is-done::before {
+  background: currentColor;
+}
+
+.hm-mmore {
+  padding: 0 4px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  color: var(--text-3);
+}
+
+/* Habits that day: a thin bar (full = all done) */
+.hm-mhab {
+  display: block;
+  height: 3px;
+  margin-top: auto;
+  overflow: hidden;
+  border-radius: 2px;
+  background: var(--line);
+}
+
+.hm-mhab-fill {
+  display: block;
+  height: 100%;
+  background: var(--text-2);
+}
+
+.hm-mhab.is-perfect .hm-mhab-fill {
+  background: var(--accent);
+}
+
+.hm-mhab.is-future {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--line-strong);
+}
+
+/* A narrow month (a small widget, a phone): dots instead of titles */
+@container hm-week (max-width: 520px) {
+  .hm-mhead span {
+    padding: 0;
+    text-align: center;
+    font-size: 9px;
+  }
+
+  .hm-mcell {
+    align-items: center;
+    min-height: 48px;
+    padding: 3px 2px 4px;
+  }
+
+  .hm-mnum {
+    align-self: center;
+  }
+
+  .hm-mitems {
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 2px;
+  }
+
+  .hm-mi {
+    width: 6px;
+    height: 6px;
+    padding: 0;
+    border-radius: 50%;
+    font-size: 0;
+    line-height: 0;
+  }
+
+  .hm-mi--ev,
+  .hm-mi--ev.is-solid {
+    background: var(--mi);
+    box-shadow: none;
+  }
+
+  .hm-mi--task {
+    border: 1.5px solid var(--cc, var(--text-2));
+    border-radius: 1px;
+  }
+
+  .hm-mi--task.is-done {
+    background: var(--text-3);
+  }
+
+  .hm-mi--task::before {
+    display: none;
+  }
+
+  .hm-mmore {
+    padding: 0;
+    font-size: 8px;
+    line-height: 6px;
+  }
+
+  .hm-mhab {
+    align-self: stretch;
+    margin-inline: 3px;
+  }
+}
+
 /* Narrow (a tablet column, a phone): one row per day, the date on the left */
 @container hm-week (max-width: 600px) {
   .hm-days {
