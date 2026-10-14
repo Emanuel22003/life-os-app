@@ -2,7 +2,7 @@
 // next, free trials about to turn into payments, cost by category, and what cancelling saves.
 // Pure rules live in finance.logic.js; store 'finance' (synced, except view).
 
-import { h, icon, pageHeader, toast, openModal, todayKey, formatDay, relativeDay, diffDays, onDayChange, isTyping, modalOpen, plural, uid } from '../ui.js';
+import { h, icon, pageHeader, toast, openModal, todayKey, formatDay, relativeDay, diffDays, onDayChange, isTyping, modalOpen, plural, uid, promptDialog } from '../ui.js';
 import { createStore } from '../store.js';
 import { registerContextProvider } from '../contextmenu.js';
 import * as F from './finance.logic.js';
@@ -368,6 +368,14 @@ function mount(root) {
         },
         remove: () => removeSub(sub.id),
         duplicate: () => insertCopy(snapshotOf(sub), { verb: 'Duplicated' }),
+        edit: () => openEditor(sub.id),
+        rename: async () => {
+          const name = await promptDialog({ title: 'Rename subscription', value: sub.name, maxLength: F.NAME_MAX });
+          const cur = findSub(sub.id);
+          if (name === null || !cur || name === cur.name) return;
+          const res = F.updateSubscription(cur, { name }, { now: Date.now(), today: todayKey() });
+          if (!res.error) setSubs((list) => list.map((x) => (x.id === cur.id ? res.sub : x)));
+        },
       };
     }),
   );

@@ -14,7 +14,7 @@ export const SYNCED = Object.freeze({
   habits: Object.freeze(['view']),
   calendar: Object.freeze(['view', 'layers']),
   pomodoro: Object.freeze(['state']),
-  training: Object.freeze(['view']),
+  training: Object.freeze(['view', 'session']),
   finance: Object.freeze(['view']),
 });
 export const SYNCED_KEYS = Object.freeze(Object.keys(SYNCED));

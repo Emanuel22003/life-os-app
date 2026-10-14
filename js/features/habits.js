@@ -558,6 +558,7 @@ function mount(root) {
       },
       remove: () => remove(id),
       duplicate: () => duplicate(id),
+      edit: () => openEditor(id),
     };
   }
 

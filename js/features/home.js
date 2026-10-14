@@ -29,6 +29,7 @@ import {
   WEEKDAYS_SHORT,
   WEEKDAYS_MIN,
   plainSkin,
+  promptDialog,
 } from '../ui.js';
 import { createStore } from '../store.js';
 import { registerContextProvider } from '../contextmenu.js';
@@ -686,6 +687,11 @@ function mount(root) {
           const snapshot = tasksApi.snapshot(id);
           if (snapshot) pasteTask(snapshot, { afterId: id, due: task.due, verb: 'Duplicated' });
         },
+        rename: async () => {
+          const title = await promptDialog({ title: 'Rename task', value: task.title, maxLength: 500 });
+          if (title !== null) tasksApi.rename(id, title);
+        },
+        edit: () => tasksApi.reveal(id),
       };
     }
     if (el.closest('.hm-todo')) {

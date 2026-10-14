@@ -163,7 +163,8 @@ export function normalizeState(raw, today) {
     rIds.add(routine.id);
     routines.push(routine);
   }
-  return { exercises, workouts: sortWorkouts(workouts), routines, view: normalizeView(src.view, exIds) };
+  // session: the workout being done now (per device, see normalizeSession); unknown keys are kept
+  return { ...src, exercises, workouts: sortWorkouts(workouts), routines, view: normalizeView(src.view, exIds), session: normalizeSession(src.session) };
 }
 
 /** Newest first: by date, then by when it was logged. */
@@ -571,3 +572,162 @@ export function niceTicks(min, max, count = 4) {
   for (let v = lo; v <= hi + step / 2; v += step) ticks.push(Number(v.toFixed(10)));
   return { min: lo, max: hi, step, ticks };
 }
+
+/* ==========================================================================
+   The live session: a workout being done now, kept exactly as typed
+   ========================================================================== */
+//
+// session = { id, startedAt, date, title, note, routineId,
+//             items: [{ key, exerciseId, sets: [{ reps, kg, done }], km, time, times: [], touched }],
+//             newExercises: [exercise], restSec, restEndsAt }
+// Numbers stay strings until Finish, so nothing typed is ever lost or rewritten. It belongs to the
+// device it was started on (sync leaves it alone) and becomes a workout only when finished.
+
+export const REST_DEFAULT = 90;
+export const REST_MIN = 15;
+export const REST_MAX = 600;
+
+const str = (v) => (typeof v === 'string' ? v : v == null ? '' : String(v));
+
+/** A new row in the session for an exercise: `sets` empty set rows (strength), one time field (sprint). */
+export function sessionItem(exerciseId, { sets = 1, key = uid() } = {}) {
+  return { key, exerciseId, sets: Array.from({ length: Math.max(1, sets) }, () => ({ reps: '', kg: '', done: false })), km: '', time: '', times: [''], touched: false };
+}
+
+export function normalizeSession(raw) {
+  if (!isObject(raw) || typeof raw.id !== 'string' || !raw.id || !Number.isFinite(raw.startedAt)) return null;
+  const items = [];
+  const keys = new Set();
+  for (const it of Array.isArray(raw.items) ? raw.items : []) {
+    if (!isObject(it) || !toId(it.exerciseId)) continue;
+    let key = typeof it.key === 'string' && it.key ? it.key : uid();
+    while (keys.has(key)) key = uid();
+    keys.add(key);
+    items.push({
+      ...it,
+      key,
+      exerciseId: toId(it.exerciseId),
+      sets: (Array.isArray(it.sets) ? it.sets : []).filter(isObject).map((x) => ({ reps: str(x.reps), kg: str(x.kg), done: x.done === true })),
+      km: str(it.km),
+      time: str(it.time),
+      times: (Array.isArray(it.times) && it.times.length ? it.times : ['']).map(str),
+      touched: it.touched === true,
+    });
+  }
+  const startDay = new Date(raw.startedAt);
+  const fallbackDay = `${startDay.getFullYear()}-${String(startDay.getMonth() + 1).padStart(2, '0')}-${String(startDay.getDate()).padStart(2, '0')}`;
+  return {
+    ...raw,
+    date: isDateKey(raw.date) ? raw.date : fallbackDay,
+    title: str(raw.title).slice(0, TITLE_MAX),
+    note: str(raw.note),
+    routineId: toId(raw.routineId),
+    items,
+    newExercises: (Array.isArray(raw.newExercises) ? raw.newExercises : []).map(normalizeExercise).filter(Boolean),
+    restSec: Math.round(num(raw.restSec, REST_MIN, REST_MAX) ?? REST_DEFAULT),
+    restEndsAt: Number.isFinite(raw.restEndsAt) ? raw.restEndsAt : null,
+  };
+}
+
+/** Seconds since the session started (never negative). */
+export const sessionElapsed = (session, now = Date.now()) => Math.max(0, Math.floor((now - session.startedAt) / 1000));
+
+/** Seconds of rest left (0 when none is running or it is over). */
+export const restLeft = (session, now = Date.now()) => (session?.restEndsAt ? Math.max(0, Math.ceil((session.restEndsAt - now) / 1000)) : 0);
+
+/** The latest logged entry of an exercise outside workout `exceptId`: { date, entry } | null */
+export function lastEntryOf(workouts, exerciseId, exceptId = null) {
+  const all = history(workouts, exerciseId).filter((x) => x.workout.id !== exceptId);
+  return all.length ? all[all.length - 1] : null;
+}
+
+/**
+ * What each item shows faintly (last time): { sets: [ghost per row], km, time } per item key.
+ */
+export function sessionGhosts(session, workouts) {
+  const out = new Map();
+  for (const it of session.items) {
+    const last = lastEntryOf(workouts, it.exerciseId, session.id)?.entry ?? null;
+    out.set(it.key, {
+      last,
+      sets: ghostSets((last?.sets ?? []).filter((x) => x.reps > 0), it.sets.length),
+      km: last?.distanceKm > 0 ? String(last.distanceKm) : '',
+      time: last?.durationSec > 0 ? formatDuration(last.durationSec) : '',
+    });
+  }
+  return out;
+}
+
+/**
+ * The session as workout entries -> { entries } | { error, key, row, field }.
+ * A set counts when it is ticked or has something typed; its empty fields take last time's
+ * numbers. Distance and time: once anything is typed in that exercise, an empty field is last
+ * time's. Sprint times are always typed. Exercises with nothing logged are left out.
+ */
+export function readSession(session, exercises, workouts) {
+  const byId = new Map(exercises.map((x) => [x.id, x]));
+  const ghosts = sessionGhosts(session, workouts);
+  const entries = [];
+  for (const it of session.items) {
+    const ex = byId.get(it.exerciseId);
+    if (!ex) continue;
+    const g = ghosts.get(it.key);
+    let entry;
+    if (ex.kind === 'strength') {
+      const sets = [];
+      for (let i = 0; i < it.sets.length; i++) {
+        const row = it.sets[i];
+        if (!row.done && !row.reps.trim() && !row.kg.trim()) continue;
+        const res = readSetRow(row.reps, row.kg, g.sets[i] ?? null, true);
+        if (res.skip) continue;
+        if (res.error) return { error: res.error === 'reps' ? 'Reps are whole numbers, like 8.' : 'Weight is a number of kg, like 82.5 (leave it empty for body weight).', key: it.key, row: i, field: res.error };
+        sets.push(res.set);
+      }
+      entry = { id: it.key, exerciseId: ex.id, sets, distanceKm: null, durationSec: null, times: [] };
+    } else if (ex.kind === 'sprint') {
+      const times = [];
+      for (let i = 0; i < it.times.length; i++) {
+        const t = parseSeconds(it.times[i]);
+        if (t == null) continue;
+        if (Number.isNaN(t)) return { error: 'A time looks like 12.9 (seconds) or 1:02.5.', key: it.key, row: i, field: 'times' };
+        times.push(t);
+      }
+      entry = { id: it.key, exerciseId: ex.id, sets: [], distanceKm: null, durationSec: null, times };
+    } else {
+      const kmText = it.km.trim() || (it.touched ? g.km : '');
+      const timeText = it.time.trim() || (it.touched ? g.time : '');
+      const k = ex.kind === 'distance' ? parseKm(kmText) : null;
+      const t = parseDuration(timeText);
+      if (Number.isNaN(k)) return { error: 'Distance is a number of km, like 5.2 (or 800 m).', key: it.key, row: 0, field: 'km' };
+      if (Number.isNaN(t)) return { error: 'Time looks like 27:30 or 1:05:00 (a plain number is minutes).', key: it.key, row: 0, field: 'time' };
+      entry = { id: it.key, exerciseId: ex.id, sets: [], distanceKm: k, durationSec: t, times: [] };
+    }
+    if (hasData(entry, ex)) entries.push(entry);
+  }
+  return { entries };
+}
+
+/** The finished session as a workout (with when it started and ended). */
+export function workoutFromSession(session, entries, now = Date.now()) {
+  return {
+    id: session.id,
+    date: session.date,
+    title: cleanTitle(session.title).slice(0, TITLE_MAX),
+    note: session.note.replace(/\s+$/, ''),
+    entries,
+    ...(session.routineId ? { routineId: session.routineId } : {}),
+    startedAt: session.startedAt,
+    finishedAt: now,
+    createdAt: now,
+    updatedAt: now,
+  };
+}
+
+/** '48 min' / '1 h 05 min' from a workout's start and end (null when unknown or implausible). */
+export function workoutLength(workout) {
+  const ms = workout?.finishedAt - workout?.startedAt;
+  if (!Number.isFinite(ms) || ms < 60000 || ms > 24 * 3600000) return null;
+  const min = Math.round(ms / 60000);
+  return min < 60 ? `${min} min` : `${Math.floor(min / 60)} h ${String(min % 60).padStart(2, '0')} min`;
+}
+

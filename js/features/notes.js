@@ -1580,8 +1580,51 @@ function mount(root) {
    * The right-click menu: a list row or board card, the open note (its panel, outside the text
    * fields), or anywhere else (a paste target: that column, rail section, or the current view).
    */
+  /** A section's right-click menu: rail rows, chips and board column heads. */
+  function sectionTarget(el) {
+    const secEl = el.closest('.nt-rail-item[data-view], .nt-chip[data-view], .nt-col-head, .nt-col-strip');
+    if (!secEl) return null;
+    const id = secEl.dataset.view ?? secEl.closest('.nt-col[data-col]')?.dataset.col;
+    const section = id ? findSection(getState().sections, id) : null;
+    if (!section) return null;
+    return {
+      kind: 'section',
+      id,
+      label: `Section: ${section.name}`,
+      el: secEl,
+      accepts: ['note'],
+      paste: (c) => insertNoteCopy(c.snapshot, id),
+      pasteText: (text) => pasteNoteText(text, id),
+      edit: () => editSection(id),
+      rename: () => {
+        if (!nav.startRename(id)) editSection(id);
+      },
+      remove: () => confirmDeleteSection(id),
+      color: { kind: 'sections', value: section.color ?? null, set: (c) => setSectionColor(id, c) },
+    };
+  }
+
+  function setSectionColor(id, color) {
+    const s = getState();
+    const r = updateSection(s, id, { color });
+    if (!r.error && r.state !== s) save(r.state);
+  }
+
+  /** Rename a note: open it with its title selected. */
+  function renameNote(id) {
+    if (!findNote(id)) return;
+    if (isBoard()) openCard(id);
+    else selectNote(id);
+    requestAnimationFrame(() => {
+      titleInput.focus();
+      titleInput.select();
+    });
+  }
+
   function contextTarget(el) {
     if (!root.contains(el)) return null;
+    const sectionMenu = sectionTarget(el);
+    if (sectionMenu) return sectionMenu;
     let note = null;
     let itemEl = el.closest('.nt-item[data-id], .nt-card-row[data-id]');
     if (itemEl) note = findNote(itemEl.dataset.id);
@@ -1614,6 +1657,7 @@ function mount(root) {
       remove: () => deleteNote(id),
       duplicate: () => duplicateNote(id),
       can: { copy: !blank, duplicate: !blank },
+      rename: () => renameNote(id),
       color: { kind: 'notes', value: note.color ?? null, set: (c) => setNoteColor(id, c) },
     };
   }

@@ -693,6 +693,12 @@ export function createSectionNav(ctx) {
     rail,
     strip,
     update,
+    /** Inline rename in the rail (true), or false when the rail isn't showing that section. */
+    startRename(id) {
+      if (!railVisible() || !rows.has(id)) return false;
+      startRename(id);
+      return true;
+    },
     revealView,
     railVisible,
     railBox,

@@ -8,7 +8,7 @@
 // - Views are built by calendar.views.js; this file owns state, rendering, every click / key /
 //   drag (by delegation) and the zoom transitions.
 
-import { h, icon, pageHeader, term, toast, openModal, isTyping, modalOpen, todayKey, onDayChange, debounce, weekday, uid, MONTHS_SHORT, reducedMotion, plainSkin } from '../ui.js';
+import { h, icon, pageHeader, term, toast, openModal, isTyping, modalOpen, todayKey, onDayChange, debounce, weekday, uid, MONTHS_SHORT, reducedMotion, plainSkin, promptDialog } from '../ui.js';
 import { tasksApi } from './tasks.js';
 import { habitsApi } from './habits.js';
 import * as L from './calendar.logic.js';
@@ -221,6 +221,11 @@ function nextMonday(today) {
 }
 
 /** Schedule… sheet for one task: quick dates, a date field, done toggle, open in Tasks. */
+async function renameTaskPrompt(task) {
+  const title = await promptDialog({ title: 'Rename task', value: task.title, maxLength: 500 });
+  if (title !== null) tasksApi.rename(task.id, title);
+}
+
 function openTaskSheet(id, cursor, onClose) {
   const task = findTask(id);
   if (!task) return;
@@ -1137,6 +1142,7 @@ function mount(root) {
         },
         remove: () => deleteOccurrenceAt(occ.occId),
         duplicate: () => duplicateEvent(ev.id),
+        edit: newer ? undefined : () => editOccurrence(occ.occId),
         can: { copy: !newer, duplicate: !newer },
         color: newer ? null : { kind: 'events', value: ev.color ?? null, set: (c) => setEventColor(ev.id, c) },
       };
@@ -1163,6 +1169,8 @@ function mount(root) {
           const snapshot = tasksApi.snapshot(id);
           if (snapshot) pasteTask(snapshot, findTask(id)?.due ?? null, { afterId: id, verb: 'Duplicated' });
         },
+        edit: () => openTaskSheet(id, state.cursor, returnFocusAfter()),
+        rename: () => renameTaskPrompt(task),
         color: { kind: 'tasks', value: task.color ?? null, set: (c) => tasksApi.setColor(id, c) },
       };
     }

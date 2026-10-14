@@ -373,6 +373,46 @@ export function confirmDialog({ title = 'Are you sure?', message, confirmLabel =
   });
 }
 
+/**
+ * Ask for a name (Rename in the right-click menus). Resolves to the trimmed text, or null when
+ * cancelled. validate(text) may return a message, which keeps the dialog open.
+ */
+export function promptDialog({ title = 'Rename', label = 'Name', value = '', confirmLabel = 'Save', maxLength = 120, validate = null } = {}) {
+  return new Promise((resolve) => {
+    let result = null;
+    const inputId = `prompt-${uid()}`;
+    const input = h('input', { class: 'input', id: inputId, type: 'text', value, maxlength: String(maxLength), autocomplete: 'off', spellcheck: 'false' });
+    const err = h('p', { class: 'prompt-error', role: 'alert', hidden: true });
+    const submit = () => {
+      const text = input.value.replace(/\s+/g, ' ').trim();
+      const problem = text ? validate?.(text) : 'Type a name.';
+      if (problem) {
+        err.textContent = problem;
+        err.hidden = false;
+        input.setAttribute('aria-invalid', 'true');
+        input.focus();
+        return;
+      }
+      result = text;
+      m.close();
+    };
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.isComposing && e.keyCode !== 229) {
+        e.preventDefault();
+        submit();
+      }
+    });
+    const m = openModal({
+      title,
+      body: h('div', { class: 'field' }, h('label', { class: 'label', for: inputId }, label), input, err),
+      footer: [h('button', { type: 'button', class: 'btn btn--ghost', onClick: () => m.close() }, 'Cancel'), h('button', { type: 'button', class: 'btn btn--primary', onClick: submit }, confirmLabel)],
+      initialFocus: input,
+      onClose: () => resolve(result),
+    });
+    requestAnimationFrame(() => input.select());
+  });
+}
+
 /* ==========================================================================
    Dates — all keys are LOCAL calendar days as 'YYYY-MM-DD'
    ========================================================================== */

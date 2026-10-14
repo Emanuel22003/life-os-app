@@ -840,3 +840,11 @@ input[type="date"]::-webkit-calendar-picker-indicator {
     color: GrayText;
   }
 }
+
+/* ---- The rename dialog (ui.promptDialog) ---- */
+.prompt-error {
+  margin: 0;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--text);
+}

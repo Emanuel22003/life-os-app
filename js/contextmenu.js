@@ -1,4 +1,4 @@
-// LIFE/OS — the right-click menu: Copy · Paste · Delete · Duplicate, for every module.
+// LIFE/OS — the right-click menu: Edit… · Rename · Copy · Paste · Delete · Duplicate, for every module.
 //
 // The shell installs it once (installContextMenu(main) in js/app.js). It opens on a right-click
 // over an item or a blank part of the page; text fields, links and selected text keep the
@@ -21,6 +21,8 @@
 //     pasteText(text)           // plain text from the system clipboard (Tasks, Notes)
 //     remove()                  // the module's own delete (confirmation, Undo)
 //     duplicate()               // copy + paste next to the original
+//     edit()                    // optional: open the item's own editor ("Edit…", listed first)
+//     rename()                  // optional: change its name in place or in a small dialog ("Rename")
 //     can: { copy, paste, delete, duplicate }             // false greys out an action it has
 //     color: { kind, value, set(id | null) }               // optional: a row of color swatches
 //   }                                                      // (shown while that kind's colors are on)
@@ -36,11 +38,16 @@ import { menuPosition, stepIndex, shortcutLabels, actionForKey, isMenuKey, makeC
 
 registerIcon('ctx-copy', '<rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1"/>');
 registerIcon('ctx-paste', '<path d="M9 4H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-2"/><rect x="9" y="2" width="6" height="4" rx="1"/><path d="M9 13h6M9 17h4"/>');
+registerIcon('ctx-edit', '<path d="M4 6h10M4 12h7M4 18h5"/><path d="M15.2 19.6 21 13.8a1.6 1.6 0 0 0-2.3-2.3l-5.8 5.8-.6 2.9Z"/>');
+registerIcon('ctx-rename', '<path d="M4 7V5h11v2M9.5 5v14M7.5 19h4"/><path d="M17 9v10M15.5 9h3M15.5 19h3"/>');
 registerIcon('ctx-duplicate', '<rect x="8" y="8" width="13" height="13" rx="2"/><path d="M4 16V5a1 1 0 0 1 1-1h11M14.5 11.5v6M11.5 14.5h6"/>');
 
 const IS_MAC = /Mac|iPhone|iPad|iPod/.test(globalThis.navigator?.platform || globalThis.navigator?.userAgent || '');
 const KEYS = shortcutLabels(IS_MAC);
 const ITEMS = Object.freeze([
+  // Shown only on items that have them (the others are always listed, greyed out when unavailable)
+  { action: 'edit', label: 'Edit…', icon: 'ctx-edit', optional: true },
+  { action: 'rename', label: 'Rename', icon: 'ctx-rename', optional: true },
   { action: 'copy', label: 'Copy', icon: 'ctx-copy' },
   { action: 'paste', label: 'Paste', icon: 'ctx-paste' },
   { action: 'delete', label: 'Delete', icon: 'trash' },
@@ -89,6 +96,8 @@ function abilities(t) {
     paste: mode !== null && can.paste !== false,
     delete: typeof t.remove === 'function' && can.delete !== false,
     duplicate: typeof t.duplicate === 'function' && can.duplicate !== false,
+    edit: typeof t.edit === 'function',
+    rename: typeof t.rename === 'function',
   };
 }
 
@@ -196,6 +205,10 @@ async function run(t, action) {
       await t.remove?.();
     } else if (action === 'duplicate') {
       await t.duplicate?.();
+    } else if (action === 'edit') {
+      await t.edit?.();
+    } else if (action === 'rename') {
+      await t.rename?.();
     }
   } catch (err) {
     console.error(`[contextmenu] ${action} failed`, err);
@@ -217,7 +230,7 @@ function openMenu(t, at, { keyboard = false } = {}) {
   const can = abilities(t);
   const returnTo = document.activeElement instanceof HTMLElement && document.activeElement !== document.body ? document.activeElement : null;
 
-  const items = ITEMS.map((spec) => {
+  const items = ITEMS.filter((spec) => !spec.optional || can[spec.action]).map((spec) => {
     const enabled = can[spec.action];
     const btn = h(
       'button',
@@ -227,12 +240,12 @@ function openMenu(t, at, { keyboard = false } = {}) {
         class: ['ctx-item', `ctx-item--${spec.action}`],
         tabindex: '-1',
         'aria-disabled': enabled ? null : 'true',
-        'aria-keyshortcuts': ariaKeys(spec.action),
+        'aria-keyshortcuts': ariaKeys(spec.action) ?? null,
         dataset: { action: spec.action },
       },
       h('span', { class: 'ctx-icon', 'aria-hidden': 'true' }, icon(spec.icon, { size: 15 })),
       h('span', { class: 'ctx-label' }, spec.label),
-      h('span', { class: 'kbd ctx-kbd lo-hint', 'aria-hidden': 'true' }, KEYS[spec.action]),
+      KEYS[spec.action] ? h('span', { class: 'kbd ctx-kbd lo-hint', 'aria-hidden': 'true' }, KEYS[spec.action]) : null,
     );
     return { ...spec, enabled, btn };
   });

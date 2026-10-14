@@ -12,6 +12,7 @@ import {
   toast,
   openModal,
   confirmDialog,
+  promptDialog,
   dateKey,
   todayKey,
   shiftKey,
@@ -227,7 +228,7 @@ function segGroup({ label, options, value, onChange, className }) {
       if (count) counts.set(o.value, count);
       const btn = h(
         'button',
-        { type: 'button', class: 'seg-btn', 'aria-pressed': String(o.value === value), 'aria-label': o.aria, title: o.aria, onClick: () => onChange(o.value) },
+        { type: 'button', class: 'seg-btn', 'aria-pressed': String(o.value === value), 'aria-label': o.aria, title: o.aria, dataset: { value: o.value }, onClick: () => onChange(o.value) },
         'color' in o ? colorDot() : null,
         o.label,
         count,
@@ -1296,9 +1297,58 @@ function mount(root) {
     if (task) pasteTask(taskSnapshot(task), id, { verb: 'Duplicated' });
   }
 
+  /** Rename a section in a small dialog (Rename in its right-click menu). */
+  async function renameSectionPrompt(id) {
+    const sec = getState().sections.find((x) => x.id === id);
+    if (!sec) return;
+    const name = await promptDialog({
+      title: 'Rename section',
+      value: sec.name,
+      maxLength: SECTION_NAME_MAX,
+      validate: (text) => {
+        const res = renameSection(getState().sections, id, text);
+        return res.error === 'taken' ? `There is already a section called “${clip(text, 28)}”.` : res.error ? 'Give the section a name.' : null;
+      },
+    });
+    if (name === null) return;
+    const cur = getState();
+    const res = renameSection(cur.sections, id, name);
+    if (!res.error && res.sections !== cur.sections) commit({ ...cur, sections: res.sections });
+  }
+
+  /** A section tab's right-click menu: rename, the Sections dialog, color, delete. */
+  function sectionTarget(el) {
+    const tab = el.closest('.tk-sec-seg .seg-btn[data-value]');
+    const sec = tab ? getState().sections.find((x) => x.id === tab.dataset.value) : null;
+    if (!sec) return null;
+    const id = sec.id;
+    return {
+      kind: 'section',
+      id,
+      label: `Section: ${sec.name}`,
+      el: tab,
+      accepts: ['task'],
+      paste: (c) => pasteTask(c.snapshot, null, { sectionId: id }),
+      rename: () => renameSectionPrompt(id),
+      edit: () => openSections(),
+      remove: () => deleteSection(id),
+      color: {
+        kind: 'sections',
+        value: sec.color ?? null,
+        set: (c) => {
+          const cur = getState();
+          const next = recolorSection(cur.sections, id, c);
+          if (next !== cur.sections) commit({ ...cur, sections: next });
+        },
+      },
+    };
+  }
+
   /** The right-click menu: a task row, or anywhere else on the page (a paste target). */
   function contextTarget(el) {
     if (!root.contains(el)) return null;
+    const sectionMenu = sectionTarget(el);
+    if (sectionMenu) return sectionMenu;
     const rowEl = el.closest('.tk-row[data-id]');
     const task = rowEl ? findTask(rowEl.dataset.id) : null;
     const afterId = task?.id ?? null;
@@ -1321,6 +1371,8 @@ function mount(root) {
       },
       remove: () => deleteTask(id),
       duplicate: () => duplicateTask(id),
+      rename: () => startEdit(id),
+      edit: () => openDetails(id),
       color: { kind: 'tasks', value: task.color ?? null, set: (c) => setItems((items) => updateTask(items, id, { color: c })) },
     };
   }
@@ -1980,6 +2032,14 @@ function apiSetColor(id, color) {
   });
 }
 
+/** Change a task's title (Rename from another page's right-click menu). True when it changed. */
+function apiRename(id, title) {
+  const clean = typeof title === 'string' ? cleanTitle(title).slice(0, API_TITLE_MAX) : '';
+  const task = findTask(id);
+  if (!task || !clean || clean === task.title) return false;
+  return setItems((items) => updateTask(items, id, { title: clean }));
+}
+
 /** sectionId -> its color (or null), so other pages can show a task in its section's color. */
 function apiSectionColors() {
   return new Map(getState().sections.map((sec) => [sec.id, sec.color ?? null]));
@@ -2004,6 +2064,7 @@ export const tasksApi = Object.freeze({
   removeCopy: apiRemoveCopy,
   remove: apiRemove,
   setColor: apiSetColor,
+  rename: apiRename,
   sectionColors: apiSectionColors,
 });
 

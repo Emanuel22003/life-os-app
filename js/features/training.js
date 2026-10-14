@@ -8,7 +8,7 @@
 // a history table). The workout dialog starts each exercise from last time, so the next session
 // can go a little further. Store 'training' (shape in training.logic.js); it syncs, the view doesn't.
 
-import { h, icon, registerIcon, pageHeader, emptyState, toast, openModal, confirmDialog, todayKey, formatDay, relativeDay, uid, onDayChange, isTyping, modalOpen, plural, clamp, plainSkin } from '../ui.js';
+import { h, icon, registerIcon, pageHeader, emptyState, toast, openModal, confirmDialog, promptDialog, todayKey, formatDay, relativeDay, uid, onDayChange, isTyping, modalOpen, plural, clamp, plainSkin } from '../ui.js';
 import { createStore } from '../store.js';
 import { registerContextProvider } from '../contextmenu.js';
 import {
@@ -48,10 +48,20 @@ import {
   lastDone,
   ghostSets,
   readSetRow,
+  REST_MIN,
+  REST_MAX,
+  sessionItem,
+  sessionElapsed,
+  restLeft,
+  sessionGhosts,
+  readSession,
+  workoutFromSession,
+  workoutLength,
 } from './training.logic.js';
 import { cleanTitle } from './tasks.logic.js';
 
 registerIcon('tr-routine', '<path d="M7 3.5h10a1 1 0 0 1 1 1v16l-6-3.6-6 3.6v-16a1 1 0 0 1 1-1Z"/><path d="M9.5 8.5h5M9.5 11.5h3"/>');
+registerIcon('tr-rest', '<circle cx="12" cy="13" r="7.5"/><path d="M12 9.5V13l2 1.5M9.5 2.5h5"/>');
 registerIcon('tr-trophy', '<path d="M8 4h8v4.5a4 4 0 0 1-8 0Z"/><path d="M8 6H5.5v1.5A3 3 0 0 0 8.5 10.5M16 6h2.5v1.5a3 3 0 0 1-3 3M12 12.5V16M8.5 20h7M10 16h4v4h-4Z"/>');
 
 const RANGE_LABEL = { '1M': '1M', '3M': '3M', '6M': '6M', '1Y': '1Y', all: 'All' };
@@ -916,6 +926,378 @@ function openRoutineEditor(routine = null) {
 }
 
 /* ==========================================================================
+   The live session: a workout being done now, on a page of its own
+   ========================================================================== */
+//
+// Start (a routine, or an empty workout) puts a session in the store (per device: sync leaves it
+// alone). The Training page then shows only the session, everything typed is saved as it is
+// typed, and it stays until Finish (it becomes a workout) or Discard, whatever else you open in
+// the meantime, even after closing the app. A pill in the top bar leads back to it from any page.
+
+const clockText = (sec) => formatDuration(sec);
+
+/** Start a workout now: from a routine (its exercises, with last time's set counts) or empty. */
+function startSession({ routine = null } = {}) {
+  const s = getState();
+  if (s.session) {
+    toast('A workout is already going: finish or discard it first.');
+    location.hash = '#/training';
+    return;
+  }
+  const items = [];
+  for (const it of routine?.items ?? []) {
+    const x = exerciseOf(it.exerciseId);
+    if (!x) continue;
+    const last = lastEntry(x.id);
+    const sets = x.kind === 'strength' ? it.sets || last?.entry.sets.length || 3 : 1;
+    items.push(sessionItem(x.id, { sets }));
+  }
+  const now = Date.now();
+  commit({ ...s, session: { id: uid(), startedAt: now, date: todayKey(), title: routine?.name ?? '', note: '', routineId: routine?.id ?? null, items, newExercises: [], restSec: 90, restEndsAt: null } });
+  location.hash = '#/training';
+}
+
+async function discardSession() {
+  const s = getState().session;
+  if (!s) return;
+  const ok = await confirmDialog({
+    title: 'Discard this workout?',
+    message: 'Nothing from it is saved. Your earlier workouts stay as they are.',
+    confirmLabel: 'Discard workout',
+  });
+  if (ok && getState().session?.id === s.id) commit({ ...getState(), session: null });
+}
+
+/**
+ * The session page in `host`. The working copy (`live`) takes every keystroke and is saved a
+ * moment later; adding or removing exercises, sets and attempts saves at once and redraws.
+ * Returns { flush, destroy }.
+ */
+function sessionPage(host) {
+  let live = structuredClone(getState().session);
+  let saveTimer = 0;
+  const refs = new Map(); // `${key}:${row}:${field}` -> input
+  const exercisesNow = () => {
+    const known = getState().exercises;
+    const ids = new Set(known.map((x) => x.id));
+    return [...known, ...live.newExercises.filter((x) => !ids.has(x.id))];
+  };
+  const exById = (id) => exercisesNow().find((x) => x.id === id) ?? null;
+  const item = (key) => live.items.find((it) => it.key === key);
+
+  function flush() {
+    clearTimeout(saveTimer);
+    saveTimer = 0;
+    const cur = getState();
+    if (cur.session?.id === live.id) commit({ ...cur, session: live });
+  }
+  const saveSoon = () => {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(flush, 300);
+  };
+
+  /* ---- head: name, clock, rest timer, finish ---- */
+  const titleIn = h('input', { class: 'input tr-sess-title', type: 'text', maxlength: String(TITLE_MAX), placeholder: 'Workout', 'aria-label': 'Workout name', autocomplete: 'off' });
+  titleIn.addEventListener('input', () => {
+    live.title = titleIn.value;
+    saveSoon();
+  });
+  const clock = h('span', { class: 'stat-value tr-sess-clock tnum', 'aria-label': 'Time so far' });
+  const restText = h('span', { class: 'tr-rest-time tnum' });
+  const restLabel = h('span', { class: 'label' }, 'Rest');
+  const setRest = (sec) => {
+    live.restSec = clamp(sec, REST_MIN, REST_MAX);
+    flush();
+    tick();
+  };
+  const restEl = h(
+    'div',
+    { class: 'tr-rest', role: 'timer', 'aria-live': 'off' },
+    icon('tr-rest', { size: 16 }),
+    restLabel,
+    restText,
+    btn('−15 s', () => {
+      if (live.restEndsAt && live.restEndsAt > Date.now()) live.restEndsAt -= 15000;
+      setRest(live.restSec - 15);
+    }, { ghost: true, title: 'Shorter rest' }),
+    btn('+15 s', () => {
+      if (live.restEndsAt && live.restEndsAt > Date.now()) live.restEndsAt += 15000;
+      setRest(live.restSec + 15);
+    }, { ghost: true, title: 'Longer rest' }),
+    btn('Skip', () => {
+      live.restEndsAt = null;
+      flush();
+      tick();
+    }, { ghost: true, title: 'End the rest now' }),
+  );
+  const err = h('p', { class: 'tr-err tr-sess-err', role: 'alert' });
+  const finishBtn = btn('Finish workout', () => finish(), { iconName: 'check', primary: true, small: false });
+  const head = h(
+    'header',
+    { class: 'tr-sess-head panel' },
+    h('div', { class: 'tr-sess-id' }, h('span', { class: 'tr-sess-live label' }, h('span', { class: 'tr-live-dot', 'aria-hidden': 'true' }), 'Workout in progress'), titleIn),
+    h('div', { class: 'tr-sess-timebox' }, h('span', { class: 'label' }, 'Time'), clock),
+    restEl,
+    h('div', { class: 'tr-sess-actions' }, finishBtn, btn('Discard', () => discardSession(), { ghost: true, small: false, title: 'Throw this workout away' })),
+  );
+
+  const hint = h('p', { class: 'tr-ghost-hint tr-sess-hint' }, 'Gray numbers are last time’s. Tick a set when it’s done: empty fields take last time’s numbers and the rest timer starts. Everything is saved as you go; the workout stays open until you press Finish.');
+  const itemsEl = h('div', { class: 'tr-sess-items' });
+  const picker = exercisePicker({
+    exercises: exercisesNow,
+    setExercises: (list) => {
+      const known = new Set(getState().exercises.map((x) => x.id));
+      live.newExercises = list.filter((x) => !known.has(x.id));
+    },
+    used: () => new Set(live.items.map((it) => it.exerciseId)),
+    onPick: (x) => {
+      const last = lastEntry(x.id);
+      live.items.push(sessionItem(x.id, { sets: x.kind === 'strength' ? last?.entry.sets.length || 3 : 1 }));
+      flush();
+      build({ focus: `${live.items[live.items.length - 1].key}:0:${x.kind === 'strength' ? 'reps' : x.kind === 'sprint' ? 'times' : x.kind === 'distance' ? 'km' : 'time'}` });
+    },
+    say: (t) => (err.textContent = t),
+  });
+  const noteIn = h('textarea', { class: 'textarea tr-note', rows: '2', placeholder: 'Notes (optional): how it felt, the weather…', 'aria-label': 'Notes' });
+  noteIn.addEventListener('input', () => {
+    live.note = noteIn.value;
+    saveSoon();
+  });
+  const foot = h('div', { class: 'tr-sess-foot' }, btn('Finish workout', () => finish(), { iconName: 'check', primary: true, small: false }), btn('Discard', () => discardSession(), { ghost: true, small: false }));
+  host.replaceChildren(head, hint, itemsEl, h('div', { class: 'tr-sess-add panel' }, picker.el), noteIn, err, foot);
+
+  /* ---- one exercise ---- */
+  function input(key, row, field, value, attrs, onInput) {
+    const el = h('input', { class: 'input tr-num', type: 'text', autocomplete: 'off', value, dataset: { ref: `${key}:${row}:${field}` }, ...attrs });
+    el.addEventListener('input', () => {
+      onInput(el.value);
+      const it = item(key);
+      if (it) it.touched = true;
+      err.textContent = '';
+      saveSoon();
+    });
+    refs.set(`${key}:${row}:${field}`, el);
+    return el;
+  }
+
+  function exerciseEl(it, ghosts) {
+    const x = exById(it.exerciseId);
+    if (!x) return null;
+    const g = ghosts.get(it.key);
+    const last = lastEntry(x.id);
+    const body = h('div', { class: 'tr-entry-body' });
+    const structural = (fn, focus = null) => {
+      fn();
+      flush();
+      build({ focus });
+    };
+    const sameAsLast =
+      last && x.kind !== 'sprint'
+        ? btn('Same as last time', () => {
+            if (x.kind === 'strength') {
+              const lastSets = last.entry.sets.filter((st) => st.reps > 0);
+              while (it.sets.length < lastSets.length) it.sets.push({ reps: '', kg: '', done: false });
+              it.sets.forEach((row, i) => {
+                const gs = lastSets[Math.min(i, lastSets.length - 1)];
+                if (!row.reps) row.reps = String(gs.reps);
+                if (!row.kg && gs.weight > 0) row.kg = String(gs.weight);
+              });
+            } else {
+              if (!it.km && g.km) it.km = g.km;
+              if (!it.time && g.time) it.time = g.time;
+            }
+            it.touched = true;
+            structural(() => {});
+          }, { iconName: 'reset', ghost: true, title: 'Fill in last time’s numbers' })
+        : null;
+    const el = h(
+      'section',
+      { class: 'tr-entry tr-sess-ex panel', 'aria-label': x.name, dataset: { key: it.key } },
+      h(
+        'div',
+        { class: 'tr-entry-head' },
+        h('div', { class: 'tr-entry-name' }, x.name, h('span', { class: 'tr-kind label' }, kindText(x))),
+        sameAsLast,
+        btn('', () => structural(() => live.items.splice(live.items.indexOf(it), 1)), { iconName: 'x', ghost: true, aria: `Remove ${x.name}`, title: 'Remove from this workout' }),
+      ),
+      h('p', { class: 'tr-last' }, last ? `Last time (${formatDay(last.date)}): ${entrySummary(last.entry, x)}. ${nextTarget(last.entry, x)}` : 'First time: whatever you log becomes the baseline.'),
+      body,
+    );
+
+    if (x.kind === 'strength') {
+      const rows = h('div', { class: 'tr-sets' });
+      it.sets.forEach((row, i) => {
+        const gs = g.sets[i] ?? null;
+        const reps = input(it.key, i, 'reps', row.reps, { inputmode: 'numeric', placeholder: gs ? String(gs.reps) : 'reps', 'aria-label': `Set ${i + 1} reps${gs ? ` (last time ${gs.reps})` : ''}` }, (v) => (row.reps = v));
+        const kg = input(it.key, i, 'kg', row.kg, { inputmode: 'decimal', placeholder: gs?.weight > 0 ? String(gs.weight) : 'kg', 'aria-label': `Set ${i + 1} weight in kg${gs?.weight > 0 ? ` (last time ${gs.weight})` : ''}` }, (v) => (row.kg = v));
+        const done = h(
+          'button',
+          { type: 'button', class: 'tr-done', 'aria-pressed': String(row.done), 'aria-label': `Set ${i + 1} done`, title: row.done ? 'Done (click to undo)' : 'Mark this set done' },
+          icon('check', { size: 16, stroke: 2.4 }),
+        );
+        const setEl = h('div', { class: ['tr-set', 'tr-sess-set', row.done && 'is-done'] }, h('span', { class: 'tr-set-n label' }, `Set ${i + 1}`), reps, h('span', { class: 'tr-x', 'aria-hidden': 'true' }, '×'), kg, h('span', { class: 'tr-unit' }, 'kg'), done);
+        done.addEventListener('click', () => {
+          if (!row.done) {
+            if (!row.reps.trim()) {
+              if (!gs) {
+                err.textContent = `${x.name}, set ${i + 1}: type the reps first.`;
+                reps.focus();
+                return;
+              }
+              row.reps = String(gs.reps);
+              reps.value = row.reps;
+            }
+            if (!row.kg.trim() && gs?.weight > 0) {
+              row.kg = String(gs.weight);
+              kg.value = row.kg;
+            }
+            row.done = true;
+            it.touched = true;
+            live.restEndsAt = Date.now() + live.restSec * 1000;
+          } else row.done = false;
+          err.textContent = '';
+          setEl.classList.toggle('is-done', row.done);
+          done.setAttribute('aria-pressed', String(row.done));
+          done.title = row.done ? 'Done (click to undo)' : 'Mark this set done';
+          flush();
+          tick();
+        });
+        setEl.append(btn('', () => structural(() => it.sets.splice(i, 1)), { iconName: 'x', ghost: true, aria: `Remove set ${i + 1}` }));
+        rows.append(setEl);
+      });
+      body.append(rows, btn('Add set', () => structural(() => it.sets.push({ reps: '', kg: '', done: false }), `${it.key}:${it.sets.length}:reps`), { iconName: 'plus', ghost: true }));
+    } else if (x.kind === 'sprint') {
+      const list = h('div', { class: 'tr-times' });
+      it.times.forEach((t, i) => list.append(h('label', { class: 'tr-inline' }, input(it.key, i, 'times', t, { inputmode: 'decimal', placeholder: 'sec', 'aria-label': `Attempt ${i + 1} in seconds` }, (v) => (it.times[i] = v)), 's')));
+      body.append(list, btn('Add attempt', () => structural(() => it.times.push(''), `${it.key}:${it.times.length}:times`), { iconName: 'plus', ghost: true }));
+    } else {
+      const km = x.kind === 'distance' ? input(it.key, 0, 'km', it.km, { inputmode: 'decimal', placeholder: g.km || 'km', 'aria-label': g.km ? `Distance in km (last time ${g.km})` : 'Distance in km' }, (v) => (it.km = v)) : null;
+      const time = input(it.key, 0, 'time', it.time, { class: 'input tr-time', placeholder: g.time || 'm:ss', 'aria-label': `Time${g.time ? `, last time ${g.time}` : ''}` }, (v) => (it.time = v));
+      body.append(h('div', { class: 'tr-fields' }, km ? h('label', { class: 'tr-inline' }, km, 'km') : null, h('label', { class: 'tr-inline' }, km ? 'in' : 'Time', time)));
+    }
+    return el;
+  }
+
+  /** Draw the session from `live` (keeps the scroll; focus goes to `focus` or stays where it was). */
+  function build({ focus = null } = {}) {
+    const keep = focus ?? document.activeElement?.dataset?.ref ?? null;
+    refs.clear();
+    titleIn.value = live.title;
+    noteIn.value = live.note;
+    const ghosts = sessionGhosts(live, getState().workouts);
+    const els = live.items.map((it) => exerciseEl(it, ghosts)).filter(Boolean);
+    itemsEl.replaceChildren(...(els.length ? els : [h('p', { class: 'tr-routines-empty' }, 'Add the exercises you do below. Each one shows last time’s numbers.')]));
+    picker.refresh();
+    if (keep) refs.get(keep)?.focus({ preventScroll: !focus });
+  }
+
+  /* ---- clock and rest timer ---- */
+  function tick() {
+    clock.textContent = clockText(sessionElapsed(live));
+    const left = restLeft(live);
+    const over = live.restEndsAt && live.restEndsAt <= Date.now() && Date.now() - live.restEndsAt < 8000;
+    restEl.classList.toggle('is-running', left > 0);
+    restEl.classList.toggle('is-over', !!over);
+    restText.textContent = left > 0 ? clockText(left) : over ? 'Go!' : clockText(live.restSec);
+    restLabel.textContent = over && !left ? 'Rest over' : 'Rest';
+    restEl.title = left > 0 || over ? '' : 'Starts when you tick a set';
+  }
+
+  /* ---- finish ---- */
+  function finish() {
+    flush();
+    const cur = getState();
+    if (cur.session?.id !== live.id) return;
+    const exercises = exercisesNow();
+    const res = readSession(live, exercises, cur.workouts);
+    if (res.error) {
+      const x = exById(item(res.key)?.exerciseId);
+      err.textContent = `${x?.name ?? 'Exercise'}: ${res.error}`;
+      refs.get(`${res.key}:${res.row}:${res.field}`)?.focus();
+      return;
+    }
+    if (!res.entries.length) {
+      err.textContent = live.items.length ? 'Log at least one set (tick it, or type its numbers) before you finish. Or discard the workout.' : 'Add an exercise first, or discard the workout.';
+      (live.items.length ? itemsEl.querySelector('input') : picker.el.querySelector('select'))?.focus();
+      return;
+    }
+    const workout = workoutFromSession(live, res.entries);
+    const known = new Set(cur.exercises.map((x) => x.id));
+    const used = new Set(res.entries.map((e) => e.exerciseId));
+    const next = {
+      ...cur,
+      exercises: [...cur.exercises, ...live.newExercises.filter((x) => !known.has(x.id) && used.has(x.id))],
+      workouts: sortWorkouts([...cur.workouts, workout]),
+      session: null,
+    };
+    commit(next);
+    const records = recordsIn(next, workout.id);
+    const length = workoutLength(workout);
+    const words = records.slice(0, 2).map((r) => {
+      const ex = next.exercises.find((x) => x.id === r.exerciseId);
+      const metric = metricsFor(ex.kind).find((m) => m.id === r.metricId);
+      return `${ex.name}: ${metric.label} ${metric.format(r.value)}`;
+    });
+    toast(records.length ? `Workout done${length ? ` in ${length}` : ''}. New personal best: ${words.join(' · ')}!` : `Workout done${length ? ` in ${length}` : ''}: ${plural(res.entries.length, 'exercise')} logged.`, { duration: 8000 });
+  }
+
+  build();
+  tick();
+  const timer = setInterval(tick, 1000);
+  const onHide = () => {
+    if (document.visibilityState === 'hidden') flush();
+  };
+  document.addEventListener('visibilitychange', onHide);
+  window.addEventListener('pagehide', flush);
+  if (!live.items.length) requestAnimationFrame(() => picker.focus());
+  return {
+    id: live.id,
+    flush,
+    destroy() {
+      flush();
+      clearInterval(timer);
+      document.removeEventListener('visibilitychange', onHide);
+      window.removeEventListener('pagehide', flush);
+    },
+  };
+}
+
+/** The pill in the top bar (every page but Training): the workout going on, its time or rest. */
+function mountLivePill(slot) {
+  const pill = h('a', { class: 'tr-live', href: '#/training', hidden: true, title: 'Back to the workout in progress' });
+  slot.append(pill);
+  let toldRestEnd = null;
+  const paint = () => {
+    const s = getState().session;
+    if (!s) {
+      pill.hidden = true;
+      return;
+    }
+    const now = Date.now();
+    // The rest is over: say so once, wherever you are in the app
+    if (s.restEndsAt && s.restEndsAt <= now && toldRestEnd !== s.restEndsAt) {
+      toldRestEnd = s.restEndsAt;
+      if (now - s.restEndsAt < 4000) {
+        toast('Rest is over: time for the next set.');
+        navigator.vibrate?.(200);
+      }
+    }
+    pill.hidden = /^#\/training\b/.test(location.hash);
+    const rest = restLeft(s, now);
+    pill.replaceChildren(
+      h('span', { class: 'tr-live-dot', 'aria-hidden': 'true' }),
+      h('span', { class: 'tr-live-name' }, s.title || 'Workout'),
+      h('span', { class: 'tr-live-time tnum' }, rest ? `Rest ${clockText(rest)}` : clockText(sessionElapsed(s, now))),
+    );
+    pill.setAttribute('aria-label', `Workout in progress: ${s.title || 'Workout'}. Back to it`);
+  };
+  setInterval(paint, 1000);
+  store.subscribe(paint);
+  window.addEventListener('hashchange', paint);
+  paint();
+}
+
+/* ==========================================================================
    The page
    ========================================================================== */
 
@@ -929,15 +1311,38 @@ function mount(root) {
     index: '07',
     title: 'Training',
     subtitle: 'Log every workout. Watch each lift, run and sprint get better.',
-    actions: [btn('Log workout', () => openEditor(), { iconName: 'plus', primary: true, small: false })],
+    actions: [
+      btn('Log past workout', () => openEditor(), { iconName: 'edit', ghost: true, small: false, title: 'Log a workout you already did, on any date' }),
+      btn('Start workout', () => startSession(), { iconName: 'play', primary: true, small: false }),
+    ],
   });
   const weekEl = h('section', { class: 'tr-week', 'aria-label': 'This week' });
   const tabsEl = h('div', { class: 'tr-tabs' });
   const bodyEl = h('div', { class: 'tr-body' });
-  root.append(header, weekEl, tabsEl, bodyEl);
+  // The page shows either the usual view or, while a workout is going, only that workout
+  const normalEl = h('div', { class: 'tr-normal' }, header, weekEl, tabsEl, bodyEl);
+  const sessionEl = h('div', { class: 'tr-session', hidden: true });
+  root.append(normalEl, sessionEl);
+  let sessionCtl = null;
 
   function render() {
     const s = getState();
+    if (s.session) {
+      if (sessionCtl?.id !== s.session.id) {
+        sessionCtl?.destroy();
+        sessionCtl = sessionPage(sessionEl);
+      }
+      normalEl.hidden = true;
+      sessionEl.hidden = false;
+      return;
+    }
+    if (sessionCtl) {
+      sessionCtl.destroy();
+      sessionCtl = null;
+      sessionEl.replaceChildren();
+    }
+    sessionEl.hidden = true;
+    normalEl.hidden = false;
     const focusId = document.activeElement?.closest?.('[data-tr-focus]')?.dataset.trFocus;
     paintWeek(s);
     tabsEl.replaceChildren(seg('View', [{ value: 'log', label: 'Log' }, { value: 'progress', label: 'Progress' }], s.view.tab, (tab) => setView({ tab }), 'tr-tab-seg'));
@@ -976,7 +1381,7 @@ function mount(root) {
       const names = r.items.map((it) => exById.get(it.exerciseId)?.name).filter(Boolean);
       return h(
         'article',
-        { class: 'tr-routine panel', 'aria-label': `Routine ${r.name}` },
+        { class: 'tr-routine panel', 'aria-label': `Routine ${r.name}`, dataset: { id: r.id } },
         h(
           'div',
           { class: 'tr-routine-head' },
@@ -988,7 +1393,7 @@ function mount(root) {
           'div',
           { class: 'tr-routine-foot' },
           h('span', { class: 'tr-routine-meta label' }, done ? `Last done ${when(done.date)}` : 'Not done yet'),
-          btn('Start', () => openEditor(null, { routine: r }), { iconName: 'play', primary: true, aria: `Start ${r.name}` }),
+          btn('Start', () => startSession({ routine: r }), { iconName: 'play', primary: true, aria: `Start ${r.name}` }),
         ),
       );
     });
@@ -1010,7 +1415,7 @@ function mount(root) {
         icon: 'dumbbell',
         title: 'No workouts yet',
         text: 'Log lifts with sets, reps and weight, runs with distance and time, cardio, or sprint times. Every exercise gets its own progress graph.',
-        action: btn('Log your first workout', () => openEditor(), { iconName: 'plus', primary: true, small: false }),
+        action: btn('Start a workout', () => startSession(), { iconName: 'play', primary: true, small: false }),
       }));
     }
     const exById = new Map(s.exercises.map((x) => [x.id, x]));
@@ -1042,7 +1447,7 @@ function mount(root) {
         h(
           'header',
           { class: 'tr-card-head' },
-          h('div', { class: 'tr-card-when' }, h('span', { class: 'label' }, dayLabel(w.date)), w.title ? h('h3', { class: 'tr-card-title' }, w.title) : null),
+          h('div', { class: 'tr-card-when' }, h('span', { class: 'label' }, dayLabel(w.date), workoutLength(w) ? ` · ${workoutLength(w)}` : ''), w.title ? h('h3', { class: 'tr-card-title' }, w.title) : null),
           records.size ? h('span', { class: 'tag tag--solid tr-pr', title: 'Personal best in this workout' }, icon('tr-trophy', { size: 12 }), records.size > 1 ? `${records.size} PRs` : 'PR') : null,
           h(
             'div',
@@ -1232,12 +1637,12 @@ function mount(root) {
     toast(`“${x.name}” deleted.`);
   }
 
-  // N: log a workout (like N for a new task)
+  // N: start a workout (like N for a new task); while one is going, N does nothing here
   const onKey = (e) => {
     if (e.key !== 'n' && e.key !== 'N') return;
-    if (e.metaKey || e.ctrlKey || e.altKey || isTyping(e) || modalOpen()) return;
+    if (e.metaKey || e.ctrlKey || e.altKey || isTyping(e) || modalOpen() || getState().session) return;
     e.preventDefault();
-    openEditor();
+    startSession();
   };
   document.addEventListener('keydown', onKey);
   cleanups.push(() => document.removeEventListener('keydown', onKey));
@@ -1246,21 +1651,72 @@ function mount(root) {
   cleanups.push(
     registerContextProvider('training', (el) => {
       if (!root.contains(el)) return null;
+      const routineEl = el.closest('.tr-routine[data-id]');
+      const r = routineEl ? getState().routines.find((x) => x.id === routineEl.dataset.id) : null;
+      if (r) {
+        return {
+          kind: 'routine',
+          id: r.id,
+          label: `Routine: ${r.name}`,
+          el: routineEl,
+          edit: () => openRoutineEditor(r),
+          rename: () => renameRoutine(r.id),
+          remove: () => deleteRoutine(r.id),
+          can: { copy: false, paste: false },
+        };
+      }
       const card = el.closest('.tr-card[data-id]');
       const w = card ? getState().workouts.find((x) => x.id === card.dataset.id) : null;
       if (!w) return null;
-      return { kind: 'workout', id: w.id, label: `Workout: ${w.title || formatDay(w.date)}`, el: card, remove: () => deleteWorkout(w.id), duplicate: () => repeatWorkout(w.id), can: { copy: false, paste: false } };
+      return {
+        kind: 'workout',
+        id: w.id,
+        label: `Workout: ${w.title || formatDay(w.date)}`,
+        el: card,
+        edit: () => openEditor(w),
+        rename: () => renameWorkout(w.id),
+        remove: () => deleteWorkout(w.id),
+        duplicate: () => repeatWorkout(w.id),
+        can: { copy: false, paste: false },
+      };
     }),
   );
 
   render();
   cleanups.push(store.subscribe(render));
   cleanups.push(onDayChange(render));
+  cleanups.push(() => sessionCtl?.destroy());
   return () => cleanups.forEach((off) => off());
 }
 
-/** This week's workouts, on the nav (empty when none). */
+/* ---- Rename (right-click menus) ---- */
+
+async function renameWorkout(id) {
+  const w = getState().workouts.find((x) => x.id === id);
+  if (!w) return;
+  const title = await promptDialog({ title: 'Rename workout', value: w.title, maxLength: TITLE_MAX });
+  if (title === null) return;
+  const cur = getState();
+  commit({ ...cur, workouts: cur.workouts.map((x) => (x.id === id ? { ...x, title: cleanTitle(title).slice(0, TITLE_MAX), updatedAt: Date.now() } : x)) });
+}
+
+async function renameRoutine(id) {
+  const r = getState().routines.find((x) => x.id === id);
+  if (!r) return;
+  const name = await promptDialog({
+    title: 'Rename routine',
+    value: r.name,
+    maxLength: NAME_MAX,
+    validate: (text) => (getState().routines.some((x) => x.id !== id && x.name.toLowerCase() === text.toLowerCase()) ? `There is already a routine called “${text}”.` : null),
+  });
+  if (name === null) return;
+  const cur = getState();
+  commit({ ...cur, routines: cur.routines.map((x) => (x.id === id ? { ...x, name: cleanTitle(name).slice(0, NAME_MAX), updatedAt: Date.now() } : x)) });
+}
+
+/** This week's workouts on the nav (a dot while a workout is going; empty when none). */
 function badge() {
+  if (getState().session) return '●';
   const n = weekStats(getState(), todayKey()).workouts;
   return n ? String(n) : '';
 }
@@ -1271,4 +1727,5 @@ export default {
   icon: 'dumbbell',
   badge,
   mount,
+  topbar: mountLivePill,
 };
