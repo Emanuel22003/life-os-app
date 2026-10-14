@@ -47,7 +47,7 @@ import { notesApi } from './notes.js';
 import { getEvents, subscribeCalendar, getDayColors } from './calendar.store.js';
 import { paintColor } from '../colors.js';
 import { calendarApi } from './calendar.js';
-import { occurrencesInRange, weekKeys, mondayOf, viewTitle, viewRange, shiftCursor, monthGrid, tasksByDay, overdueTasks, habitsByDay, daysBetween } from './calendar.logic.js';
+import { occurrencesInRange, weekKeys, mondayOf, viewTitle, viewRange, shiftCursor, monthGrid, layoutTimed, tasksByDay, overdueTasks, habitsByDay, daysBetween } from './calendar.logic.js';
 import { eventBar, taskChip, habitMeter, priorityBadge, PRIORITY_TAG } from './calendar.views.js';
 import { pomodoroApi, roundText } from './pomodoro.js';
 import { financeApi } from './finance.js';
@@ -68,6 +68,10 @@ const PAY_MAX = 5;
 
 const DAY_ITEMS = 5; // per day in the week before "+N more"
 const MONTH_ITEMS = 3; // per day in the month
+const DAY_SPLIT = 520; // px: a widget this wide shows the day's schedule beside its habits
+const DAY_FROM = 8; // the day's hours run 8:00 to 20:00 at least
+const DAY_TO = 20;
+const HOUR_H = 34; // px per hour in the day's schedule
 const TODO_MAX = 7;
 const GRAPH_DAYS = 14;
 const AHEAD_DAYS = 14; // how far "Next:" looks
@@ -338,11 +342,71 @@ function mount(root) {
     );
   }
 
-  /** One day, listed: its events, its tasks (tick them here) and its habits (tick them up to today). */
-  function dayList(d, ctx, info, layers, color) {
+  /**
+   * The day's schedule: all-day events on top, then the hours (8:00 to 20:00, wider when an
+   * event or now falls outside) with each timed event placed at its time, side by side when
+   * they overlap, and the now line on today.
+   */
+  function schedule(d, ctx) {
+    const timed = d.events.filter((o) => !o.allDay);
+    const allDay = d.events.filter((o) => o.allDay);
+    const now = d.isToday ? ctx.nowMin : null;
+    let from = Math.min(DAY_FROM, ...timed.map((o) => Math.floor(o.startMin / 60)), now === null ? 24 : Math.floor(now / 60));
+    let to = Math.max(DAY_TO, ...timed.map((o) => Math.ceil(o.endMin / 60)), now === null ? 0 : Math.ceil((now + 1) / 60));
+    from = Math.max(0, from);
+    to = Math.min(24, Math.max(to, from + 1));
+    const top = (min) => ((min - from * 60) / 60) * HOUR_H;
+    const hours = [];
+    for (let hr = from; hr <= to; hr++) hours.push(h('div', { class: 'hm-tl-h', style: { top: `${(hr - from) * HOUR_H}px` } }, h('span', { class: 'tnum' }, `${String(hr % 24).padStart(2, '0')}:00`)));
+    const blocks = layoutTimed(timed).map((b) => {
+      const o = b.occ;
+      const height = Math.max((b.height / 60) * HOUR_H, 22);
+      const short = height < 40;
+      const past = d.isPast || (now !== null && o.endMin <= now);
+      const block = h(
+        'button',
+        {
+          type: 'button',
+          class: ['cal-tlev', `cal-ev--${o.style}`, 'is-wide', short && 'is-short', past && 'is-past'],
+          style: { top: `${top(b.top)}px`, height: `${height}px`, left: `calc(${(b.col / b.cols) * 100}% + 2px)`, width: `calc(${(b.colSpan / b.cols) * 100}% - 4px)` },
+          'aria-label': `${o.startTime} to ${o.endTime}, ${o.title}${o.location ? `, ${o.location}` : ''}. Open the day in the Calendar`,
+          dataset: { open: d.key, fid: `tl:${o.occId}` },
+        },
+        h('span', { class: 'cal-tlev-time tnum' }, short ? o.startTime : `${o.startTime}–${o.endTime}`),
+        h('span', { class: 'cal-tlev-title', title: `${o.startTime}–${o.endTime} ${o.title}${o.location ? ` · ${o.location}` : ''}` }, o.title),
+        o.location && height >= 58 ? h('span', { class: 'cal-tlev-loc' }, icon('map-pin', { size: 10 }), o.location) : null,
+      );
+      return paintColor(block, 'events', o.color);
+    });
+    return h(
+      'div',
+      { class: 'hm-sched' },
+      allDay.length ? h('div', { class: 'hm-dv-allday' }, h('span', { class: 'hm-dv-allday-label' }, 'All day'), allDay.map((o) => {
+        const bar = eventBar(o, ctx, { prefix: 'hm', tab: '0', drag: false, glyph: false });
+        bar.dataset.open = d.key;
+        return bar;
+      })) : null,
+      h(
+        'div',
+        { class: 'hm-tl', style: { height: `${(to - from) * HOUR_H}px` } },
+        hours,
+        h('div', { class: 'hm-tl-col' }, blocks, now !== null && now >= from * 60 && now <= to * 60 ? h('div', { class: 'cal-now', style: { top: `${top(now)}px` }, 'aria-hidden': 'true' }) : null),
+        timed.length ? null : h('p', { class: 'hm-tl-free' }, allDay.length ? 'Nothing at a set time.' : d.isPast ? 'Nothing was planned.' : 'Free all day.'),
+      ),
+    );
+  }
+
+  /**
+   * One day: its events, its tasks (tick them here) and its habits (tick them up to today).
+   * A medium or large widget (wide) splits it: the day's schedule and tasks on the left, the
+   * habits on the right. A small one lists everything.
+   */
+  function dayList(d, ctx, info, layers, color, wide) {
     const group = (title, rows) => h('section', { class: 'hm-dv-group' }, h('h3', { class: 'hm-dv-title label' }, title), h('div', { class: 'hm-dv-rows' }, rows));
     const groups = [];
-    if (layers.events && d.events.length) {
+    if (layers.events && wide) {
+      groups.push(h('section', { class: 'hm-dv-group' }, h('h3', { class: 'hm-dv-title label' }, 'Schedule'), schedule(d, ctx)));
+    } else if (layers.events && d.events.length) {
       groups.push(group('Events', d.events.map((occ) => {
         const bar = eventBar(occ, ctx, { prefix: 'hm', tab: '0', drag: false, glyph: false, extra: occ.location ? h('span', { class: 'hm-dv-where' }, occ.location) : null });
         bar.dataset.open = d.key;
@@ -367,7 +431,10 @@ function mount(root) {
         return h('div', { class: ['hm-dv-habit', `is-${hb.status}`] }, check, h('span', { class: 'hm-dv-habit-name' }, hb.name), hb.status === 'bonus' ? h('span', { class: 'hm-dv-tag' }, 'Extra') : !canLog ? h('span', { class: 'hm-dv-tag' }, 'Planned') : null);
       })));
     }
-    return paintColor(h('div', { class: ['hm-dayview', d.isToday && 'is-today'], dataset: { key: d.key } }, groups), 'days', color);
+    // The habits went last: on a wide widget they take the right-hand column
+    const split = wide && groups.length > 1 && layers.habits && habits.length;
+    const body = split ? [h('div', { class: 'hm-dv-main' }, groups.slice(0, -1)), h('div', { class: 'hm-dv-side' }, groups.at(-1))] : groups;
+    return paintColor(h('div', { class: ['hm-dayview', d.isToday && 'is-today', wide && 'is-wide', split && 'is-split'], dataset: { key: d.key } }, body), 'days', color);
   }
 
   /** The month: a cell a day (its first items, or dots when the widget is narrow), and a habit bar. */
@@ -412,6 +479,14 @@ function mount(root) {
     return [head, h('div', { class: 'hm-mgrid', role: 'group', 'aria-label': grid.title }, cells)];
   }
 
+  // The day view splits in two from this width of the widget (a medium one and up)
+  let dayWide = null;
+  const dayResize = new ResizeObserver(() => {
+    if (calNow().view !== 'day' || (weekCard.clientWidth >= DAY_SPLIT) === dayWide) return;
+    requestAnimationFrame(() => paintWeek());
+  });
+  dayResize.observe(weekCard);
+
   // The cell that takes Tab in the month: today, or the first day of the month
   const focusKeyIn = (grid) => (state.today.startsWith(grid.month) ? state.today : `${grid.month}-01`);
 
@@ -454,8 +529,10 @@ function mount(root) {
       if (view === 'day') {
         const d = days[0];
         const info = habits.get(d.key);
-        keepFocus(daysEl, () => daysEl.replaceChildren(dayList(d, ctx, info, layers, colors[d.key])));
-        quiet = !d.events.length && !d.tasks.length && !(info && (info.scheduled.length || info.bonus.length));
+        dayWide = weekCard.clientWidth >= DAY_SPLIT;
+        keepFocus(daysEl, () => daysEl.replaceChildren(dayList(d, ctx, info, layers, colors[d.key], dayWide)));
+        // A wide day always shows its hours, so it is never "empty" while events are on
+        quiet = !(dayWide && layers.events) && !d.events.length && !d.tasks.length && !(info && (info.scheduled.length || info.bonus.length));
       } else {
         keepFocus(daysEl, () => daysEl.replaceChildren(...days.map((d) => dayCell(d, ctx, habits.get(d.key), colors[d.key]))));
         quiet = days.every((d) => !d.events.length && !d.tasks.length);
@@ -1457,7 +1534,8 @@ function mount(root) {
   const clock = setInterval(() => {
     paintHeader();
     paintAgenda();
-    if (++ticks % 10 === 0) paintWeek();
+    // The week and month every five minutes; today's schedule (its now line) every tick
+    if (++ticks % 10 === 0 || (calNow().view === 'day' && state.cursor === state.today)) paintWeek();
   }, 30000);
   // The clock widget and a workout's running time tick every second
   const seconds = setInterval(() => {
@@ -1499,6 +1577,7 @@ function mount(root) {
   return () => {
     stopDrag?.(true);
     resizes.disconnect();
+    dayResize.disconnect();
     offs.forEach((off) => off());
     offMenu();
     clearInterval(clock);

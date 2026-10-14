@@ -1021,6 +1021,98 @@
   color: var(--text-3);
 }
 
+/* A medium or large widget: the schedule and tasks on the left, the habits on the right */
+.hm-dayview.is-split {
+  grid-template-columns: minmax(0, 1.6fr) minmax(190px, 1fr);
+  align-items: start;
+}
+
+.hm-dv-main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.hm-dv-side {
+  min-width: 0;
+  padding-left: var(--space-5);
+  border-left: 1px solid var(--line);
+}
+
+.hm-sched {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.hm-dv-allday {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+}
+
+.hm-dv-allday-label {
+  width: 44px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  color: var(--text-3);
+}
+
+.hm-dv-allday .cal-ev {
+  flex: 1 1 140px;
+  min-height: 26px;
+}
+
+/* The hours: a label and a line each, the events over them */
+.hm-tl {
+  position: relative;
+  margin: 7px 0;
+}
+
+.hm-tl-h {
+  position: absolute;
+  left: 44px;
+  right: 0;
+  height: 0;
+  border-top: 1px solid var(--line);
+}
+
+.hm-tl-h > span {
+  position: absolute;
+  top: -7px;
+  left: -44px;
+  width: 38px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  line-height: 14px;
+  color: var(--text-3);
+}
+
+.hm-tl-col {
+  position: absolute;
+  inset: 0 0 0 44px;
+}
+
+.hm-tl .cal-tlev {
+  cursor: pointer;
+  touch-action: auto;
+}
+
+.hm-tl-free {
+  position: absolute;
+  top: 50%;
+  left: 44px;
+  right: 0;
+  transform: translateY(-50%);
+  font-size: var(--fs-sm);
+  color: var(--text-3);
+  text-align: center;
+  pointer-events: none;
+}
+
 /* ---- The month: a cell a day ---- */
 
 .hm-days[data-view="month"] {
