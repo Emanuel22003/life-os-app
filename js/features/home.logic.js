@@ -104,7 +104,13 @@ export function graphBars(series) {
 }
 
 /* ==========================================================================
-   Your own Home: which widgets, in which order, at which size (store 'home'.layout, per device)
+   Your own Home: which widgets, where, at which size (store 'home'.layout, per device)
+
+   The board has four columns. A widget is one to four of them wide (its size) and sits in the
+   column you put it in (col: the leftmost one it covers), under whatever is above it there:
+   widgets keep their own height and fall up as far as they can, like stacked cards. So a short
+   widget leaves room under it for another one. Narrower pages have two columns (small widgets
+   take one, the rest both), phones one.
    ========================================================================== */
 
 /** Every widget Home can show, in the order the Add shelf lists them. */
@@ -128,22 +134,35 @@ export const WIDGET_IDS = Object.freeze(WIDGETS.map((w) => w.id));
 /** Widths on Home's four-column board: a quarter, a half, three quarters, all of it. */
 export const SIZES = Object.freeze(['s', 'm', 'l', 'xl']);
 export const SIZE_LABEL = Object.freeze({ s: 'Small', m: 'Medium', l: 'Large', xl: 'Full width' });
+export const COLUMNS = 4;
+const SPAN = Object.freeze({ s: 1, m: 2, l: 3, xl: 4 });
 
 /** The Home everyone starts with (the six widgets Home always had). */
 export const DEFAULT_LAYOUT = Object.freeze(
   [
-    { id: 'week', size: 'l' },
-    { id: 'pomodoro', size: 's' },
-    { id: 'todo', size: 'm' },
-    { id: 'habits', size: 's' },
-    { id: 'note', size: 's' },
-    { id: 'graph', size: 'm' },
+    { id: 'week', size: 'l', col: 0 },
+    { id: 'pomodoro', size: 's', col: 3 },
+    { id: 'todo', size: 'm', col: 0 },
+    { id: 'habits', size: 's', col: 2 },
+    { id: 'note', size: 's', col: 3 },
+    { id: 'graph', size: 'm', col: 0 },
   ].map((w) => Object.freeze(w)),
 );
 
 const defaultSize = (id) => WIDGETS.find((w) => w.id === id)?.size ?? 's';
 
-/** A stored layout, repaired: known widgets once each, known sizes. No layout yet -> the default. */
+/** A widget's column, kept on the board (a size too wide for it moves it left); none -> undefined. */
+function fitColumn(col, size) {
+  if (!Number.isInteger(col)) return undefined;
+  return Math.max(0, Math.min(col, COLUMNS - SPAN[size]));
+}
+
+const entry = (id, size, col) => (col === undefined ? { id, size } : { id, size, col });
+
+/**
+ * A stored layout, repaired: known widgets once each, known sizes, columns on the board. A
+ * widget without a column finds the highest spot it fits. No layout yet -> the default.
+ */
 export function normalizeLayout(raw) {
   if (!Array.isArray(raw)) return DEFAULT_LAYOUT.map((w) => ({ ...w }));
   const seen = new Set();
@@ -152,7 +171,8 @@ export function normalizeLayout(raw) {
     const id = typeof it === 'string' ? it : it?.id;
     if (!WIDGET_IDS.includes(id) || seen.has(id)) continue;
     seen.add(id);
-    out.push({ id, size: SIZES.includes(it?.size) ? it.size : defaultSize(id) });
+    const size = SIZES.includes(it?.size) ? it.size : defaultSize(id);
+    out.push(entry(id, size, fitColumn(it?.col, size)));
   }
   return out;
 }
@@ -163,7 +183,7 @@ export function hiddenWidgets(layout) {
   return WIDGETS.filter((w) => !shown.has(w.id));
 }
 
-/** The layout with `id` moved to position `to` (clamped). */
+/** The layout with `id` moved to position `to` in the order (clamped). */
 export function moveWidget(layout, id, to) {
   const list = normalizeLayout(layout);
   const from = list.findIndex((w) => w.id === id);
@@ -174,16 +194,152 @@ export function moveWidget(layout, id, to) {
 }
 
 export function resizeWidget(layout, id, size) {
-  return normalizeLayout(layout).map((w) => (w.id === id && SIZES.includes(size) ? { ...w, size } : w));
+  return normalizeLayout(normalizeLayout(layout).map((w) => (w.id === id && SIZES.includes(size) ? { ...w, size } : w)));
 }
 
 export function removeWidget(layout, id) {
   return normalizeLayout(layout).filter((w) => w.id !== id);
 }
 
-/** Put a widget on Home (at the end, at its usual size); a widget already there stays put. */
+/** Put a widget on Home (at its usual size, where it fits highest); a widget already there stays put. */
 export function addWidget(layout, id, size = null) {
   const list = normalizeLayout(layout);
   if (!WIDGET_IDS.includes(id) || list.some((w) => w.id === id)) return list;
   return [...list, { id, size: SIZES.includes(size) ? size : defaultSize(id) }];
+}
+
+/* ---- Placing the widgets ---- */
+
+/** How many columns a widget takes on a board of `cols` (4, 2 or 1). */
+export function spanOf(size, cols = COLUMNS) {
+  if (cols >= COLUMNS) return SPAN[size] ?? 1;
+  if (cols <= 1) return 1;
+  return size === 's' ? 1 : cols;
+}
+
+/** Where a stored column (of four) lands on a board of `cols`; no column stays null. */
+export function columnOn(col, span, cols = COLUMNS) {
+  if (!Number.isInteger(col)) return null;
+  const c = cols >= COLUMNS ? col : Math.floor((col * cols) / COLUMNS);
+  return Math.max(0, Math.min(c, cols - span));
+}
+
+/**
+ * Lay the board out. Each widget, in order, goes into its columns as high as it fits, under
+ * what is already there; one without a column takes the spot where it sits highest (leftmost
+ * first). heights: { id: px }. Returns { items: [{ id, x, w, y, h }], height } in px and columns.
+ */
+export function placeWidgets(layout, { cols = COLUMNS, heights = {}, gap = 0 } = {}) {
+  const tops = new Array(cols).fill(0);
+  const items = [];
+  for (const it of layout) {
+    const w = spanOf(it.size, cols);
+    const at = (c) => Math.max(...tops.slice(c, c + w));
+    let x = columnOn(it.col, w, cols);
+    if (x === null) {
+      x = 0;
+      for (let c = 1; c <= cols - w; c++) if (at(c) < at(x)) x = c;
+    }
+    const y = at(x);
+    const h = Math.max(0, Number(heights[it.id]) || 0);
+    for (let c = x; c < x + w; c++) tops[c] = y + h + gap;
+    items.push({ id: it.id, x, w, y, h });
+  }
+  return { items, height: items.length ? Math.max(...tops) - gap : 0 };
+}
+
+/** The column to store (of four) for a widget shown in column `x` of `cols`. */
+function storedColumn(x, prev, size, cols) {
+  if (cols >= COLUMNS) return x;
+  if (cols <= 1) return Number.isInteger(prev) ? prev : undefined;
+  if (Number.isInteger(prev) && columnOn(prev, spanOf(size, cols), cols) === x) return prev;
+  return Math.round((x * COLUMNS) / cols);
+}
+
+/**
+ * The layout as placed: every widget's column written down and the order made top to bottom,
+ * left to right (reading order). The board looks the same, at this width and wider ones.
+ */
+export function settleLayout(layout, placed, cols = COLUMNS) {
+  const at = new Map(placed.items.map((p) => [p.id, p]));
+  const list = normalizeLayout(layout).map((it) => {
+    const p = at.get(it.id);
+    return p ? entry(it.id, it.size, fitColumn(storedColumn(p.x, it.col, it.size, cols), it.size)) : it;
+  });
+  const rank = (id) => at.get(id) ?? { y: Infinity, x: 0 };
+  return list.sort((a, b) => rank(a.id).y - rank(b.id).y || rank(a.id).x - rank(b.id).x);
+}
+
+/** Every place `id` can take in column `x`: [{ layout, placed, y, index }] (one per slot in the order). */
+function slotsIn(layout, id, x, opts) {
+  const cols = opts.cols ?? COLUMNS;
+  const list = normalizeLayout(layout);
+  const from = list.findIndex((w) => w.id === id);
+  if (from === -1) return [];
+  const item = list[from];
+  const rest = list.filter((_, i) => i !== from);
+  const span = spanOf(item.size, cols);
+  const col = Math.max(0, Math.min(x, cols - span));
+  const moved = entry(item.id, item.size, fitColumn(storedColumn(col, item.col, item.size, cols), item.size));
+  const out = [];
+  for (let i = 0; i <= rest.length; i++) {
+    const cand = [...rest.slice(0, i), moved, ...rest.slice(i)];
+    const placed = placeWidgets(cand, opts);
+    out.push({ layout: cand, placed, y: placed.items.find((p) => p.id === id).y, index: i, from });
+  }
+  return out;
+}
+
+/**
+ * Where a dragged widget lands: in column `x` (of opts.cols), at the place whose top is nearest
+ * `top` (px); on a tie, the place nearest where it was. Returns { layout, placed }.
+ */
+export function dropLayout(layout, id, { x, top, ...opts }) {
+  let best = null;
+  for (const s of slotsIn(layout, id, x, opts)) {
+    const score = Math.abs(s.y - top);
+    const tie = Math.abs(s.index - s.from);
+    if (!best || score < best.score - 0.5 || (Math.abs(score - best.score) <= 0.5 && tie < best.tie)) best = { ...s, score, tie };
+  }
+  if (!best) {
+    const list = normalizeLayout(layout);
+    return { layout: list, placed: placeWidgets(list, opts) };
+  }
+  return { layout: best.layout, placed: best.placed };
+}
+
+/**
+ * The keyboard's move: 'left' / 'right' one column (keeping its height as near as it can),
+ * 'up' / 'down' past the widget above / below it, 'top' / 'bottom' of its column.
+ * Returns { layout, placed }, or null when it can't go that way.
+ */
+export function nudgeLayout(layout, id, dir, opts = {}) {
+  const cols = opts.cols ?? COLUMNS;
+  const now = placeWidgets(normalizeLayout(layout), opts).items.find((p) => p.id === id);
+  if (!now) return null;
+  if (dir === 'left' || dir === 'right') {
+    const x = now.x + (dir === 'left' ? -1 : 1);
+    if (x < 0 || x + now.w > cols) return null;
+    return dropLayout(layout, id, { ...opts, x, top: now.y });
+  }
+  let pick = null;
+  for (const s of slotsIn(layout, id, now.x, opts)) {
+    if (Math.abs(s.y - now.y) < 0.5) continue;
+    const better =
+      (dir === 'up' && s.y < now.y && (!pick || s.y > pick.y)) ||
+      (dir === 'down' && s.y > now.y && (!pick || s.y < pick.y)) ||
+      (dir === 'top' && s.y < now.y && (!pick || s.y < pick.y)) ||
+      (dir === 'bottom' && s.y > now.y && (!pick || s.y > pick.y));
+    if (better) pick = s;
+  }
+  return pick ? { layout: pick.layout, placed: pick.placed } : null;
+}
+
+/** Where a placed widget is, in words: its column and how far down it is in it ("column 2 of 4, second"). */
+export function placeOf(placed, id, cols = COLUMNS) {
+  const me = placed.items.find((p) => p.id === id);
+  if (!me) return '';
+  const above = placed.items.filter((p) => p !== me && p.y < me.y && p.x < me.x + me.w && me.x < p.x + p.w).length;
+  const nth = ['at the top', 'second', 'third', 'fourth', 'fifth'][above] ?? `${above + 1}th from the top`;
+  return cols > 1 ? `column ${me.x + 1} of ${cols}, ${nth}` : nth;
 }

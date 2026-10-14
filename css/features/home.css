@@ -63,58 +63,50 @@
 }
 
 /* ---- Layout: your own board ----
-   Widgets sit on a four-column grid in the order you chose, each a quarter, half, three
-   quarters or all of the width (data-size s · m · l · xl). Narrower pages have two columns
-   (small stays one, the rest take both), phones one. Gaps fill in when a later, smaller widget
-   fits (dense flow). Rows take the height of their tallest widget. */
+   home.js places each widget (position + width) from home.logic.js: four columns on a wide
+   board, two on a narrower one, one on a phone (it sets data-cols on the page). A widget keeps
+   its own height and sits as high as it fits in its columns. The board's row-gap is the gap
+   between widgets (home.js reads it). */
 
 .hm-board {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  grid-auto-flow: row dense;
-  gap: var(--space-5);
+  position: relative;
+  row-gap: var(--space-5);
 }
 
 .hm-widget {
+  position: absolute;
+  top: 0;
+  left: 0;
   display: flex;
   flex-direction: column;
   min-width: 0;
-  grid-column: span 1;
+  max-width: 100%;
 }
 
-.hm-widget[data-size="m"] { grid-column: span 2; }
-.hm-widget[data-size="l"] { grid-column: span 3; }
-.hm-widget[data-size="xl"] { grid-column: 1 / -1; }
+/* Until it is placed, a widget would show at the top left */
+.hm-board:not(.is-placed) .hm-widget {
+  visibility: hidden;
+}
+
+.hm-board.is-placed .hm-widget {
+  transition: transform var(--dur-slow) var(--ease-out);
+}
 
 .hm-widget > .hm-card {
   flex: 1 1 auto;
 }
 
-.hm-shelf,
-.hm-board-empty {
-  grid-column: 1 / -1;
-}
-
-@media (max-width: 1199px) {
-  .hm-board {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .hm-widget[data-size="m"],
-  .hm-widget[data-size="l"] {
-    grid-column: 1 / -1;
-  }
+.hm-below:not(:empty) {
+  margin-top: var(--space-5);
 }
 
 @media (max-width: 640px) {
   .hm-board {
-    grid-template-columns: minmax(0, 1fr);
-    gap: var(--space-4);
+    row-gap: var(--space-4);
   }
 
-  .hm-widget,
-  .hm-widget[data-size] {
-    grid-column: 1 / -1;
+  .hm-below:not(:empty) {
+    margin-top: var(--space-4);
   }
 }
 
@@ -202,21 +194,38 @@
   }
 }
 
-/* One column on a phone: every size is full width there, so the size picker would do nothing */
-@media (max-width: 640px) {
-  .hm-wsizes {
-    display: none;
-  }
+/* One column (a phone): every size is full width there, so the size picker would do nothing */
+[data-cols="1"] .hm-wsizes {
+  display: none;
+}
 
-  .hm-hint-phone {
-    display: inline;
-  }
+[data-cols="1"] .hm-hint-phone {
+  display: inline;
 }
 
 .hm-widget.is-dragging {
+  z-index: 3;
   border-style: solid;
   border-color: var(--text);
   box-shadow: var(--shadow);
+  transition: none;
+}
+
+/* Where the dragged widget will land */
+.hm-drop {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 1;
+  border: 2px dashed var(--text-3);
+  border-radius: calc(var(--radius) + 4px);
+  background: color-mix(in srgb, var(--text) 5%, transparent);
+  pointer-events: none;
+  transition: transform var(--dur) var(--ease-out), width var(--dur) var(--ease-out), height var(--dur) var(--ease-out);
+}
+
+.hm-board.is-sorting {
+  user-select: none;
 }
 
 .hm-widget.is-dragging .hm-wgrip,
@@ -1107,12 +1116,10 @@
 }
 
 /* A wide quick note keeps a button's width */
-@media (min-width: 1200px) {
-  .hm-widget:is([data-size="l"], [data-size="xl"]) .hm-note-btn {
-    align-self: flex-start;
-    width: auto;
-    min-width: 280px;
-  }
+[data-cols="4"] .hm-widget:is([data-size="l"], [data-size="xl"]) .hm-note-btn {
+  align-self: flex-start;
+  width: auto;
+  min-width: 280px;
 }
 
 .hm-recent {

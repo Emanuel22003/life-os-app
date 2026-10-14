@@ -33,6 +33,7 @@ import {
   WEEKDAYS_MIN,
   plainSkin,
   promptDialog,
+  reducedMotion,
 } from '../ui.js';
 import { createStore } from '../store.js';
 import { registerContextProvider } from '../contextmenu.js';
@@ -836,25 +837,81 @@ function mount(root) {
   }
 
   /* ---- Your own Home: the board of widgets ----
-     Each widget sits in a wrapper on a four-column board (css/features/home.css) at its size.
+     home.logic.js places the widgets (placeWidgets): each in its columns, as high as it fits,
+     at its own height, so a short widget leaves room under it. The board sizes and measures
+     them and moves them into place, again whenever its width or a widget's height changes.
      Customize shows a bar on each (drag handle, size, remove) and the Add shelf below; the
      widgets themselves are inert meanwhile, so a drag never presses a button inside them. */
 
   const CARDS = { week: weekCard, pomodoro: pomo.card, todo: todoCard, habits: habitsCard, graph: graphCard, note: noteCard, clock: clockCard, agenda: agendaCard, payments: payCard, training: trainCard };
   const board = h('div', { class: 'hm-board' });
+  const below = h('div', { class: 'hm-below' });
   const announce = h('p', { class: 'sr-only', role: 'status', 'aria-live': 'polite' });
   const editHint = h(
     'p',
     { class: 'hm-edit-hint', hidden: true },
-    'Drag a widget by its handle (or focus the handle and use the arrow keys) to move it. Pick a size, remove what you don’t need, and add widgets from the shelf below. Press Done when it looks right.',
-    h('span', { class: 'hm-hint-phone' }, ' On a phone every widget is full width; sizes show on a bigger screen.'),
+    'Drag a widget by its handle to any spot on the board (or focus the handle and use the arrow keys). Widgets keep their own height, so a small one fits in the space under a short one. Pick a size, remove what you don’t need, and add widgets from the shelf below. Press Done when it looks right.',
+    h('span', { class: 'hm-hint-phone' }, ' On a narrow screen every widget is full width; sizes show on a wider one.'),
   );
   const wraps = new Map();
   let editing = false;
+  let metrics = null; // { width, gap, cols, step } of the board
+  let placed = null; // where the widgets are now: { items: [{ id, x, w, y, h }], height }
+  let dragging = null; // the widget being dragged
+  let stopDrag = null;
 
   const layoutNow = () => HM.normalizeLayout(prefs.get().layout);
   const saveLayout = (layout) => prefs.update({ layout });
   const nameOf = (id) => HM.WIDGETS.find((w) => w.id === id)?.name ?? id;
+
+  // Four columns on a wide board, two on a narrower one, one on a phone
+  function measure() {
+    const width = board.clientWidth;
+    const gap = parseFloat(getComputedStyle(board).rowGap) || 0;
+    const cols = width >= 820 ? 4 : width >= 460 ? 2 : 1;
+    return { width, gap, cols, step: (width + gap) / cols };
+  }
+
+  const heightsOf = (layout) => Object.fromEntries(layout.map((it) => [it.id, wraps.get(it.id)?.offsetHeight ?? 0]));
+
+  /** Size each widget for its columns, measure it, and move it into its place. */
+  function layoutBoard(layout = layoutNow()) {
+    metrics = measure();
+    if (!metrics.width) return;
+    const { cols, step, gap } = metrics;
+    root.dataset.cols = String(cols);
+    for (const it of layout) {
+      const wrap = wraps.get(it.id);
+      if (wrap) wrap.style.width = `${HM.spanOf(it.size, cols) * step - gap}px`;
+    }
+    placed = HM.placeWidgets(layout, { cols, heights: heightsOf(layout), gap });
+    paintPlaces(placed);
+  }
+
+  /** Put the widgets where `result` says (all but `skip`, the one under the pointer). */
+  function paintPlaces(result, skip = null) {
+    const { step } = metrics;
+    for (const p of result.items) {
+      const wrap = wraps.get(p.id);
+      if (!wrap || p.id === skip) continue;
+      wrap.style.transform = `translate(${Math.round(p.x * step)}px, ${Math.round(p.y)}px)`;
+      // A widget just put on the board appears in its place; after that, it glides
+      if (!wrap.dataset.placed) {
+        wrap.style.transition = 'none';
+        void wrap.offsetWidth;
+        wrap.style.transition = '';
+        wrap.dataset.placed = '1';
+      }
+    }
+    board.style.height = `${Math.ceil(result.height)}px`;
+    if (!board.classList.contains('is-placed')) requestAnimationFrame(() => board.classList.add('is-placed'));
+  }
+
+  // The board's width or a widget's height changed: place them again, before the page paints
+  const resizes = new ResizeObserver(() => {
+    if (!dragging) layoutBoard();
+  });
+  resizes.observe(board);
 
   function setEditing(on) {
     editing = on;
@@ -942,7 +999,7 @@ function mount(root) {
                     'aria-label': `Add ${w.name}`,
                     onClick: () => {
                       saveLayout(HM.addWidget(layoutNow(), w.id));
-                      announce.textContent = `${w.name} added at the end.`;
+                      announce.textContent = `${w.name} added where there was room.`;
                     },
                   },
                   icon('plus', { size: 14 }),
@@ -955,6 +1012,19 @@ function mount(root) {
     );
   }
 
+  function emptyBoard() {
+    return h(
+      'div',
+      { class: 'panel hm-board-empty' },
+      miniEmpty({
+        iconName: 'hm-layout',
+        title: 'Your Home is empty',
+        text: 'Pick the widgets you want here.',
+        action: h('button', { type: 'button', class: 'btn btn--sm btn--primary', onClick: () => setEditing(true) }, 'Customize'),
+      }),
+    );
+  }
+
   function resetLayout() {
     const before = layoutNow();
     saveLayout(HM.DEFAULT_LAYOUT.map((w) => ({ ...w })));
@@ -962,6 +1032,7 @@ function mount(root) {
   }
 
   function renderBoard() {
+    if (dragging) return;
     const layout = layoutNow();
     const active = document.activeElement;
     const focusWidget = active instanceof Element && active.classList.contains('hm-wgrip') ? active.closest('.hm-widget')?.dataset.widget : null;
@@ -970,6 +1041,7 @@ function mount(root) {
       if (!wrap) {
         wrap = h('div', { class: 'hm-widget', dataset: { widget: item.id } });
         wraps.set(item.id, wrap);
+        resizes.observe(wrap);
       }
       wrap.dataset.size = item.size;
       wrap.classList.toggle('is-editing', editing);
@@ -979,67 +1051,85 @@ function mount(root) {
       else if (wrap.childNodes.length !== 1 || wrap.firstChild !== card) wrap.replaceChildren(card);
       return wrap;
     });
-    if (editing) nodes.push(addShelf());
-    else if (!layout.length) {
-      nodes.push(
-        h(
-          'div',
-          { class: 'panel hm-board-empty' },
-          miniEmpty({
-            iconName: 'hm-layout',
-            title: 'Your Home is empty',
-            text: 'Pick the widgets you want here.',
-            action: h('button', { type: 'button', class: 'btn btn--sm btn--primary', onClick: () => setEditing(true) }, 'Customize'),
-          }),
-        ),
-      );
-    }
+    // Widgets taken off forget their place, so they appear in the new one when added back
+    for (const [id, wrap] of wraps) if (!layout.some((w) => w.id === id)) delete wrap.dataset.placed;
     const same = nodes.length === board.children.length && nodes.every((n, i) => board.children[i] === n);
     if (!same) board.replaceChildren(...nodes);
     board.classList.toggle('is-editing', editing);
+    below.replaceChildren(...(editing ? [addShelf()] : layout.length ? [] : [emptyBoard()]));
+    layoutBoard(layout);
     if (focusWidget) wraps.get(focusWidget)?.querySelector('.hm-wgrip')?.focus({ preventScroll: true });
   }
 
-  /** Arrow keys on a handle move the widget one place earlier or later (Home / End: first, last). */
+  const KEY_MOVES = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down', Home: 'top', End: 'bottom' };
+
+  /** Arrow keys on a handle: a column left or right, past the widget above or below (Home / End: top, bottom). */
   function gripKey(e, id) {
-    const layout = layoutNow();
-    const at = layout.findIndex((w) => w.id === id);
-    const to = { ArrowLeft: at - 1, ArrowUp: at - 1, ArrowRight: at + 1, ArrowDown: at + 1, Home: 0, End: layout.length - 1 }[e.key];
-    if (to === undefined) return;
+    const dir = KEY_MOVES[e.key];
+    if (!dir) return;
     e.preventDefault();
-    if (to < 0 || to >= layout.length || to === at) return;
-    saveLayout(HM.moveWidget(layout, id, to));
-    announce.textContent = `${nameOf(id)}: place ${to + 1} of ${layout.length}.`;
+    if (!placed || !metrics?.width) return;
+    const { cols, gap } = metrics;
+    const layout = layoutNow();
+    const next = HM.nudgeLayout(HM.settleLayout(layout, placed, cols), id, dir, { cols, heights: heightsOf(layout), gap });
+    if (!next) {
+      announce.textContent = `${nameOf(id)} can’t move further that way.`;
+      return;
+    }
+    saveLayout(HM.settleLayout(next.layout, next.placed, cols));
+    announce.textContent = `${nameOf(id)}: ${HM.placeOf(next.placed, id, cols)}.`;
+    const wrap = wraps.get(id);
+    setTimeout(() => wrap?.isConnected && wrap.scrollIntoView({ block: 'nearest', behavior: reducedMotion() ? 'auto' : 'smooth' }), 240);
   }
 
-  /** Drag a widget by its handle: the others make room as it passes over them. */
+  /**
+   * Drag a widget by its handle: it follows the pointer, the dashed slot shows where it will
+   * land (the column under it, at the height nearest the pointer) and the others make room.
+   */
   function startDrag(e, id) {
-    if (!editing || (e.pointerType === 'mouse' && e.button !== 0)) return;
+    if (!editing || dragging || (e.pointerType === 'mouse' && e.button !== 0)) return;
+    const wrap = wraps.get(id);
+    const me = placed?.items.find((p) => p.id === id);
+    if (!wrap || !me || !metrics?.width) return;
     e.preventDefault();
     const grip = e.currentTarget;
     const pointerId = e.pointerId;
-    const wrap = wraps.get(id);
-    const start = layoutNow();
-    const order = start.map((w) => w.id);
+    const { cols, gap, step } = metrics;
+    const layout = layoutNow();
+    const heights = heightsOf(layout);
+    const base = HM.settleLayout(layout, placed, cols);
+    const box = board.getBoundingClientRect();
+    const grab = { x: e.clientX - box.left - me.x * step, y: e.clientY - box.top - me.y };
     const scroller = root.closest('.main') ?? document.scrollingElement;
+    const slot = h('div', { class: 'hm-drop', 'aria-hidden': 'true' });
     let x = e.clientX;
     let y = e.clientY;
-    let lastSwap = { x, y };
+    let current = { layout: base, placed: HM.placeWidgets(base, { cols, heights, gap }) };
+    let sig = '';
     let frame = 0;
+    dragging = id;
     wrap.classList.add('is-dragging');
     board.classList.add('is-sorting');
+    board.append(slot);
 
+    const show = (result) => {
+      paintPlaces(result, id);
+      const p = result.items.find((q) => q.id === id);
+      slot.style.width = `${p.w * step - gap}px`;
+      slot.style.height = `${p.h}px`;
+      slot.style.transform = `translate(${Math.round(p.x * step)}px, ${Math.round(p.y)}px)`;
+    };
     const aim = () => {
-      if (Math.hypot(x - lastSwap.x, y - lastSwap.y) < 16) return;
-      const over = document.elementFromPoint(x, y)?.closest('.hm-widget');
-      if (!over || over === wrap || !board.contains(over)) return;
-      const from = order.indexOf(id);
-      const to = order.indexOf(over.dataset.widget);
-      if (from < 0 || to < 0) return;
-      order.splice(from, 1);
-      order.splice(to, 0, id);
-      board.insertBefore(wrap, from < to ? over.nextSibling : over);
-      lastSwap = { x, y };
+      const r = board.getBoundingClientRect();
+      const left = x - r.left - grab.x;
+      const top = y - r.top - grab.y;
+      wrap.style.transform = `translate(${Math.round(left)}px, ${Math.round(top)}px)`;
+      const next = HM.dropLayout(base, id, { x: Math.round(left / step), top, cols, heights, gap });
+      const s = next.layout.map((w) => `${w.id}:${w.col ?? ''}`).join();
+      if (s === sig) return;
+      sig = s;
+      current = next;
+      show(next.placed);
     };
     // Near the top or bottom edge, the page scrolls along
     const loop = () => {
@@ -1050,32 +1140,43 @@ function mount(root) {
       frame = requestAnimationFrame(loop);
     };
     frame = requestAnimationFrame(loop);
-    // On the window, not the handle: moving the widget in the page would drop a pointer capture
+    // On the window, not the handle: re-rendering the board would drop a pointer capture
     const onMove = (ev) => {
       if (ev.pointerId !== pointerId) return;
       x = ev.clientX;
       y = ev.clientY;
     };
-    const end = (ev) => {
+    const end = (ev, cancel = false) => {
       if (ev && ev.pointerId !== pointerId) return;
       cancelAnimationFrame(frame);
+      // Where the pointer let go (a quick drag can end before the next frame)
+      if (ev && !cancel) {
+        x = ev.clientX;
+        y = ev.clientY;
+        aim();
+      }
       window.removeEventListener('pointermove', onMove);
       window.removeEventListener('pointerup', end);
       window.removeEventListener('pointercancel', end);
+      dragging = null;
+      stopDrag = null;
+      slot.remove();
       wrap.classList.remove('is-dragging');
       board.classList.remove('is-sorting');
-      if (order.join() !== start.map((w) => w.id).join()) {
-        saveLayout(order.map((wid) => start.find((w) => w.id === wid)));
-        announce.textContent = `${nameOf(id)} moved.`;
-      }
-      grip.focus({ preventScroll: true });
+      const settled = HM.settleLayout(current.layout, current.placed, cols);
+      if (!cancel && JSON.stringify(settled) !== JSON.stringify(layout)) {
+        saveLayout(settled);
+        announce.textContent = `${nameOf(id)}: ${HM.placeOf(current.placed, id, cols)}.`;
+      } else renderBoard();
+      if (grip.isConnected) grip.focus({ preventScroll: true });
     };
+    stopDrag = (cancel) => end(null, cancel);
     window.addEventListener('pointermove', onMove);
     window.addEventListener('pointerup', end);
     window.addEventListener('pointercancel', end);
   }
 
-  root.append(header, editHint, board, announce);
+  root.append(header, editHint, board, below, announce);
   setEditing(false);
 
   function paintAll() {
@@ -1091,6 +1192,8 @@ function mount(root) {
     paintTraining();
   }
   paintAll();
+  // Now that the widgets have their content, place them by their real heights
+  layoutBoard();
 
   /* ---- Right-click: tasks on Home (the to-do list and the week) ---- */
 
@@ -1203,7 +1306,8 @@ function mount(root) {
     if (editing) {
       if (key === 'Escape') {
         e.preventDefault();
-        setEditing(false);
+        if (stopDrag) stopDrag(true);
+        else setEditing(false);
       }
       return;
     }
@@ -1224,6 +1328,8 @@ function mount(root) {
   document.addEventListener('keydown', onKeydown);
 
   return () => {
+    stopDrag?.(true);
+    resizes.disconnect();
     offs.forEach((off) => off());
     offMenu();
     clearInterval(clock);
