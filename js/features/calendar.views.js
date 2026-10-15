@@ -684,7 +684,11 @@ function fillAllday(el, ctx, keys) {
 function dayHeader(ctx, key, { link = true } = {}) {
   const wd = weekday(key);
   const info = ctx.layers.habits ? ctx.habits?.get(key) : null;
-  const inner = [h('span', { class: 'cal-dh-dow label' }, WEEKDAYS_SHORT[wd]), h('span', { class: 'cal-dh-num tnum' }, idx(Number(key.slice(8))))];
+  const inner = [
+    h('span', { class: 'cal-dh-dow label' }, WEEKDAYS_SHORT[wd]),
+    h('span', { class: 'cal-dh-num tnum' }, idx(Number(key.slice(8)))),
+    key.endsWith('-01') ? h('span', { class: 'cal-dh-mon label' }, MONTHS_SHORT[Number(key.slice(5, 7)) - 1]) : null,
+  ];
   return dayColor(ctx, key, h(
     'div',
     { class: ['cal-dh', key === ctx.today && 'is-today', key === ctx.cursor && 'is-selected', key < ctx.today && 'is-past', info?.planned && 'has-hb'] },

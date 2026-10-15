@@ -1248,6 +1248,36 @@ export function viewTitle(view, cursor, { short = false, weekNumber = true } = {
   return short ? `${MONTHS_SHORT[m - 1]} ${y}` : `${MONTHS_LONG[m - 1]} ${y}`;
 }
 
+/**
+ * The heading a view shows, month first so it is always easy to find:
+ * -> { month, year, sub } where month + year is the big line and sub names the exact period.
+ * month: 'October' · year: '2026' · sub: '' (month view)
+ * week: { month: 'October', year: '2026', sub: 'Week 42 · 12–18 Oct' } — a week across two
+ *   months names both ('October – November'), across two years 'December 2026 – January' + '2027'
+ * day: { month: 'October', year: '2026', sub: 'Wednesday 14' }
+ * { short: true } (a phone): 'Oct – Nov' for a two-month week (one month stays in full), 'W42 · …' in sub.
+ * { weekNumber: false } leaves the week number out of sub (the Simple template).
+ */
+export function periodHeading(view, cursor, { short = false, weekNumber = true } = {}) {
+  const [y, m, d] = ymd(cursor);
+  if (view === 'day') {
+    const wd = weekdayOf(toDayNum(cursor));
+    return { month: MONTHS_LONG[m - 1], year: String(y), sub: `${short ? WEEKDAYS_SHORT[wd] : WEEKDAYS_LONG[wd]} ${d}` };
+  }
+  if (view === 'week') {
+    const keys = weekKeys(cursor);
+    const [ay, am, ad] = ymd(keys[0]);
+    const [by, bm, bd] = ymd(keys[6]);
+    const name = (n) => (short ? MONTHS_SHORT[n - 1] : MONTHS_LONG[n - 1]);
+    let month = MONTHS_LONG[bm - 1];
+    if (am !== bm) month = ay === by ? `${name(am)} – ${name(bm)}` : `${name(am)} ${ay} – ${name(bm)}`;
+    const range = am === bm ? `${ad}–${bd} ${MONTHS_SHORT[bm - 1]}` : `${ad} ${MONTHS_SHORT[am - 1]} – ${bd} ${MONTHS_SHORT[bm - 1]}`;
+    const w = isoWeek(keys[0]);
+    return { month, year: String(by), sub: weekNumber ? `${short ? `W${w}` : `Week ${w}`} · ${range}` : range };
+  }
+  return { month: MONTHS_LONG[m - 1], year: String(y), sub: '' };
+}
+
 /* ==========================================================================
    Planning: tasks and habits per day
    ========================================================================== */

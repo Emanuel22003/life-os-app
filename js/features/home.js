@@ -47,7 +47,7 @@ import { notesApi } from './notes.js';
 import { getEvents, subscribeCalendar, getDayColors } from './calendar.store.js';
 import { paintColor } from '../colors.js';
 import { calendarApi } from './calendar.js';
-import { occurrencesInRange, weekKeys, mondayOf, viewTitle, viewRange, shiftCursor, monthGrid, layoutTimed, tasksByDay, overdueTasks, habitsByDay, daysBetween } from './calendar.logic.js';
+import { occurrencesInRange, weekKeys, mondayOf, periodHeading, viewRange, shiftCursor, monthGrid, layoutTimed, tasksByDay, overdueTasks, habitsByDay, daysBetween } from './calendar.logic.js';
 import { eventBar, taskChip, habitMeter, priorityBadge, PRIORITY_TAG } from './calendar.views.js';
 import { pomodoroApi, roundText } from './pomodoro.js';
 import { financeApi } from './finance.js';
@@ -254,7 +254,11 @@ function mount(root) {
   const isCurrent = (view) => HM.isCurrentPeriod(view, state.cursor, state.today, mondayOf);
 
   const weekKicker = h('div', { class: 'hm-week-kicker label lo-deco' }, 'Week');
-  const weekTitle = h('h2', { class: 'hm-week-title', id: 'hm-week-title', 'aria-live': 'polite' });
+  // The month first (with its year), then the exact week or day, as on the Calendar page
+  const wtMonth = h('span', { class: 'hm-wt-month' });
+  const wtYear = h('span', { class: 'hm-wt-year' });
+  const wtSub = h('span', { class: 'hm-wt-sub' });
+  const weekTitle = h('h2', { class: 'hm-week-title', id: 'hm-week-title', 'aria-live': 'polite' }, h('span', { class: 'hm-wt-main' }, wtMonth, ' ', wtYear), h('span', { class: 'sr-only' }, ', '), wtSub);
   const prevBtn = h('button', { type: 'button', class: 'btn btn--ghost btn--icon btn--sm', onClick: () => movePeriod(-1) }, icon('chevron-left'));
   const nextBtn = h('button', { type: 'button', class: 'btn btn--ghost btn--icon btn--sm', onClick: () => movePeriod(1) }, icon('chevron-right'));
   const thisWeekBtn = h('button', { type: 'button', class: 'btn btn--sm hm-week-now', onClick: () => goTo(state.today) }, 'This week');
@@ -501,7 +505,15 @@ function mount(root) {
     const unit = view === 'day' ? 'day' : view === 'week' ? 'week' : 'month';
 
     weekKicker.textContent = HM.CAL_VIEW_LABEL[view];
-    weekTitle.textContent = viewTitle(view, state.cursor, { weekNumber: !simple });
+    const head = periodHeading(view, state.cursor, { weekNumber: !simple });
+    const headText = `${head.month} ${head.year}|${head.sub}`;
+    if (weekTitle.dataset.text !== headText) {
+      weekTitle.dataset.text = headText;
+      wtMonth.textContent = head.month;
+      wtYear.textContent = head.year;
+      wtSub.textContent = head.sub;
+      wtSub.hidden = !head.sub;
+    }
     thisWeekBtn.textContent = HM.CAL_NOW_LABEL[view];
     thisWeekBtn.title = `Back to ${HM.CAL_NOW_LABEL[view].toLowerCase()} (T)`;
     thisWeekBtn.hidden = isCurrent(view);

@@ -643,9 +643,33 @@
 }
 
 .hm-week-title {
-  font-size: var(--fs-md);
-  font-weight: 600;
-  letter-spacing: -0.01em;
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0 var(--space-2);
+  min-width: 0;
+  font-size: var(--fs-lg);
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+}
+
+.hm-wt-year {
+  font-weight: 400;
+  color: var(--text-2);
+}
+
+.hm-wt-sub {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  letter-spacing: 0;
+  color: var(--text-2);
+  white-space: nowrap;
+}
+
+.hm-wt-sub[hidden] {
+  display: none;
 }
 
 .hm-week-nav {

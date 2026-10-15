@@ -451,7 +451,17 @@ function mount(root) {
   const header = pageHeader({ index: '05', title: 'Calendar', subtitle: term('calendar.subtitle', 'Month, week and day: events, tasks and habits on one timeline.'), actions: [addTaskBtn, newBtn] });
 
   /* ---- toolbar ---- */
-  const title = h('h2', { class: 'cal-title', 'aria-live': 'polite', tabindex: '-1', dataset: { fid: 'title' } });
+  // The month first, large (with its year), then the exact week or day: easy to find in every view
+  const titleMonth = h('span', { class: 'cal-title-month' });
+  const titleYear = h('span', { class: 'cal-title-year' });
+  const titleSub = h('span', { class: 'cal-title-sub' });
+  const title = h(
+    'h2',
+    { class: 'cal-title', 'aria-live': 'polite', tabindex: '-1', dataset: { fid: 'title' } },
+    h('span', { class: 'cal-title-main' }, titleMonth, ' ', titleYear),
+    h('span', { class: 'sr-only' }, ', '),
+    titleSub,
+  );
   const prevBtn = h('button', { type: 'button', class: 'btn btn--icon btn--sm', onClick: () => step(-1) }, icon('chevron-left'));
   const nextBtn = h('button', { type: 'button', class: 'btn btn--icon btn--sm', onClick: () => step(1) }, icon('chevron-right'));
   const todayBtn = h('button', { type: 'button', class: 'btn btn--sm cal-today-btn', 'aria-keyshortcuts': 'T', title: 'Today (T)', onClick: () => goToday() }, 'Today');
@@ -743,8 +753,15 @@ function mount(root) {
   function updateToolbar(ctx) {
     // The title is a live region: rewrite it only when it changes, or it is announced again
     // Simple leaves the week number out of the title (the tooltip keeps it)
-    const text = L.viewTitle(state.view, state.cursor, { short: ctx.phone, weekNumber: !plainSkin() });
-    if (title.textContent !== text) title.textContent = text;
+    const head = L.periodHeading(state.view, state.cursor, { short: ctx.phone, weekNumber: !plainSkin() });
+    const text = `${head.month} ${head.year}|${head.sub}`;
+    if (title.dataset.text !== text) {
+      title.dataset.text = text;
+      titleMonth.textContent = head.month;
+      titleYear.textContent = head.year;
+      titleSub.textContent = head.sub;
+      titleSub.hidden = !head.sub;
+    }
     const long = L.viewTitle(state.view, state.cursor);
     if (title.title !== long) title.title = long;
     const unit = state.view === 'month' ? 'month' : state.view === 'week' ? 'week' : 'day';
