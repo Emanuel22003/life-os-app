@@ -480,6 +480,32 @@ export function sectionCounts(items, sections) {
   return { all, unsorted, bySection };
 }
 
+/**
+ * What the phone's section menu lists, in rail order: All notes, Unsorted, then each section,
+ * with its note count from sectionCounts(). -> [{ view, label, count, section }] (section is
+ * null for All notes and Unsorted).
+ */
+export function viewChoices(sections, counts) {
+  const list = Array.isArray(sections) ? sections : [];
+  const c = counts ?? {};
+  return [
+    { view: VIEW_ALL, label: VIEW_LABELS[VIEW_ALL], count: c.all ?? 0, section: null },
+    { view: VIEW_UNSORTED, label: VIEW_LABELS[VIEW_UNSORTED], count: c.unsorted ?? 0, section: null },
+    ...list.map((s) => ({ view: s.id, label: s.name, count: c.bySection?.[s.id] ?? 0, section: s })),
+  ];
+}
+
+/**
+ * A touch that lifted a card and let go where it was picked up (within `slop` px): a long
+ * press, which opens the card's Move to… menu instead of moving it.
+ */
+export function heldInPlace(from, to, slop = 8) {
+  if (!from || !to) return false;
+  const dx = Number(to.x) - Number(from.x);
+  const dy = Number(to.y) - Number(from.y);
+  return Number.isFinite(dx) && Number.isFinite(dy) && Math.hypot(dx, dy) <= slop;
+}
+
 /* ==========================================================================
    Sections: state changes
    ========================================================================== */

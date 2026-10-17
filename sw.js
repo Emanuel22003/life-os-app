@@ -100,6 +100,7 @@ const CORE = [
   'css/skins/y2k-butterflies.webp',
   'css/palette.css',
   'css/colors.css',
+  'css/compact.css',
 ].map(keyFor);
 
 // Where each open page's document came from: 'network', or the snapshot cache that served it.

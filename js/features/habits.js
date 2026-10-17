@@ -1,13 +1,18 @@
 // LIFE/OS — 03 // Habits: weekday-planned protocols. The page pins the LIFE-index
-// trading chart (habits.ticker.js) above three tabs: TODAY (day-first check-ins),
-// WEEK PLAN (habits.plan.js) and INSIGHTS (habits.insights.js). Pure rules live in
-// habits.logic.js / habits.stats.js (unit-tested); this file owns the store, the
-// read-only `source` the other views share, and the mutations they all go through.
+// trading chart (habits.ticker.js) above three tabs: TODAY (check-ins, as a habits × days
+// week matrix, one day as a list, or habits × the last weeks), WEEK PLAN (habits.plan.js)
+// and INSIGHTS (habits.insights.js). Pure rules live in habits.logic.js / habits.stats.js
+// (unit-tested); this file owns the store, the read-only `source` the other views share,
+// and the mutations they all go through.
 
 import {
   h,
   icon,
+  registerIcon,
   pageHeader,
+  tip,
+  dropdown,
+  menuOpen,
   emptyState,
   checkButton,
   setChecked,
@@ -22,13 +27,11 @@ import {
   num,
   term,
   plural,
+  clamp,
   isTyping,
   modalOpen,
   WEEKDAYS_SHORT,
-  WEEKDAYS_MIN,
   MONTHS_SHORT,
-  reducedMotion,
-  plainSkin,
 } from '../ui.js';
 import { createStore } from '../store.js';
 import * as L from './habits.logic.js';
@@ -46,7 +49,16 @@ const TABS = Object.freeze([
 ]);
 const TAB_IDS = TABS.map((t) => t.id);
 const HABITS_ROUTE = /^#\/habits(?![\w-])/;
-const METER_MAX = 8; // segments in a day-selector meter
+
+registerIcon('hb-grid', '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9.5h18M3 14.8h18M9 4v16M15 4v16"/>');
+
+// The Today tab's overviews (the `view` preference, kept per device)
+const VIEW_ITEMS = Object.freeze([
+  { value: 'day', label: 'Day', icon: 'list', hint: 'One day, listed' },
+  { value: 'week', label: 'Week', icon: 'hb-grid', hint: 'Habits × days' },
+  { value: 'history', label: 'History', icon: 'activity', hint: `Last ${L.HISTORY_WEEKS} weeks` },
+]);
+const VIEW_KEYS = Object.freeze({ d: 'day', w: 'week', h: 'history' });
 
 const SUGGESTIONS = [
   { name: 'Drink water', days: L.ALL_DAYS, hint: 'Daily' },
@@ -67,8 +79,8 @@ const STATE_COPY = {
   archived: 'Archived',
 };
 
-// Caption under the big check
-const CHECK_CAPTION = { done: 'Done', pending: 'Today', miss: 'Missed', future: 'Planned' };
+// Keyboard hints in menus only where there is a keyboard to speak of
+const KEY_HINTS = !globalThis.matchMedia?.('(hover: none)').matches;
 
 const ALT_KEY = /Mac|iPhone|iPad/.test(globalThis.navigator?.platform || globalThis.navigator?.userAgent || '') ? '⌥' : 'Alt';
 
@@ -93,8 +105,9 @@ function getState() {
 
 const getItems = () => getState().items;
 const tabOf = (s) => (TAB_IDS.includes(s.tab) ? s.tab : TAB_IDS[0]);
-// v1 stored the card toggle as `view`; it migrates to `cardView` on the first change.
-const cardViewOf = (s) => (L.VIEWS.includes(s.cardView) ? s.cardView : L.VIEWS.includes(s.view) ? s.view : L.VIEWS[0]);
+// The Today tab's overview lives in `view`, which stays on this device (Sync leaves it out).
+// The old card toggle (`cardView`, which synced) is no longer read.
+const viewOf = (s) => L.normalizeView(s.view);
 
 function commit(fn) {
   const prev = getState();
@@ -128,11 +141,12 @@ function findHabit(id) {
   return getItems().find((it) => it.id === id) ?? null;
 }
 
-function setCardView(view) {
-  commit((s) => (cardViewOf(s) === view ? s : { ...s, cardView: view }));
+function setView(view) {
+  if (!L.VIEWS.includes(view)) return;
+  commit((s) => (s.view === view ? s : { ...s, view }));
 }
 
-/** fn() on habit-data changes only: UI prefs (open tab, card view) share the store but don't fire it. */
+/** fn() on habit-data changes only: UI prefs (open tab, overview) share the store but don't fire it. */
 function subscribe(fn) {
   let last = getItems();
   return store.subscribe(() => {
@@ -222,12 +236,6 @@ function kbd(text) {
 /** Day of the month as the template prints it: '05' (Mission Control) or '5' (Simple). */
 const dayOf = (key) => idx(Number(key.slice(8)));
 
-/** 'Mon 05 Oct' (+ year when it isn't the current one). */
-function shortDate(key, today) {
-  const year = key.slice(0, 4);
-  return `${WEEKDAYS_SHORT[L.weekdayOfKey(key)]} ${dayOf(key)} ${monthOf(key)}${year === today.slice(0, 4) ? '' : ` ${year}`}`;
-}
-
 /** '05 – 11 Oct 2026' | '28 Sep – 04 Oct 2026' | '29 Dec 2025 – 04 Jan 2026' */
 function rangeLabel(from, to) {
   const sameYear = from.slice(0, 4) === to.slice(0, 4);
@@ -243,73 +251,25 @@ function weekRelLabel(weeks) {
   return weeks < 0 ? `${-weeks} weeks ago` : `In ${weeks} weeks`;
 }
 
-/** [text, 'solid' | 'dashed' | ''] for the selected day's badge. */
-function dayBadge(day, isToday, future) {
-  if (!day.planned && day.active === 0 && !future) return ['No habits', 'dashed'];
-  if (!day.planned) return ['Rest day', 'dashed'];
-  if (future) return ['Planned', 'dashed'];
-  if (day.done === day.planned) return [isToday ? 'All complete' : 'Perfect day', 'solid'];
-  if (isToday) return [day.done ? `${day.planned - day.done} pending` : 'Standby', ''];
-  return [`${day.planned - day.done} missed`, ''];
+/** '12 – 18 Oct' | '28 Sep – 04 Oct': the bar's week, with the year only when it isn't this one. */
+function shortRange(from, to, today) {
+  const year = today.slice(0, 4);
+  if (from.slice(0, 4) !== year || to.slice(0, 4) !== year) return rangeLabel(from, to);
+  return `${dayOf(from)}${from.slice(5, 7) === to.slice(5, 7) ? '' : ` ${monthOf(from)}`} – ${dayOf(to)} ${monthOf(to)}`;
 }
 
-function dayStatusLine(day, { isToday, future, perfect }) {
-  if (plainSkin()) return plainStatusLine(day, { isToday, future });
-  const left = day.planned - day.done;
-  if (!day.planned) {
-    if (future) return 'Nothing planned yet — a rest day, unless you give it a lineup.';
-    if (day.active === 0) return isToday ? 'No habit has started yet — plans begin on their start date.' : 'No habit was active on this day — nothing to track.';
-    if (day.bonus) return `Rest day — ${plural(day.bonus, 'bonus session')} logged. Streaks are safe.`;
-    return isToday ? 'Rest day. Nothing planned, streaks are safe. Recover, or log a bonus session below.' : 'Rest day — nothing was planned.';
-  }
-  if (future) return `${plural(day.planned, 'habit')} planned. Check-ins open on the day.`;
-  if (isToday) {
-    if (!left) return perfect > 1 ? `Every protocol executed. Perfect-day streak extended to ${perfect}.` : 'Every protocol executed. Perfect day secured.';
-    if (!day.done) return `${plural(day.planned, 'protocol')} queued for today. Start with the easiest one.`;
-    return perfect ? `${left} to go — finish to extend your ${perfect}-day perfect run.` : `${left} to go — keep the chain alive.`;
-  }
-  if (!left) return 'Perfect day — every planned habit was done.';
-  return `${day.done} of ${day.planned} done, ${left} missed. Check one off below to correct the record.`;
-}
-
-/** Simple's wording for the selected day: everyday words, no streak maths. */
-function plainStatusLine(day, { isToday, future }) {
-  const left = day.planned - day.done;
-  if (!day.planned) {
-    if (day.active === 0) return future ? 'Nothing planned for this day.' : 'No habits yet on this day.';
-    if (future) return 'Nothing planned for this day.';
-    if (day.bonus) return 'A rest day, with an extra check-in.';
-    return isToday ? 'Nothing planned today. Enjoy the rest.' : 'Nothing was planned this day.';
-  }
-  if (future) return 'You can check these off on the day.';
-  if (isToday) {
-    if (!left) return 'All done for today. Nice work!';
-    if (!day.done) return 'Tick a habit below once you have done it.';
-    return `${left} to go.`;
-  }
-  return left ? 'You can still tick off a missed habit below.' : 'Everything was done this day.';
-}
-
-/** Simple's headline for the selected day: "2 of 5 done today". */
-function plainDayTitle(day, key, today) {
-  const isToday = key === today;
-  const when = isToday ? 'today' : `on ${shortDate(key, today)}`;
-  if (!day.planned) return day.active === 0 && key <= today ? `No habits ${when}` : `Rest day ${when}`;
-  if (key > today) return `${plural(day.planned, 'habit')} planned ${when}`;
-  return `${day.done} of ${day.planned} done ${when}`;
-}
-
-/** Card state line for the selected day. */
-function stateLine(hb, status, { key, today }) {
-  const fresh = hb.createdAt === key ? 'New · ' : '';
-  if (status === 'done') return `${fresh}${key === today ? 'Complete today' : `Done · ${formatDay(key)}`}`;
-  if (status === 'pending') return `${fresh}Due today`;
-  if (status === 'miss') return `${fresh}Missed · ${formatDay(key)}`;
-  if (status === 'future') return `${fresh}Planned · ${relativeDay(key, today)}`;
-  return STATE_COPY[status] ?? '';
+/** 'Saturday 17 Oct' (+ year when it isn't the current one). */
+function longDate(key, today) {
+  const year = key.slice(0, 4);
+  return `${WEEKDAYS_LONG[L.weekdayOfKey(key)]} ${dayOf(key)} ${monthOf(key)}${year === today.slice(0, 4) ? '' : ` ${year}`}`;
 }
 
 const cellCopy = (d) => (d.state === 'future' ? (d.scheduled ? 'Planned' : 'Not planned') : STATE_COPY[d.state]);
+
+/** Text that only changes when it differs: a live region re-reads a rewrite, even of the same words. */
+function setText(el, text) {
+  if (el.textContent !== text) el.textContent = text;
+}
 
 /** Run a sibling module's mount without letting its crash take the page down. */
 function guard(name, fn, fallbackEl) {
@@ -344,8 +304,8 @@ function mount(root) {
   let lastToday = todayKey();
   const timers = new Set();
   const n = nextId('hb');
-  // notPlannedOpen: null = automatic (open only on a day with nothing planned)
-  const ui = { key: lastToday, followToday: true, notPlannedOpen: null };
+  // key: the selected day (the week shown, the day listed); it follows today until moved
+  const ui = { key: lastToday, followToday: true };
 
   const later = (fn, ms) => {
     const t = setTimeout(() => {
@@ -537,10 +497,10 @@ function mount(root) {
     if (hb) insertCopy(habitSnapshot(hb), id, { verb: 'Duplicated', naming: copyName });
   }
 
-  /** The right-click menu: a Today card, a not-planned row, a Week plan row, or anywhere else (paste at the end). */
+  /** The right-click menu: a habit's row in any overview or the Week plan, or anywhere else (paste at the end). */
   function contextTarget(el) {
     if (!mounted || !root.contains(el)) return null;
-    const itemEl = el.closest('.hb-card[data-id], .hb-np-row[data-id], .hb-plan-row[data-id]');
+    const itemEl = el.closest('.hb-mx-row[data-id], .hb-row[data-id], .hb-plan-row[data-id]');
     const hb = itemEl ? findHabit(itemEl.dataset.id) : null;
     const afterId = hb?.id ?? null;
     const paste = { accepts: ['habit'], paste: (c) => insertCopy(c.snapshot, afterId) };
@@ -562,11 +522,9 @@ function mount(root) {
     };
   }
 
-  /** Move by `delta`, counted among `visible` ids when given (the Today list or the plan rows). */
+  /** Move by `delta`, counted among `visible` ids when given (the rows on screen). */
   function move(id, delta, visible = null) {
-    todayView?.prepareFlip();
     updateItems((items) => L.moveHabitWithin(items, id, delta, visible ?? undefined));
-    todayView?.cancelFlip();
   }
 
   function openEditor(id = null, { weekday = null, draft = null } = {}) {
@@ -597,6 +555,13 @@ function mount(root) {
     todayView?.render();
   }
 
+  /** Switch the Today tab's overview, and show `key` in it when given (a day, or a day of a week). */
+  function show(view, key = null) {
+    if (key) select(key);
+    setView(view);
+    todayView?.focusView();
+  }
+
   /** A removed row takes focus with it; land on the page's primary action instead of <body>. */
   function refocus() {
     if (mounted && !root.contains(document.activeElement)) addBtn.focus({ preventScroll: true });
@@ -618,9 +583,10 @@ function mount(root) {
     archive,
     unarchive,
     remove,
+    duplicate,
     move,
   };
-  const ctx = { actions, ui, later, select };
+  const ctx = { actions, ui, later, select, show };
 
   /* ---- Layout: header, pinned LIFE-index chart, tab bar, tab panel ---- */
 
@@ -635,10 +601,12 @@ function mount(root) {
     index: '04',
     title: 'Habits',
     subtitle: term('habits.subtitle', 'Plan each weekday. Check in daily. Watch your LIFE index compound.'),
+    tipId: 'habits.intro',
     actions: [addBtn],
   });
 
-  // The LIFE index is a trading readout: Simple leaves it out (.lo-deco), the tabs below do everything
+  // The LIFE index is a trading readout: Simple leaves it out (.lo-deco), the tabs do everything.
+  // It sits under the tabs' content, so your habits come first on the screen.
   const chartSlot = h('div', { class: 'hb-chart-slot lo-deco' });
 
   const panelId = `${n}-panel`;
@@ -665,7 +633,7 @@ function mount(root) {
   const tablist = h('div', { class: 'seg hb-tabs', role: 'tablist', 'aria-label': 'Habits views', onKeydown: onTabKey }, tabEls.map((t) => t.btn));
   const panel = h('div', { class: 'hb-panel', id: panelId, role: 'tabpanel' });
 
-  root.append(header, chartSlot, tablist, panel);
+  root.append(header, tablist, panel, chartSlot);
 
   /* ---- Tabs ---- */
 
@@ -731,10 +699,24 @@ function mount(root) {
 
   function onKey(e) {
     if (e.defaultPrevented || e.repeat || e.metaKey || e.ctrlKey || e.altKey) return;
-    if (isTyping(e) || modalOpen()) return;
+    if (isTyping(e) || modalOpen() || menuOpen()) return;
     if (e.key === 'n' || e.key === 'N') {
       e.preventDefault();
       openEditor();
+      return;
+    }
+    // Today tab: D · W · H pick the overview, T goes back to today, ← → move a week
+    if (activeTab !== 'today' || !todayView || e.shiftKey) return;
+    const key = e.key.toLowerCase();
+    if (VIEW_KEYS[key]) {
+      e.preventDefault();
+      show(VIEW_KEYS[key]);
+    } else if (key === 't') {
+      e.preventDefault();
+      select(todayKey());
+    } else if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && viewOf(getState()) !== 'history') {
+      e.preventDefault();
+      select(L.fromDayNum(L.toDayNum(ui.key) + (e.key === 'ArrowLeft' ? -7 : 7)));
     }
   }
 
@@ -764,28 +746,22 @@ function mount(root) {
 }
 
 /* ==========================================================================
-   TODAY tab — day selector + progress, the selected day's habits, the rest
+   TODAY tab — one slim bar (week, back to today, the overview), then one overview:
+   WEEK   every habit × the seven days, a tap ticks a day (the default)
+   DAY    one day as a list: what was planned first, then the rest (bonus ticks)
+   HISTORY every habit × the last weeks, shaded by how much of each week got done
    ========================================================================== */
 
 function createTodayView(ctx) {
-  const { actions, ui } = ctx;
-  const cards = new Map();
-  let visible = [];
-  let lastKey = null;
-  let flipFrom = null;
-  let emptySig = '';
-  let firstRunSig = '';
-
-  const dayConsole = createConsole(ctx);
-  const toolbar = createToolbar();
-  const grid = h('ul', { class: 'hb-grid', 'aria-label': 'Habits planned for the selected day' });
-  const dayEmpty = h('div', { class: 'hb-day-empty' });
-  const notPlanned = createNotPlanned(ctx);
-  const main = h('div', { class: 'hb-today' }, dayConsole.el, toolbar.el, grid, dayEmpty, notPlanned.el);
+  const { ui } = ctx;
+  // "Today" hides itself once pressed: focus goes on to today in the overview
+  const bar = createBar(ctx, { onToday: () => shown?.focusStart() });
+  const views = { week: createWeekView(ctx), day: createDayView(ctx), history: createHistoryView(ctx) };
+  const main = h('div', { class: 'hb-today' }, bar.el, views.week.el, views.day.el, views.history.el);
   const firstRun = h('div', { class: 'hb-empty', hidden: true });
   const el = h('div', { class: 'hb-today-wrap' }, main, firstRun);
-
-  const moveCard = (id, delta) => actions.move(id, delta, visible);
+  let firstRunSig = '';
+  let shown = null;
 
   function render() {
     const today = todayKey();
@@ -801,7 +777,6 @@ function createTodayView(ctx) {
         firstRunSig = sig;
         firstRun.replaceChildren(...buildFirstRun(ctx, items.length));
       }
-      clearCards();
       return;
     }
     if (firstRunSig) {
@@ -809,242 +784,497 @@ function createTodayView(ctx) {
       firstRun.replaceChildren();
     }
 
-    const key = ui.key;
-    const view = cardViewOf(state);
-    const week = L.weekDays(key);
-    const series = S.dailySeries(items, week[0], week[6], today);
-    const dayHabits = L.habitsForDay(items, key);
-    visible = dayHabits.map((it) => it.id);
-
-    const day = series[week.indexOf(key)];
-    dayConsole.update({ items, today, key, series, day });
-    toolbar.update(view, dayHabits.length);
-    paintCards(dayHabits, { today, key, week, view });
-    paintDayEmpty(key, today, dayHabits.length ? null : day);
-    notPlanned.update(items, key, today, new Set(visible));
-    lastKey = key;
-  }
-
-  function paintCards(list, c) {
+    const view = viewOf(state);
+    bar.update({ key: ui.key, today, view });
+    for (const [name, v] of Object.entries(views)) v.el.hidden = name !== view;
+    shown = views[view];
+    // Rows move in the DOM when the order changes, which drops focus: put it back.
     const active = document.activeElement;
-    const before = flipFrom;
-    const stagger = lastKey === null || lastKey !== c.key;
-    flipFrom = null;
-
-    const ids = new Set(list.map((it) => it.id));
-    for (const [id, card] of cards) {
-      if (ids.has(id)) continue;
-      card.el.remove();
-      cards.delete(id);
-    }
-    list.forEach((it, i) => {
-      let card = cards.get(it.id);
-      if (!card) {
-        card = createCard(ctx, it.id, moveCard);
-        card.enter(stagger ? i : 0);
-        cards.set(it.id, card);
-      }
-      card.update(it, { ...c, index: i, count: list.length });
-      if (grid.children[i] !== card.el) grid.insertBefore(card.el, grid.children[i] ?? null);
-    });
-
-    if (before) flip(before);
-    // Moving a card in the DOM drops focus; put it back where the user was.
+    shown.update({ items, today, key: ui.key });
     if (active instanceof HTMLElement && active !== document.activeElement && active.isConnected) active.focus({ preventScroll: true });
-  }
-
-  function clearCards() {
-    cards.forEach((card) => card.el.remove());
-    cards.clear();
-  }
-
-  /** FLIP: slide cards from their old position to the new one. */
-  function flip(before) {
-    if (reducedMotion()) return;
-    for (const [id, card] of cards) {
-      const a = before.get(id);
-      if (!a || typeof card.el.animate !== 'function') continue;
-      const b = card.el.getBoundingClientRect();
-      const dx = a.left - b.left;
-      const dy = a.top - b.top;
-      if (!dx && !dy) continue;
-      card.el.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'none' }], { duration: 340, easing: 'cubic-bezier(0.16, 1, 0.3, 1)' });
-    }
-  }
-
-  /** Empty-day state; `day` is the selected day's series entry, or null when it has habits. */
-  function paintDayEmpty(key, today, day) {
-    dayEmpty.hidden = !day;
-    const past = key < today;
-    const idle = past && day?.active === 0; // before the first habit, or after all were archived
-    const sig = day ? `${key}|${past}|${idle}` : '';
-    if (sig === emptySig) return;
-    emptySig = sig;
-    if (!day) {
-      dayEmpty.replaceChildren();
-      return;
-    }
-    const wd = L.weekdayOfKey(key);
-    const name = WEEKDAYS_LONG[wd];
-    const text = idle
-      ? `No habit was active on ${formatDay(key)} — nothing to track. Plans you add now apply from today.`
-      : past
-        ? `No habits were planned on ${formatDay(key)}, so it counted as a rest day. Plans you add now apply from today.`
-        : `Enjoy the rest — or give ${name}s a lineup of their own.`;
-    dayEmpty.replaceChildren(
-      emptyState({
-        icon: 'calendar',
-        title: `Nothing planned for ${name}`,
-        text,
-        action: h(
-          'div',
-          { class: 'hb-day-empty-actions' },
-          h('button', { type: 'button', class: 'btn btn--primary btn--sm', onClick: () => actions.openEditor(null, { weekday: wd }) }, icon('plus', { size: 14 }), `Add habit to ${name}`),
-          h('button', { type: 'button', class: 'btn btn--sm', onClick: () => actions.openTab('plan') }, icon('calendar', { size: 14 }), 'Open week plan'),
-        ),
-      }),
-    );
   }
 
   return {
     el,
     render,
-    reveal(id) {
-      const card = cards.get(id);
-      if (!card) return;
-      card.el.scrollIntoView({ block: 'nearest' });
-      card.focusCheck();
-    },
-    /** The control the user just used went away: follow the habit to its card, else stay in the list. */
+    /** A new or pasted habit: bring its row into view and focus it. */
+    reveal: (id) => shown?.focusHabit(id),
+    /** The control the user just used went away: follow the habit to its row. */
     handoff(id) {
-      if (el.contains(document.activeElement)) return;
-      const card = cards.get(id);
-      if (card) {
-        card.el.scrollIntoView({ block: 'nearest' });
-        card.focusMain();
-      } else {
-        notPlanned.focus();
-      }
+      if (!el.contains(document.activeElement)) shown?.focusHabit(id);
     },
-    pop: (id, key) => cards.get(id)?.pop(key),
-    celebrate: () => dayConsole.celebrate(),
-    prepareFlip() {
-      flipFrom = new Map([...cards].map(([id, card]) => [id, card.el.getBoundingClientRect()]));
+    /** After switching the overview: focus lands in the new one, not on <body>. */
+    focusView() {
+      if (!el.contains(document.activeElement) || document.activeElement.closest('[hidden]')) shown?.focusStart();
     },
-    cancelFlip() {
-      flipFrom = null;
-    },
-    destroy: () => dayConsole.destroy(),
+    pop: (id, key) => shown?.pop(id, key),
+    celebrate: () => shown?.celebrate(),
+    destroy() {},
   };
 }
 
-/* ---- Day console: week navigation, day selector strip, selected-day progress ---- */
+/* ---- The bar: ‹ week › · Today · the overview menu ---- */
 
-function createConsole(ctx) {
-  const { ui, actions, later } = ctx;
-
+function createBar(ctx, { onToday }) {
+  const { ui } = ctx;
   const step = (days) => ctx.select(L.fromDayNum(L.toDayNum(ui.key) + days));
-  const rangeEl = h('span', { class: 'label tnum hb-week-range' });
-  const relEl = h('span', { class: 'tag hb-week-rel' });
-  const prevBtn = h('button', { type: 'button', class: 'btn btn--ghost btn--icon btn--sm hb-week-step', 'aria-label': 'Previous week', title: 'Previous week', onClick: () => step(-7) }, icon('chevron-left'));
-  const nextBtn = h('button', { type: 'button', class: 'btn btn--ghost btn--icon btn--sm hb-week-step', 'aria-label': 'Next week', title: 'Next week', onClick: () => step(7) }, icon('chevron-right'));
+  const prevBtn = h('button', { type: 'button', class: 'btn btn--ghost btn--icon btn--sm hb-bar-step', 'aria-label': 'Previous week', title: 'Previous week (←)', onClick: () => step(-7) }, icon('chevron-left'));
+  const nextBtn = h('button', { type: 'button', class: 'btn btn--ghost btn--icon btn--sm hb-bar-step', 'aria-label': 'Next week', title: 'Next week (→)', onClick: () => step(7) }, icon('chevron-right'));
+  const rangeEl = h('span', { class: 'hb-bar-range tnum' });
+  const relEl = h('span', { class: 'tag hb-bar-rel' });
   const todayBtn = h(
     'button',
     {
       type: 'button',
-      class: 'btn btn--sm hb-week-today',
+      class: 'btn btn--sm hb-bar-today',
+      // Phones show the icon only, so the name can't come from the hidden word
+      'aria-label': 'Back to today',
+      'aria-keyshortcuts': 'T',
+      title: 'Back to today (T)',
       onClick: () => {
         ctx.select(todayKey());
-        focusSelected();
+        onToday();
       },
     },
     icon('target', { size: 14 }),
-    'Today',
+    h('span', null, 'Today'),
+  );
+  const viewMenu = dropdown({ items: VIEW_ITEMS, value: 'week', align: 'end', className: 'hb-view-dd', title: 'Overview (D · W · H)', onSelect: (v) => ctx.show(v) });
+  const el = h(
+    'div',
+    { class: 'hb-bar' },
+    prevBtn,
+    h('div', { class: 'hb-bar-when', 'aria-live': 'polite' }, rangeEl, relEl),
+    nextBtn,
+    todayBtn,
+    h('span', { class: 'spacer' }),
+    viewMenu.el,
   );
 
-  const days = Array.from({ length: 7 }, () => {
-    const d = { key: null, segs: -1 };
-    d.wd = h('span', { class: 'hb-sel-wd' });
-    d.date = h('span', { class: 'hb-sel-date mono tnum' });
-    d.meter = h('span', { class: 'hb-sel-meter', 'aria-hidden': 'true' });
-    d.count = h('span', { class: 'hb-sel-count mono tnum lo-deco' });
-    d.btn = h('button', { type: 'button', role: 'radio', class: 'hb-sel', tabindex: '-1', 'aria-checked': 'false', onClick: () => ctx.select(d.key) }, d.wd, d.date, d.meter, d.count);
-    return d;
-  });
-  const strip = h('div', { class: 'hb-sel-strip', role: 'radiogroup', 'aria-label': 'Day', onKeydown: onStripKey }, days.map((d) => d.btn));
-
-  /* -- progress: compact ring + readouts for the selected day -- */
-
-  const ringEl = ring({ value: 0, size: 84, stroke: 4 });
-  // Size is driven by CSS so the dial can shrink on phones.
-  ringEl.style.width = '';
-  ringEl.style.height = '';
-  ringEl.classList.add('hb-ring');
-  const fracDone = h('span', { class: 'hb-ring-done' });
-  const fracSlash = h('span', { class: 'hb-ring-slash' }, '/');
-  const fracTotal = h('span', { class: 'hb-ring-total' });
-  const ringSub = h('span', { class: 'hb-ring-sub lo-deco' });
-  ringEl.setLabel(h('div', { class: 'hb-ring-readout' }, h('div', { class: 'hb-ring-frac mono tnum' }, fracDone, fracSlash, fracTotal), ringSub));
-
-  // ring() animates to its initial value on the next frame; apply ours one frame
-  // later so the fill sweeps in from zero.
-  let ringValue = 0;
-  let ringLive = false;
-  requestAnimationFrame(() =>
-    requestAnimationFrame(() => {
-      ringLive = true;
-      ringEl.setValue(ringValue);
-    }),
-  );
-
-  const dial = h('div', { class: 'hb-dial', role: 'img' }, h('span', { class: 'hb-dial-ticks', 'aria-hidden': 'true' }), ringEl);
-  const titleEl = h('h2', { class: 'hb-dayline label tnum' });
-  const badgeEl = h('span', { class: 'tag hb-day-badge lo-deco' });
-  const addLabel = h('span');
-  const addBtn = h('button', { type: 'button', class: 'btn btn--sm hb-day-add', onClick: () => actions.openEditor(null, { weekday: L.weekdayOfKey(ui.key) }) }, icon('plus', { size: 14 }), addLabel);
-  const statusEl = h('p', { class: 'hb-status', 'aria-live': 'polite' });
-
-  const readout = (label) => {
-    const value = h('dd', { class: 'hb-readout-value mono tnum' });
-    const sub = h('dd', { class: 'hb-readout-sub' });
-    return { el: h('div', { class: 'hb-readout' }, h('dt', { class: 'label' }, label), value, sub), value, sub };
+  return {
+    el,
+    update({ key, today, view }) {
+      const history = view === 'history';
+      prevBtn.hidden = history;
+      nextBtn.hidden = history;
+      relEl.hidden = history;
+      // Every check-in repaints the bar; the live week label only speaks when the week changes
+      if (history) {
+        setText(rangeEl, `Last ${L.HISTORY_WEEKS} weeks`);
+      } else {
+        const week = L.weekDays(key);
+        const weeks = Math.round((L.toDayNum(week[0]) - L.toDayNum(L.weekStart(today))) / 7);
+        setText(rangeEl, shortRange(week[0], week[6], today));
+        setText(relEl, weekRelLabel(weeks));
+        relEl.classList.toggle('tag--solid', weeks === 0);
+      }
+      // Only while away from today (History always ends with this week)
+      todayBtn.hidden = history || key === today;
+      viewMenu.update({ value: view });
+      const label = VIEW_ITEMS.find((v) => v.value === view)?.label ?? '';
+      viewMenu.button.setAttribute('aria-label', `Overview: ${label}`);
+    },
   };
-  const rPerfect = readout('Perfect days');
-  const rTop = readout('Top streak');
-  const rRate = readout('30-day rate');
-  const rateTicks = Array.from({ length: 10 }, () => h('span', { class: 'meter-tick' }));
-  rRate.el.append(h('dd', { class: 'hb-readout-meter', 'aria-hidden': 'true' }, h('div', { class: 'meter' }, rateTicks)));
+}
 
-  const cycleTicks = Array.from({ length: 24 }, () => h('span', { class: 'meter-tick' }));
-  const cycleLeft = h('span', { class: 'label tnum hb-cycle-left' });
-  const cycle = h('div', { class: 'hb-cycle lo-deco' }, h('span', { class: 'label' }, 'Day cycle'), h('div', { class: 'meter hb-cycle-meter', 'aria-hidden': 'true' }, cycleTicks), cycleLeft);
+/* ---- Small readout: a ring and done / planned for one day ---- */
 
+function createReadout(ctx) {
+  const ringEl = ring({ value: 0, size: 22, stroke: 3 });
+  ringEl.classList.add('hb-ro-ring');
+  const frac = h('span', { class: 'hb-ro-frac mono tnum' });
+  const cap = h('span', { class: 'hb-ro-cap label' });
+  const el = h('div', { class: 'hb-ro', role: 'img' }, ringEl, h('span', { class: 'hb-ro-text', 'aria-hidden': 'true' }, frac, cap));
+  return {
+    el,
+    /** `day`: the day's habits.stats dailySeries entry. */
+    update(day, key, today) {
+      const future = key > today;
+      const complete = !!day.planned && !future && day.done === day.planned;
+      ringEl.setValue(!day.planned || future ? 0 : day.done / day.planned);
+      frac.textContent = !day.planned ? '—' : future ? String(day.planned) : `${day.done}/${day.planned}`;
+      cap.textContent = key === today ? 'Today' : `${WEEKDAYS_SHORT[day.weekday]} ${dayOf(key)}`;
+      const counts = !day.planned ? 'nothing planned' : future ? `${plural(day.planned, 'habit')} planned` : `${day.done} of ${day.planned} done`;
+      const label = `${key === today ? 'Today' : formatDay(key)}: ${counts}`;
+      el.setAttribute('aria-label', label);
+      el.title = label;
+      el.classList.toggle('is-complete', complete);
+      el.classList.toggle('is-rest', !day.planned);
+    },
+    celebrate() {
+      replay(el, 'is-celebrating');
+      ctx.later(() => el.classList.remove('is-celebrating'), 1600);
+    },
+  };
+}
+
+/* ---- Shared by the week and history tables ---- */
+
+/** Name button (opens the editor) + streak, for a habit's row header. */
+function createRowHead(ctx, id) {
+  const nameText = h('span', { class: 'hb-mx-name-text' });
+  const sub = h('span', { class: 'hb-mx-sub label' });
+  const name = h('button', { type: 'button', class: 'hb-mx-name', onClick: () => ctx.actions.openEditor(id) }, nameText, sub);
+  const streakNum = h('span');
+  const streak = h('span', { class: 'hb-mx-streak tnum' }, icon('flame', { size: 12 }), h('span', { class: 'sr-only' }, 'streak '), streakNum);
+  const th = h('th', { scope: 'row', class: 'hb-mx-rowhead' }, h('div', { class: 'hb-mx-rowin' }, name, streak));
+  return {
+    th,
+    name,
+    update(hb, today, archived) {
+      const s = L.currentStreak(hb, today);
+      nameText.textContent = hb.name;
+      sub.textContent = archived
+        ? `Archived ${formatDay(hb.archivedAt)}`
+        : hb.createdAt > today
+          ? `Starts ${formatDay(hb.createdAt)}`
+          : L.scheduleLabel(L.planOn(hb, today));
+      name.title = `${hb.name} · ${sub.textContent} — edit (${ALT_KEY} ↑ ↓ reorders)`;
+      name.setAttribute('aria-label', `${hb.name}${archived ? ' (archived)' : ''}, edit`);
+      streak.hidden = s === 0;
+      streakNum.textContent = num(s);
+      streak.title = `${plural(s, 'day')} in a row`;
+    },
+  };
+}
+
+/**
+ * Keyboard for a table of habit rows × columns of buttons: one tab stop that the arrow keys
+ * move (Home / End: first / last column), and Alt + ↑ ↓ (anywhere in a row) reorders the habit.
+ */
+function gridNav({ ids, cellsOf, onMove }) {
+  let cursor = { id: null, col: 0 };
+
+  function sync() {
+    const order = ids();
+    if (!order.includes(cursor.id)) cursor = { id: order[0] ?? null, col: cursor.col };
+    for (const id of order) cellsOf(id).forEach((btn, col) => (btn.tabIndex = id === cursor.id && col === cursor.col ? 0 : -1));
+  }
+
+  function focus(id, col) {
+    const cells = cellsOf(id);
+    if (!cells.length) return;
+    cursor = { id, col: clamp(col, 0, cells.length - 1) };
+    sync();
+    cells[cursor.col].focus();
+  }
+
+  function onKeydown(e) {
+    const tr = e.target instanceof Element ? e.target.closest('tr[data-id]') : null;
+    const order = ids();
+    if (!tr || !order.includes(tr.dataset.id)) return;
+    const id = tr.dataset.id;
+    if (e.altKey && !e.metaKey && !e.ctrlKey && !e.shiftKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+      e.preventDefault();
+      onMove(id, e.key === 'ArrowUp' ? -1 : 1);
+      return;
+    }
+    const btn = e.target.closest('button[data-col]');
+    if (!btn || e.altKey || e.metaKey || e.ctrlKey) return;
+    let row = order.indexOf(id);
+    let col = Number(btn.dataset.col);
+    if (e.key === 'ArrowLeft') col--;
+    else if (e.key === 'ArrowRight') col++;
+    else if (e.key === 'ArrowUp') row--;
+    else if (e.key === 'ArrowDown') row++;
+    else if (e.key === 'Home') col = 0;
+    else if (e.key === 'End') col = Infinity;
+    else return;
+    e.preventDefault();
+    focus(order[clamp(row, 0, order.length - 1)], col);
+  }
+
+  return {
+    sync,
+    focus,
+    onKeydown,
+    onFocus(id, col) {
+      cursor = { id, col };
+      sync();
+    },
+    /** Tabbing in lands on column `col` (e.g. the selected day); call it while focus is elsewhere. */
+    park(col) {
+      cursor = { id: cursor.id, col };
+    },
+  };
+}
+
+/** Keep `tbody`'s rows (from `rows`, keyed by habit id) in the order of `ids`; drop the others. */
+function placeRows(tbody, rows, ids) {
+  const keep = new Set(ids);
+  for (const [id, row] of rows) {
+    if (keep.has(id)) continue;
+    row.tr.remove();
+    rows.delete(id);
+  }
+  ids.forEach((id, i) => {
+    const tr = rows.get(id).tr;
+    if (tbody.children[i] !== tr) tbody.insertBefore(tr, tbody.children[i] ?? null);
+  });
+}
+
+/**
+ * What the week matrix's squares mean: one quiet line under the table (it costs no room above it).
+ * Short words ("Off", as in the Week plan) keep it to one line on a phone.
+ */
+function weekLegend() {
+  const sw = (state, text) => h('span', { class: 'hb-legend-item label' }, h('span', { class: 'hb-swatch', dataset: { s: state } }), text);
+  return h('div', { class: 'hb-legend hb-mx-legend', 'aria-hidden': 'true' }, sw('done', 'Done'), sw('miss', 'Missed'), sw('planned', 'Planned'), sw('rest', 'Off'), sw('bonus', 'Bonus'));
+}
+
+/* ---- WEEK: habits × Mon … Sun ---- */
+
+function createWeekView(ctx) {
+  const { actions, ui } = ctx;
+  const rows = new Map();
+  let order = []; // habit ids, top to bottom
+  let week = [];
+  const nav = gridNav({ ids: () => order, cellsOf: (id) => rows.get(id)?.cells.map((c) => c.btn) ?? [], onMove: (id, delta) => actions.move(id, delta, order) });
+
+  const readout = createReadout(ctx);
+  const heads = Array.from({ length: 7 }, (_, col) => {
+    const wd = h('span', { class: 'hb-mx-wd' });
+    const date = h('span', { class: 'hb-mx-date tnum' });
+    const btn = h('button', { type: 'button', class: 'hb-mx-colbtn', onClick: () => ctx.show('day', week[col]) }, wd, date);
+    return { th: h('th', { scope: 'col', class: 'hb-mx-th' }, btn), btn, wd, date };
+  });
+  const tbody = h('tbody');
+  const table = h(
+    'table',
+    { class: 'hb-mx', onKeydown: nav.onKeydown },
+    h('colgroup', null, h('col', { class: 'hb-mx-namecol' }), heads.map(() => h('col')), h('col', { class: 'hb-mx-sumcol' })),
+    h(
+      'thead',
+      null,
+      h('tr', null, h('th', { scope: 'col', class: 'hb-mx-corner' }, readout.el), heads.map((c) => c.th), h('th', { scope: 'col', class: 'hb-mx-sumth' }, h('span', { class: 'label' }, 'Week'))),
+    ),
+    tbody,
+  );
   const el = h(
     'section',
-    { class: 'panel hud hb-console', 'aria-label': 'Day selector and progress' },
-    h('div', { class: 'hb-weeknav' }, prevBtn, h('div', { class: 'hb-week-meta' }, rangeEl, relEl), nextBtn, h('span', { class: 'spacer' }), todayBtn),
-    strip,
-    h(
-      'div',
-      { class: 'hb-dayhead' },
-      dial,
-      h(
-        'div',
-        { class: 'hb-dayhead-main' },
-        h('div', { class: 'hb-dayhead-top' }, titleEl, badgeEl, addBtn),
-        statusEl,
-        h('dl', { class: 'hb-readouts lo-deco' }, rPerfect.el, rTop.el, rRate.el),
-        cycle,
-      ),
-    ),
+    { class: 'hb-view hb-week', 'aria-label': 'Week' },
+    tip({ id: 'habits.legend', className: 'hb-tip', text: 'Tap a square to tick that day off.' }),
+    h('div', { class: 'panel hud hb-mx-panel' }, h('div', { class: 'hb-mx-scroll' }, table), weekLegend()),
   );
+
+  function createRow(id) {
+    const head = createRowHead(ctx, id);
+    const cells = Array.from({ length: 7 }, (_, col) => {
+      const btn = h(
+        'button',
+        {
+          type: 'button',
+          class: 'hb-day hb-mx-cell',
+          tabindex: '-1',
+          dataset: { col: String(col) },
+          onClick: () => onCell(id, col),
+          onFocus: () => nav.onFocus(id, col),
+        },
+        icon('check', { size: 14, stroke: 2.5 }),
+      );
+      return { btn, td: h('td', { class: 'hb-mx-td' }, btn), data: null };
+    });
+    const sum = h('td', { class: 'hb-mx-sum mono tnum' });
+    const tr = h('tr', { class: 'hb-mx-row', dataset: { id } }, head.th, cells.map((c) => c.td), sum);
+    return { tr, head, cells, sum };
+  }
+
+  function onCell(id, col) {
+    const d = rows.get(id)?.cells[col].data;
+    if (!d || !LOGGABLE.has(d.state)) return;
+    actions.log(id, d.key, !L.isLogged(d.state));
+  }
+
+  function paintRow(row, r, { today, key }) {
+    const hb = r.habit;
+    row.head.update(hb, today, r.archived);
+    row.tr.classList.toggle('is-archived', r.archived);
+    r.cells.forEach((d, col) => {
+      const c = row.cells[col];
+      const isToday = d.key === today;
+      const when = `${formatDay(d.key)}${isToday ? ' (today)' : ''}`;
+      const copy = cellCopy(d);
+      c.data = d;
+      c.btn.dataset.state = d.state;
+      c.btn.dataset.planned = String(d.scheduled);
+      c.btn.setAttribute('aria-pressed', String(L.isLogged(d.state)));
+      c.btn.setAttribute('aria-disabled', String(!LOGGABLE.has(d.state)));
+      c.btn.setAttribute('aria-label', `${hb.name}, ${when}: ${copy}`);
+      c.btn.title = `${hb.name} · ${when} · ${copy}`;
+      c.td.classList.toggle('is-today', isToday);
+      c.td.classList.toggle('is-selected', d.key === key && !isToday);
+    });
+    row.sum.textContent = r.due ? `${r.done}/${r.due}` : '—';
+    row.sum.title = r.due ? `${r.done} of ${r.due} planned days done this week so far` : 'Nothing due yet this week';
+  }
+
+  function paintHeads(series, key, today) {
+    series.forEach((d, i) => {
+      const hd = heads[i];
+      const isToday = d.key === today;
+      const counts = !d.planned ? 'nothing planned' : d.future ? `${plural(d.planned, 'habit')} planned` : `${d.done} of ${d.planned} done`;
+      hd.wd.textContent = WEEKDAYS_SHORT[d.weekday];
+      hd.date.textContent = dayOf(d.key);
+      hd.th.classList.toggle('is-today', isToday);
+      hd.th.classList.toggle('is-selected', d.key === key && !isToday);
+      hd.th.classList.toggle('is-perfect', !d.future && !d.pending && d.planned > 0 && d.done === d.planned);
+      hd.btn.setAttribute('aria-label', `${formatDay(d.key, 'long')}${isToday ? ', today' : ''}: ${counts}. Show as a list`);
+      hd.btn.title = `${formatDay(d.key)} · ${counts} — show as a list`;
+    });
+  }
+
+  return {
+    el,
+    update({ items, today, key }) {
+      week = L.weekDays(key);
+      const series = S.dailySeries(items, week[0], week[6], today);
+      paintHeads(series, key, today);
+      readout.update(series[week.indexOf(key)], key, today);
+      table.setAttribute('aria-label', `Habits, week of ${formatDay(week[0])}`);
+      const list = L.weekRows(items, key, today);
+      for (const r of list) {
+        let row = rows.get(r.habit.id);
+        if (!row) {
+          row = createRow(r.habit.id);
+          rows.set(r.habit.id, row);
+        }
+        paintRow(row, r, { today, key });
+      }
+      order = list.map((r) => r.habit.id);
+      placeRows(tbody, rows, order);
+      if (!table.contains(document.activeElement)) nav.park(Math.max(0, week.indexOf(key)));
+      nav.sync();
+    },
+    focusHabit(id) {
+      const row = rows.get(id);
+      if (!row) return;
+      row.tr.scrollIntoView({ block: 'nearest' });
+      const col = week.indexOf(todayKey());
+      if (col >= 0) nav.focus(id, col);
+      else row.head.name.focus();
+    },
+    focusStart() {
+      const first = order[0];
+      if (first) nav.focus(first, Math.max(0, week.indexOf(ui.key)));
+    },
+    pop(id, key) {
+      const cell = rows.get(id)?.cells.find((c) => c.data?.key === key);
+      if (!cell) return;
+      replay(cell.btn, 'is-popping');
+      ctx.later(() => cell.btn.classList.remove('is-popping'), 600);
+    },
+    celebrate: () => readout.celebrate(),
+  };
+}
+
+/* ---- DAY: a strip of the week's days, then the day's habits as a list ---- */
+
+function createDayView(ctx) {
+  const { actions, ui } = ctx;
+  const strip = createDayStrip(ctx);
+  const readout = createReadout(ctx);
+  const rows = new Map(); // id -> row (one per habit, moved between the two lists)
+  let groups = { planned: [], other: [] }; // ids per list, top to bottom
+
+  const titleEl = h('h2', { class: 'hb-dl-title' });
+  const addLabel = h('span');
+  const addBtn = h('button', { type: 'button', class: 'btn btn--ghost btn--sm hb-dl-add', onClick: () => actions.openEditor(null, { weekday: L.weekdayOfKey(ui.key) }) }, icon('plus', { size: 14 }), addLabel);
+  const plannedList = h('ul', { class: 'hb-dl' });
+  const emptyEl = h('p', { class: 'hb-dl-empty' });
+  const otherTitle = h('h3', { class: 'label hb-dl-sub' });
+  const otherList = h('ul', { class: 'hb-dl is-other' });
+  const otherSec = h('section', { class: 'hb-dl-more' }, otherTitle, otherList);
+  const el = h(
+    'section',
+    { class: 'hb-view hb-dayview', 'aria-label': 'Day' },
+    tip({ id: 'habits.day', className: 'hb-tip', text: "Tick a habit once you've done it." }),
+    strip.el,
+    h('div', { class: 'panel hud hb-dl-panel' }, h('div', { class: 'hb-dl-head' }, readout.el, titleEl, h('span', { class: 'spacer' }), addBtn), plannedList, emptyEl, otherSec),
+  );
+
+  function fill(list, entries, group, c) {
+    const ids = entries.map((e) => e.habit.id);
+    entries.forEach((e, i) => {
+      let row = rows.get(e.habit.id);
+      if (!row) {
+        row = createDayRow(ctx, e.habit.id, (id, delta) => actions.move(id, delta, groups[rows.get(id)?.group] ?? null));
+        rows.set(e.habit.id, row);
+      }
+      row.group = group;
+      row.update(e, { ...c, group, index: i, count: entries.length });
+      if (list.children[i] !== row.li) list.insertBefore(row.li, list.children[i] ?? null);
+    });
+    // Rows that left this list (moved to the other one, or gone)
+    for (const li of [...list.children]) if (!ids.includes(li.dataset.id)) li.remove();
+    return ids;
+  }
+
+  return {
+    el,
+    update({ items, today, key }) {
+      const week = L.weekDays(key);
+      const series = S.dailySeries(items, week[0], week[6], today);
+      const day = series[week.indexOf(key)];
+      const wd = L.weekdayOfKey(key);
+      strip.update(series, key, today);
+      readout.update(day, key, today);
+      const near = Math.abs(L.toDayNum(key) - L.toDayNum(today)) <= 1;
+      titleEl.textContent = near ? `${relativeDay(key, today)} · ${formatDay(key)}` : longDate(key, today);
+      addLabel.textContent = `Add to ${WEEKDAYS_LONG[wd]}`;
+      addBtn.setAttribute('aria-label', `New habit on ${WEEKDAYS_LONG[wd]}s`);
+      addBtn.title = `New habit on ${WEEKDAYS_LONG[wd]}s`;
+
+      const { planned, other } = L.dayRows(items, key, today);
+      const c = { today, key, wd };
+      groups = { planned: fill(plannedList, planned, 'planned', c), other: fill(otherList, other, 'other', c) };
+      const live = new Set([...groups.planned, ...groups.other]);
+      for (const id of [...rows.keys()]) if (!live.has(id)) rows.delete(id);
+
+      plannedList.setAttribute('aria-label', `Planned on ${formatDay(key)}`);
+      plannedList.hidden = !planned.length;
+      emptyEl.hidden = !!planned.length;
+      emptyEl.textContent =
+        day.active === 0 && key <= today
+          ? `No habit was active on ${formatDay(key)}.`
+          : key < today
+            ? `Nothing was planned on ${formatDay(key)}: a rest day.`
+            : `Nothing planned for ${WEEKDAYS_LONG[wd]}: a rest day.`;
+      otherSec.hidden = !other.length;
+      otherTitle.textContent = `Not planned · ${other.length}`;
+      otherTitle.title = 'A tick here counts as a bonus: logged, but neutral for streaks';
+      otherList.setAttribute('aria-label', `Not planned on ${formatDay(key)}`);
+    },
+    focusHabit(id) {
+      const row = rows.get(id);
+      if (!row) return;
+      row.li.scrollIntoView({ block: 'nearest' });
+      row.focus();
+    },
+    focusStart: () => strip.focusSelected(),
+    pop: (id, key) => (key === ui.key ? rows.get(id)?.pop() : null),
+    celebrate: () => readout.celebrate(),
+  };
+}
+
+/** The week's days as a radio strip: tap a day to list it. */
+function createDayStrip(ctx) {
+  const { ui } = ctx;
+  const days = Array.from({ length: 7 }, () => {
+    const d = { key: null };
+    d.wd = h('span', { class: 'hb-sel-wd' });
+    d.date = h('span', { class: 'hb-sel-date tnum' });
+    d.fill = h('span', { class: 'hb-sel-fill' });
+    d.btn = h('button', { type: 'button', role: 'radio', class: 'hb-sel', tabindex: '-1', 'aria-checked': 'false', onClick: () => ctx.select(d.key) }, d.wd, d.date, h('span', { class: 'hb-sel-bar', 'aria-hidden': 'true' }, d.fill));
+    return d;
+  });
+  const el = h('div', { class: 'hb-sel-strip', role: 'radiogroup', 'aria-label': 'Day', onKeydown }, days.map((d) => d.btn));
 
   function focusSelected() {
     days.find((d) => d.key === ui.key)?.btn.focus();
   }
 
   /** Arrows move a day (crossing weeks), PageUp/PageDown a week, Home/End to Mon/Sun. Selection follows focus. */
-  function onStripKey(e) {
+  function onKeydown(e) {
     if (e.altKey || e.metaKey || e.ctrlKey) return;
     const delta = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -1, ArrowDown: 1, PageUp: -7, PageDown: 7 }[e.key];
     const monday = L.toDayNum(L.weekStart(ui.key));
@@ -1058,564 +1288,251 @@ function createConsole(ctx) {
     focusSelected();
   }
 
-  function paintMeter(d, entry) {
-    const segs = Math.max(1, Math.min(entry.planned, METER_MAX));
-    if (segs !== d.segs) {
-      d.meter.replaceChildren(...Array.from({ length: segs }, () => h('span', { class: 'hb-sel-seg' })));
-      d.segs = segs;
-    }
-    const lit = entry.future || !entry.planned ? 0 : entry.planned <= METER_MAX ? entry.done : Math.round((entry.done / entry.planned) * METER_MAX);
-    [...d.meter.children].forEach((s, i) => s.classList.toggle('is-on', i < lit));
-    d.meter.dataset.mode = !entry.planned ? 'rest' : entry.future ? 'future' : 'past';
-  }
-
-  function paintDay(d, entry, key, today) {
-    const isToday = entry.key === today;
-    const selected = entry.key === key;
-    const perfect = !entry.future && !entry.pending && entry.planned > 0 && entry.done === entry.planned;
-    d.key = entry.key;
-    d.wd.textContent = WEEKDAYS_SHORT[entry.weekday];
-    d.date.textContent = dayOf(entry.key);
-    d.count.textContent = !entry.planned ? '—' : entry.future ? String(entry.planned) : `${entry.done}/${entry.planned}`;
-    d.btn.setAttribute('aria-checked', String(selected));
-    d.btn.tabIndex = selected ? 0 : -1;
-    d.btn.classList.toggle('is-today', isToday);
-    d.btn.classList.toggle('is-future', entry.future);
-    d.btn.classList.toggle('is-rest', !entry.planned);
-    d.btn.classList.toggle('is-perfect', perfect);
-    const counts = !entry.planned ? 'nothing planned' : entry.future ? `${plural(entry.planned, 'habit')} planned` : `${entry.done} of ${entry.planned} done`;
-    d.btn.setAttribute('aria-label', `${formatDay(entry.key, 'long')}${isToday ? ', today' : ''}: ${counts}`);
-    d.btn.title = `${formatDay(entry.key)} · ${counts}`;
-    paintMeter(d, entry);
-  }
-
-  function paintHead(items, today, key, day) {
-    const wd = L.weekdayOfKey(key);
-    const isToday = key === today;
-    const future = key > today;
-    const resting = !day.planned;
-    const idle = resting && !future && day.active === 0; // no habit existed that day
-    const complete = !resting && !future && day.done === day.planned;
-    const perfect = L.perfectDayStreak(items, today);
-    const top = L.topStreak(items, today);
-    const rate = L.overallRate(items, today);
-
-    titleEl.textContent =
-      plainSkin()
-        ? plainDayTitle(day, key, today)
-        : [shortDate(key, today), idle ? 'No habits' : resting ? 'Rest day' : plural(day.planned, 'habit'), resting ? null : future ? 'Planned' : `${day.done}/${day.planned} done`]
-            .filter(Boolean)
-            .join(' · ');
-    addLabel.textContent = `Add habit to ${WEEKDAYS_LONG[wd]}`;
-
-    ringValue = resting || future ? 0 : day.done / day.planned;
-    if (ringLive) ringEl.setValue(ringValue);
-    fracDone.textContent = resting || future ? '—' : String(day.done);
-    fracSlash.hidden = resting;
-    fracTotal.textContent = resting ? '' : String(day.planned);
-    ringSub.textContent = idle ? 'Idle' : resting ? 'Rest' : future ? 'Planned' : complete ? 'Complete' : pct(ringValue);
-    dial.setAttribute('aria-label', resting ? 'Nothing planned' : future ? `${plural(day.planned, 'habit')} planned` : `${day.done} of ${day.planned} done`);
-
-    el.classList.toggle('is-complete', complete);
-    el.classList.toggle('is-rest', resting);
-    el.classList.toggle('is-future', future);
-    el.classList.toggle('is-active', isToday && !resting && !complete && day.done > 0);
-
-    const [text, style] = dayBadge(day, isToday, future);
-    badgeEl.className = ['tag', 'hb-day-badge', 'lo-deco', style && `tag--${style}`].filter(Boolean).join(' ');
-    badgeEl.textContent = text;
-    statusEl.textContent = dayStatusLine(day, { isToday, future, perfect });
-
-    rPerfect.value.textContent = num(perfect);
-    rPerfect.sub.textContent = perfect === 1 ? 'day in a row' : 'days in a row';
-    rTop.value.textContent = num(top.value);
-    rTop.sub.textContent = top.habit ? top.habit.name : 'No active chain';
-    rTop.sub.title = top.habit ? top.habit.name : '';
-    rRate.value.textContent = pct(rate.rate);
-    rRate.sub.textContent = rate.total ? `${rate.done}/${rate.total} planned days` : 'No data yet';
-    const lit = Math.round((rate.rate ?? 0) * rateTicks.length);
-    rateTicks.forEach((t, i) => t.classList.toggle('is-on', i < lit));
-
-    cycle.hidden = !isToday;
-    if (isToday) tick();
-  }
-
-  function tick() {
-    const now = new Date();
-    const hour = now.getHours();
-    const left = 24 * 60 - (hour * 60 + now.getMinutes());
-    cycleTicks.forEach((t, i) => {
-      t.classList.toggle('is-on', i < hour);
-      t.classList.toggle('is-now', i === hour);
-    });
-    cycleLeft.textContent = `${num(Math.floor(left / 60))}h ${num(left % 60)}m left`;
-  }
-
-  const clock = setInterval(() => {
-    if (!cycle.hidden) tick();
-  }, 30000);
-
   return {
     el,
-    update({ items, today, key, series, day }) {
-      const weeks = Math.round((L.toDayNum(series[0].key) - L.toDayNum(L.weekStart(today))) / 7);
-      rangeEl.textContent = rangeLabel(series[0].key, series[6].key);
-      relEl.textContent = weekRelLabel(weeks);
-      relEl.classList.toggle('tag--solid', weeks === 0);
-      todayBtn.disabled = key === today;
-      series.forEach((entry, i) => paintDay(days[i], entry, key, today));
-      paintHead(items, today, key, day);
-    },
-    celebrate() {
-      replay(el, 'is-celebrating');
-      later(() => el.classList.remove('is-celebrating'), 1600);
-    },
-    destroy() {
-      clearInterval(clock);
+    focusSelected,
+    update(series, key, today) {
+      series.forEach((entry, i) => {
+        const d = days[i];
+        const isToday = entry.key === today;
+        const selected = entry.key === key;
+        const counts = !entry.planned ? 'nothing planned' : entry.future ? `${plural(entry.planned, 'habit')} planned` : `${entry.done} of ${entry.planned} done`;
+        d.key = entry.key;
+        d.wd.textContent = WEEKDAYS_SHORT[entry.weekday];
+        d.date.textContent = dayOf(entry.key);
+        d.fill.style.width = entry.planned && !entry.future ? `${Math.round((entry.done / entry.planned) * 100)}%` : '0%';
+        d.btn.setAttribute('aria-checked', String(selected));
+        d.btn.tabIndex = selected ? 0 : -1;
+        d.btn.classList.toggle('is-today', isToday);
+        d.btn.classList.toggle('is-future', entry.future);
+        d.btn.classList.toggle('is-rest', !entry.planned);
+        d.btn.classList.toggle('is-perfect', !entry.future && !entry.pending && entry.planned > 0 && entry.done === entry.planned);
+        d.btn.setAttribute('aria-label', `${formatDay(entry.key, 'long')}${isToday ? ', today' : ''}: ${counts}`);
+        d.btn.title = `${formatDay(entry.key)} · ${counts}`;
+      });
     },
   };
 }
 
-/* ---- Cards toolbar: count, legend, Week / History toggle ---- */
+/** One habit in the day list: check · name (opens the editor) · streak · ⋯ menu. */
+function createDayRow(ctx, id, onMove) {
+  const { actions } = ctx;
+  let cur = { key: null, wd: null };
+  const check = checkButton({ onToggle: (next) => actions.log(id, cur.key, next) });
+  check.classList.add('hb-row-check');
+  const nameText = h('span', { class: 'hb-row-name-text' });
+  const name = h('button', { type: 'button', class: 'hb-row-name', onClick: () => actions.openEditor(id) }, nameText);
+  const sub = h('span', { class: 'hb-row-sub label' });
+  const streakNum = h('span');
+  const streak = h('span', { class: 'hb-mx-streak hb-row-streak tnum' }, icon('flame', { size: 12 }), h('span', { class: 'sr-only' }, 'streak '), streakNum);
+  const more = dropdown({ icon: 'more', items: [], showValue: false, align: 'end', className: 'btn--ghost btn--icon hb-row-more', title: 'More' });
+  const li = h('li', { class: 'hb-row', dataset: { id }, onKeydown: onRowKey }, check, h('div', { class: 'hb-row-ident' }, name, sub), streak, more.el);
+  const row = { li, group: 'planned', update, focus, pop };
 
-function createToolbar() {
-  const countEl = h('span', { class: 'label tnum hb-sec-count lo-deco' });
-  const swatch = (state, text) => h('span', { class: 'hb-legend-item label' }, h('span', { class: 'hb-swatch', dataset: { s: state } }), text);
-  const weekLegend = h('div', { class: 'hb-legend', 'aria-hidden': 'true' }, swatch('done', 'Done'), swatch('miss', 'Missed'), swatch('planned', 'Planned'), swatch('rest', 'Off'), swatch('bonus', 'Bonus'));
-  const heatLegend = h(
-    'div',
-    { class: 'hb-legend', 'aria-hidden': 'true' },
-    h('span', { class: 'label' }, 'Less'),
-    [0, 2, 3, 4].map((l) => h('span', { class: 'hb-swatch', dataset: { s: l ? 'done' : 'miss', l } })),
-    h('span', { class: 'label' }, 'More'),
-    h('span', { class: 'hb-legend-gap' }),
-    swatch('rest', 'Off'),
-  );
-  const segBtn = (value, iconName, label) =>
-    h('button', { type: 'button', class: 'seg-btn', 'aria-pressed': 'false', dataset: { v: value }, onClick: () => setCardView(value) }, icon(iconName, { size: 12 }), label);
-  const segBtns = [segBtn('week', 'calendar', 'Week'), segBtn('history', 'activity', 'History')];
-  const hint = h('span', { class: 'hb-sec-hint label lo-hint' }, kbd(ALT_KEY), kbd('↑'), kbd('↓'), h('span', null, 'Reorder'));
-  const el = h(
-    'div',
-    { class: 'hb-sec-head' },
-    h('h3', { class: 'label hb-sec-title' }, term('habits.section', 'Protocols')),
-    countEl,
-    h('span', { class: 'hb-rule', 'aria-hidden': 'true' }),
-    weekLegend,
-    heatLegend,
-    hint,
-    h('div', { class: 'seg hb-view-seg', role: 'group', 'aria-label': 'Card view' }, segBtns),
-  );
-  return {
-    el,
-    update(view, count) {
-      el.hidden = !count;
-      countEl.textContent = num(count);
-      weekLegend.hidden = view !== 'week';
-      heatLegend.hidden = view !== 'history';
-      segBtns.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.v === view)));
-    },
-  };
-}
-
-/* ---- Habit card (one per habit planned on the selected day) ---- */
-
-function actionBtn(iconName, onClick) {
-  return h('button', { type: 'button', class: 'btn btn--ghost btn--icon btn--sm hb-act', onClick }, icon(iconName, { size: 14 }));
-}
-
-function stat(label, ...values) {
-  return h('div', { class: 'hb-stat' }, h('dt', { class: 'label' }, label), values.map((v) => h('dd', { class: 'hb-stat-value' }, v)));
-}
-
-function createCard(ctx, id, onMove) {
-  const { actions, later } = ctx;
-  const nameId = nextId('hb-card');
-  let habit = null;
-  let last = {};
-  let strip = null; // { el, cells } while the week view is shown
-  let focusIdx = 0; // roving tab stop inside the strip
-
-  const indexEl = h('span', { class: 'hb-card-index mono lo-deco' });
-  const schedEl = h('span', { class: 'hb-card-sched label' });
-  const upBtn = actionBtn('arrow-up', () => onMove(id, -1));
-  const downBtn = actionBtn('arrow-down', () => onMove(id, 1));
-  const editBtn = actionBtn('edit', () => actions.openEditor(id));
-  upBtn.title = 'Move up';
-  downBtn.title = 'Move down';
-  editBtn.title = 'Edit';
-
-  const nameEl = h('h3', { class: 'hb-card-name', id: nameId });
-  const stateEl = h('p', { class: 'hb-card-state label' });
-  const check = checkButton({ size: 'lg', onToggle: (next) => actions.log(id, last.key, next) });
-  check.classList.add('hb-check');
-  const checkCap = h('span', { class: 'hb-check-cap label', 'aria-hidden': 'true' });
-
-  const flame = h('span', { class: 'hb-flame' }, icon('flame', { size: 14 }));
-  const streakVal = h('span', { class: 'hb-stat-num' });
-  const bestVal = h('span', { class: 'hb-stat-num' });
-  const rateVal = h('span', { class: 'hb-stat-num' });
-  const rateFill = h('div', { class: 'progress-fill' });
-  const rateStat = stat('30D', rateVal, h('div', { class: 'progress hb-rate-bar', 'aria-hidden': 'true' }, rateFill));
-  const bestStat = stat('Best', bestVal);
-  // Simple keeps the streak only
-  rateStat.classList.add('lo-deco');
-  bestStat.classList.add('lo-deco');
-  const track = h('div', { class: 'hb-track' });
-
-  const el = h(
-    'li',
-    {
-      class: 'panel hud hb-card',
-      dataset: { id },
-      'aria-labelledby': nameId,
-      onKeydown: onCardKey,
-      onAnimationend: (e) => {
-        if (e.target === el && e.animationName === 'lo-rise') el.classList.remove('is-entering');
-      },
-    },
-    h('div', { class: 'hb-card-fx', 'aria-hidden': 'true' }, h('span', { class: 'hb-card-scan' })),
-    h(
-      'div',
-      { class: 'hb-card-meta' },
-      indexEl,
-      h('span', { class: 'hb-card-dot lo-deco', 'aria-hidden': 'true' }),
-      schedEl,
-      h('span', { class: 'spacer' }),
-      h('div', { class: 'row-actions hb-card-actions' }, upBtn, downBtn, editBtn),
-    ),
-    h('div', { class: 'hb-card-main' }, h('div', { class: 'hb-card-title' }, nameEl, stateEl), h('div', { class: 'hb-check-wrap' }, check, checkCap)),
-    h('dl', { class: 'hb-stats' }, stat('Streak', h('span', { class: 'hb-streak' }, flame, streakVal)), bestStat, rateStat),
-    track,
-  );
-
-  function onCardKey(e) {
+  function onRowKey(e) {
     if (!e.altKey || e.metaKey || e.ctrlKey || e.shiftKey) return;
     if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
     e.preventDefault();
     onMove(id, e.key === 'ArrowUp' ? -1 : 1);
   }
 
-  /* -- week strip: the displayed Mon..Sun, patched in place so keyboard focus survives -- */
+  function menuItems(hb, { group, index, count, wd, today, plannedNow }) {
+    const items = [
+      { value: 'edit', label: 'Edit…', icon: 'edit', action: () => actions.openEditor(id) },
+      { value: 'up', label: 'Move up', icon: 'arrow-up', hint: KEY_HINTS ? `${ALT_KEY}↑` : null, disabled: index === 0, action: () => onMove(id, -1) },
+      { value: 'down', label: 'Move down', icon: 'arrow-down', hint: KEY_HINTS ? `${ALT_KEY}↓` : null, disabled: index === count - 1, action: () => onMove(id, 1) },
+      { separator: true },
+    ];
+    if (group === 'other' && !plannedNow && !L.isArchived(hb, today)) {
+      items.push({ value: 'plan', label: `Plan on ${WEEKDAYS_LONG[wd]}s`, icon: 'calendar', action: () => actions.addDay(id, wd) });
+    }
+    items.push(
+      { value: 'duplicate', label: 'Duplicate', icon: 'ctx-duplicate', action: () => actions.duplicate(id) },
+      L.isArchived(hb, today)
+        ? { value: 'restore', label: 'Restore', icon: 'undo', action: () => actions.unarchive(id) }
+        : { value: 'archive', label: 'Archive', icon: 'archive', action: () => actions.archive(id) },
+      { value: 'delete', label: 'Delete…', icon: 'trash', danger: true, action: () => actions.remove(id) },
+    );
+    return items;
+  }
 
-  function buildStrip() {
-    const cells = Array.from({ length: 7 }, (_, i) => {
-      const wd = h('span', { class: 'hb-day-wd', 'aria-hidden': 'true' });
-      const btn = h('button', {
-        type: 'button',
-        class: 'hb-day',
-        tabindex: '-1',
-        onClick: () => onDayClick(i),
-        onFocus: () => {
-          focusIdx = i;
-          syncRoving();
-        },
-      });
-      return { col: h('div', { class: 'hb-day-col' }, wd, btn), wd, btn, data: null };
+  function subText(hb, state, { group, today, key, plannedNow }) {
+    if (L.isArchived(hb, today)) return `Archived ${formatDay(hb.archivedAt)}`;
+    const plan = L.scheduleLabel(L.planOn(hb, today));
+    if (group === 'other') {
+      if (state === 'bonus') return `Bonus · ${plan}`;
+      if (plannedNow) return hb.createdAt > key ? `Starts ${formatDay(hb.createdAt)}` : 'Planned from today';
+      return hb.createdAt > today ? `Starts ${formatDay(hb.createdAt)} · ${plan}` : plan;
+    }
+    return state === 'miss' ? `Missed · ${plan}` : plan;
+  }
+
+  function update(entry, c) {
+    const { habit: hb, state } = entry;
+    const { today, key, wd, group } = c;
+    const canLog = LOGGABLE.has(state);
+    const when = key === today ? 'today' : `on ${formatDay(key)}`;
+    cur = { key, wd };
+    setChecked(check, L.isLogged(state));
+    check.disabled = !canLog;
+    check.setAttribute('aria-label', group === 'planned' ? `${hb.name}: done ${when}` : `${hb.name}: bonus session ${when}`);
+    check.title = !canLog ? (state === 'future' ? 'Check-ins open on the day' : '') : group === 'other' ? 'Bonus: logged, but neutral for streaks' : '';
+    nameText.textContent = hb.name;
+    name.title = `${hb.name} — edit`;
+    sub.textContent = subText(hb, state, { ...c, plannedNow: entry.plannedNow });
+    const s = L.currentStreak(hb, today);
+    streak.hidden = s === 0;
+    streakNum.textContent = num(s);
+    streak.title = `${plural(s, 'day')} in a row`;
+    li.classList.toggle('is-done', state === 'done');
+    li.classList.toggle('is-bonus', state === 'bonus');
+    li.classList.toggle('is-miss', state === 'miss');
+    li.classList.toggle('is-locked', !canLog);
+    more.update({ items: menuItems(hb, { ...c, plannedNow: entry.plannedNow }) });
+    more.button.setAttribute('aria-label', `More for “${hb.name}”`);
+  }
+
+  function focus() {
+    (check.disabled ? name : check).focus();
+  }
+
+  function pop() {
+    replay(check, 'is-popping');
+    ctx.later(() => check.classList.remove('is-popping'), 600);
+  }
+
+  return row;
+}
+
+/* ---- HISTORY: habits × the last weeks ---- */
+
+function createHistoryView(ctx) {
+  const { actions } = ctx;
+  const rows = new Map();
+  let order = [];
+  let weeks = []; // the Mondays shown
+  const nav = gridNav({ ids: () => order, cellsOf: (id) => rows.get(id)?.cells.map((c) => c.btn) ?? [], onMove: (id, delta) => actions.move(id, delta, order) });
+
+  const heads = Array.from({ length: L.HISTORY_WEEKS }, () => {
+    const month = h('span', { class: 'hb-hi-month' });
+    const date = h('span', { class: 'hb-hi-date tnum' });
+    return { th: h('th', { scope: 'col', class: 'hb-hi-th' }, month, date), month, date };
+  });
+  const tbody = h('tbody');
+  const table = h(
+    'table',
+    { class: 'hb-mx hb-hi', 'aria-label': `Habits, last ${L.HISTORY_WEEKS} weeks`, onKeydown: nav.onKeydown },
+    h('colgroup', null, h('col', { class: 'hb-mx-namecol' }), heads.map(() => h('col')), h('col', { class: 'hb-mx-sumcol' })),
+    h(
+      'thead',
+      null,
+      h(
+        'tr',
+        null,
+        h('th', { scope: 'col', class: 'hb-mx-corner' }, h('span', { class: 'label' }, 'Week of')),
+        heads.map((c) => c.th),
+        h('th', { scope: 'col', class: 'hb-mx-sumth' }, h('span', { class: 'label' }, `${L.HISTORY_WEEKS} wk`)),
+      ),
+    ),
+    tbody,
+  );
+  const el = h(
+    'section',
+    { class: 'hb-view hb-history', 'aria-label': 'History' },
+    tip({ id: 'habits.history', className: 'hb-tip', text: 'A square per week, darker the more got done. Tap one to open that week.' }),
+    h('div', { class: 'panel hud hb-mx-panel' }, h('div', { class: 'hb-mx-scroll' }, table)),
+  );
+
+  function createRow(id) {
+    const head = createRowHead(ctx, id);
+    const cells = heads.map((_, col) => {
+      const btn = h('button', { type: 'button', class: 'hb-wk', tabindex: '-1', dataset: { col: String(col) }, onClick: () => openWeek(id, col), onFocus: () => nav.onFocus(id, col) });
+      return { btn, td: h('td', { class: 'hb-mx-td' }, btn), data: null };
     });
-    return { el: h('div', { class: 'hb-strip', role: 'group', onKeydown: onStripKey }, cells.map((c) => c.col)), cells };
+    const sum = h('td', { class: 'hb-mx-sum mono tnum' });
+    const tr = h('tr', { class: 'hb-mx-row', dataset: { id } }, head.th, cells.map((c) => c.td), sum);
+    return { tr, head, cells, sum };
   }
 
-  function paintDay(cell, d, name) {
-    const when = `${formatDay(d.key)}${d.isToday ? ' (today)' : ''}`;
-    const copy = cellCopy(d);
-    cell.data = d;
-    cell.wd.textContent = WEEKDAYS_MIN[d.weekday];
-    cell.btn.textContent = String(d.date);
-    cell.btn.dataset.state = d.state;
-    cell.btn.dataset.planned = String(d.scheduled);
-    cell.btn.disabled = d.state === 'pre' || d.state === 'future' || d.state === 'archived';
-    cell.btn.setAttribute('aria-pressed', String(L.isLogged(d.state)));
-    cell.btn.setAttribute('aria-label', `${name}, ${when}: ${copy}`);
-    cell.btn.title = `${when} · ${copy}`;
-    cell.btn.classList.toggle('is-today', d.isToday);
-    cell.col.classList.toggle('is-today', d.isToday);
-    cell.col.classList.toggle('is-selected', d.isSelected);
+  /** Open that week in the week matrix (this week opens on today). */
+  function openWeek(id, col) {
+    const w = rows.get(id)?.cells[col].data;
+    if (!w) return;
+    ctx.show('week', w.isCurrent ? todayKey() : w.key);
   }
 
-  function onDayClick(i) {
-    const d = strip?.cells[i]?.data;
-    if (!d || d.state === 'pre' || d.state === 'future' || d.state === 'archived') return;
-    actions.log(id, d.key, !L.isLogged(d.state));
-  }
-
-  function syncRoving() {
-    if (!strip) return;
-    const { cells } = strip;
-    if (cells[focusIdx].btn.disabled) {
-      const fallback = cells.findLastIndex((c) => !c.btn.disabled);
-      focusIdx = fallback < 0 ? 0 : fallback;
-    }
-    cells.forEach((c, i) => (c.btn.tabIndex = i === focusIdx ? 0 : -1));
-  }
-
-  function onStripKey(e) {
-    if (!strip || e.altKey || e.metaKey || e.ctrlKey) return;
-    const enabled = strip.cells.map((c, i) => (c.btn.disabled ? -1 : i)).filter((i) => i >= 0);
-    if (!enabled.length) return;
-    const pos = Math.max(0, enabled.indexOf(focusIdx));
-    let next;
-    if (e.key === 'ArrowLeft') next = enabled[Math.max(0, pos - 1)];
-    else if (e.key === 'ArrowRight') next = enabled[Math.min(enabled.length - 1, pos + 1)];
-    else if (e.key === 'Home') next = enabled[0];
-    else if (e.key === 'End') next = enabled[enabled.length - 1];
-    else return;
-    e.preventDefault();
-    focusIdx = next;
-    syncRoving();
-    strip.cells[next].btn.focus();
-  }
-
-  function paintTrack(hb, c, keyChanged) {
-    if (c.view === 'history') {
-      strip = null;
-      track.replaceChildren(buildHeatmap(hb, c.today));
-      return;
-    }
-    if (!strip) {
-      strip = buildStrip();
-      track.replaceChildren(strip.el);
-      keyChanged = true;
-    }
-    if (keyChanged) focusIdx = Math.max(0, c.week.indexOf(c.key));
-    strip.el.setAttribute('aria-label', `${hb.name}: week of ${formatDay(c.week[0])}`);
-    c.week.forEach((key, i) => {
-      const d = { key, weekday: L.weekdayOfKey(key), date: Number(key.slice(8)), isToday: key === c.today, isSelected: key === c.key, state: L.dayStatus(hb, key, c.today), scheduled: L.isScheduledOn(hb, key) };
-      paintDay(strip.cells[i], d, hb.name);
+  function paintRow(row, hb, list, today, archived) {
+    row.head.update(hb, today, archived);
+    row.tr.classList.toggle('is-archived', archived);
+    let done = 0;
+    let due = 0;
+    list.forEach((w, col) => {
+      const c = row.cells[col];
+      done += w.done;
+      due += w.due;
+      const words = !w.active
+        ? 'not active'
+        : w.due
+          ? `${w.done} of ${w.due} planned days done${w.isCurrent ? ' so far' : ''}`
+          : w.isCurrent
+            ? 'nothing due yet'
+            : 'nothing planned';
+      const bonus = w.bonus ? ` · ${plural(w.bonus, 'bonus day')}` : '';
+      c.data = w;
+      c.btn.dataset.l = w.level ?? '';
+      c.btn.dataset.active = String(w.active);
+      c.btn.classList.toggle('is-current', w.isCurrent);
+      c.btn.setAttribute('aria-label', `${hb.name}, week of ${formatDay(w.key)}: ${words}${bonus}. Open the week`);
+      c.btn.title = `${hb.name} · week of ${formatDay(w.key)} · ${words}${bonus}`;
+      c.td.classList.toggle('is-today', w.isCurrent);
     });
-    syncRoving();
-  }
-
-  /* -- everything except the track -- */
-
-  function paint(hb, c) {
-    const status = L.dayStatus(hb, c.key, c.today);
-    const streak = L.currentStreak(hb, c.today);
-    const best = L.bestStreak(hb, c.today);
-    const rate = L.completionRate(hb, c.today);
-    const archived = L.isArchived(hb, c.today);
-    const locked = status === 'future' || status === 'pre' || status === 'archived';
-    const day = c.key === c.today ? 'today' : `on ${formatDay(c.key)}`;
-
-    nameEl.textContent = hb.name;
-    nameEl.title = hb.name;
-    schedEl.textContent = archived ? `Archived ${formatDay(hb.archivedAt)}` : L.scheduleLabel(L.planOn(hb, c.today));
-    upBtn.setAttribute('aria-label', `Move “${hb.name}” up`);
-    downBtn.setAttribute('aria-label', `Move “${hb.name}” down`);
-    editBtn.setAttribute('aria-label', `Edit “${hb.name}”`);
-
-    setChecked(check, L.isLogged(status));
-    check.disabled = locked;
-    check.setAttribute('aria-label', status === 'future' ? `${hb.name}: planned for ${formatDay(c.key)}` : `${hb.name}: done ${day}`);
-    checkCap.textContent = CHECK_CAPTION[status] ?? '';
-    stateEl.textContent = stateLine(hb, status, c);
-
-    el.classList.toggle('is-done', status === 'done');
-    el.classList.toggle('is-pending', status === 'pending');
-    el.classList.toggle('is-miss', status === 'miss');
-    el.classList.toggle('is-future', status === 'future');
-    el.classList.toggle('is-archived', archived);
-
-    const prevStreak = streakVal.dataset.v == null ? streak : Number(streakVal.dataset.v);
-    streakVal.textContent = num(streak);
-    streakVal.dataset.v = String(streak);
-    if (streak > prevStreak) {
-      replay(streakVal, 'is-bump');
-      later(() => streakVal.classList.remove('is-bump'), 700);
-    }
-    flame.classList.toggle('is-lit', streak > 0);
-    bestVal.textContent = num(best);
-    rateVal.textContent = pct(rate.rate);
-    rateFill.style.width = `${Math.round((rate.rate ?? 0) * 100)}%`;
-    rateStat.title = rate.total ? `${rate.done} of ${rate.total} planned days in the last ${L.RATE_WINDOW}` : 'No planned days measured yet';
-  }
-
-  function update(next, c) {
-    const sig = `${c.today}|${c.key}|${c.view}`;
-    const changed = next !== habit || sig !== last.sig;
-    if (c.index !== last.index || c.count !== last.count) {
-      indexEl.textContent = idx(c.index + 1);
-      upBtn.setAttribute('aria-disabled', String(c.index === 0));
-      downBtn.setAttribute('aria-disabled', String(c.index === c.count - 1));
-    }
-    if (changed) {
-      paint(next, c);
-      paintTrack(next, c, c.key !== last.key);
-    }
-    habit = next;
-    last = { sig, key: c.key, index: c.index, count: c.count };
-  }
-
-  /** One-shot feedback after logging `key`. */
-  function pop(key) {
-    if (key === last.key) {
-      replay(el, 'is-popping');
-      later(() => el.classList.remove('is-popping'), 900);
-    }
-    const cell = strip?.cells.find((c) => c.data?.key === key);
-    if (cell) {
-      replay(cell.btn, 'is-popping');
-      later(() => cell.btn.classList.remove('is-popping'), 600);
-    }
-  }
-
-  function enter(delayIndex) {
-    // Cap the stagger so long lists don't outlast the 1.5s safety cleanup below.
-    el.style.setProperty('--hb-i', String(Math.min(delayIndex, 12)));
-    el.classList.add('is-entering');
-    later(() => el.classList.remove('is-entering'), 1500);
+    row.sum.textContent = due ? pct(done / due) : '—';
+    row.sum.title = due ? `${done} of ${due} planned days done in the last ${L.HISTORY_WEEKS} weeks` : 'Nothing due in these weeks';
   }
 
   return {
     el,
-    update,
-    pop,
-    enter,
-    focusCheck: () => check.focus(),
-    // The check is disabled on future days; the edit button always takes focus.
-    focusMain: () => (check.disabled ? editBtn : check).focus(),
-  };
-}
-
-/* ---- History heatmap (display only; rebuilt when the habit changes) ---- */
-
-function buildHeatmap(hb, today) {
-  const data = L.heatmap(hb, today, L.HEAT_WEEKS, { weekStart: 1 });
-  const grid = h('div', {
-    class: 'hb-heat',
-    role: 'img',
-    'aria-label': `${hb.name}: ${data.done} of ${data.total} planned days completed in the last ${L.HEAT_WEEKS} weeks`,
-  });
-  grid.append(h('span', { class: 'hb-heat-month' }));
-  L.WEEK_ORDER.forEach((wd, row) => grid.append(h('span', { class: 'hb-heat-wd' }, row % 2 ? '' : WEEKDAYS_MIN[wd])));
-  for (const col of data.columns) {
-    grid.append(h('span', { class: 'hb-heat-month' }, col.month ?? ''));
-    for (const c of col.cells) {
-      grid.append(
-        h('span', {
-          class: ['hb-heat-cell', c.isToday && 'is-today'],
-          dataset: { s: c.state, l: c.level ?? '' },
-          title: c.state === 'future' ? null : `${formatDay(c.key)} · ${STATE_COPY[c.state]}`,
-        }),
-      );
-    }
-  }
-  return h(
-    'div',
-    { class: 'hb-heat-wrap' },
-    grid,
-    h(
-      'div',
-      { class: 'hb-heat-foot' },
-      h('span', { class: 'label' }, `Last ${L.HEAT_WEEKS} weeks`),
-      h('span', { class: 'label tnum' }, `${num(data.done)}/${num(data.total)} · ${pct(data.total ? data.done / data.total : null)}`),
-    ),
-  );
-}
-
-/* ---- "Not planned for <day>": quick add to that weekday, optional bonus log ---- */
-
-function createNotPlanned(ctx) {
-  const { ui } = ctx;
-  const rows = new Map();
-  const listId = nextId('hb-np');
-  const titleEl = h('span', { class: 'label hb-fold-title' });
-  const countEl = h('span', { class: 'label tnum' });
-  const list = h('ul', { id: listId, class: 'hb-np-list' });
-  const toggle = h(
-    'button',
-    {
-      type: 'button',
-      class: 'hb-fold',
-      'aria-expanded': 'false',
-      'aria-controls': listId,
-      onClick: () => {
-        ui.notPlannedOpen = !isOpen();
-        paintOpen();
-      },
-    },
-    h('span', { class: 'hb-fold-icon', 'aria-hidden': 'true' }, icon('chevron-right', { size: 14 })),
-    titleEl,
-    countEl,
-  );
-  const el = h('section', { class: 'hb-np', 'aria-labelledby': `${listId}-t` }, toggle, list);
-  titleEl.id = `${listId}-t`;
-  let autoOpen = false;
-
-  const isOpen = () => ui.notPlannedOpen ?? autoOpen;
-
-  function paintOpen() {
-    toggle.setAttribute('aria-expanded', String(isOpen()));
-    list.hidden = !isOpen();
-  }
-
-  function update(items, key, today, plannedIds) {
-    const wd = L.weekdayOfKey(key);
-    autoOpen = plannedIds.size === 0;
-    const others = items.filter((it) => !L.isArchived(it, today) && !plannedIds.has(it.id));
-    el.hidden = !others.length;
-    titleEl.textContent = `Not planned for ${WEEKDAYS_LONG[wd]}`;
-    countEl.textContent = `(${others.length})`;
-    list.classList.toggle('is-future', key > today);
-    const keep = new Set(others.map((it) => it.id));
-    for (const [id, row] of rows) {
-      if (keep.has(id)) continue;
-      row.li.remove();
-      rows.delete(id);
-    }
-    others.forEach((it, i) => {
-      let row = rows.get(it.id);
-      if (!row) {
-        row = createNpRow(ctx, it.id);
-        rows.set(it.id, row);
+    update({ items, today }) {
+      const current = L.toDayNum(L.weekStart(today));
+      weeks = heads.map((_, i) => L.fromDayNum(current - 7 * (L.HISTORY_WEEKS - 1 - i)));
+      heads.forEach((hd, i) => {
+        const key = weeks[i];
+        const prev = weeks[i - 1];
+        // The month where a new one starts (and on the first column)
+        hd.month.textContent = !prev || prev.slice(5, 7) !== key.slice(5, 7) ? monthOf(key) : '';
+        hd.date.textContent = dayOf(key);
+        hd.th.classList.toggle('is-today', i === heads.length - 1);
+        hd.th.title = `Week of ${formatDay(key)}`;
+      });
+      const shown = [];
+      for (const hb of items) {
+        const archived = L.isArchived(hb, today);
+        const list = L.weekHistory(hb, today, L.HISTORY_WEEKS);
+        if (archived && !list.some((w) => w.active)) continue;
+        let row = rows.get(hb.id);
+        if (!row) {
+          row = createRow(hb.id);
+          rows.set(hb.id, row);
+        }
+        paintRow(row, hb, list, today, archived);
+        shown.push(hb.id);
       }
-      row.update(it, key, today, wd);
-      if (list.children[i] !== row.li) list.insertBefore(row.li, list.children[i] ?? null);
-    });
-    paintOpen();
-  }
-
-  return { el, update, focus: () => (el.hidden ? null : toggle.focus()) };
-}
-
-function createNpRow(ctx, id) {
-  const { actions } = ctx;
-  let cur = { key: null, wd: null };
-  const name = h('span', { class: 'hb-np-name' });
-  const meta = h('span', { class: 'label hb-np-meta' });
-  const note = h('span', { class: 'tag tag--dashed hb-np-note' });
-  const addDay = h('span', { class: 'hb-np-addday' });
-  const addBtn = h('button', { type: 'button', class: 'btn btn--sm hb-np-add', onClick: () => actions.addDay(id, cur.wd) }, icon('plus', { size: 14 }), h('span', null, 'Add'), addDay);
-  const check = checkButton({ onToggle: (next) => actions.log(id, cur.key, next) });
-  check.classList.add('hb-np-check');
-  const li = h('li', { class: 'hb-np-row', dataset: { id } }, check, h('div', { class: 'hb-np-ident' }, name, meta), note, addBtn);
-
-  return {
-    li,
-    update(it, key, today, wd) {
-      cur = { key, wd };
-      const plan = L.planOn(it, today);
-      const status = L.dayStatus(it, key, today); // 'rest' | 'bonus' | 'pre' | 'future'
-      const canLog = status === 'rest' || status === 'bonus';
-      const plannedNow = plan.includes(wd);
-      const when = key === today ? 'today' : `on ${formatDay(key)}`;
-
-      name.textContent = it.name;
-      name.title = it.name;
-      meta.textContent = it.createdAt > today ? `Starts ${formatDay(it.createdAt)} · ${L.scheduleLabel(plan)}` : L.scheduleLabel(plan);
-      setChecked(check, status === 'bonus');
-      check.disabled = !canLog;
-      check.classList.toggle('is-void', !canLog);
-      check.setAttribute('aria-label', `${it.name}: log a bonus session ${when}`);
-      check.title = canLog ? 'Bonus — logged, but neutral for streaks' : '';
-      addBtn.hidden = plannedNow;
-      addDay.textContent = ` to ${WEEKDAYS_LONG[wd]}`;
-      addBtn.setAttribute('aria-label', `Plan “${it.name}” on ${WEEKDAYS_LONG[wd]}s from today`);
-      // Planned on this weekday now, but not on this date (it was in the past, or the habit hadn't started).
-      note.hidden = !plannedNow;
-      note.textContent = it.createdAt > key ? `Starts ${formatDay(it.createdAt)}` : 'Planned from today';
-      li.classList.toggle('is-bonus', status === 'bonus');
+      order = shown;
+      placeRows(tbody, rows, order);
+      if (!table.contains(document.activeElement)) nav.park(heads.length - 1);
+      nav.sync();
     },
+    focusHabit(id) {
+      const row = rows.get(id);
+      if (!row) return;
+      row.tr.scrollIntoView({ block: 'nearest' });
+      nav.focus(id, heads.length - 1);
+    },
+    focusStart() {
+      if (order[0]) nav.focus(order[0], heads.length - 1);
+    },
+    pop() {},
+    celebrate() {},
   };
 }
 
@@ -1648,7 +1565,7 @@ function buildFirstRun(ctx, archivedCount) {
   );
   const steps = [
     [idx(1), 'Plan', 'Give every weekday its own lineup — Monday can differ from Tuesday.'],
-    [idx(2), term('habits.step2', 'Execute'), 'Check habits off each day. Fix past days from the week strip.'],
+    [idx(2), term('habits.step2', 'Execute'), 'Check habits off each day. Fix past days in the week view.'],
     [idx(3), term('habits.step3', 'Compound'), term('habits.step3.text', 'Streaks, insights and your LIFE index move with every check-in.')],
   ];
   return [

@@ -38,7 +38,20 @@
   margin-bottom: var(--space-5);
 }
 
+/* The heading gives way first (its explanation wraps), so List · Board and New note stay on
+   one row beside it */
+.nt-view .page-heading {
+  flex: 1 1 0;
+}
+
 /* ---- Header totals ---- */
+
+/* Mid widths: the totals step aside for the buttons */
+@container nt-view (max-width: 860px) {
+  .nt-view .nt-stats {
+    display: none;
+  }
+}
 
 .nt-stats {
   display: flex;
@@ -114,24 +127,80 @@
   opacity: 0.5;
 }
 
+/* New note: the page header's main button, in both layouts */
+.nt-new {
+  flex: none;
+}
+
 /* ==========================================================================
    List panel
    ========================================================================== */
 
+/* One row: the search (and on phones the section menu before it) */
 .nt-list-head {
   display: flex;
-  flex-direction: column;
+  align-items: center;
   gap: var(--space-2);
   padding: var(--space-3);
   border-bottom: 1px solid var(--line);
 }
 
-.nt-new {
-  justify-content: flex-start;
+/* The search takes what the section menu leaves */
+.nt-list-head .nt-search {
+  flex: 1 1 0;
+  min-width: 0;
 }
 
-.nt-new .kbd {
-  margin-left: auto;
+/* ---- Section menu (list) and column menu (board): phones only, beside the search ---- */
+
+.nt-viewdd,
+.nt-jumpdd {
+  display: none;
+}
+
+.nt-viewdd .dd-btn,
+.nt-jumpdd .dd-btn {
+  width: 100%;
+}
+
+.nt-dd-icon {
+  flex: none;
+  display: grid;
+  color: var(--text-3);
+}
+
+.nt-dd-count {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-3);
+}
+
+/* A section's line in the menus (they live in <body>): its icon and name, spaced like the
+   menu's own icons */
+.nt-dd-sec {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.nt-dd-sec > .icon {
+  flex: none;
+}
+
+.nt-dd-sec-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Color coding: the open section's icon on the button, each section's in the menus, as the
+   rail, the chips and the columns show them */
+.cc-sections [data-cc-kind="sections"][data-cc] > .nt-dd-icon,
+.cc-sections .nt-dd-sec[data-cc-kind="sections"][data-cc] > .icon {
+  color: var(--cc);
 }
 
 /* ---- Search ---- */
@@ -1294,7 +1363,7 @@
   animation: nt-pulse 900ms var(--ease-out);
 }
 
-/* ---- No sections yet: hint + one-click starters ---- */
+/* ---- No sections yet: a tip + one-click starters ---- */
 
 .nt-rail-empty {
   display: flex;
@@ -1303,11 +1372,21 @@
   padding: 0 var(--space-1);
 }
 
-.nt-rail-hint {
-  padding: 0 var(--space-1);
+/* The rail is narrow: the tip's ✓ goes under its text */
+.tip.nt-rail-hint {
+  flex-wrap: wrap;
+  align-items: flex-start;
+  row-gap: var(--space-2);
   font-size: var(--fs-xs);
   line-height: 1.5;
-  color: var(--text-3);
+}
+
+.tip.nt-rail-hint .tip-text {
+  flex-basis: calc(100% - 24px);
+}
+
+.tip.nt-rail-hint .tip-ok {
+  margin-left: auto;
 }
 
 .nt-suggest {
@@ -2039,11 +2118,6 @@
 
 /* ---- Manage: rename / icon, reorder, delete ---- */
 
-.nt-mg-intro {
-  font-size: var(--fs-sm);
-  color: var(--text-2);
-}
-
 .nt-mg-list {
   display: flex;
   flex-direction: column;
@@ -2319,6 +2393,88 @@
   .nt-body,
   .nt-search .input {
     font-size: 16px;
+  }
+}
+
+/* The open note fills the screen without the page header (Back returns). Spelled out like the
+   compact header rules (css/compact.css), which would otherwise show it again. Tablets keep
+   the header beside the board's note panel. */
+@media (max-width: 900px) {
+  html[data-skin] .main .view.nt-view[data-pane="editor"]:not([data-layout="board"]) > .page-header {
+    display: none;
+  }
+}
+
+@media (max-width: 640px) {
+  html[data-skin] .main .view.nt-view[data-pane="editor"] > .page-header {
+    display: none;
+  }
+}
+
+/* ---- Phones: one row of controls, then the notes ----
+   The header holds the title, List · Board (icons) and + New; the section menu and the search
+   share the list's first row; the chip strip and the count line step aside. */
+@media (max-width: 640px) {
+  .nt-new-word,
+  .nt-layout-label {
+    display: none;
+  }
+
+  /* 28px buttons in a 3px frame: as tall as the header's other buttons */
+  .nt-layout .seg-btn {
+    height: 28px;
+    padding: 0 9px;
+  }
+
+  /* A blank notebook keeps the strip: its starters are the way in. Without it the panes take
+     the whole height (the strip's row would otherwise hold them). */
+  .nt-view:not([data-empty="true"]) .nt-strip {
+    display: none;
+  }
+
+  .nt-view:not([data-empty="true"]) .nt-workspace {
+    grid-template-rows: minmax(0, 1fr);
+  }
+
+  .nt-viewdd,
+  .nt-jumpdd {
+    display: inline-flex;
+    flex: 0 1 auto;
+    max-width: 50%;
+  }
+
+  .nt-viewdd .dd-btn,
+  .nt-jumpdd .dd-btn {
+    --btn-h: 36px;
+  }
+
+  .nt-list-head {
+    gap: 6px;
+    padding: var(--space-2);
+  }
+
+  .nt-search .input {
+    height: 36px;
+  }
+
+  /* No "/" hint here: the field keeps its room for the placeholder until the clear button shows */
+  .nt-search-kbd {
+    display: none;
+  }
+
+  .nt-search:not(.has-query) .input {
+    padding-right: var(--space-3);
+  }
+
+  /* The section menu shows the count; the line comes back to count search matches */
+  .nt-list:not(.is-searching) .nt-list-meta {
+    display: none;
+  }
+
+  /* One line of preview per note, so a screen holds more of them */
+  .nt-item-excerpt {
+    -webkit-line-clamp: 1;
+    line-clamp: 1;
   }
 }
 

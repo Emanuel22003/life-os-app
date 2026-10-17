@@ -2,7 +2,8 @@
 // Unscheduled tray). Pure DOM out of a render context; no listeners here: calendar.js
 // handles every click, key and drag by delegation through these data attributes:
 //   data-act      click action: zoom-week · zoom-day · event · add-event · add-allday ·
-//                 task-check · task-open · task-schedule · more · habit-check · layer-on
+//                 task-check · task-open · task-schedule · more · habit-check · layer-on ·
+//                 plan-toggle (open / fold a day-plan list: data-panel 'tasks' | 'habits')
 //   data-drag     'task' | 'event' (month / all-day bars); data-tl='event' + data-tl-resize
 //   data-tl-day   a timeline column; data-drop-day / data-drop-tray: drop targets
 //   data-zoom     'week:<monday>' | 'day:<key>': what a zoom transition grows from / into
@@ -12,7 +13,7 @@
 // (solid · outline · hatched · ink); TASKS are outlined chips with a square check; HABITS
 // are round dots and a done / planned readout, never squares.
 
-import { h, icon, registerIcon, idx, term, plural, weekday, WEEKDAYS_SHORT, MONTHS_SHORT } from '../ui.js';
+import { h, icon, registerIcon, idx, term, plural, tip, weekday, WEEKDAYS_SHORT, MONTHS_SHORT } from '../ui.js';
 import { paintColor } from '../colors.js';
 import {
   WEEK_ORDER,
@@ -463,6 +464,8 @@ function fillTimeline(tl, ctx, keys) {
   const H = ctx.hourH;
   tl.style.setProperty('--cal-hour', `${H}px`);
   tl.style.setProperty('--cal-cols', String(keys.length));
+  // Hours squeezed to fit the screen keep only their hour lines (half-hour lines would crowd them)
+  tl.classList.toggle('is-dense', H < 30);
   const hours = h(
     'div',
     { class: 'cal-tl-hours', 'aria-hidden': 'true' },
@@ -637,14 +640,20 @@ export function fillEdges(top, bottom, ctx, keys, view) {
   bottom.replaceChildren(...cells('down'));
 }
 
-/** All-day lane above the week timeline: span bars, then each day's tasks. */
-function fillAllday(el, ctx, keys) {
+/**
+ * All-day lane above a timeline: span bars, then each day's tasks. The day view passes
+ * { tasks: false } (its tasks are in the Tasks list below) and { add: true }: the "All day"
+ * label becomes a button that adds an all-day event (the keyboard's way in).
+ */
+function fillAllday(el, ctx, keys, { tasks: withTasks = true, add = false } = {}) {
   const allDay = ctx.layers.events ? ctx.occs.filter((o) => o.allDay) : [];
   const spans = layoutSpans(allDay, keys);
   const lanes = laneCount(spans);
   const items = [];
   for (const s of spans) {
-    const bar = eventBar(s.occ, ctx, { prefix: 'ad', tab: '0', cl: s.continuesLeft, cr: s.continuesRight });
+    // One day of a longer span says which day it is (2/3)
+    const extra = keys.length === 1 && s.occ.spanDays > 1 ? h('span', { class: 'cal-ev-span tnum' }, `${daysBetween(s.occ.start, keys[0]) + 1}/${s.occ.spanDays}`) : null;
+    const bar = eventBar(s.occ, ctx, { prefix: 'ad', tab: '0', cl: s.continuesLeft, cr: s.continuesRight, extra });
     bar.style.gridColumn = `${s.startCol + 2} / ${s.endCol + 3}`;
     bar.style.gridRow = String(s.lane + 1);
     items.push(bar);
@@ -655,7 +664,7 @@ function fillAllday(el, ctx, keys) {
   let rowsUsed = lanes;
   keys.forEach((key, c) => {
     // Tasks with a time are on the timeline below
-    const tasks = ctx.layers.tasks ? (ctx.tasksByDay.get(key) ?? []).filter((t) => !t.time) : [];
+    const tasks = withTasks && ctx.layers.tasks ? (ctx.tasksByDay.get(key) ?? []).filter((t) => !t.time) : [];
     tasks.forEach((t, i) => {
       const chip = taskChip(t, ctx, { prefix: 'ad', tab: '0' });
       chip.style.gridColumn = String(c + 2);
@@ -664,9 +673,34 @@ function fillAllday(el, ctx, keys) {
     });
     rowsUsed = Math.max(rowsUsed, top[c] + tasks.length);
   });
+  // Events hidden: the lane says so, with the way back
+  if (add && !ctx.layers.events) {
+    // The whole lane row is the button: a big enough target in a one-row lane
+    const show = h('button', { type: 'button', class: 'cal-ad-note label', dataset: { act: 'layer-on', layer: 'events', fid: 'link:events', focus: 'ad-add' } }, 'Events hidden · ', h('span', { class: 'cal-ad-note-go' }, 'Show'));
+    show.style.gridColumn = `2 / ${keys.length + 2}`;
+    show.style.gridRow = '1';
+    items.push(show);
+  }
   const rows = Math.max(1, rowsUsed);
   el.style.setProperty('--cal-cols', String(keys.length));
   el.style.gridTemplateRows = `repeat(${rows}, var(--cal-slot))`;
+  if (add) {
+    // Its own column at the lane's end, so it never covers a bar
+    items.push(
+      h(
+        'button',
+        {
+          type: 'button',
+          class: 'cal-ad-add',
+          title: 'New all-day event',
+          'aria-label': `New all-day event on ${longDay(keys[0])}`,
+          style: { gridColumn: String(keys.length + 2), gridRow: `1 / ${rows + 1}` },
+          dataset: { act: 'add-allday', key: keys[0], fid: 'ad-add' },
+        },
+        icon('plus', { size: 12, stroke: 2 }),
+      ),
+    );
+  }
   el.replaceChildren(
     h('div', { class: 'cal-ad-label label', style: { gridRow: `1 / ${rows + 1}` } }, 'All day'),
     ...keys.map((key, c) =>
@@ -786,25 +820,43 @@ function habitRow(item, key, ctx) {
   );
 }
 
-/** A plan section: its heading is a focus anchor (data-fid), e.g. after zooming into the day. */
-function section(fid, title, count, ...body) {
-  const head = h(
-    'div',
-    { class: 'cal-plan-head' },
-    h('h3', { class: 'cal-plan-title label', tabindex: '-1', dataset: { fid } }, title),
-    count != null ? h('span', { class: 'cal-plan-count tnum' }, count) : null,
+/**
+ * A day-plan list's heading: one button that opens or folds the list ("Tasks · 6 ▸"). It is also
+ * the list's focus anchor (data-fid plan-tasks / plan-habits). calendar.js keeps the open state.
+ */
+function planToggle(panel, label, glyph, bodyId) {
+  const count = h('span', { class: 'cal-plan-count tnum' });
+  const el = h(
+    'button',
+    { type: 'button', class: 'cal-plan-toggle', 'aria-expanded': 'false', 'aria-controls': bodyId, dataset: { act: 'plan-toggle', panel, fid: `plan-${panel}` } },
+    h('span', { class: ['cal-glyph', `cal-glyph--${glyph}`], 'aria-hidden': 'true' }),
+    h('span', { class: 'cal-plan-title label' }, label),
+    count,
+    icon('chevron-right', { size: 14, stroke: 2, className: 'cal-plan-chev' }),
   );
-  return [head, ...body.flat().filter(Boolean)];
+  return { el, count };
 }
 
-/** Day view: that day's timeline and a planning panel (tasks, habits, all-day events). */
+/**
+ * Day view: the day's timeline first (an all-day lane on top), then its tasks and habits as two
+ * lists that fold away. ctx.dayPanels says which are open: on a phone both start folded, so the
+ * whole day fits on one screen; beside a wide timeline they start open.
+ */
 export function dayView({ onAddTask }) {
   const tl = h('div', { class: 'cal-tl cal-tl--day' });
   const scroller = h('div', { class: 'cal-tl-scroll' }, tl);
   const edgeTop = h('div', { class: 'cal-edges cal-edges--top' });
   const edgeBottom = h('div', { class: 'cal-edges cal-edges--bottom' });
   const tlHead = h('div', { class: 'cal-day-head' });
-  const timeline = h('section', { class: 'cal-day-tl panel', 'aria-label': 'Timeline' }, tlHead, h('div', { class: 'cal-tl-wrap' }, scroller, edgeTop, edgeBottom));
+  const allday = h('div', { class: 'cal-wk-allday cal-day-allday' });
+  // The view's focus anchor after zooming in (a keyboard user lands on the day, at its top)
+  const timeline = h(
+    'section',
+    { class: 'cal-day-tl panel', 'aria-label': 'Timeline', tabindex: '-1', dataset: { fid: 'day-tl' } },
+    tlHead,
+    allday,
+    h('div', { class: 'cal-tl-wrap' }, scroller, edgeTop, edgeBottom),
+  );
 
   // The add-task field is built once, so a re-render never steals its text or focus
   const addInput = h('input', {
@@ -827,51 +879,82 @@ export function dayView({ onAddTask }) {
     addInput,
     h('button', { type: 'submit', class: 'btn btn--sm cal-add-btn' }, 'Add'),
   );
-  const tasksBody = h('div', { class: 'cal-plan-body' });
-  const tasksSec = h('section', { class: 'cal-plan-sec cal-plan-tasks', 'aria-label': 'Tasks' }, tasksBody, addForm);
-  const habitsSec = h('section', { class: 'cal-plan-sec cal-plan-habits', 'aria-label': 'Habits' });
-  const alldaySec = h('section', { class: 'cal-plan-sec cal-plan-allday', 'aria-label': 'All-day events' });
-  const panel = h('aside', { class: 'cal-plan panel hud', 'aria-label': 'Day plan' }, tasksSec, habitsSec, alldaySec);
+  const tasksItems = h('div', { class: 'cal-plan-items' });
+  const tasksBody = h('div', { class: 'cal-plan-body', id: 'cal-plan-tasks' }, tasksItems, addForm);
+  const tasksToggle = planToggle('tasks', 'Tasks', 'task', 'cal-plan-tasks');
+  const habitsBody = h('div', { class: 'cal-plan-body', id: 'cal-plan-habits' });
+  const habitsToggle = planToggle('habits', 'Habits', 'hb', 'cal-plan-habits');
+  // Dropping a task here makes it a whole-day task of this day (off the timeline)
+  const tasksSec = h('section', { class: 'cal-plan-sec cal-plan-tasks', 'aria-label': 'Tasks' }, h('h3', { class: 'cal-plan-h' }, tasksToggle.el), tasksBody);
+  const habitsSec = h('section', { class: 'cal-plan-sec cal-plan-habits', 'aria-label': 'Habits' }, h('h3', { class: 'cal-plan-h' }, habitsToggle.el), habitsBody);
+  const panel = h('aside', { class: 'cal-plan panel hud', 'aria-label': 'Day plan' }, tasksSec, habitsSec);
   const el = h('div', { class: 'cal-day' }, timeline, panel);
+
+  const setOpen = (toggle, body, open) => {
+    toggle.el.setAttribute('aria-expanded', String(open));
+    body.hidden = !open;
+  };
 
   return {
     el,
     scroller,
     addInput,
+    panel,
     edges: { top: edgeTop, bottom: edgeBottom },
     keys: (ctx) => [ctx.cursor],
+    /** The plan's height with both lists folded: the room the timeline leaves for it below. */
+    foldedHeight() {
+      let hgt = panel.offsetHeight;
+      for (const b of [tasksBody, habitsBody]) if (!b.hidden && b.offsetParent) hgt -= b.offsetHeight;
+      return hgt;
+    },
     update(ctx) {
       const key = ctx.cursor;
       const isToday = key === ctx.today;
       const timed = ctx.layers.events ? ctx.occs.filter((o) => !o.allDay && o.start === key) : [];
       const booked = timed.reduce((n, o) => n + (o.endMin - o.startMin), 0);
+      timeline.setAttribute('aria-label', `Timeline, ${longDay(key)}`);
       tlHead.replaceChildren(
         h('span', { class: 'label' }, isToday ? 'Today' : daysBetween(ctx.today, key) === 1 ? 'Tomorrow' : daysBetween(ctx.today, key) === -1 ? 'Yesterday' : WEEKDAYS_SHORT[weekday(key)]),
         h('span', { class: 'cal-day-head-sep', 'aria-hidden': 'true' }, term('calendar.sep', '//')),
         h('span', { class: 'label' }, ctx.layers.events ? `${plural(timed.length, 'timed event')}${booked ? ` · ${durationLabel(0, booked)} booked` : ''}` : 'Events hidden'),
       );
+      fillAllday(allday, ctx, [key], { tasks: false, add: true });
+      allday.dataset.dropDay = key;
       fillTimeline(tl, ctx, [key]);
+
+      const open = ctx.dayPanels ?? { tasks: true, habits: true };
 
       // Tasks
       const all = ctx.tasksForDay(key);
       // Tasks with a time first, in time order; then the rest as before
-      const open = all.filter((t) => !t.done).sort((a, b) => (a.time ? 0 : 1) - (b.time ? 0 : 1) || (a.time && b.time ? (a.time < b.time ? -1 : a.time > b.time ? 1 : 0) : 0));
+      const openTasks = all.filter((t) => !t.done).sort((a, b) => (a.time ? 0 : 1) - (b.time ? 0 : 1) || (a.time && b.time ? (a.time < b.time ? -1 : a.time > b.time ? 1 : 0) : 0));
       const done = all.filter((t) => t.done);
       const overdue = isToday ? ctx.overdue : [];
-      const tasksTitle = isToday ? 'Tasks · due today' : `Tasks · due ${shortDay(key)}`;
+      tasksSec.dataset.dropDay = key;
+      setOpen(tasksToggle, tasksBody, open.tasks);
       if (!ctx.layers.tasks) {
-        tasksBody.replaceChildren(
-          ...section('plan-tasks', tasksTitle, null, h('p', { class: 'cal-plan-note' }, 'The Tasks layer is off. ', h('button', { type: 'button', class: 'cal-link', dataset: { act: 'layer-on', layer: 'tasks', fid: 'link:tasks', focus: 'plan-tasks' } }, 'Show tasks'))),
-        );
+        // Folded, the row itself says why it has no count
+        tasksToggle.count.textContent = 'Hidden';
+        tasksToggle.el.setAttribute('aria-label', 'Tasks, hidden');
+        tasksToggle.el.title = 'Tasks are hidden';
+        tasksItems.replaceChildren(h('p', { class: 'cal-plan-note' }, 'The Tasks layer is off. ', h('button', { type: 'button', class: 'cal-link', dataset: { act: 'layer-on', layer: 'tasks', fid: 'link:tasks', focus: 'plan-tasks' } }, 'Show tasks')));
+        addForm.hidden = true;
       } else {
+        const n = openTasks.length + overdue.length;
+        tasksToggle.count.textContent = n ? String(n) : '';
+        const due = isToday ? 'Tasks due today' : `Tasks due ${shortDay(key)}`;
+        tasksToggle.el.title = `${due}${overdue.length ? ` · ${overdue.length} overdue` : ''}`;
+        tasksToggle.el.setAttribute('aria-label', `${due}, ${openTasks.length} open${overdue.length ? `, ${overdue.length} overdue` : ''}`);
+        addForm.hidden = false;
         const body = [];
         if (overdue.length) {
           body.push(h('div', { class: 'cal-plan-sub label' }, `Overdue · ${overdue.length}`));
           body.push(h('div', { class: 'cal-plan-list is-overdue' }, overdue.map((t) => taskRow(t, ctx, { prefix: 'od', showDue: true }))));
         }
-        if (overdue.length && open.length) body.push(h('div', { class: 'cal-plan-sub label' }, isToday ? 'Due today' : 'Due'));
-        if (open.length) body.push(h('div', { class: 'cal-plan-list' }, open.map((t) => taskRow(t, ctx, { prefix: 'dy' }))));
-        if (!open.length && !overdue.length) {
+        if (overdue.length && openTasks.length) body.push(h('div', { class: 'cal-plan-sub label' }, isToday ? 'Due today' : 'Due'));
+        if (openTasks.length) body.push(h('div', { class: 'cal-plan-list' }, openTasks.map((t) => taskRow(t, ctx, { prefix: 'dy' }))));
+        if (!openTasks.length && !overdue.length) {
           body.push(h('p', { class: 'cal-plan-note' }, done.length ? 'Everything due is done.' : 'Nothing due. Add a task below or drag one here from Unscheduled.'));
         }
         if (done.length) {
@@ -882,62 +965,20 @@ export function dayView({ onAddTask }) {
             body.push(h('button', { type: 'button', class: 'cal-link cal-plan-donelink label', dataset: { act: 'layer-on', layer: 'completed', fid: 'link:done', focus: 'plan-done' } }, `${done.length} done · show`));
           }
         }
-        tasksBody.replaceChildren(...section('plan-tasks', tasksTitle, open.length + overdue.length || null, ...body));
+        tasksItems.replaceChildren(...body);
       }
 
       // Habits
       const info = ctx.layers.habits ? ctx.habits?.get(key) : null;
       habitsSec.hidden = !ctx.layers.habits;
+      setOpen(habitsToggle, habitsBody, open.habits);
       if (ctx.layers.habits) {
         const rows = info ? [...info.scheduled, ...info.bonus] : [];
         const future = key > ctx.today;
-        habitsSec.replaceChildren(
-          ...section(
-            'plan-habits',
-            'Habits',
-            info?.planned ? (future ? `${info.planned} planned` : `${info.done}/${info.planned}`) : null,
-            rows.length
-              ? h('div', { class: 'cal-plan-list' }, rows.map((it) => habitRow(it, key, ctx)))
-              : h('p', { class: 'cal-plan-note' }, 'No habits planned for this day.'),
-            future && rows.length ? h('p', { class: 'cal-plan-note' }, 'Planned. Check in on the day.') : null,
-          ),
-        );
-      }
-
-      // All-day events
-      const allDay = ctx.layers.events ? ctx.occs.filter((o) => o.allDay && o.start <= key && o.end >= key) : [];
-      if (!ctx.layers.events) {
-        alldaySec.replaceChildren(
-          ...section('plan-allday', 'All-day events', null, h('p', { class: 'cal-plan-note' }, 'The Events layer is off. ', h('button', { type: 'button', class: 'cal-link', dataset: { act: 'layer-on', layer: 'events', fid: 'link:events', focus: 'plan-allday' } }, 'Show events'))),
-        );
-      } else {
-        alldaySec.replaceChildren(
-          ...section(
-            'plan-allday',
-            'All-day events',
-            allDay.length || null,
-            allDay.length
-              ? h(
-                  'div',
-                  { class: 'cal-plan-list cal-plan-evs' },
-                  allDay.map((o) =>
-                    eventBar(o, ctx, {
-                      prefix: 'pd',
-                      tab: '0',
-                      drag: false,
-                      extra: o.spanDays > 1 ? h('span', { class: 'cal-ev-span tnum' }, `${daysBetween(o.start, key) + 1}/${o.spanDays}`) : null,
-                    }),
-                  ),
-                )
-              : null,
-            h(
-              'button',
-              { type: 'button', class: 'cal-link cal-plan-addev label', dataset: { act: 'add-allday', key, fid: 'link:addev' } },
-              icon('plus', { size: 12, stroke: 2 }),
-              'All-day event',
-            ),
-          ),
-        );
+        habitsToggle.count.textContent = info?.planned ? (future ? `${info.planned} planned` : `${info.done}/${info.planned}`) : '';
+        habitsToggle.el.title = future && rows.length ? 'Planned: check in on the day' : '';
+        habitsToggle.el.setAttribute('aria-label', `Habits${info?.planned ? (future ? `, ${info.planned} planned` : `, ${info.done} of ${info.planned} done`) : ''}`);
+        habitsBody.replaceChildren(rows.length ? h('div', { class: 'cal-plan-list' }, rows.map((it) => habitRow(it, key, ctx))) : h('p', { class: 'cal-plan-note' }, 'No habits planned for this day.'));
       }
     },
   };
@@ -997,6 +1038,17 @@ export function agendaView(ctx) {
 export function trayView() {
   const count = h('span', { class: 'cal-tray-count tnum' });
   const body = h('div', { class: 'cal-tray-body' });
+  // How to plan from here: a tip with its own ✓ (built once per pointer type, so a re-render
+  // never takes focus from its button)
+  let hint = null;
+  const hintFor = (coarse) => {
+    const text = coarse ? 'Tap the calendar icon to schedule a task.' : 'Drag a task onto a day, or use Schedule…';
+    if (hint?.dataset.text !== text) {
+      hint = tip({ id: 'calendar.tray', text, className: 'cal-tray-tip' });
+      hint.dataset.text = text;
+    }
+    return hint;
+  };
   const el = h(
     'aside',
     { class: 'cal-tray panel hud', 'aria-label': 'Unscheduled tasks', dataset: { dropTray: '' } },
@@ -1018,7 +1070,7 @@ export function trayView() {
         return;
       }
       body.replaceChildren(
-        h('p', { class: 'cal-tray-hint label' }, ctx.coarse ? 'Tap the calendar icon to schedule' : 'Drag onto a day · or Schedule…'),
+        hintFor(ctx.coarse),
         h('div', { class: 'cal-tray-list' }, list.map((t) => taskChip(t, ctx, { prefix: 'tray', tab: '0', schedule: true }))),
       );
     },
@@ -1029,9 +1081,10 @@ export function trayView() {
    Legend
    ========================================================================== */
 
+/** The look key (events · task · habits). Inline (a span), so it can sit in a tip's text. */
 export function legend() {
   return h(
-    'div',
+    'span',
     { class: 'cal-legend', role: 'group', 'aria-label': 'Legend' },
     h(
       'span',

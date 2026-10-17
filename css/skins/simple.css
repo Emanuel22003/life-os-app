@@ -389,7 +389,7 @@
    Shared kit
    Written as `.thing:where([data-plain] *)`: the same skin scope with no
    extra specificity, so these act as Simple's version of components.css and a
-   feature's own tweak (.hb-check's size, .nt-pin's pressed state) still wins.
+   feature's own tweak (.hb-row-check's size, .nt-pin's pressed state) still wins.
    ========================================================================== */
 
 .panel:where([data-plain] *) {
@@ -670,23 +670,29 @@
   font-weight: 400;
 }
 
+/* The whole box shows the focus (its ring above), not a second outline inside it */
+[data-plain] .tk-add-input:focus-visible {
+  outline: none;
+}
+
 /* :where keeps this at base strength, so the phone layout's icon-only button still wins */
 .tk-add-btn:where([data-plain] *) {
   padding: 0 var(--space-4) 0 var(--space-3);
 }
 
-[data-plain] .tk-command-tools {
-  padding: var(--space-2) var(--space-3) var(--space-2) var(--space-5);
-  gap: var(--space-2) var(--space-6);
+/* The steps and the token readout line up with the title's text */
+[data-plain] .tk-steps,
+[data-plain] .tk-readout {
+  padding-left: var(--space-5);
 }
 
-[data-plain] .tk-tool-label {
-  min-width: 0;
-  color: var(--text-2);
+[data-plain] .tk-step-label {
+  font-size: var(--fs-sm);
+  font-weight: 600;
 }
 
-[data-plain] .tk-command-tools .seg-btn {
-  height: 28px;
+[data-plain] .tk-step-seg .seg-btn {
+  height: 30px;
   font-size: var(--fs-sm);
 }
 
@@ -716,16 +722,11 @@
   margin-bottom: var(--space-4);
 }
 
-[data-plain] .tk-sort > .label {
-  color: var(--text-2);
-}
-
 /* ---- Rows ---- */
 [data-plain] .tk-row {
   --row-line: 24px;
+  --tk-pad-y: 14px;
   grid-template-columns: 28px auto minmax(0, 1fr) auto;
-  padding-top: 14px;
-  padding-bottom: 14px;
 }
 
 [data-plain] .tk-row:focus-visible {
@@ -739,12 +740,6 @@
 
 [data-plain] .tk-row.is-overdue .tk-grip {
   background: none;
-}
-
-[data-plain] .tk-grip {
-  padding-top: 14px;
-  margin-top: -14px;
-  margin-bottom: -14px;
 }
 
 [data-plain] .tk-title-line {
@@ -837,15 +832,6 @@
 }
 
 /* ---- List ---- */
-[data-plain] .nt-list-head {
-  gap: var(--space-2);
-  padding: var(--space-3);
-}
-
-[data-plain] .nt-new {
-  justify-content: center;
-}
-
 [data-plain] .nt-search .input {
   border-radius: var(--radius-sm);
 }
@@ -1200,12 +1186,12 @@
 }
 
 /* ==========================================================================
-   Habits (Today, week plan, cards)
+   Habits (Today overviews, week plan)
    Day states stay distinct without dashes or hatching: done is filled, missed
    is a grey fill, planned is outlined, a bonus is mid grey, rest days are blank.
    ========================================================================== */
 
-/* ---- Week selector ---- */
+/* ---- Day strip (Day view) ---- */
 [data-plain] .hb-sel {
   border-radius: 10px;
 }
@@ -1223,71 +1209,21 @@
   font-weight: 600;
 }
 
-[data-plain] .hb-sel-seg {
-  border-radius: 2px;
-}
-
-[data-plain] .hb-sel-meter[data-mode="rest"] .hb-sel-seg {
-  background: currentColor;
-  opacity: 0.12;
-}
-
 [data-plain] .hb-sel[aria-checked="true"] {
   box-shadow: none;
 }
 
-/* ---- Selected day: a plain progress ring, no gauge ticks ---- */
-[data-plain] .hb-dayhead {
-  background: none;
-}
-
-[data-plain] .hb-dial-ticks {
-  display: none;
-}
-
-[data-plain] .hb-ring-frac {
+/* ---- Readout, streaks, the day list ---- */
+[data-plain] .hb-ro-frac,
+[data-plain] .hb-mx-streak {
   font-family: var(--font-sans);
-  font-weight: 600;
 }
 
-[data-plain] .hb-status {
-  font-size: var(--fs-md);
-  color: var(--text-2);
-}
-
-/* ---- Cards ---- */
-[data-plain] .hb-card-fx {
-  display: none;
-}
-
-[data-plain] .hb-card.is-done {
-  border-color: var(--line);
-  background: var(--surface);
-}
-
-[data-plain] .hb-card.is-future {
+[data-plain] .hb-row.is-miss .hb-row-check {
   border-style: solid;
 }
 
-[data-plain] .hb-card-name {
-  font-weight: 600;
-}
-
-[data-plain] .hb-card.is-done .hb-check {
-  box-shadow: none;
-}
-
-[data-plain] .hb-card.is-miss .hb-check,
-[data-plain] .hb-card.is-future .hb-check {
-  border-style: solid;
-}
-
-[data-plain] .hb-stat-num {
-  font-family: var(--font-sans);
-  font-weight: 600;
-}
-
-/* ---- Day states: week strip, heatmap and legend ---- */
+/* ---- Day states: week matrix and its legend ---- */
 [data-plain] .hb-day {
   border-radius: var(--radius-sm);
   font-family: var(--font-sans);
@@ -1305,8 +1241,7 @@
 }
 
 [data-plain] .hb-day[data-state="rest"],
-[data-plain] .hb-swatch[data-s="rest"],
-[data-plain] .hb-heat-cell[data-s="rest"] {
+[data-plain] .hb-swatch[data-s="rest"] {
   background: none;
   border-color: transparent;
 }
@@ -1317,8 +1252,7 @@
 
 [data-plain] .hb-day[data-state="bonus"],
 [data-plain] .hb-swatch[data-s="bonus"],
-[data-plain] .hb-heat-cell[data-s="bonus"],
-[data-plain] .hb-np-row.is-bonus .hb-np-check {
+[data-plain] .hb-row.is-bonus .hb-row-check {
   background: var(--heat-2);
   border-color: transparent;
   color: var(--text);
@@ -1329,11 +1263,8 @@
   border-color: transparent;
 }
 
-[data-plain] .hb-swatch {
-  border-radius: 3px;
-}
-
-[data-plain] .hb-heat-cell {
+[data-plain] .hb-swatch,
+[data-plain] .hb-wk {
   border-radius: 3px;
 }
 
@@ -1499,7 +1430,7 @@
    ========================================================================== */
 
 [data-plain] .hm-next {
-  padding: 6px 14px 6px 10px;
+  padding: 3px 12px 3px 9px;
   border-color: var(--line);
   background: var(--surface);
   box-shadow: var(--simple-card-shadow);

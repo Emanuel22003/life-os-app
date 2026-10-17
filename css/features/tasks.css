@@ -15,7 +15,7 @@
    ========================================================================== */
 
 .tk-command {
-  margin-bottom: var(--space-5);
+  margin-bottom: var(--space-4);
   background: linear-gradient(180deg, var(--surface-2), var(--surface) 70%);
   transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
 }
@@ -34,7 +34,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  padding: var(--space-2) var(--space-2) var(--space-2) var(--space-4);
+  padding: var(--space-1) var(--space-1) var(--space-1) var(--space-4);
 }
 
 /* signal line that charges up along the divider while typing */
@@ -74,7 +74,7 @@
 .tk-add-input {
   flex: 1;
   min-width: 0;
-  height: 48px;
+  height: 44px;
   padding: 0;
   border: 0;
   background: transparent;
@@ -111,6 +111,11 @@
   padding: 0 var(--space-2) 0 var(--space-3);
 }
 
+.tk-add-icon {
+  display: inline-grid;
+  place-items: center;
+}
+
 .tk-add-kbd {
   min-width: 16px;
   height: 16px;
@@ -119,26 +124,7 @@
   opacity: 0.5;
 }
 
-.tk-command-tools {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2) var(--space-5);
-  padding: var(--space-2) var(--space-3) var(--space-2) var(--space-4);
-  border-top: 1px solid var(--line);
-}
-
-.tk-tool {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  min-width: 0;
-}
-
-.tk-tool-label {
-  min-width: 26px;
-}
-
+/* The due-date picker of the details dialog */
 .tk-due {
   display: flex;
   align-items: center;
@@ -156,20 +142,102 @@
   --btn-h: 28px;
 }
 
+/* What the title's tokens set ("Parsed: High priority · Due Fri"), only while there are some */
 .tk-readout {
-  margin-left: auto;
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: var(--space-2);
-  min-height: 30px;
+  padding: 0 var(--space-3) var(--space-2) var(--space-4);
 }
 
-.tk-tip,
 .tk-kept {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+}
+
+/* ---- The steps after the title: Priority → When → Section, one at a time ---- */
+.tk-steps {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3) var(--space-3) var(--space-4);
+  border-top: 1px solid var(--line);
+  animation: lo-rise var(--dur) var(--ease-out) both;
+}
+
+.tk-step-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px var(--space-2);
+  min-width: 0;
+}
+
+.tk-step-back {
+  margin-left: calc(var(--space-2) * -1);
+  padding-left: 6px;
+}
+
+.tk-step-pick {
+  height: 24px;
+  max-width: 16ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text);
+}
+
+button.tk-step-pick:hover {
+  border-color: var(--text-2);
+  background: var(--surface-2);
+}
+
+.tk-step-label {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  color: var(--text);
+}
+
+.tk-step-count {
+  color: var(--text-3);
+}
+
+.tk-step-now {
+  gap: 6px;
+}
+
+/* The choices wrap on a narrow screen rather than scroll out of sight */
+.tk-step-seg {
+  flex-wrap: wrap;
+  overflow: visible;
+}
+
+.tk-step-chip .cc-dot {
+  margin-right: 2px;
+}
+
+.tk-step-key {
+  margin-right: 2px;
+  opacity: 0.5;
+}
+
+.tk-step-date {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.tk-step-date-input {
+  width: 168px;
+  height: 32px;
+  padding: 0 var(--space-2);
+}
+
+.tk-steps-tip {
+  margin-top: var(--space-1);
 }
 
 /* Tokens are literal syntax: show them as typed, not in label caps */
@@ -346,21 +414,17 @@ button.tk-stat:active {
 }
 
 /* ==========================================================================
-   Toolbar: filters + sort
+   Toolbar: section · filter · sort on one row
+   Wide screens: the section tabs and the filter tabs (with counts), Sort as a dropdown. Phones
+   (and wide screens with many sections): dropdowns. Both are in the DOM; width picks one.
    ========================================================================== */
 
 .tk-toolbar {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-3);
+  gap: var(--space-2) var(--space-3);
   margin-bottom: var(--space-3);
-}
-
-.tk-sort {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
 }
 
 .tk-filters .seg-count {
@@ -368,30 +432,43 @@ button.tk-stat:active {
   text-align: right;
 }
 
+.tk-toolbar .tk-sec-dd,
+.tk-toolbar .tk-filter-dd {
+  display: none;
+}
+
+.tk-toolbar.tk-secs-dd .tk-sec-tabs {
+  display: none;
+}
+
+.tk-toolbar.tk-secs-dd .tk-sec-dd {
+  display: inline-flex;
+}
+
+.tk-sec-dd .dd-btn {
+  max-width: 22ch;
+}
+
 /* ==========================================================================
-   Sections: All · Work · Life … above the command bar; the open one scopes the page
+   Sections: All · Work · Life …; the open one scopes the page
    ========================================================================== */
 
-.tk-sections {
+.tk-sec-tabs {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-2);
-  margin-bottom: var(--space-4);
+  gap: 2px;
+  min-width: 0;
 }
 
 .tk-sec-seg {
   flex: 0 1 auto;
   min-width: 0;
+  margin-right: 2px;
 }
 
 .tk-sec-seg .seg-count {
   min-width: 1.5ch;
   text-align: right;
-}
-
-.tk-sec-label {
-  margin-right: var(--space-1);
 }
 
 /* In All, a row names its section */
@@ -410,10 +487,9 @@ button.tk-stat:active {
   max-width: 480px;
 }
 
+/* Its explanation is a tip ("Got it" hides it for good) */
 .tk-secs-lead {
   margin: 0;
-  color: var(--text-2);
-  line-height: 1.5;
 }
 
 .tk-secs {
@@ -477,12 +553,14 @@ button.tk-stat:active {
 
 .tk-row {
   --row-line: 22px;
+  /* the row's top and bottom padding; the gutter (grip) and the priority bar follow it */
+  --tk-pad-y: var(--space-3);
   position: relative;
   display: grid;
   grid-template-columns: 36px auto minmax(0, 1fr) auto;
   align-items: start;
   column-gap: var(--space-3);
-  padding: var(--space-3) var(--space-3) var(--space-3) 0;
+  padding: var(--tk-pad-y) var(--space-3) var(--tk-pad-y) 0;
   border-top: 1px solid var(--line);
   outline: none;
   transition: background var(--dur-fast) var(--ease);
@@ -517,7 +595,7 @@ button.tk-stat:active {
   content: "";
   position: absolute;
   left: 0;
-  top: var(--space-3);
+  top: var(--tk-pad-y);
   width: 2px;
   height: var(--row-line);
   border-radius: 0 1px 1px 0;
@@ -577,8 +655,8 @@ button.tk-stat:active {
   align-self: stretch;
   display: flex;
   justify-content: center;
-  margin: calc(var(--space-3) * -1) 0;
-  padding-top: var(--space-3);
+  margin: calc(var(--tk-pad-y) * -1) 0;
+  padding-top: var(--tk-pad-y);
   border-radius: 0;
   color: var(--text-3);
   cursor: default;
@@ -972,13 +1050,15 @@ button.tk-stat:active {
   animation: lo-fade-in var(--dur) var(--ease);
 }
 
+/* The keyboard reference: a tip, so "Got it" hides it for good */
 .tk-hints {
+  margin-top: var(--space-7);
+}
+
+.tk-hints .tip-text {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2) var(--space-5);
-  margin-top: var(--space-7);
-  padding-top: var(--space-4);
-  border-top: 1px dashed var(--line);
 }
 
 .tk-hint {
@@ -1176,9 +1256,10 @@ button.tk-stat:active {
 
 /* Touch: no hover, no physical keyboard hints; grips always visible */
 @media (hover: none) {
-  .tk-hints,
+  .tk-root .tk-hints,
   .tk-key-hint,
-  .tk-readout.is-idle,
+  .tk-step-key,
+  .tk-steps-tip .lo-hint,
   .tk-detail-keys {
     display: none;
   }
@@ -1200,11 +1281,48 @@ button.tk-stat:active {
   .tk-stat--progress {
     grid-column: 1 / -1;
   }
+
+  /* A tablet column: the sections as a dropdown, so filter and sort stay on the same row */
+  .tk-toolbar .tk-sec-tabs {
+    display: none;
+  }
+
+  .tk-toolbar .tk-sec-dd {
+    display: inline-flex;
+  }
 }
 
+/* The status line ("6 to do today.") is for phones only where there is a stats strip */
+.tk-summary--phone {
+  display: none;
+}
+
+/* ==========================================================================
+   Phones: see more with less. The header is one row (the status beside the title), the add box
+   one line until the steps open, one row of dropdowns, and compact two-line tasks.
+   Selectors here are a notch stronger than the templates' own rules for the same parts.
+   ========================================================================== */
+
 @media (max-width: 640px) {
+  /* The status line sits on the title's row, right-aligned (css/compact.css lays the row out) */
+  html[data-skin] .main .view.tk-root > .page-header .page-heading > .tk-summary {
+    display: block;
+    grid-column: 2;
+    grid-row: 1;
+    justify-self: end;
+    max-width: min(230px, 62vw);
+    margin: 0;
+    text-align: right;
+  }
+
+  /* The numbers strip makes way for the tasks; the status line says what today holds */
+  .tk-root .tk-stats {
+    display: none;
+  }
+
   /* 16px+ inputs stop iOS Safari zooming on focus */
   .tk-date,
+  .tk-step-date-input,
   .tk-edit-input,
   .tk-modal .input,
   .tk-modal .textarea {
@@ -1222,22 +1340,31 @@ button.tk-stat:active {
   }
 
   .tk-token {
-    height: 32px;
+    height: 30px;
   }
 
-  .tk-command-main {
+  /* ---- Add box ---- */
+  .tk-root .tk-command {
+    margin-bottom: var(--space-3);
+  }
+
+  .tk-root .tk-command .tk-command-main {
     gap: var(--space-2);
-    padding-left: var(--space-3);
+    padding: 3px 3px 3px var(--space-3);
   }
 
-  .tk-add-input {
-    height: 46px;
+  .tk-root .tk-command .tk-add-input {
+    height: 40px;
     font-size: 17px;
   }
 
   .tk-key-hint,
-  .tk-add-label,
   .tk-add-kbd {
+    display: none;
+  }
+
+  /* An icon (+ or ›); its name says Add task or Next */
+  .tk-root .tk-add-btn .tk-add-label {
     display: none;
   }
 
@@ -1245,22 +1372,6 @@ button.tk-stat:active {
     --btn-h: 36px;
     width: 36px;
     padding: 0;
-  }
-
-  .tk-command-tools {
-    gap: var(--space-2) var(--space-4);
-    padding: var(--space-2) var(--space-3);
-  }
-
-  /* when the due controls wrap, keep the label on the first row (seg = 40px tall) */
-  .tk-tool {
-    align-items: flex-start;
-  }
-
-  .tk-tool-label {
-    display: flex;
-    align-items: center;
-    height: 40px;
   }
 
   .tk-date {
@@ -1273,105 +1384,173 @@ button.tk-stat:active {
     --btn-h: 32px;
   }
 
-  .tk-readout {
-    width: 100%;
-    margin-left: 0;
-    min-height: 0;
-  }
-
-  .tk-readout.is-idle {
-    display: none;
-  }
-
-  .tk-stats {
-    gap: var(--space-2);
-    margin-bottom: var(--space-5);
-  }
-
-  .tk-stat {
-    justify-content: space-between;
-    gap: var(--space-1);
-    padding: var(--space-3);
-  }
-
-  .tk-stat::after {
-    top: var(--space-2);
-    right: var(--space-2);
-  }
-
-  .tk-stat .tk-stat-value {
-    font-size: var(--fs-lg);
-  }
-
-  .tk-stat-label {
-    white-space: normal;
+  .tk-root .tk-command .tk-readout,
+  .tk-root .tk-command .tk-steps {
+    padding-left: var(--space-3);
     padding-right: var(--space-2);
   }
 
-  .tk-stat-idx,
-  .tk-stat-sub {
+  /* Back is an arrow here; its name says where it goes */
+  .tk-step-back > span {
     display: none;
   }
 
-  .tk-stat--progress .tk-stat-label {
-    white-space: nowrap;
+  .tk-root .tk-step-back {
+    width: 32px;
+    padding: 0;
+    margin-left: -6px;
   }
 
-  .tk-toolbar {
-    flex-direction: column;
-    align-items: stretch;
-    gap: var(--space-2);
+  .tk-step-pick {
+    max-width: 40%;
   }
 
-  .tk-toolbar > .spacer {
-    display: none;
-  }
-
-  .tk-filters {
+  /* The choices fill the row like one control (and still wrap on a very narrow phone) */
+  .tk-root .tk-step-seg {
+    display: flex;
     width: 100%;
   }
 
-  .tk-filters .seg-btn,
-  .tk-sort .seg-btn {
+  .tk-root .tk-step-seg .seg-btn {
     flex: 1 1 auto;
     justify-content: center;
     padding: 0 var(--space-2);
   }
 
-  .tk-sort .seg {
-    flex: 1;
+  /* ---- One row of dropdowns: section · filter · sort ---- */
+  .view.tk-root > .tk-toolbar {
+    flex-wrap: nowrap;
+    gap: 6px;
+    margin-bottom: var(--space-2);
   }
 
-  .tk-toolbar > .btn {
-    align-self: flex-start;
+  .tk-toolbar .tk-sec-tabs,
+  .tk-toolbar .tk-filters {
+    display: none;
   }
 
-  .tk-row {
-    --row-line: 24px;
-    grid-template-columns: 30px auto minmax(0, 1fr) auto;
+  .tk-toolbar .tk-sec-dd,
+  .tk-toolbar .tk-filter-dd {
+    display: inline-flex;
+  }
+
+  .tk-toolbar .dd {
+    flex: 0 1 auto;
+    min-width: 0;
+  }
+
+  .tk-toolbar .dd-btn {
+    width: 100%;
+  }
+
+  .tk-sec-dd .dd-btn {
+    max-width: none;
+  }
+
+  .tk-toolbar > .spacer {
+    min-width: 0;
+  }
+
+  /* Sort in the usual order (My order) is its icon alone; another order shows its name */
+  .tk-toolbar .tk-sort-dd.is-default .dd-label {
+    display: none;
+  }
+
+  /* Clear completed (the Done view) keeps its trash icon only */
+  .tk-clear-done > span {
+    display: none;
+  }
+
+  .tk-root .tk-clear-done {
+    width: 32px;
+    padding: 0;
+  }
+
+  /* ---- Compact tasks: the title (two lines at most), then one line of small chips ---- */
+  .tk-root .tk-list .tk-row {
+    --row-line: 22px;
+    --tk-pad-y: 6px;
+    grid-template-columns: 26px auto minmax(0, 1fr);
     column-gap: var(--space-2);
-    padding-right: var(--space-2);
+    min-height: 44px;
+    padding-right: var(--space-3);
   }
 
-  .tk-row .check {
-    --size: 24px;
+  .tk-root .tk-row .check {
+    --size: 22px;
   }
 
   .tk-check {
     margin-top: 0;
   }
 
-  .tk-actions {
-    gap: 0;
-    margin-right: 0;
+  /* No pencil or trash: a tap opens the details (with Delete) */
+  .tk-root .tk-row .tk-actions {
+    display: none;
   }
 
-  .tk-root .tk-actions .btn {
-    --btn-h: 34px;
+  .tk-root .tk-row .tk-body {
+    gap: 2px;
   }
 
-  .tk-note-text {
-    max-width: none;
+  .tk-root .tk-row .tk-title-line {
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    font-size: var(--fs-md);
+  }
+
+  .tk-root .tk-row .tk-meta {
+    flex-wrap: nowrap;
+    gap: 4px;
+    overflow: hidden;
+  }
+
+  .tk-root .tk-row .tk-meta > * {
+    flex: none;
+  }
+
+  /* Short of room, a long section name gives way first ("Marketer c…": the dropdown names it in
+     full), then the date ("Overdue · 4 days a…"); the priority and a short name ("Work") never.
+     Flex shrinks both in proportion, and even half a pixel off the date shows as "Yesterd…": the
+     huge factor leaves the date whole until the name is down to its minimum. Only names longer
+     than this minimum get the class (tasks.js), so it never widens a tag. */
+  .tk-root .tk-row .tk-meta > .tk-sec-tag--long {
+    flex: 0 100000 auto;
+    min-width: 3.5em;
+  }
+
+  .tk-root .tk-row .tk-meta > .tk-due-tag {
+    flex: 0 1 auto;
+    min-width: 0;
+  }
+
+  .tk-due-rel {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .tk-root .tk-row .tk-meta .tag {
+    height: 18px;
+    padding: 0 5px;
+  }
+
+  /* A note shows as its icon (its text is in the details), so it never squeezes the date. Screen
+     readers still hear the note's first line. */
+  .tk-root .tk-row .tk-note {
+    position: relative;
+  }
+
+  .tk-root .tk-row .tk-note-text {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
   }
 }
 

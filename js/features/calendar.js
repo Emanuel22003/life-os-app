@@ -6,13 +6,16 @@
 //   the session, starts at today, and another tab never moves it. The zoom level is also
 //   saved as the store's `view` for the next visit; layer toggles are saved and shared.
 // - Views are built by calendar.views.js; this file owns state, rendering, every click / key /
-//   drag (by delegation) and the zoom transitions.
+//   drag (by delegation), the zoom transitions and the timelines' fit to the screen (the hour
+//   height that shows the whole day without scrolling).
+// - Which day-plan lists are open is a preference of this device ('calendar-prefs', not synced).
 
-import { h, icon, pageHeader, term, toast, openModal, isTyping, modalOpen, todayKey, onDayChange, debounce, weekday, uid, MONTHS_SHORT, reducedMotion, plainSkin, promptDialog } from '../ui.js';
+import { h, icon, registerIcon, pageHeader, term, toast, openModal, isTyping, modalOpen, menuOpen, todayKey, onDayChange, debounce, weekday, uid, MONTHS_SHORT, reducedMotion, plainSkin, promptDialog, dropdown, tip, tipHidden } from '../ui.js';
+import { createStore } from '../store.js';
 import { tasksApi } from './tasks.js';
 import { habitsApi } from './habits.js';
 import * as L from './calendar.logic.js';
-import { getCalendar, getEvents, getEvent, saveEvent, replaceEvents, setView as saveView, setLayer, toggleLayer, subscribeCalendar, isNewerFormat, getDayColors, setDayColor } from './calendar.store.js';
+import { getCalendar, getEvents, getEvent, saveEvent, replaceEvents, setView as saveView, setLayer, subscribeCalendar, isNewerFormat, getDayColors, setDayColor } from './calendar.store.js';
 import { openEventEditor, askScope, deleteEvent, NEWER_COPY, SPLIT_NOTE } from './calendar.editor.js';
 import { monthView, weekView, dayView, agendaView, trayView, legend, fillEdges, priorityBadge } from './calendar.views.js';
 import { parseQuickAdd } from './tasks.logic.js';
@@ -23,16 +26,29 @@ import { clipText, slotMinute } from '../contextmenu.logic.js';
 
 const DEPTH = { month: 0, week: 1, day: 2 };
 const LAYER_UI = [
-  { id: 'events', label: 'Events', glyph: 'ev', hint: 'Show events' },
-  { id: 'tasks', label: 'Tasks', glyph: 'task', hint: 'Show tasks with a due date' },
-  { id: 'habits', label: 'Habits', glyph: 'hb', hint: 'Show habits planned each day' },
-  { id: 'completed', label: 'Done', glyph: 'done', hint: 'Show completed tasks' },
+  { id: 'events', label: 'Events', glyph: 'ev' },
+  { id: 'tasks', label: 'Tasks', glyph: 'task' },
+  { id: 'habits', label: 'Habits', glyph: 'hb' },
+  { id: 'completed', label: 'Done', glyph: 'done' },
 ];
+// The Show menu's marks repeat the views' own glyphs: bar = event, square = task, dot = habit
+registerIcon('cal-l-ev', '<rect x="4" y="9" width="16" height="6" rx="1" fill="currentColor" stroke="none"/>');
+registerIcon('cal-l-task', '<rect x="7" y="7" width="10" height="10" rx="1.5"/>');
+registerIcon('cal-l-hb', '<circle cx="12" cy="12" r="4.5" fill="currentColor" stroke="none"/>');
+registerIcon('cal-l-done', '<rect x="7" y="7" width="10" height="10" rx="1.5"/><path d="M7 12h10"/>');
+
 const PHONE_QUERY = '(max-width: 640px)';
-// The day view stacks its plan above the timeline below this calendar width (calendar.css)
+// The day view puts its Tasks / Habits lists under the timeline below this calendar width
+// (calendar.css); wider, they are a side column
 const STACK_W = 620;
 const HOUR_H = 48;
 const HOUR_H_PHONE = 44;
+// Fitting a timeline to the screen: the readable floor and the ceiling of an hour (px), the room
+// above the first hour line and below the last (half each), and the margin kept at the bottom
+const FIT = Object.freeze({ min: 18, max: 96, pad: 18, margin: 12 });
+
+// View preferences of this device (never synced): which day-plan lists are open
+const prefs = createStore('calendar-prefs', { dayPanels: null });
 
 const clip = (s, n = 36) => (s.length > n ? `${s.slice(0, n - 1)}…` : s);
 const shortDay = (key) => L.viewTitle('day', key, { short: true });
@@ -422,6 +438,7 @@ function mount(root) {
   };
   let bodyView = null; // { kind, el, update?, scroller?, addInput? }
   let rangeShown = ''; // the period the timeline was last scrolled for
+  const fitted = {}; // view kind -> the fit last applied to it ({ hourH, height, fits, from })
   let raf = 0;
   let pendingRender = false;
   let pendingFocus = null; // a data-fid to focus after the next render
@@ -448,7 +465,8 @@ function mount(root) {
     h('span', { class: 'kbd cal-kbd lo-hint', 'aria-hidden': 'true' }, 'N'),
   );
   const addTaskBtn = h('button', { type: 'button', class: 'btn cal-addtask-btn', onClick: () => openAddTask(state.cursor, returnFocusAfter()) }, icon('list'), h('span', null, 'Add task'));
-  const header = pageHeader({ index: '05', title: 'Calendar', subtitle: term('calendar.subtitle', 'Month, week and day: events, tasks and habits on one timeline.'), actions: [addTaskBtn, newBtn] });
+  // The subtitle explains the page: a tip with its own ✓, gone for good once read
+  const header = pageHeader({ index: '05', title: 'Calendar', subtitle: term('calendar.subtitle', 'Month, week and day: events, tasks and habits on one timeline.'), actions: [addTaskBtn, newBtn], tipId: 'calendar.intro' });
 
   /* ---- toolbar ---- */
   // The month first, large (with its year), then the exact week or day: easy to find in every view
@@ -475,17 +493,32 @@ function mount(root) {
       ),
     ]),
   );
-  const layerBtns = new Map(
-    LAYER_UI.map((l) => [
-      l.id,
-      h(
-        'button',
-        { type: 'button', class: 'seg-btn cal-layer', title: l.hint, onClick: () => toggleLayer(l.id) },
-        h('span', { class: ['cal-glyph', `cal-glyph--${l.glyph}`], 'aria-hidden': 'true' }),
-        l.label,
-      ),
-    ]),
-  );
+  // A narrow calendar (a phone) picks the view from a menu instead (CSS shows one or the other)
+  const viewDd = dropdown({
+    items: L.VIEWS.map((v) => ({ value: v, label: L.VIEW_LABEL[v] })),
+    value: state.view,
+    title: 'View: month, week or day',
+    className: 'cal-view-btn',
+    onSelect: (v) => {
+      // The menu names its button by the picked label alone; keep "View: …" (see updateToolbar)
+      viewDd.button.setAttribute('aria-label', `View: ${L.VIEW_LABEL[v]}`);
+      zoomTo(v);
+    },
+  });
+  viewDd.el.classList.add('cal-view-dd');
+  let viewShown = state.view;
+  // Events · Tasks · Habits · Done: one menu (each with the period's count), so the toolbar stays one row
+  const showDd = dropdown({
+    label: 'Show',
+    icon: 'eye',
+    multi: true,
+    items: [],
+    title: 'What the calendar shows',
+    className: 'cal-show-btn',
+    onSelect: (id, on) => setLayer(id, on),
+  });
+  showDd.el.classList.add('cal-show-dd');
+  let showSig = '';
   const trayCount = h('span', { class: 'seg-count tnum' });
   const trayToggle = h(
     'button',
@@ -493,6 +526,7 @@ function mount(root) {
       type: 'button',
       class: 'btn btn--sm cal-tray-toggle',
       'aria-controls': 'cal-tray',
+      title: 'Unscheduled tasks',
       onClick: () => {
         state.trayOpen = !state.trayOpen;
         remember();
@@ -502,7 +536,7 @@ function mount(root) {
       },
     },
     icon('inbox', { size: 14 }),
-    h('span', null, 'Unscheduled'),
+    h('span', { class: 'cal-tray-word' }, 'Unscheduled'),
     trayCount,
   );
   const toolbar = h(
@@ -513,21 +547,24 @@ function mount(root) {
       'div',
       { class: 'cal-controls' },
       h('div', { class: 'seg cal-zoom', role: 'group', 'aria-label': 'Zoom' }, [...zoomBtns.values()]),
-      h('div', { class: 'seg cal-layers', role: 'group', 'aria-label': 'Layers' }, [...layerBtns.values()]),
+      viewDd.el,
+      showDd.el,
       trayToggle,
     ),
   );
-  const summary = h('div', { class: 'cal-summary' });
+  // Explanations are tips with their own ✓: how to start (while there are no events) and the
+  // look key (wide calendars; Simple leaves it out with the other decoration, .lo-deco)
   const legendEl = legend();
   const legendHabits = legendEl.querySelector('.cal-legend-group--hb');
-  // Totals, the look legend and the shortcut tip: Simple leaves the whole bar out (.lo-deco)
-  const subbar = h('div', { class: 'cal-subbar lo-deco' }, summary, legendEl);
+  const legendTip = tip({ id: 'calendar.legend', text: legendEl, className: 'cal-legend-tip lo-deco' });
+  let howTip = null;
+  const tips = h('div', { class: 'cal-tips' }, legendTip);
 
   const body = h('div', { class: 'cal-body' });
   const tray = trayView();
   tray.el.id = 'cal-tray';
   const layout = h('div', { class: 'cal-layout' }, body, tray.el);
-  const cal = h('div', { class: 'cal' }, toolbar, subbar, layout);
+  const cal = h('div', { class: 'cal' }, toolbar, tips, layout);
   root.append(header, cal);
 
   /* ---- context for the builders ---- */
@@ -540,16 +577,25 @@ function mount(root) {
     const occs = L.occurrencesInRange(calState.events, range.from, range.to);
     const tasks = tasksApi.getItems();
     const dayTasks = new Map();
+    const kind = state.view === 'month' ? (phone ? 'month-c' : 'month') : state.view === 'week' ? (phone ? 'agenda' : 'week') : 'day';
+    const stacked = isStacked();
     return {
       view: state.view,
+      kind,
       cursor: state.cursor,
       today,
       phone,
       coarse: coarseMq.matches,
+      // Day view: Tasks / Habits under the timeline (narrow) or beside it, and which are open
+      stacked,
+      dayPanels: L.normalizeDayPanels(prefs.get().dayPanels)[stacked ? 'narrow' : 'wide'],
       layers,
       range,
       slots: monthSlots(),
-      hourH: phone ? HOUR_H_PHONE : HOUR_H,
+      // The last height that fitted this view to the screen (fitTimeline corrects it)
+      hourH: fitted[kind]?.hourH ?? (phone ? HOUR_H_PHONE : HOUR_H),
+      tlFits: false,
+      tlFrom: L.FIT_FROM_HOUR,
       nowMin: nowMinutes(),
       occs,
       occById: new Map(occs.map((o) => [o.occId, o])),
@@ -592,21 +638,125 @@ function mount(root) {
     return Math.max(2, Math.min(6, Math.floor((avail / rows - 44) / 20)));
   }
 
-  /** Timelines fill the window below their own top edge (the page itself doesn't need to scroll). */
-  function sizeTimeline() {
-    const sc = bodyView?.scroller;
-    if (!sc) return;
-    if (phoneMq.matches) {
-      sc.style.height = '';
+  /** The day view's lists go under its timeline (a phone, a narrow window) rather than beside it. */
+  function isStacked() {
+    return cal.clientWidth > 0 && cal.clientWidth <= STACK_W;
+  }
+
+  /** Where the visible page ends: above the phone's tab bar and a docked timer. */
+  function viewportBottom() {
+    const main = root.closest('.main');
+    let bottom = Math.min(window.innerHeight, main ? main.getBoundingClientRect().bottom : window.innerHeight);
+    // On a phone the timer docks over the page, just above the tab bar (css/shell.css)
+    const dock = document.querySelector('.shell > .topbar-center');
+    if (dock && getComputedStyle(dock).position === 'fixed') {
+      const widget = [...dock.children].find((c) => !c.hidden && c.getClientRects().length);
+      if (widget) bottom = Math.min(bottom, widget.getBoundingClientRect().top - 8);
+    }
+    return bottom;
+  }
+
+  /** The timed items a timeline shows (visible layers only), for the hours it must fit. */
+  function timedItems(ctx, keys) {
+    // Today, the current time counts too: late at night or early in the morning the now line stays in view
+    const items = keys.includes(ctx.today) ? [{ startMin: ctx.nowMin, endMin: ctx.nowMin }] : [];
+    for (const key of keys) {
+      if (ctx.layers.events) for (const o of ctx.occs) if (!o.allDay && o.start === key) items.push(o);
+      if (!ctx.layers.tasks) continue;
+      for (const t of ctx.tasksByDay.get(key) ?? []) {
+        const s = t.time ? L.parseTime(t.time) : null;
+        if (s !== null) items.push({ startMin: s, endMin: s + (t.minutes || 30) });
+      }
+    }
+    return items;
+  }
+
+  /**
+   * How the shown timeline fits the screen: its hours (07:00–22:00, or wider for an early or late
+   * item) in the room between its top and the bottom of the screen (minus the folded Tasks /
+   * Habits rows under a stacked day). -> { hourH, height (of the scroller), fits, from } | null.
+   * The day view never goes below FIT.min px an hour (it scrolls instead); the week view keeps its
+   * classic 48px hours and scrolls when its working day can't fit at a readable size.
+   */
+  function measureFit(ctx) {
+    const v = bodyView;
+    const sc = v?.scroller;
+    if (!sc?.isConnected || !sc.getClientRects().length) return null;
+    const span = L.timelineSpan(timedItems(ctx, v.keys(ctx)));
+    const hours = span.to - span.from;
+    const panel = sc.closest('.panel');
+    const below = panel ? Math.max(0, panel.getBoundingClientRect().bottom - sc.getBoundingClientRect().bottom) : 0;
+    let reserve = 0;
+    if (v.kind === 'day' && ctx.stacked) {
+      const gap = v.panel.getBoundingClientRect().top - (panel ?? sc).getBoundingClientRect().bottom;
+      reserve = Math.max(0, gap) + v.foldedHeight();
+    }
+    const room = viewportBottom() - FIT.margin - pageTop(sc) - below - reserve;
+    const fit = L.fitHourHeight(hours, room - FIT.pad, { min: FIT.min, max: FIT.max });
+    if (!fit.fits && v.kind === 'week') return { hourH: HOUR_H, height: Math.round(Math.max(360, Math.min(1180, room))), fits: false, from: span.from };
+    const height = fit.fits ? hours * fit.hourH + FIT.pad : Math.round(Math.max(240, room));
+    return { hourH: fit.hourH, height, fits: fit.fits, from: span.from };
+  }
+
+  /** Apply a fit: the scroller's height, and beside a wide day the plan column no taller than it. */
+  function applyFit(m) {
+    const v = bodyView;
+    v.scroller.style.height = `${m.height}px`;
+    if (v.kind !== 'day') return;
+    const tl = v.scroller.closest('.cal-day-tl');
+    v.panel.style.maxHeight = lastCtx?.stacked || !tl ? '' : `${tl.offsetHeight}px`;
+  }
+
+  /**
+   * Timelines fit the screen: the hour height is chosen so the whole span shows without
+   * scrolling. Re-runs the view once when the height changes (the layout above it doesn't).
+   */
+  function fitTimeline(ctx) {
+    const v = bodyView;
+    if (!v?.scroller) return;
+    // While the Show menu is open (a layer just toggled), keep the fit: moving the timeline
+    // would scroll it, and a scroll closes the menu. It fits again when the menu closes.
+    let m = menuOpen() ? fitted[v.kind] : null;
+    if (!m || m.hourH !== ctx.hourH) m = measureFit(ctx);
+    if (!m) return;
+    if (m.hourH !== ctx.hourH) {
+      ctx.hourH = m.hourH;
+      v.update(ctx);
+      m = measureFit(ctx) ?? m;
+    }
+    fitted[v.kind] = m;
+    ctx.tlFits = m.fits;
+    ctx.tlFrom = m.from;
+    applyFit(m);
+  }
+
+  /** The phone's month grid fills the screen: taller day cells instead of empty space under it. */
+  function sizeMonth() {
+    if (bodyView?.kind !== 'month-c' || !bodyView.el?.isConnected) return;
+    const grid = bodyView.el.querySelector('.cal-month');
+    if (!grid) return;
+    const rows = grid.querySelectorAll('.cal-wrow').length || 6;
+    const head = grid.querySelector('.cal-mhead')?.offsetHeight ?? 26;
+    const key = bodyView.el.querySelector('.cal-minilegend');
+    const keyH = key ? key.offsetHeight + (parseFloat(getComputedStyle(key).marginTop) || 0) : 0;
+    const room = viewportBottom() - FIT.margin - pageTop(grid) - head - keyH - 2;
+    grid.style.setProperty('--cal-cell-h', `${Math.max(58, Math.min(96, Math.floor((room - rows) / rows)))}px`);
+  }
+
+  /** After a resize or a change above the view (a tip closed, the toolbar wrapped): fit again. */
+  function refit() {
+    if (!lastCtx || !alive || !root.isConnected || isDragging() || menuOpen()) return;
+    if (isStacked() !== lastCtx.stacked) return render();
+    if (bodyView?.scroller) {
+      const m = measureFit(lastCtx);
+      if (!m) return;
+      if (m.hourH !== lastCtx.hourH || m.fits !== lastCtx.tlFits || m.from !== lastCtx.tlFrom) return render();
+      applyFit(m);
+      updateEdges();
       return;
     }
-    // Stacked day view (plan first): the CSS height applies and the page scrolls on past it
-    if (bodyView.kind === 'day' && cal.clientWidth <= STACK_W) {
-      sc.style.height = '';
-      return;
-    }
-    const avail = window.innerHeight - pageTop(sc) - 32;
-    sc.style.height = `${Math.round(Math.max(360, Math.min(1180, avail)))}px`;
+    if (lastCtx.kind === 'month' && monthSlots() !== lastCtx.slots) return render();
+    sizeMonth();
   }
 
   /* ---- render ---- */
@@ -636,8 +786,11 @@ function mount(root) {
     pendingFocusCtx = null;
 
     updateToolbar(ctx);
+    updateTips(ctx);
+    // The tray can sit above the view (narrow, open): drawn before the view is fitted under it
+    tray.update(ctx);
 
-    const kind = state.view === 'month' ? (ctx.phone ? 'month-c' : 'month') : state.view === 'week' ? (ctx.phone ? 'agenda' : 'week') : 'day';
+    const { kind } = ctx;
     if (!bodyView || bodyView.kind !== kind) {
       if (kind === 'week') bodyView = { kind, ...weekView() };
       else if (kind === 'day') bodyView = { kind, ...dayView({ onAddTask: addTaskInline }) };
@@ -653,14 +806,13 @@ function mount(root) {
     }
     bodyView.el.classList.add('cal-view');
 
-    sizeTimeline();
-    const shown = `${kind}:${ctx.range.from}`;
+    fitTimeline(ctx);
+    sizeMonth();
+    // A new period, or a new fit (the hours or their height changed): scroll to its first hour
+    const shown = `${kind}:${ctx.range.from}${ctx.tlFits ? `:${ctx.hourH}:${ctx.tlFrom}` : ''}`;
     if (bodyView.scroller && shown !== rangeShown) scrollTimeline(ctx);
     else updateEdges();
     rangeShown = shown;
-
-    tray.update(ctx);
-    updateSubbar(ctx);
 
     // Focus: an explicit target, else keep it where it was; never let it fall to <body>. A
     // closing dialog (still fading out) doesn't count: its focus has already come back here.
@@ -707,7 +859,7 @@ function mount(root) {
     return { fid, near, day };
   }
 
-  const viewAnchor = () => (state.view === 'month' ? `cell:${state.cursor}` : state.view === 'day' ? 'plan-tasks' : phoneMq.matches ? `ag:${state.cursor}` : `dh:${state.cursor}`);
+  const viewAnchor = () => (state.view === 'month' ? `cell:${state.cursor}` : state.view === 'day' ? 'day-tl' : phoneMq.matches ? `ag:${state.cursor}` : `dh:${state.cursor}`);
 
   function focusEl(el) {
     el.focus({ preventScroll: true });
@@ -772,7 +924,18 @@ function mount(root) {
     const inRange = ctx.range.from <= ctx.today && ctx.today <= ctx.range.to;
     todayBtn.classList.toggle('is-here', inRange);
     for (const [v, btn] of zoomBtns) btn.setAttribute('aria-pressed', String(v === state.view));
-    for (const [id, btn] of layerBtns) btn.setAttribute('aria-pressed', String(!!ctx.layers[id]));
+    if (viewShown !== state.view) {
+      viewShown = state.view;
+      updateMenu(viewDd, { value: state.view });
+    }
+    // The button shows only the view's name; its accessible name says what it picks
+    viewDd.button.setAttribute('aria-label', `View: ${L.VIEW_LABEL[state.view]}`);
+    const items = layerItems(ctx);
+    const sig = JSON.stringify(items.map((it) => [it.value, it.checked, it.hint]));
+    if (sig !== showSig) {
+      showSig = sig;
+      updateMenu(showDd, { items });
+    }
     trayCount.textContent = ctx.unscheduled.length ? String(ctx.unscheduled.length) : '';
     trayToggle.setAttribute('aria-expanded', String(state.trayOpen));
     trayToggle.setAttribute('aria-label', `Unscheduled tasks, ${ctx.unscheduled.length}`);
@@ -781,35 +944,71 @@ function mount(root) {
     cal.classList.toggle('is-phone', ctx.phone);
   }
 
-  function updateSubbar(ctx) {
-    const { from } = ctx.range;
-    const nEvents = new Set(ctx.occs.map((o) => o.occId)).size;
+  /**
+   * The Show menu's items: each layer with its glyph, whether it's on, and the shown period's
+   * count (events, open tasks, habits done so far, done tasks): the totals the old stats bar had.
+   */
+  function layerItems(ctx) {
+    const { from, to } = ctx.range;
     let open = 0;
-    for (const list of ctx.tasksByDay.values()) open += list.filter((t) => !t.done).length;
+    let doneTasks = 0;
+    for (const t of ctx.tasks) {
+      if (!t.due || t.due < from || t.due > to) continue;
+      if (t.done) doneTasks++;
+      else open++;
+    }
     let done = 0;
     let planned = 0;
-    if (ctx.habits) {
-      for (const [key, info] of ctx.habits) {
-        if (key > ctx.today) continue;
-        done += info.done;
-        planned += info.planned;
-      }
+    for (const [key, info] of ctx.habits ?? []) {
+      if (key > ctx.today) continue;
+      done += info.done;
+      planned += info.planned;
     }
-    const chips = [];
-    if (ctx.layers.events) chips.push(stat('Events', String(nEvents)));
-    if (ctx.layers.tasks) chips.push(stat('Tasks', String(open)));
-    if (ctx.layers.habits && from <= ctx.today) chips.push(stat('Habits', planned ? `${Math.round((done / planned) * 100)}%` : '—'));
-    const hintText = ctx.phone
-      ? 'Tap a day to open it · New event adds one'
-      : ctx.coarse
-        ? 'Tap a day, tap it again to open it · + adds an event · Schedule… plans a task'
-        : 'Double-click a day (or press N) to add an event · drag tasks from Unscheduled to plan them';
-    const hint = ctx.eventCount === 0 ? h('span', { class: 'cal-hint' }, hintText) : null;
-    summary.replaceChildren(...chips, ...(hint ? [hint] : []));
-    legendHabits.hidden = !ctx.layers.habits;
+    const hints = {
+      events: String(new Set(ctx.occs.map((o) => o.occId)).size),
+      tasks: String(open),
+      habits: ctx.habits && from <= ctx.today ? (planned ? `${Math.round((done / planned) * 100)}%` : '—') : '',
+      completed: String(doneTasks),
+    };
+    return LAYER_UI.map((l) => ({ value: l.id, label: l.label, icon: `cal-l-${l.glyph}`, hint: hints[l.id] || null, checked: !!ctx.layers[l.id] }));
   }
 
-  const stat = (label, value) => h('span', { class: 'cal-stat' }, h('span', { class: 'label' }, label), h('span', { class: 'cal-stat-v tnum' }, value));
+  /** dropdown.update(), keeping keyboard focus on the same item when its menu is open. */
+  function updateMenu(dd, opts) {
+    const item = document.activeElement?.closest?.('.dd-menu .dd-item');
+    const at = dd.button.getAttribute('aria-expanded') === 'true' && item ? item.dataset.i : null;
+    dd.update(opts);
+    if (at !== null) document.querySelector(`.dd-menu .dd-item[data-i="${at}"]`)?.focus({ preventScroll: true });
+  }
+
+  /** How to start, in the terms of the view on screen: a timeline adds by its hours, a grid by its days. */
+  function howToText(ctx) {
+    const touch = ctx.phone || ctx.coarse;
+    if (ctx.kind === 'day' || ctx.kind === 'week') {
+      const add = touch ? 'Tap an empty hour to add an event there.' : 'Click an empty hour (or drag across a few) to add an event there, or press N.';
+      return ctx.kind === 'week' ? `${add} Drag tasks from Unscheduled to plan them.` : add;
+    }
+    if (ctx.phone) return 'Tap a day to open it. New event adds one.';
+    if (ctx.coarse) return 'Tap a day, then tap it again to open it. + adds an event; Schedule… plans a task.';
+    return 'Double-click a day (or press N) to add an event. Drag tasks from Unscheduled to plan them.';
+  }
+
+  /** The tips row: how to start (only while there are no events) and the look key. */
+  function updateTips(ctx) {
+    const text = howToText(ctx);
+    if (howTip?.dataset.text !== text) {
+      const next = tip({ id: 'calendar.howto', text, className: 'cal-howto-tip' });
+      next.dataset.text = text;
+      if (howTip) howTip.replaceWith(next);
+      else tips.prepend(next);
+      howTip = next;
+    }
+    howTip.hidden = tipHidden('calendar.howto') || ctx.eventCount > 0;
+    legendHabits.hidden = !ctx.layers.habits;
+    // No empty row (and no gap for it) once every tip is read or doesn't apply here
+    tips.hidden = false;
+    tips.hidden = ![...tips.children].some((t) => !t.hidden && t.getClientRects().length);
+  }
 
   function scrollTimeline(ctx) {
     const sc = bodyView.scroller;
@@ -822,8 +1021,16 @@ function mount(root) {
     // Today's first event that hasn't ended yet (the one on now, or the next)
     const pending = timed.filter((o) => o.start === ctx.today && o.endMin > ctx.nowMin);
     const nextMin = pending.length ? Math.min(...pending.map((o) => o.startMin)) : null;
+    const fits = ctx.tlFits;
+    const fromPx = (ctx.tlFrom * H) - FIT.pad / 2;
     requestAnimationFrame(() => {
       if (!alive || bodyView?.scroller !== sc) return;
+      // Fitted to the screen: the whole span shows from its first hour, nothing to look for
+      if (fits) {
+        sc.scrollTop = Math.max(0, fromPx);
+        updateEdges();
+        return;
+      }
       const visible = sc.clientHeight || 480;
       let top = (target / 60) * H - 8;
       // On today, keep the current time on screen when 07:00 can't show it, and prefer showing
@@ -903,7 +1110,7 @@ function mount(root) {
     const prevKey = state.cursor;
     if (view === from && key === prevKey) return;
     // Focus inside the old view would be lost with it: move it to the new view's own anchor
-    // (month: the day's cell · week: its day header · day: the Tasks heading). Focus elsewhere
+    // (month: the day's cell · week: its day header · day: its timeline). Focus elsewhere
     // (the toolbar's zoom buttons) stays where it is.
     const moveFocus = focus || body.contains(document.activeElement);
     const apply = () => {
@@ -912,7 +1119,7 @@ function mount(root) {
       state.cursor = key;
       remember();
       saveView(view);
-      if (moveFocus) pendingFocus = view === 'month' ? `cell:${key}` : view === 'day' ? 'plan-tasks' : phoneMq.matches ? `ag:${key}` : `dh:${key}`;
+      if (moveFocus) pendingFocus = view === 'month' ? `cell:${key}` : view === 'day' ? 'day-tl' : phoneMq.matches ? `ag:${key}` : `dh:${key}`;
       render();
     };
     const zoomIn = DEPTH[view] > DEPTH[from];
@@ -1242,8 +1449,11 @@ function mount(root) {
         case 'add-event':
           return newEvent(state.view === 'month' ? defaultSlotMonth(a.key) : defaultSlot(a.key));
         case 'add-allday':
-          if (e.target !== actEl && !actEl.classList.contains('cal-link')) return undefined;
+          // The lane itself only when its empty part is hit; its button (the day's "All day +") always
+          if (e.target !== actEl && !actEl.matches('button')) return undefined;
           return newEvent(defaultSlotMonth(a.key));
+        case 'plan-toggle':
+          return toggleDayPanel(a.panel);
         case 'task-check':
           return toggleTaskDone(a.task);
         case 'task-open':
@@ -1279,6 +1489,18 @@ function mount(root) {
   }
 
   const defaultSlotMonth = (key) => ({ start: key, end: key, allDay: true, startTime: null, endTime: null });
+
+  /** Open or fold the day's Tasks / Habits list; remembered on this device, per layout. */
+  function toggleDayPanel(panel) {
+    if (!L.DAY_PANELS.includes(panel)) return;
+    const layout = lastCtx?.stacked ? 'narrow' : 'wide';
+    const cur = L.normalizeDayPanels(prefs.get().dayPanels);
+    const open = !cur[layout][panel];
+    prefs.update({ dayPanels: L.setDayPanel(cur, layout, panel, open) });
+    render();
+    // Under the timeline the list opens below the screen's edge: bring as much of it as fits into view
+    if (open && layout === 'narrow') body.querySelector(`.cal-plan-${panel}`)?.scrollIntoView({ block: 'nearest', behavior: reducedMotion() ? 'auto' : 'smooth' });
+  }
 
   function onDblClick(e) {
     // Touch: a double tap is "select, then open" (see onClick); + adds events there
@@ -1612,7 +1834,7 @@ function mount(root) {
   }
 
   function onKeydown(e) {
-    if (e.defaultPrevented || isTyping(e) || modalOpen() || !root.isConnected) return;
+    if (e.defaultPrevented || isTyping(e) || modalOpen() || menuOpen() || !root.isConnected) return;
     // ⌘/Ctrl + Z: the latest calendar Undo (the toast may be long gone for keyboard users)
     if ((e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === 'z') {
       if (undoLast()) e.preventDefault();
@@ -1694,13 +1916,34 @@ function mount(root) {
       line.firstChild.textContent = L.formatTime(m);
     }
   }, 10000);
-  const onResize = debounce(() => {
-    if (state.view === 'month' && lastCtx && monthSlots() !== lastCtx.slots) render();
-    else {
-      sizeTimeline();
-      updateEdges();
-    }
-  }, 150);
+  const onResize = debounce(refit, 150);
+  // What sits above the view changing size (a tip read, the page's explanation closed, the
+  // toolbar wrapping, the tray opening above it, the phone's timer docking) moves the view:
+  // fit it again on the next frame
+  let fitRaf = 0;
+  const ro =
+    typeof ResizeObserver === 'function'
+      ? new ResizeObserver(() => {
+          if (fitRaf) return;
+          fitRaf = requestAnimationFrame(() => {
+            fitRaf = 0;
+            refit();
+          });
+        })
+      : null;
+  for (const el of [header, toolbar, tips, tray.el, document.querySelector('.shell > .topbar-center')]) if (el) ro?.observe(el);
+  // The fit waits while a toolbar menu is open (fitTimeline): catch up when it closes
+  const menuWatch = new MutationObserver(() => {
+    if (viewDd.button.getAttribute('aria-expanded') === 'false' && showDd.button.getAttribute('aria-expanded') === 'false') requestAnimationFrame(refit);
+  });
+  for (const b of [viewDd.button, showDd.button]) menuWatch.observe(b, { attributes: true, attributeFilter: ['aria-expanded'] });
+  // A tip's ✓ hides it: the row may go, and the view gets that room
+  const onTipDone = (e) => {
+    if (!e.target.closest?.('.tip-ok') || !lastCtx) return;
+    requestAnimationFrame(() => {
+      if (alive && lastCtx) updateTips(lastCtx);
+    });
+  };
   const onMq = () => render();
   // Releasing a drag runs any render that was held back meanwhile
   const onPointerUp = () => {
@@ -1713,6 +1956,7 @@ function mount(root) {
   // Scroll doesn't bubble; a capturing listener sees the timeline scroller's
   cal.addEventListener('scroll', onTlScroll, { capture: true, passive: true });
   cal.addEventListener('pointerdown', onPointerDown);
+  tips.addEventListener('click', onTipDone);
   document.addEventListener('keydown', onKeydown);
   document.addEventListener('pointerup', onPointerUp);
   window.addEventListener('resize', onResize);
@@ -1743,6 +1987,11 @@ function mount(root) {
     offDay();
     clearInterval(clock);
     onResize.cancel();
+    ro?.disconnect();
+    menuWatch.disconnect();
+    if (fitRaf) cancelAnimationFrame(fitRaf);
+    showDd.close();
+    viewDd.close();
     document.removeEventListener('keydown', onKeydown);
     document.removeEventListener('pointerup', onPointerUp);
     window.removeEventListener('resize', onResize);

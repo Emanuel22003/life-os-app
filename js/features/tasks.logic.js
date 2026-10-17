@@ -564,6 +564,70 @@ export function parseQuickAdd(text, today, ignore = new Set()) {
   };
 }
 
+/* ==========================================================================
+   Stepped quick-add: the title first, then one small question at a time
+   (Priority → When → Section), so the add box is a single line at rest.
+   A token typed in the title answers its own step, which is then skipped.
+   ========================================================================== */
+
+export const ADD_STEPS = Object.freeze(['priority', 'due', 'section']);
+
+const stepRank = (s) => ADD_STEPS.indexOf(s);
+const hasKey = (o, k) => !!o && typeof o === 'object' && Object.prototype.hasOwnProperty.call(o, k);
+
+/**
+ * The steps asked after the title, in order: Priority and When unless a token in the title
+ * already set them (parseQuickAdd's result), Section only when there are sections to pick from.
+ */
+export function addSteps(parsed, sectionCount = 0) {
+  const p = parsed && typeof parsed === 'object' ? parsed : {};
+  return ADD_STEPS.filter((s) => (s === 'section' ? sectionCount > 0 : !p[s]));
+}
+
+/**
+ * The step after `current` (null = the title): the next one still asked, or 'done' (add the
+ * task). A current step that is no longer asked (a token typed meanwhile answered it) still
+ * moves on to the one after it.
+ */
+export function nextAddStep(steps, current = null) {
+  const from = current === null ? -1 : stepRank(current);
+  return steps.find((s) => stepRank(s) > from) ?? 'done';
+}
+
+/** The step before `current`: the previous one asked, or null (back to the title). */
+export function prevAddStep(steps, current) {
+  const from = current === 'done' ? ADD_STEPS.length : stepRank(current);
+  if (from === -1) return null;
+  return [...steps].reverse().find((s) => stepRank(s) < from) ?? null;
+}
+
+/**
+ * The task the stepped quick-add makes -> { title, priority, due, sectionId }. A token in the
+ * title wins, then what was picked on a step, then the default (the open section, Today in the
+ * Today view …). In `picks` and `defaults` a key that is there counts even when it is null (No
+ * date, No section). A picked section that no longer exists (`sectionIds`) counts as none.
+ */
+export function resolveAdd(parsed, picks = {}, defaults = {}, sectionIds = null) {
+  const choice = (k, fallback) => (hasKey(picks, k) ? picks[k] : hasKey(defaults, k) ? defaults[k] : fallback);
+  const priority = parsed?.priority ?? choice('priority', 'none');
+  const due = parsed?.due ?? choice('due', null);
+  const section = choice('section', null);
+  return {
+    title: cleanTitle(parsed?.title),
+    priority: PRIORITIES.includes(priority) ? priority : 'none',
+    due: isDateKey(due) ? due : null,
+    sectionId: typeof section === 'string' && section && (!sectionIds || sectionIds.has(section)) ? section : null,
+  };
+}
+
+/** Which When choice a due date is: 'today' | 'tomorrow' | 'none' | 'date' (any other day). */
+export function dueChoice(due, today) {
+  if (!isDateKey(due)) return 'none';
+  if (due === today) return 'today';
+  if (due === shiftKey(today, 1)) return 'tomorrow';
+  return 'date';
+}
+
 /** First non-empty line of a note, for the one-line preview under a task. */
 export function notePreview(notes, max = 90) {
   const line = String(notes ?? '').split('\n').map((l) => l.trim()).find(Boolean) ?? '';

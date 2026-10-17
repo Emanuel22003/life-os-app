@@ -19,8 +19,11 @@
 //   }
 // A badge that changes without a store change (a running timer) dispatches `lifeos:badge`.
 
-import { h, icon, registerIcon, brandMark, emptyState, isTyping, modalOpen, openModal, closeAllModals, onDayChange, toast, ensureToastRegion, skin, num, term, WEEKDAYS_SHORT, MONTHS_SHORT } from './ui.js';
+import { h, icon, registerIcon, brandMark, emptyState, isTyping, modalOpen, openModal, closeAllModals, onDayChange, toast, ensureToastRegion, skin, num, term, WEEKDAYS_SHORT, MONTHS_SHORT, useSettings } from './ui.js';
 import { settings } from './store.js';
+
+// The tips (ui.tip, page explanations) keep their "✓ Got it" in settings.tips
+useSettings(settings);
 import { DEFAULT_SKIN, SKIN_BOOT, normalizeSkin, resolveTheme, isPlainSkin } from './skins.js';
 import { applyPalette } from './palette.js';
 import { applyColorPrefs } from './colors.js';
@@ -32,7 +35,7 @@ import { openSyncPanel, syncLabel } from './sync.panel.js';
 import { provideShell } from './shell.js';
 import { isNewerVersion, startPage } from './features/settings.logic.js';
 
-const VERSION = 'v0.25';
+const VERSION = 'v0.26';
 
 // Read before any feature module can seed data: tells a first-ever run from an upgrade
 const hadSavedData = hasSavedData();

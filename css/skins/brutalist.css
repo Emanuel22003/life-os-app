@@ -1164,7 +1164,7 @@
   font-weight: 500;
 }
 
-[data-skin="brutalist"] .tk-command-tools {
+[data-skin="brutalist"] .tk-steps {
   border-top: 3px solid var(--text);
 }
 
@@ -1360,7 +1360,6 @@
   background: var(--text);
 }
 
-[data-skin="brutalist"] .tk-hints,
 [data-skin="brutalist"] .tk-detail-foot {
   border-top: 3px dashed var(--text);
 }
@@ -2009,13 +2008,18 @@
   background: var(--text);
 }
 
-[data-skin="brutalist"] .hb-console.is-complete {
-  border-color: var(--text);
-  box-shadow: var(--bru-drop) var(--bru-drop) 0 var(--bru-hi), var(--bru-drop) var(--bru-drop) 0 3px var(--text);
+[data-skin="brutalist"] .hb-bar-range,
+[data-skin="brutalist"] .hb-dl-title {
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
 }
 
-[data-skin="brutalist"] .hb-weeknav {
-  border-bottom: 3px solid var(--text);
+[data-skin="brutalist"] .hb-ro-frac {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 400;
+  letter-spacing: 0;
 }
 
 [data-skin="brutalist"] .hb-sel {
@@ -2041,14 +2045,14 @@
 
 [data-skin="brutalist"] .hb-sel-date {
   font-family: var(--font-display);
-  font-size: 24px;
+  font-size: 20px;
   line-height: 1;
   letter-spacing: 0;
 }
 
-[data-skin="brutalist"] .hb-sel-seg {
+[data-skin="brutalist"] .hb-sel-bar {
+  height: 4px;
   border-radius: 0;
-  opacity: 0.3;
 }
 
 /* Today: a yellow notch on the top edge; the picked day is the yellow block */
@@ -2077,118 +2081,64 @@
   box-shadow: none;
 }
 
-[data-skin="brutalist"] .hb-dayhead {
+/* Overview tables (week, history) and the day list: ruled like the week plan */
+[data-skin="brutalist"] .hb-mx tbody > tr > *,
+[data-skin="brutalist"] .hb-row + .hb-row {
+  border-top: 2px solid var(--text);
+}
+
+[data-skin="brutalist"] .hb-mx-legend,
+[data-skin="brutalist"] .hb-dl-more {
   border-top: 3px solid var(--text);
-  background: none;
 }
 
-/* The dial: no instrument ticks, a fat ring */
-[data-skin="brutalist"] .hb-dial-ticks {
-  display: none;
+[data-skin="brutalist"] .hb-dl-head {
+  border-bottom: 3px solid var(--text);
 }
 
-[data-skin="brutalist"] .hb-dial::before,
-[data-skin="brutalist"] .hb-dial::after {
-  border: 3px solid var(--text);
-  border-radius: 0;
-}
-
-[data-skin="brutalist"] .hb-ring {
-  width: 104px;
-  height: 104px;
-}
-
-[data-skin="brutalist"] .hb-ring svg {
-  overflow: visible;
-}
-
-[data-skin="brutalist"] .hb-ring circle {
-  stroke-width: 8px;
-}
-
-[data-skin="brutalist"] .hb-console.is-complete .ring-fill {
-  animation: none;
-}
-
-[data-skin="brutalist"] .hb-ring-frac {
-  font-family: var(--font-display);
-  font-size: 34px;
-  font-weight: 400;
-  letter-spacing: 0;
-}
-
-[data-skin="brutalist"] .hb-ring-slash,
-[data-skin="brutalist"] .hb-ring-total {
-  font-family: var(--font-display);
-  font-size: 18px;
-  color: var(--text-2);
-}
-
-[data-skin="brutalist"] .hb-ring-sub {
+[data-skin="brutalist"] .hb-mx-wd,
+[data-skin="brutalist"] .hb-hi-month {
   font-family: var(--font-sans);
   font-weight: 800;
-  font-size: 10px;
-  color: var(--text-2);
 }
 
-[data-skin="brutalist"] .hb-dayline {
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
+[data-skin="brutalist"] .hb-mx-name-text,
+[data-skin="brutalist"] .hb-row-name-text {
+  font-weight: 700;
 }
 
-[data-skin="brutalist"] .hb-day-badge::before {
+[data-skin="brutalist"] .hb-mx-colbtn {
+  border: 2px solid transparent;
   border-radius: 0;
+  color: var(--text);
 }
 
-[data-skin="brutalist"] .hb-day-badge.tag--solid {
-  animation: none;
+[data-skin="brutalist"] .hb-mx-colbtn:hover {
   background: var(--bru-hi);
   border-color: var(--text);
   color: var(--bru-on-hi);
 }
 
-[data-skin="brutalist"] .hb-status {
-  color: var(--text);
-  font-weight: 600;
-}
-
-[data-skin="brutalist"] .hb-readouts {
-  border: 3px solid var(--text);
-}
-
-[data-skin="brutalist"] .hb-readout {
-  box-shadow: -3px -3px 0 var(--text);
-}
-
-[data-skin="brutalist"] .hb-readout-value {
-  font-family: var(--font-display);
-  font-size: 30px;
-  font-weight: 400;
-  letter-spacing: 0;
-  line-height: 1.05;
-}
-
-[data-skin="brutalist"] .hb-readout-sub {
-  color: var(--text-2);
-}
-
-[data-skin="brutalist"] .hb-readout-meter .meter-tick {
+/* Today: a yellow notch on the top edge */
+[data-skin="brutalist"] .hb-mx-th.is-today .hb-mx-colbtn::before {
+  top: -2px;
   height: 6px;
+  border-radius: 0;
+  background: var(--bru-hi);
+  box-shadow: inset 0 0 0 2px var(--text);
 }
 
-[data-skin="brutalist"] .hb-cycle-meter .meter-tick {
-  height: 10px;
-}
-
-[data-skin="brutalist"] .hb-cycle-meter .meter-tick.is-on {
+[data-skin="brutalist"] .hb-mx-th.is-perfect .hb-mx-colbtn::after {
+  border-radius: 0;
   background: var(--text);
 }
 
-[data-skin="brutalist"] .hb-cycle-meter .meter-tick.is-now {
-  background: var(--bru-hi);
-  box-shadow: inset 0 0 0 2px var(--text);
-  animation: brutalist-blink 1s steps(1) infinite;
+[data-skin="brutalist"] .hb-wk {
+  border-radius: 0;
+}
+
+[data-skin="brutalist"] .hb-wk[data-l="4"] {
+  box-shadow: none;
 }
 
 /* Day cells and legend swatches */
@@ -2218,8 +2168,9 @@
   color: var(--text-3);
 }
 
-/* A miss gets a fat cross */
-[data-skin="brutalist"] .hb-day[data-state="miss"] {
+/* A miss gets a fat cross (its legend swatch too, so it can't read as "planned") */
+[data-skin="brutalist"] .hb-day[data-state="miss"],
+[data-skin="brutalist"] .hb-swatch[data-s="miss"] {
   background: linear-gradient(to top right, transparent calc(50% - 1.5px), var(--text) calc(50% - 1.5px) calc(50% + 1.5px), transparent calc(50% + 1.5px)),
     linear-gradient(to bottom right, transparent calc(50% - 1.5px), var(--text) calc(50% - 1.5px) calc(50% + 1.5px), transparent calc(50% + 1.5px)),
     var(--bg);
@@ -2233,15 +2184,14 @@
 }
 
 [data-skin="brutalist"] .hb-day[data-state="rest"],
-[data-skin="brutalist"] .hb-swatch[data-s="rest"],
-[data-skin="brutalist"] .hb-heat-cell[data-s="rest"] {
+[data-skin="brutalist"] .hb-swatch[data-s="rest"] {
   border-color: var(--text-3);
   color: var(--text-2);
 }
 
 [data-skin="brutalist"] .hb-day[data-state="bonus"],
 [data-skin="brutalist"] .hb-swatch[data-s="bonus"],
-[data-skin="brutalist"] .hb-heat-cell[data-s="bonus"] {
+[data-skin="brutalist"] .hb-row.is-bonus .hb-row-check {
   background: repeating-linear-gradient(-45deg, var(--bru-hi) 0 3px, var(--bru-on-hi) 3px 6px);
   border-color: var(--text);
   color: var(--bru-on-hi);
@@ -2266,131 +2216,36 @@
   color: var(--text-3);
 }
 
-[data-skin="brutalist"] .hb-day[data-state="future"][data-planned="true"] {
+[data-skin="brutalist"] .hb-day[data-state="future"][data-planned="true"],
+[data-skin="brutalist"] .hb-swatch[data-s="planned"] {
   border-style: dashed;
   border-color: var(--text);
   color: var(--text-2);
 }
 
-[data-skin="brutalist"] .hb-day:not(:disabled):hover {
+/* The week matrix: a day off is only a dot (no box), so the planned squares stand out */
+[data-skin="brutalist"] .hb-mx-cell[data-state="rest"],
+[data-skin="brutalist"] .hb-mx-cell[data-state="future"]:not([data-planned="true"]) {
+  border-color: transparent;
+  background: none;
+}
+
+[data-skin="brutalist"] .hb-day:not([aria-disabled="true"]):hover {
   border-color: var(--text);
   box-shadow: 3px 3px 0 var(--text);
 }
 
-[data-skin="brutalist"] .hb-day[data-state="done"].is-today {
+[data-skin="brutalist"] .hb-mx-td.is-today > .hb-day[data-state="done"] {
   box-shadow: 3px 3px 0 var(--bru-hi), 3px 3px 0 2px var(--text);
 }
 
-[data-skin="brutalist"] .hb-day-col {
-  border-radius: 0;
-}
-
-[data-skin="brutalist"] .hb-day-col.is-selected {
-  background: var(--surface-2);
-  box-shadow: inset 0 0 0 2px var(--text);
-}
-
-[data-skin="brutalist"] .hb-day-wd {
-  font-family: var(--font-sans);
-  font-weight: 800;
-  color: var(--text-2);
-}
-
-[data-skin="brutalist"] .hb-day-col::after {
-  width: 16px;
-  height: 4px;
-  border-radius: 0;
-}
-
-[data-skin="brutalist"] .hb-day-col.is-today::after {
-  background: var(--text);
-  box-shadow: none;
-}
-
-/* Habit cards */
-[data-skin="brutalist"] .hb-card.is-done {
+/* The day list's checks: square and heavy */
+[data-skin="brutalist"] .hb-row-check {
   border-color: var(--text);
-  background: var(--bg);
 }
 
-[data-skin="brutalist"] .hb-card.is-future {
+[data-skin="brutalist"] .hb-row.is-miss .hb-row-check {
   border-style: dashed;
-  box-shadow: none;
-}
-
-[data-skin="brutalist"] .hb-card-fx {
-  display: none;
-}
-
-[data-skin="brutalist"] .hb-card-dot {
-  border-radius: 0;
-  width: 5px;
-  height: 5px;
-  background: var(--text);
-}
-
-[data-skin="brutalist"] .hb-card-name,
-[data-skin="brutalist"] .hb-name {
-  font-weight: 800;
-}
-
-[data-skin="brutalist"] .hb-check {
-  --size: 44px;
-  border-color: var(--text);
-}
-
-[data-skin="brutalist"] .hb-check::after {
-  border: 3px solid var(--text);
-}
-
-[data-skin="brutalist"] .hb-card.is-done .hb-check {
-  box-shadow: 4px 4px 0 var(--text);
-}
-
-[data-skin="brutalist"] .hb-card.is-miss .hb-check,
-[data-skin="brutalist"] .hb-card.is-future .hb-check {
-  border-style: dashed;
-  border-color: var(--text);
-}
-
-[data-skin="brutalist"] .hb-stats {
-  border-top: 3px solid var(--text);
-  border-bottom: 3px solid var(--text);
-}
-
-[data-skin="brutalist"] .hb-stat + .hb-stat {
-  border-left: 3px solid var(--text);
-}
-
-[data-skin="brutalist"] .hb-stat-value {
-  font-family: var(--font-display);
-  font-size: 28px;
-  font-weight: 400;
-  letter-spacing: 0;
-  line-height: 1.05;
-}
-
-[data-skin="brutalist"] .hb-flame {
-  color: var(--text-3);
-}
-
-[data-skin="brutalist"] .hb-flame.is-lit {
-  color: var(--text);
-  filter: none;
-}
-
-/* Heatmap (history) */
-[data-skin="brutalist"] .hb-heat-month,
-[data-skin="brutalist"] .hb-heat-wd {
-  font-weight: 700;
-}
-
-[data-skin="brutalist"] .hb-heat-cell {
-  border-radius: 0;
-}
-
-[data-skin="brutalist"] .hb-heat-cell[data-l="4"] {
-  box-shadow: none;
 }
 
 [data-skin="brutalist"] .hb-fold {
@@ -2403,20 +2258,13 @@
   color: var(--bru-on-hi);
 }
 
-[data-skin="brutalist"] .hb-np-list,
 [data-skin="brutalist"] .hb-arch-list {
   border: 3px solid var(--text);
   background: var(--bg);
 }
 
-[data-skin="brutalist"] .hb-np-row + .hb-np-row,
 [data-skin="brutalist"] .hb-arch-row + .hb-arch-row {
   border-top: 3px solid var(--text);
-}
-
-[data-skin="brutalist"] .hb-np-row.is-bonus .hb-np-check {
-  background: repeating-linear-gradient(-45deg, var(--bru-hi) 0 3px, var(--bru-on-hi) 3px 6px);
-  border-color: var(--text);
 }
 
 [data-skin="brutalist"] .hb-suggest-hint {
@@ -3328,10 +3176,6 @@
   font-weight: 800;
 }
 
-[data-skin="brutalist"] .nt-board-tip {
-  color: var(--text-2);
-}
-
 /* Pager: in-view columns are solid stamps, out-of-view ones dashed */
 [data-skin="brutalist"] .nt-pager-chip:not(.is-inview) {
   border-style: dashed;
@@ -3700,15 +3544,6 @@
   height: 9px;
 }
 
-[data-skin="brutalist"] .cal-stat-v {
-  font-weight: 700;
-}
-
-[data-skin="brutalist"] .cal-hint {
-  border-left: 3px solid var(--text);
-  color: var(--text-2);
-}
-
 [data-skin="brutalist"] .cal-legend-ev,
 [data-skin="brutalist"] .cal-legend-task {
   height: 18px;
@@ -3749,10 +3584,6 @@
   border: 2px solid var(--text);
   font-weight: 700;
   color: var(--text);
-}
-
-[data-skin="brutalist"] .cal-tray-hint {
-  color: var(--text-2);
 }
 
 [data-skin="brutalist"] .cal-tray-empty {
@@ -4411,13 +4242,8 @@
   color: var(--bru-on-hi);
 }
 
-[data-skin="brutalist"] .cal-plan-donelink,
-[data-skin="brutalist"] .cal-plan-addev {
+[data-skin="brutalist"] .cal-plan-donelink {
   color: var(--text);
-}
-
-[data-skin="brutalist"] .cal-plan-evs .cal-ev {
-  height: 34px;
 }
 
 [data-skin="brutalist"] .cal-trow {
@@ -5314,7 +5140,6 @@
 @media (prefers-reduced-motion: reduce) {
   [data-skin="brutalist"] .tk-stat.is-alert::after,
   [data-skin="brutalist"] .tk-blink,
-  [data-skin="brutalist"] .hb-cycle-meter .meter-tick.is-now,
   [data-skin="brutalist"] .hbt-status.is-live::before,
   [data-skin="brutalist"] .hbt-ticker.is-live .hbt-tk-dot,
   [data-skin="brutalist"] .hbt-price.is-flash-up,

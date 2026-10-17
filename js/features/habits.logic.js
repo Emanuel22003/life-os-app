@@ -33,10 +33,13 @@ export const PRESETS = Object.freeze([
   { id: 'weekdays', label: 'Weekdays', days: Object.freeze([1, 2, 3, 4, 5]) },
   { id: 'weekends', label: 'Weekends', days: Object.freeze([0, 6]) },
 ]);
-export const VIEWS = Object.freeze(['week', 'history']);
+/** The Today tab's overviews: the week matrix (default), one day as a list, the last weeks. */
+export const VIEWS = Object.freeze(['week', 'day', 'history']);
 export const NAME_MAX = 80;
 export const RATE_WINDOW = 30;
 export const HEAT_WEEKS = 16;
+/** Weeks in the Today tab's History overview (habits × weeks fits a phone). */
+export const HISTORY_WEEKS = 12;
 
 /* ==========================================================================
    Day numbers
@@ -268,6 +271,15 @@ export function reindex(items) {
 }
 
 /**
+ * The Today tab's overview, kept per device ('view' never syncs): 'week' | 'day' | 'history'.
+ * Older copies saved 'week' or 'history' (the card toggle), which stay as they are; anything
+ * else falls back to the week matrix.
+ */
+export function normalizeView(raw) {
+  return VIEWS.includes(raw) ? raw : VIEWS[0];
+}
+
+/**
  * Normalize the whole store value: { items: Habit[] sorted by order, view }.
  * Returns `raw` itself when nothing needed fixing.
  */
@@ -298,7 +310,7 @@ export function normalizeState(raw, today) {
   );
   if (sorted.some((it, i) => it !== items[i])) changed = true;
 
-  const view = VIEWS.includes(src.view) ? src.view : VIEWS[0];
+  const view = normalizeView(src.view);
   if (view !== src.view) changed = true;
 
   return changed ? { ...src, items: sorted, view } : raw;
@@ -873,4 +885,104 @@ export function heatmap(habit, today, weeks = HEAT_WEEKS, options = {}) {
   if (!columns[1]?.month && !columns[2]?.month) columns[0].month = MONTHS_SHORT[monthOf(0)];
 
   return { columns, done, total };
+}
+
+/* ==========================================================================
+   Today tab overviews — the week matrix, the day list, the last weeks
+   ========================================================================== */
+
+/** In `order`, without touching the caller's array. */
+const byOrder = (items) => [...items].sort((a, b) => a.order - b.order);
+
+/**
+ * Rows of the week matrix for the Monday … Sunday week containing `key`: every habit that is not
+ * archived as of today, plus archived ones that were still active during that week (a past week
+ * shows what was tracked then), in `order`.
+ * -> [{ habit, archived, cells: [{ key, state, scheduled }] × 7, done, due }]
+ * done / due: the week's planned days done / planned days due so far (a pending today and future
+ * days are not due yet). `state` is dayStatus's.
+ */
+export function weekRows(items, key, today) {
+  const t = toDayNum(today);
+  const start = toDayNum(weekStart(key));
+  const rows = [];
+  for (const habit of byOrder(items)) {
+    const c = compileHabit(habit);
+    const archived = isArchived(habit, today);
+    if (archived && !(c.start <= start + 6 && c.end > start)) continue;
+    let done = 0;
+    let due = 0;
+    const cells = [];
+    for (let n = start; n < start + 7; n++) {
+      const state = stateAt(c, n, t);
+      if (state === 'done') done++;
+      if (state === 'done' || state === 'miss') due++;
+      cells.push({ key: fromDayNum(n), state, scheduled: scheduledAt(c, n) });
+    }
+    rows.push({ habit, archived, cells, done, due });
+  }
+  return rows;
+}
+
+/**
+ * The day list for `key`: the habits planned that day first (as they were that day, so an
+ * archived habit still shows on a day it was active), then every other habit that is not
+ * archived as of today, plus an archived one with a bonus tick that day (the week matrix shows
+ * that tick, so the day list does too); each group in `order`.
+ * -> { planned: [{ habit, state }], other: [{ habit, state, plannedNow }] }
+ * plannedNow: the plan in effect today has that weekday, though the day itself was not planned
+ * (it came before a plan change or before the habit started).
+ */
+export function dayRows(items, key, today) {
+  const planned = [];
+  const other = [];
+  const wd = weekdayOfKey(key);
+  for (const habit of byOrder(items)) {
+    const state = dayStatus(habit, key, today);
+    if (isScheduledOn(habit, key)) planned.push({ habit, state });
+    else if (!isArchived(habit, today) || state === 'bonus') other.push({ habit, state, plannedNow: planOn(habit, today).includes(wd) });
+  }
+  return { planned, other };
+}
+
+/** Shade of a completion rate: null (nothing due), 0 (none done) … 4 (all done). */
+export function rateLevel(rate) {
+  if (rate == null || !Number.isFinite(rate)) return null;
+  if (rate >= 1) return 4;
+  if (rate >= 0.75) return 3;
+  if (rate >= 0.5) return 2;
+  return rate > 0 ? 1 : 0;
+}
+
+/**
+ * One habit's last `weeks` calendar weeks (at least 1), Monday first, oldest first; the last one
+ * holds today. -> [{ key (its Monday), done, due, bonus, rate, level, active, isCurrent }]
+ * due: planned days due so far (a pending today and future days are not due yet); rate =
+ * done / due (null when nothing was due); level = rateLevel(rate); active: the habit was active
+ * on at least one day of that week up to today.
+ */
+export function weekHistory(habit, today, weeks = HISTORY_WEEKS) {
+  const count = Number.isFinite(weeks) ? Math.max(1, Math.floor(weeks)) : HISTORY_WEEKS;
+  const c = compileHabit(habit);
+  const t = toDayNum(today);
+  const current = toDayNum(weekStart(today));
+  const out = [];
+  for (let w = count - 1; w >= 0; w--) {
+    const start = current - 7 * w;
+    let done = 0;
+    let due = 0;
+    let bonus = 0;
+    let active = false;
+    for (let n = start; n < start + 7 && n <= t; n++) {
+      const state = stateAt(c, n, t);
+      if (state === 'pre' || state === 'archived') continue;
+      active = true;
+      if (state === 'done') done++;
+      if (state === 'done' || state === 'miss') due++;
+      if (state === 'bonus') bonus++;
+    }
+    const rate = due ? done / due : null;
+    out.push({ key: fromDayNum(start), done, due, bonus, rate, level: rateLevel(rate), active, isCurrent: w === 0 });
+  }
+  return out;
 }

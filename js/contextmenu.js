@@ -474,6 +474,8 @@ function focusedTarget() {
 
 function onContextMenu(e) {
   if (menu?.el.contains(e.target)) return;
+  // A page claimed this press for itself (the Notes board lifting a card by a long press)
+  if (e.defaultPrevented) return;
   if (performance.now() < swallowUntil) {
     e.preventDefault();
     return;
@@ -568,11 +570,72 @@ function blankTarget() {
   return view ? resolveTarget(view, { keyboard: true }) : null;
 }
 
+/* ---- iPhone and iPad: a long press opens the menu ----
+   iOS sends no contextmenu event for a long press (Android does). After a still press we send one
+   ourselves, so the same code runs as on Android: a page that claims the press cancels it (the
+   Notes board lifting a card), anything else opens this menu. The click iOS sends when the finger
+   lifts is swallowed, so it neither opens the item under it nor picks the menu entry under it.
+   window.LIFEOS_LONGPRESS = true turns this on in other browsers, for testing with touch events. */
+
+const IOS = typeof navigator !== 'undefined' && (/iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
+const LONG_PRESS_MS = 520;
+const LONG_PRESS_SLOP = 10; // px the finger may wander and still count as still
+let press = null; // { id, x, y, el, timer, fired }
+let swallowClickUntil = 0;
+
+function onTouchDown(e) {
+  if (e.pointerType !== 'touch' || !e.isPrimary || !(IOS || window.LIFEOS_LONGPRESS)) return;
+  const el = e.target instanceof Element ? e.target : null;
+  cancelPress();
+  if (!el || !scope?.contains(el) || el.closest(NATIVE) || menu || modalOpen()) return;
+  press = { id: e.pointerId, x: e.clientX, y: e.clientY, el, fired: false, timer: setTimeout(firePress, LONG_PRESS_MS) };
+}
+
+function onTouchMove(e) {
+  if (press && !press.fired && e.pointerId === press.id && Math.hypot(e.clientX - press.x, e.clientY - press.y) > LONG_PRESS_SLOP) cancelPress();
+}
+
+function onTouchUp(e) {
+  if (!press || e.pointerId !== press.id) return;
+  if (press.fired) swallowClickUntil = performance.now() + 450;
+  cancelPress();
+}
+
+function cancelPress() {
+  if (press) clearTimeout(press.timer);
+  press = null;
+}
+
+function firePress() {
+  const p = press;
+  if (!p || !p.el.isConnected) return;
+  p.fired = true;
+  p.el.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: p.x, clientY: p.y, button: 2, view: window }));
+  // The menu is open: drop the word iOS selected under the finger
+  if (menu) window.getSelection?.()?.removeAllRanges();
+}
+
+function onClickAfterPress(e) {
+  if (!swallowClickUntil) return;
+  const now = performance.now();
+  if (now < swallowClickUntil) {
+    e.preventDefault();
+    e.stopPropagation();
+  }
+  swallowClickUntil = 0;
+}
+
 /** Install the menu for right-clicks inside `root` (the shell's <main>). Once. */
 export function installContextMenu(root) {
   if (scope) return;
   scope = root;
   document.addEventListener('contextmenu', onContextMenu);
+  document.addEventListener('pointerdown', onTouchDown, true);
+  document.addEventListener('pointermove', onTouchMove, true);
+  document.addEventListener('pointerup', onTouchUp, true);
+  document.addEventListener('pointercancel', onTouchUp, true);
+  window.addEventListener('scroll', cancelPress, true);
+  window.addEventListener('click', onClickAfterPress, true);
   // Bubble phase on window: every module's own key handler has run (and maybe claimed the key)
   window.addEventListener('keydown', onKeydown);
   document.addEventListener('copy', onCopy);

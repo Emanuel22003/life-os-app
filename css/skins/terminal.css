@@ -692,19 +692,13 @@
   content: ">";
 }
 
-/* Status tags that lead with a live dot (habits day badge, LIFE chart): the dot becomes
-   a block cursor and a frame stands in for the brackets */
-[data-skin="terminal"] .hb-day-badge,
+/* Status tags that lead with a live dot (LIFE chart): the dot becomes a block cursor and a
+   frame stands in for the brackets */
 [data-skin="terminal"] .hbt-status.is-live {
   padding: 0 6px;
   gap: 6px;
 }
 
-[data-skin="terminal"] .hb-day-badge:not(.tag--solid) {
-  border-color: var(--line-strong);
-}
-
-[data-skin="terminal"] .hb-day-badge::before,
 [data-skin="terminal"] .hbt-status.is-live::before {
   content: "";
   width: 6px;
@@ -714,7 +708,6 @@
   color: inherit;
 }
 
-[data-skin="terminal"] .hb-day-badge::after,
 [data-skin="terminal"] .hbt-status.is-live::after {
   content: none;
 }

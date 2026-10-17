@@ -79,7 +79,7 @@
   grid-column: 1 / -1;
 }
 
-/* ---- Toolbar: New note + search, the column pager, Manage ---- */
+/* ---- Toolbar: search (+ the column menu on phones), the column pager, Manage ---- */
 
 .nt-board-head {
   position: relative;
@@ -97,11 +97,6 @@
   align-items: center;
   gap: var(--space-2);
   min-width: 0;
-}
-
-.nt-board-tools .nt-new {
-  flex: none;
-  width: auto;
 }
 
 .nt-board-tools .nt-search {
@@ -131,14 +126,10 @@
   font-variant-numeric: tabular-nums;
 }
 
-.nt-board-tip {
-  color: var(--text-3);
-}
-
-@container nt-view (max-width: 1099px) {
-  .nt-board-tip {
-    display: none;
-  }
+/* How to move a card: a tip under the toolbar until it is dismissed */
+.nt-board-hint {
+  flex: none;
+  margin: var(--space-2) var(--space-3) 0;
 }
 
 /* ---- Pager: a chip per column, lit while the column shows (a minimap of the board) ---- */
@@ -263,21 +254,27 @@
   }
 }
 
-/* Narrower boards: the pager gets a row of its own under New note and search */
+/* Narrower boards: a shorter search, so the pager keeps the same row; beside the note panel
+   there is no room for both, so the pager gets a row of its own under the search */
 @container nt-view (max-width: 939px) {
-  .nt-board-head {
+  .nt-board-tools .nt-search {
+    flex-basis: 200px;
+    min-width: 140px;
+  }
+
+  .nt-view[data-pane="editor"] .nt-board-head {
     flex-wrap: wrap;
   }
 
-  .nt-board-tools {
+  .nt-view[data-pane="editor"] .nt-board-tools {
     flex: 1 1 0;
   }
 
-  .nt-board-tools .nt-search {
+  .nt-view[data-pane="editor"] .nt-board-tools .nt-search {
     flex: 1 1 auto;
   }
 
-  .nt-pager {
+  .nt-view[data-pane="editor"] .nt-pager {
     order: 3;
     flex: 1 0 100%;
   }
@@ -954,24 +951,19 @@
     width: calc(var(--nt-peek-w) - var(--space-3));
   }
 
-  /* The toolbar (pager and dock included) keeps to the part of the board left of the panel,
-     with New note as its + and a shorter search so the pager keeps some room */
+  /* The toolbar (pager and dock included) and the tip keep to the part of the board left of
+     the panel, with a shorter search so the pager keeps some room */
   .nt-view[data-layout="board"][data-pane="editor"] .nt-board-head {
     padding-right: calc(var(--nt-peek-w) + var(--space-3));
   }
 
-  .nt-view[data-layout="board"][data-pane="editor"] .nt-board-tools .nt-new {
-    width: var(--btn-h);
-    padding: 0;
-    justify-content: center;
-  }
-
-  .nt-view[data-layout="board"][data-pane="editor"] .nt-board-tools .nt-new > span {
-    display: none;
+  .nt-view[data-layout="board"][data-pane="editor"] .nt-board-hint {
+    margin-right: calc(var(--nt-peek-w) + var(--space-3));
   }
 
   .nt-view[data-layout="board"][data-pane="editor"] .nt-board-tools .nt-search {
-    flex-basis: 200px;
+    flex-basis: 180px;
+    min-width: 120px;
   }
 
   .nt-view[data-layout="board"][data-pane="editor"] .nt-pager.is-docking {
@@ -990,7 +982,9 @@
   }
 }
 
-/* ---- Phones: one column at a time, snapping; the open note fills the screen ---- */
+/* ---- Phones: two columns side by side, snapping one column per swipe; the open note fills
+   the screen. The toolbar is one row (the column menu and the search); the pager only shows
+   as the drop dock, over that row, while a card is lifted. ---- */
 
 @media (max-width: 640px) {
   .nt-view[data-layout="board"][data-pane="editor"] .nt-board {
@@ -999,38 +993,100 @@
 
   .nt-board-scroll {
     scroll-snap-type: x mandatory;
-    scroll-padding-inline: var(--space-2);
+    scroll-padding-inline: 6px;
   }
 
   .nt-board-cols {
-    gap: var(--space-2);
-    padding: var(--space-2);
+    gap: 6px;
+    padding: 6px;
   }
 
-  /* The next column peeks in at the edge */
+  /* Half the board each (minus the gaps), so a third column peeks in at the edge */
   .nt-col {
     flex: none;
-    width: calc(100cqw - 48px);
-    max-width: 380px;
+    width: calc((100cqw - 40px) / 2);
+    max-width: none;
   }
 
   .nt-board-head {
+    flex-wrap: nowrap;
+    gap: 6px;
     padding: var(--space-2);
   }
 
-  /* New note (+), search and Manage share one row */
+  .nt-board-tools {
+    flex: 1 1 auto;
+    gap: 6px;
+  }
+
   .nt-board-tools .nt-search {
+    flex: 1 1 0;
     min-width: 0;
   }
 
-  .nt-board-tools .nt-new {
-    width: var(--btn-h);
-    padding: 0;
-    justify-content: center;
+  /* New section and Manage are in the column menu */
+  .nt-board-manage {
+    display: none;
   }
 
-  .nt-board-tools .nt-new > span {
+  .nt-pager:not(.is-docking) {
     display: none;
+  }
+
+  /* The dock wraps onto as many rows as it needs, over the top of the board, so every chip
+     keeps its name */
+  .nt-pager.is-docking {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 2;
+    padding: var(--space-2);
+    border-bottom: 1px solid var(--line-strong);
+    background: var(--surface-solid);
+    box-shadow: var(--shadow);
+  }
+
+  .nt-pager.is-docking .nt-chips.nt-pager-chips {
+    flex-wrap: wrap;
+    overflow: visible;
+  }
+
+  .nt-pager.is-docking .nt-pager-chip {
+    flex: 1 1 auto;
+    max-width: 50%;
+    height: 32px;
+    padding: 0 var(--space-2);
+  }
+
+  .nt-board-hint {
+    margin: 6px 6px 0;
+  }
+
+  /* Column heads: name, count and + (the fold control steps aside; a folded column still
+     unfolds with a tap on its strip) */
+  .nt-col-head {
+    min-height: 38px;
+    gap: 4px;
+    padding: 2px 2px 2px var(--space-2);
+  }
+
+  .nt-col-head .nt-col-icon,
+  .nt-col-head .nt-col-fold {
+    display: none;
+  }
+
+  /* The header's + starts a note; the row at the column's foot would only repeat it */
+  .nt-col-new {
+    display: none;
+  }
+
+  .nt-col-body {
+    padding: 4px;
+  }
+
+  .nt-col-list {
+    gap: 4px;
   }
 }
 
@@ -1066,6 +1122,75 @@
 
   .nt-pager-chip {
     height: 34px;
+  }
+}
+
+/* Phones: compact cards, so a column holds more of them: the title (two lines at most) and one
+   line of the note. The time and grip go; a pinned card keeps its pin in the corner. The ⋯
+   steps aside for the title's room: hold a card and let go for Move to… (M with a keyboard).
+   It stays in reach of screen readers and shows when focused from a keyboard. After the touch
+   rules above, which they override. */
+@media (max-width: 640px) {
+  .nt-col-head .btn {
+    --btn-h: 30px;
+  }
+
+  .nt-card {
+    gap: 2px;
+    padding: 7px var(--space-2);
+  }
+
+  .nt-card-title {
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    padding-right: 0;
+    line-height: 1.3;
+  }
+
+  .nt-card:has(.nt-card-pin) .nt-card-title {
+    padding-right: 14px;
+  }
+
+  .nt-card-excerpt {
+    -webkit-line-clamp: 1;
+    line-clamp: 1;
+    line-height: 1.4;
+  }
+
+  .nt-card-grip,
+  .nt-card-time {
+    display: none;
+  }
+
+  .nt-card-foot {
+    position: absolute;
+    top: 7px;
+    right: 6px;
+    min-height: 0;
+  }
+
+  .nt-card-pin {
+    height: auto;
+    padding: 0;
+    border: 0;
+  }
+
+  .nt-card-pin > span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .nt-card-menu:not(:focus-visible) {
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    border: 0;
   }
 }
 

@@ -1,6 +1,7 @@
 // LIFE/OS — 01 // Home: pure helpers for the overview page (greeting, what's next, the week,
 // the to-do list, the habit graph). DOM-free, so tools/tests/home.test.js runs them in JavaScriptCore.
-// Home stores nothing of its own except a preference (store 'home': { quickNoteSection }).
+// Home stores nothing of its own except per-device preferences (store 'home': { quickNoteSection,
+// layout, calendar }).
 
 /** 'Good morning' (5–11) · 'Good afternoon' (12–16) · 'Good evening' (17–4). */
 export function greeting(hour) {
@@ -109,8 +110,9 @@ export function graphBars(series) {
    The board has four columns. A widget is one to four of them wide (its size) and sits in the
    column you put it in (col: the leftmost one it covers), under whatever is above it there:
    widgets keep their own height and fall up as far as they can, like stacked cards. So a short
-   widget leaves room under it for another one. Narrower pages have two columns (small widgets
-   take one, the rest both), phones one.
+   widget leaves room under it for another one. Narrower pages and phones have two columns
+   (small widgets take one, half the width, the rest both, and the calendar always both); only a
+   very narrow one has one.
    ========================================================================== */
 
 /** Every widget Home can show, in the order the Add shelf lists them. */
@@ -210,11 +212,32 @@ export function addWidget(layout, id, size = null) {
 
 /* ---- Placing the widgets ---- */
 
+/**
+ * How many columns a board this wide (px) has: four on a wide one, two on a narrower one and
+ * on a phone (so two small widgets sit side by side there), one only below 300px.
+ */
+export function columnsFor(width) {
+  const w = Number(width) || 0;
+  if (w >= 820) return COLUMNS;
+  return w >= 300 ? 2 : 1;
+}
+
 /** How many columns a widget takes on a board of `cols` (4, 2 or 1). */
 export function spanOf(size, cols = COLUMNS) {
   if (cols >= COLUMNS) return SPAN[size] ?? 1;
   if (cols <= 1) return 1;
   return size === 's' ? 1 : cols;
+}
+
+/**
+ * Widgets that need more than half a phone: a calendar 160px wide shows its days as slivers
+ * and its menus as empty boxes. On two columns they take both, whatever their size.
+ */
+export const ROOMY = Object.freeze(['week']);
+
+/** How many columns widget `it` ({ id, size }) takes on a board of `cols`. */
+export function widgetSpan(it, cols = COLUMNS) {
+  return cols === 2 && ROOMY.includes(it.id) ? 2 : spanOf(it.size, cols);
 }
 
 /** Where a stored column (of four) lands on a board of `cols`; no column stays null. */
@@ -224,35 +247,83 @@ export function columnOn(col, span, cols = COLUMNS) {
   return Math.max(0, Math.min(c, cols - span));
 }
 
+/** On a two-column board, a difference this tall (px) between the columns is a hole to fill. */
+export const HOLE = 48;
+
 /**
  * Lay the board out. Each widget, in order, goes into its columns as high as it fits, under
  * what is already there; one without a column takes the spot where it sits highest (leftmost
  * first). heights: { id: px }. Returns { items: [{ id, x, w, y, h }], height } in px and columns.
+ *
+ * Two columns (a phone) keep the board dense, so you see more at once:
+ * - a small widget keeps its column only while the columns are about even; when the other one
+ *   is clearly shorter, it goes there (a layout made on four columns often has every small
+ *   widget on the right, which would leave the left side empty);
+ * - a wide widget goes under both columns, so a lone small widget above it would leave a hole
+ *   beside it: the following small widgets move up first (as many, in order, as even the
+ *   columns out best).
+ * Four columns keep the order and the columns exactly.
  */
 export function placeWidgets(layout, { cols = COLUMNS, heights = {}, gap = 0 } = {}) {
   const tops = new Array(cols).fill(0);
   const items = [];
-  for (const it of layout) {
-    const w = spanOf(it.size, cols);
-    const at = (c) => Math.max(...tops.slice(c, c + w));
+  const heightOf = (id) => Math.max(0, Number(heights[id]) || 0);
+  const two = cols === 2;
+  // Where a small widget goes on two columns, given the columns' bottoms `t`
+  const smallColumn = (it, t) => {
+    const x = columnOn(it.col, 1, cols);
+    if (x !== null && t[1 - x] > t[x] - HOLE) return x;
+    return t[1] < t[0] ? 1 : 0;
+  };
+  const put = (it, x, w) => {
+    const y = Math.max(...tops.slice(x, x + w));
+    const h = heightOf(it.id);
+    for (let c = x; c < x + w; c++) tops[c] = y + h + gap;
+    items.push({ id: it.id, x, w, y, h });
+  };
+  const queue = [...layout];
+  while (queue.length) {
+    const it = queue.shift();
+    const w = widgetSpan(it, cols);
+    if (two && w === 1) {
+      put(it, smallColumn(it, tops), 1);
+      continue;
+    }
+    if (two && Math.abs(tops[0] - tops[1]) >= HOLE) {
+      // Try moving up the next one, two, … small widgets; keep the count that evens out best
+      const smalls = queue.filter((q) => widgetSpan(q, cols) === 1);
+      const t = [...tops];
+      let best = 0;
+      let bestHole = Math.abs(t[0] - t[1]);
+      for (let k = 0; k < smalls.length && bestHole >= HOLE; k++) {
+        t[smallColumn(smalls[k], t)] += heightOf(smalls[k].id) + gap;
+        const hole = Math.abs(t[0] - t[1]);
+        if (hole < bestHole) {
+          best = k + 1;
+          bestHole = hole;
+        }
+      }
+      for (const small of smalls.slice(0, best)) {
+        queue.splice(queue.indexOf(small), 1);
+        put(small, smallColumn(small, tops), 1);
+      }
+    }
     let x = columnOn(it.col, w, cols);
     if (x === null) {
+      const at = (c) => Math.max(...tops.slice(c, c + w));
       x = 0;
       for (let c = 1; c <= cols - w; c++) if (at(c) < at(x)) x = c;
     }
-    const y = at(x);
-    const h = Math.max(0, Number(heights[it.id]) || 0);
-    for (let c = x; c < x + w; c++) tops[c] = y + h + gap;
-    items.push({ id: it.id, x, w, y, h });
+    put(it, x, w);
   }
   return { items, height: items.length ? Math.max(...tops) - gap : 0 };
 }
 
-/** The column to store (of four) for a widget shown in column `x` of `cols`. */
-function storedColumn(x, prev, size, cols) {
+/** The column to store (of four) for a widget `span` columns wide, shown in column `x` of `cols`. */
+function storedColumn(x, prev, span, cols) {
   if (cols >= COLUMNS) return x;
   if (cols <= 1) return Number.isInteger(prev) ? prev : undefined;
-  if (Number.isInteger(prev) && columnOn(prev, spanOf(size, cols), cols) === x) return prev;
+  if (Number.isInteger(prev) && columnOn(prev, span, cols) === x) return prev;
   return Math.round((x * COLUMNS) / cols);
 }
 
@@ -264,13 +335,13 @@ export function settleLayout(layout, placed, cols = COLUMNS) {
   const at = new Map(placed.items.map((p) => [p.id, p]));
   const list = normalizeLayout(layout).map((it) => {
     const p = at.get(it.id);
-    return p ? entry(it.id, it.size, fitColumn(storedColumn(p.x, it.col, it.size, cols), it.size)) : it;
+    return p ? entry(it.id, it.size, fitColumn(storedColumn(p.x, it.col, widgetSpan(it, cols), cols), it.size)) : it;
   });
   const rank = (id) => at.get(id) ?? { y: Infinity, x: 0 };
   return list.sort((a, b) => rank(a.id).y - rank(b.id).y || rank(a.id).x - rank(b.id).x);
 }
 
-/** Every place `id` can take in column `x`: [{ layout, placed, y, index }] (one per slot in the order). */
+/** Every place `id` can take in column `x`: [{ layout, placed, x, y, col, index }] (one per slot in the order). */
 function slotsIn(layout, id, x, opts) {
   const cols = opts.cols ?? COLUMNS;
   const list = normalizeLayout(layout);
@@ -278,25 +349,30 @@ function slotsIn(layout, id, x, opts) {
   if (from === -1) return [];
   const item = list[from];
   const rest = list.filter((_, i) => i !== from);
-  const span = spanOf(item.size, cols);
+  const span = widgetSpan(item, cols);
   const col = Math.max(0, Math.min(x, cols - span));
-  const moved = entry(item.id, item.size, fitColumn(storedColumn(col, item.col, item.size, cols), item.size));
+  const moved = entry(item.id, item.size, fitColumn(storedColumn(col, item.col, span, cols), item.size));
   const out = [];
   for (let i = 0; i <= rest.length; i++) {
     const cand = [...rest.slice(0, i), moved, ...rest.slice(i)];
     const placed = placeWidgets(cand, opts);
-    out.push({ layout: cand, placed, y: placed.items.find((p) => p.id === id).y, index: i, from });
+    const at = placed.items.find((p) => p.id === id);
+    out.push({ layout: cand, placed, x: at.x, y: at.y, col, index: i, from });
   }
   return out;
 }
 
 /**
  * Where a dragged widget lands: in column `x` (of opts.cols), at the place whose top is nearest
- * `top` (px); on a tie, the place nearest where it was. Returns { layout, placed }.
+ * `top` (px); on a tie, the place nearest where it was. On two columns a small widget can end up
+ * in the shorter column instead: the places where it really is in column `x` come first.
+ * Returns { layout, placed }.
  */
 export function dropLayout(layout, id, { x, top, ...opts }) {
+  const slots = slotsIn(layout, id, x, opts);
+  const inColumn = slots.filter((s) => s.x === s.col);
   let best = null;
-  for (const s of slotsIn(layout, id, x, opts)) {
+  for (const s of inColumn.length ? inColumn : slots) {
     const score = Math.abs(s.y - top);
     const tie = Math.abs(s.index - s.from);
     if (!best || score < best.score - 0.5 || (Math.abs(score - best.score) <= 0.5 && tie < best.tie)) best = { ...s, score, tie };
@@ -320,7 +396,9 @@ export function nudgeLayout(layout, id, dir, opts = {}) {
   if (dir === 'left' || dir === 'right') {
     const x = now.x + (dir === 'left' ? -1 : 1);
     if (x < 0 || x + now.w > cols) return null;
-    return dropLayout(layout, id, { ...opts, x, top: now.y });
+    const moved = dropLayout(layout, id, { ...opts, x, top: now.y });
+    // Two columns keep a small widget in the shorter one: then it can't go that way
+    return moved.placed.items.find((p) => p.id === id).x === now.x ? null : moved;
   }
   let pick = null;
   for (const s of slotsIn(layout, id, now.x, opts)) {
@@ -370,6 +448,18 @@ export function withCalView(raw, patch = {}) {
   return normalizeCalView({ view: patch.view ?? cur.view, layers: { ...cur.layers, ...(patch.layers ?? {}) } });
 }
 
+/**
+ * The calendar's "Show" menu: a checkbox per layer. Done tasks can only show with the tasks, so
+ * it is greyed out while Tasks is off (and doesn't count as on).
+ */
+export function calLayerItems(layers) {
+  const on = normalizeCalView({ layers }).layers;
+  return CAL_LAYERS.map((k) => {
+    const off = k === 'completed' && !on.tasks;
+    return { value: k, label: CAL_LAYER_LABEL[k], checked: on[k], disabled: off, hint: off ? 'needs Tasks' : null };
+  });
+}
+
 /** Whether `cursor` is in the period that holds `today` (same day, ISO week or month). */
 export function isCurrentPeriod(view, cursor, today, mondayOf) {
   if (view === 'day') return cursor === today;
@@ -379,6 +469,6 @@ export function isCurrentPeriod(view, cursor, today, mondayOf) {
 
 /** What to say when a period shows nothing. */
 export function calEmptyText(view, layers) {
-  if (!layers.events && !layers.tasks && !layers.habits) return 'Everything is switched off. Turn on Events, Tasks or Habits above.';
+  if (!layers.events && !layers.tasks && !layers.habits) return 'Everything is switched off. Turn on Events, Tasks or Habits in the Show menu.';
   return `Nothing planned ${view === 'day' ? 'this day' : view === 'week' ? 'this week' : 'this month'}.`;
 }

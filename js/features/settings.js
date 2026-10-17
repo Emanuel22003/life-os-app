@@ -4,7 +4,7 @@
 // sync with your other computers); appearance, motion and the start page in `settings` (this
 // computer only). Changes made elsewhere (the Pomodoro page, another window) show here at once.
 
-import { h, icon, pageHeader, toast, confirmDialog, formatDay, dateKey, uid } from '../ui.js';
+import { h, icon, pageHeader, toast, confirmDialog, formatDay, dateKey, uid, hiddenTipCount, resetTips } from '../ui.js';
 import { settings } from '../store.js';
 import { SKINS, normalizeSkin, THEMES } from '../skins.js';
 import { COLOR_KINDS, normalizeColorPrefs } from '../colors.logic.js';
@@ -179,7 +179,7 @@ function mount(root) {
   root.classList.add('st-root');
   const cleanups = [];
 
-  const header = pageHeader({ index: '00', title: 'Settings', subtitle: 'Sound and notifications, how LIFE/OS looks, where it opens, and your data.' });
+  const header = pageHeader({ index: '00', title: 'Settings', subtitle: 'Sound and notifications, how LIFE/OS looks, where it opens, and your data.', tipId: 'settings.intro' });
 
   /* Sound & notifications (the timer's; they sync) */
   let sound;
@@ -261,6 +261,19 @@ function mount(root) {
       return motion.el;
     },
   });
+
+  /* Tips: the short explanations on each page, and their "✓ Got it" */
+  const tipsBtn = h('button', { type: 'button', class: 'btn btn--sm', onClick: () => { resetTips(); toast('The tips are back on every page.'); } }, 'Show them again');
+  const tipsRow = row({
+    title: 'Tips',
+    hint: 'Short explanations on the pages. “✓ Got it” hides one for good on this device.',
+    control: tipsBtn,
+  });
+  const paintTips = () => {
+    const n = hiddenTipCount();
+    tipsBtn.disabled = !n;
+    tipsRow.hint(n ? `${n} hidden on this device. “✓ Got it” hides one for good.` : 'Short explanations on the pages. “✓ Got it” hides one for good on this device.');
+  };
 
   /* Your own colors for the template showing (with Reset) */
   const palette = paletteEditor();
@@ -410,7 +423,7 @@ function mount(root) {
       'div',
       { class: 'st-cards' },
       card('Sound & notifications', [soundRow, notifyRow, miniRow]),
-      card('Appearance', [templateRow, themeRow, paletteRow, motionRow]),
+      card('Appearance', [templateRow, themeRow, paletteRow, motionRow, tipsRow]),
       card('Color coding', [colorsRow, ...colorKindRows]),
       card('Start-up', [startRow]),
       card('Sync & backup', [syncRow, backupRow, restoreRow, storageRow]),
@@ -430,6 +443,8 @@ function mount(root) {
   );
   paintSettings();
   cleanups.push(settings.subscribe(paintSettings));
+  paintTips();
+  cleanups.push(settings.subscribe(paintTips));
   cleanups.push(() => palette.destroy());
   paintSync();
   cleanups.push(onSyncStatus(paintSync));

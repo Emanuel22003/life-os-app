@@ -848,3 +848,194 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   font-weight: 600;
   color: var(--text);
 }
+
+/* ==========================================================================
+   Dropdown menus (ui.dropdown): a compact button, a short menu under it
+   ========================================================================== */
+
+.dd {
+  position: relative;
+  display: inline-flex;
+  min-width: 0;
+}
+
+.dd-btn {
+  gap: 6px;
+  max-width: 100%;
+  padding-inline: 10px;
+}
+
+.dd-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dd-count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-3);
+  font-size: var(--fs-2xs);
+  color: var(--text-2);
+}
+
+.dd-count[hidden],
+.dd-label[hidden] {
+  display: none;
+}
+
+.dd-chev {
+  flex: none;
+  opacity: 0.7;
+  transition: transform var(--dur-fast) var(--ease);
+}
+
+.dd-btn.is-open .dd-chev {
+  transform: rotate(180deg);
+}
+
+.dd-menu {
+  position: fixed;
+  z-index: calc(var(--z-overlay) + 5);
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  max-width: min(320px, calc(100vw - 16px));
+  padding: 4px;
+  overflow-y: auto;
+  border: var(--border-w) solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface-solid);
+  box-shadow: var(--shadow);
+  animation: lo-fade-in var(--dur-fast) var(--ease-out) both;
+}
+
+.dd-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 34px;
+  padding: 0 var(--space-3) 0 6px;
+  border-radius: var(--radius-xs);
+  color: var(--text);
+  font-size: var(--fs-sm);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.dd-item:hover,
+.dd-item:focus-visible {
+  background: var(--surface-2);
+  outline: none;
+}
+
+.dd-item:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.dd-item.is-danger {
+  color: var(--cc-red, currentColor);
+}
+
+.dd-mark {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 16px;
+  height: 16px;
+}
+
+.dd-item-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dd-hint {
+  margin-left: var(--space-3);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  color: var(--text-3);
+}
+
+.dd-sep {
+  height: 1px;
+  margin: 4px 2px;
+  background: var(--line);
+}
+
+/* ==========================================================================
+   Tips (ui.tip): a short explanation and "✓ Got it", which hides it for good
+   ========================================================================== */
+
+.tip {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 6px 6px 6px var(--space-3);
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius-sm);
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+  line-height: 1.35;
+}
+
+.tip[hidden] {
+  display: none;
+}
+
+.tip-icon {
+  display: grid;
+  flex: none;
+  color: var(--text-3);
+}
+
+.tip-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+}
+
+.tip-ok,
+.page-tip-ok {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  gap: 4px;
+  height: 26px;
+  padding: 0 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-pill);
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.tip-ok:hover,
+.page-tip-ok:hover {
+  border-color: var(--text-2);
+  background: var(--surface-2);
+}
+
+/* A page's explanation under its title, its ✓ at the end of the text (no row of its own) */
+.page-tip {
+  display: block;
+}
+
+.page-tip-ok {
+  height: 22px;
+  margin-left: 6px;
+  padding: 0 8px;
+  vertical-align: 1px;
+  font-family: var(--font-sans);
+  font-style: normal;
+  letter-spacing: 0;
+  text-transform: none;
+}

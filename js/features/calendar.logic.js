@@ -1279,6 +1279,74 @@ export function periodHeading(view, cursor, { short = false, weekNumber = true }
 }
 
 /* ==========================================================================
+   Timeline fit: which hours a timeline shows at once, and how tall each hour is
+   ========================================================================== */
+
+export const FIT_FROM_HOUR = 7;
+export const FIT_TO_HOUR = 22;
+
+/**
+ * The whole hours a timeline should show without scrolling -> { from, to } (0–24):
+ * 07:00–22:00, widened to the first timed item's start hour and the last one's end hour, so
+ * an early run or a late dinner is never cut off. items: [{ startMin, endMin }]; junk is skipped.
+ */
+export function timelineSpan(items, { from = FIT_FROM_HOUR, to = FIT_TO_HOUR } = {}) {
+  const minute = (n) => Math.max(0, Math.min(DAY_MINUTES, n));
+  let a = from;
+  let b = to;
+  for (const it of Array.isArray(items) ? items : []) {
+    const s = Number(it?.startMin);
+    const e = Number(it?.endMin);
+    if (!Number.isFinite(s) || !Number.isFinite(e)) continue;
+    a = Math.min(a, Math.floor(minute(s) / 60));
+    b = Math.max(b, Math.ceil(minute(Math.max(s, e)) / 60));
+  }
+  a = Math.max(0, Math.min(23, Math.floor(a)));
+  b = Math.max(a + 1, Math.min(24, Math.ceil(b)));
+  return { from: a, to: b };
+}
+
+/**
+ * The hour height that shows `hours` hours in `avail` px -> { hourH, fits }. Whole pixels (hour
+ * lines stay crisp), at most `max`. When even `min` px an hour doesn't fit, hourH is `min` and
+ * fits is false: the timeline scrolls instead of shrinking into something unreadable.
+ */
+export function fitHourHeight(hours, avail, { min = 18, max = 96 } = {}) {
+  const n = Number(hours) > 0 ? Number(hours) : 24;
+  const raw = Math.floor((Number(avail) || 0) / n);
+  if (raw < min) return { hourH: min, fits: false };
+  return { hourH: Math.min(max, raw), fits: true };
+}
+
+/* ---- Day plan lists (Tasks, Habits): open or folded, per layout, kept on this device ----
+   narrow: the lists sit under the timeline (phones, narrow windows): folded by default, so the
+   whole day fits on one screen. wide: a side column beside the timeline: open by default. */
+
+export const DAY_PANELS = Object.freeze(['tasks', 'habits']);
+export const DAY_PANELS_DEFAULT = Object.freeze({
+  narrow: Object.freeze({ tasks: false, habits: false }),
+  wide: Object.freeze({ tasks: true, habits: true }),
+});
+
+/** Any stored value -> { narrow: { tasks, habits }, wide: { tasks, habits } } of booleans. */
+export function normalizeDayPanels(raw) {
+  const out = {};
+  for (const layout of ['narrow', 'wide']) {
+    const src = isObject(raw) && isObject(raw[layout]) ? raw[layout] : {};
+    out[layout] = {};
+    for (const k of DAY_PANELS) out[layout][k] = typeof src[k] === 'boolean' ? src[k] : DAY_PANELS_DEFAULT[layout][k];
+  }
+  return out;
+}
+
+/** One list opened or folded in one layout -> a new normalized value (the input is left alone). */
+export function setDayPanel(raw, layout, panel, open) {
+  const cur = normalizeDayPanels(raw);
+  if (!(layout in cur) || !DAY_PANELS.includes(panel)) return cur;
+  return { ...cur, [layout]: { ...cur[layout], [panel]: !!open } };
+}
+
+/* ==========================================================================
    Planning: tasks and habits per day
    ========================================================================== */
 

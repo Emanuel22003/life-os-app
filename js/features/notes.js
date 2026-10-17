@@ -34,6 +34,8 @@ import {
   debounce,
   isTyping,
   modalOpen,
+  dropdown,
+  tip,
 } from '../ui.js';
 import { createStore } from '../store.js';
 import {
@@ -78,6 +80,8 @@ import {
   normalizeLayout,
   setLayout as withLayout,
   toggleCollapsed,
+  viewChoices,
+  availableSuggestions,
 } from './notes.logic.js';
 import { columnOf, columnSection } from './notes.board.logic.js';
 import { registerContextProvider } from '../contextmenu.js';
@@ -90,6 +94,7 @@ import {
   hint,
   viewIconName,
   glyphOf,
+  sectionGlyph,
   createSectionNav,
   createNoteDrag,
   openSectionMenu,
@@ -418,6 +423,10 @@ function mount(root) {
     onNewSection: () => newSection(),
     onToggleCollapse: (column) => toggleColumn(column),
     onPick: (column) => pickColumn(column),
+    onInView: (columns) => {
+      jumpInView = columns;
+      paintJumpMenu();
+    },
     onAnnounce: (text) => announce(text),
     // The editor panel covers the board's right side except on phones. From layout sizes,
     // not its box: the panel's slide-in transform would put that edge 24px too far right.
@@ -435,6 +444,7 @@ function mount(root) {
   const statWords = h('span', { class: 'stat-value' });
 
   // List · Board: each tab keeps its own; the last choice is what a new tab opens with.
+  // Phones show the two as icons (the word is the button's name).
   const layoutBtn = (layout, iconName, label) =>
     h(
       'button',
@@ -442,23 +452,34 @@ function mount(root) {
         type: 'button',
         class: 'seg-btn',
         'aria-pressed': String(ui.layout === layout),
+        'aria-label': label,
         'aria-keyshortcuts': 'B',
         title: `${label} layout (B)`,
         onClick: () => setLayout(layout),
       },
       icon(iconName, { size: 12 }),
-      label,
+      h('span', { class: 'nt-layout-label' }, label),
     );
   const layoutList = layoutBtn(LAYOUT_LIST, 'list', 'List');
   const layoutBoard = layoutBtn(LAYOUT_BOARD, 'nt-board', 'Board');
   const layoutSeg = h('div', { class: 'seg nt-layout', role: 'group', 'aria-label': 'Layout' }, layoutList, layoutBoard);
 
+  // New note lives in the page header in both layouts, so the list and the board start with
+  // their notes instead of a row of buttons. Phones shorten it to "New".
+  const newBtn = h(
+    'button',
+    { type: 'button', class: 'btn btn--primary nt-new', 'aria-label': 'New note', 'aria-keyshortcuts': 'N', onClick: () => newNote() },
+    icon('plus'),
+    h('span', null, 'New', h('span', { class: 'nt-new-word' }, ' note')),
+    h('span', { class: 'kbd nt-kbd-inv lo-hint', 'aria-hidden': 'true' }, 'N'),
+  );
+
   const header = pageHeader({
     index: '03',
     title: 'Notes',
     subtitle: term('notes.subtitle', 'Ideas, plans and references in markdown. Saved as you type.'),
+    tipId: 'notes.intro',
     actions: [
-      layoutSeg,
       h(
         'div',
         { class: 'nt-stats lo-deco', role: 'group', 'aria-label': 'Notebook totals' },
@@ -467,18 +488,63 @@ function mount(root) {
         statBlock('Pinned', statPinned),
         statBlock('Words', statWords),
       ),
+      layoutSeg,
+      newBtn,
     ],
   });
 
-  /* ---- List panel ---- */
+  /* ---- Section menu (phones): All notes · Unsorted · each section, then New / Edit / Manage ----
+     It stands in for the chip strip, in the same row as the search. Its button shows the open
+     view's icon (in its color), name and count; the menu is rebuilt only when what it lists
+     changes. The button's name is our own span, so the menu itself is named "Sections" (the
+     dropdown names its menu after its label). */
 
-  const newBtn = h(
-    'button',
-    { type: 'button', class: 'btn btn--primary btn--block nt-new', 'aria-label': 'New note', 'aria-keyshortcuts': 'N', onClick: () => newNote() },
-    icon('plus'),
-    h('span', null, 'New note'),
-    h('span', { class: 'kbd nt-kbd-inv lo-hint', 'aria-hidden': 'true' }, 'N'),
-  );
+  const viewGlyph = h('span', { class: 'nt-dd-icon', 'aria-hidden': 'true' });
+  const viewNameEl = h('span', { class: 'dd-label nt-dd-name' });
+  const viewCountEl = h('span', { class: 'nt-dd-count', 'aria-hidden': 'true' });
+  const viewMenu = dropdown({
+    className: 'nt-viewdd-btn',
+    title: 'Sections',
+    showValue: false,
+    onSelect: (view) => {
+      switchView(view);
+      nameViewMenu();
+    },
+  });
+  viewMenu.el.classList.add('nt-viewdd');
+  viewMenu.button.prepend(viewGlyph, viewNameEl);
+  viewMenu.button.querySelector('.dd-chev')?.before(viewCountEl);
+  let viewMenuSig = '';
+
+  /* ---- Column menu (board, phones): jump to a column; New section, Manage ----
+     Phones show two columns at a time, so the pager's chip row gives way to this. Its button
+     names the first column in view (our own span again, so the menu is "Jump to a column");
+     the pager comes back as the drop dock while a card is lifted. */
+
+  const jumpNameEl = h('span', { class: 'dd-label nt-dd-name' });
+  const jumpMenu = dropdown({
+    icon: 'nt-board',
+    className: 'nt-jumpdd-btn',
+    title: 'Jump to a column',
+    showValue: false,
+    onSelect: (column) => {
+      board.jumpTo(column);
+      nameJumpMenu();
+    },
+  });
+  jumpMenu.el.classList.add('nt-jumpdd');
+  jumpMenu.button.querySelector('.dd-chev')?.before(jumpNameEl);
+  let jumpSig = '';
+  let jumpInView = [];
+
+  /**
+   * A section's line in the phone menus: its icon, in the section's color as the rail, the chips
+   * and the columns show it, then its name. The dropdown takes it as the item's label.
+   */
+  const sectionItemLabel = (name, glyph, color) =>
+    paintColor(h('span', { class: 'nt-dd-sec' }, icon(glyph, { size: 14 }), h('span', { class: 'nt-dd-sec-name' }, name)), 'sections', color ?? null);
+
+  /* ---- List panel ---- */
 
   const searchInput = h('input', {
     class: 'input',
@@ -570,8 +636,9 @@ function mount(root) {
   const listBody = h('div', { class: 'nt-list-body', onKeydown: onListKey, onPointerdown: (e) => noteDrag.onPointerDown(e) });
   listBody.addEventListener('animationend', () => listBody.classList.remove('is-swapping'));
 
-  // New note + search sit in the list's head, or in the board's toolbar (placeTools()).
-  const listHead = h('div', { class: 'nt-list-head' }, newBtn, search);
+  // The search sits in the list's head, or in the board's toolbar (placeTools()); on phones it
+  // shares its row with the section menu (list) or the column menu (board).
+  const listHead = h('div', { class: 'nt-list-head' }, viewMenu.el, search);
   const listPanel = h(
     'section',
     { class: 'panel hud nt-list', 'aria-label': 'Notes list' },
@@ -584,8 +651,9 @@ function mount(root) {
 
   /* ---- Board panel ---- */
 
-  // Toolbar: New note + search, the column pager (the drop dock while a card is lifted), Manage.
-  const boardTools = h('div', { class: 'nt-board-tools' });
+  // Toolbar: search (and the column menu on phones), the column pager (the drop dock while a
+  // card is lifted), Manage. How to move a card is a tip under it until it is dismissed.
+  const boardTools = h('div', { class: 'nt-board-tools' }, jumpMenu.el);
   const boardCount = h('span', { class: 'nt-board-count' });
   const boardPanel = h(
     'section',
@@ -601,6 +669,14 @@ function mount(root) {
         icon('nt-sliders'),
       ),
     ),
+    // By touch, a hold let go in place opens Move to… (phones hide the cards' ⋯): the tip says so.
+    tip({
+      id: 'notes.board',
+      className: 'nt-board-hint',
+      text: window.matchMedia('(pointer: coarse)').matches
+        ? 'Hold a card and drag it onto a column, or let go to pick one.'
+        : 'Drag a card onto another column, or onto its chip above, to move it.',
+    }),
     board.el,
     h(
       'div',
@@ -615,7 +691,6 @@ function mount(root) {
         { class: 'nt-board-meta', title: 'Cards in a column keep this order: moving a card only changes its section' },
         boardCount,
         h('span', { class: 'faint nt-board-order' }, 'Newest first'),
-        h('span', { class: 'faint nt-board-tip' }, 'Drag a card onto a column or a chip above'),
       ),
     ),
   );
@@ -790,7 +865,8 @@ function mount(root) {
     // A row or chip (or its rename field) removed under the keyboard, e.g. deleted in another tab.
     const navFocused = nav.hasFocus();
     nav.update({ sections: s.sections, view: ui.view, counts });
-    if (navFocused && focusLost()) nav.focusView(ui.view);
+    if (navFocused && focusLost()) focusViewNav(ui.view);
+    paintViewMenu(s, counts);
     // The big empty state is for a blank notebook; with sections the list explains each empty view.
     root.dataset.empty = String(!s.items.length && !s.sections.length);
 
@@ -827,7 +903,21 @@ function mount(root) {
     }
     const target = (viewEmpty.isConnected && viewEmpty.querySelector('.btn')) || listBody.querySelector('.nt-item');
     if (target && target.offsetParent !== null) target.focus({ preventScroll: true });
-    else nav.focusView(ui.view);
+    else focusViewNav(ui.view);
+  }
+
+  /** The section nav shows (rail or chip strip): it takes focus for a view. */
+  function navShown() {
+    return nav.railVisible() || nav.strip.offsetParent !== null;
+  }
+
+  /**
+   * Focus a view's rail row or chip, or the phone's section menu while the nav is hidden (the
+   * chip strip steps aside on phones once there is a note or a section).
+   */
+  function focusViewNav(view) {
+    if (navShown()) nav.focusView(view);
+    else if (viewMenu.el.offsetParent !== null) viewMenu.button.focus({ preventScroll: true });
   }
 
   function announce(text) {
@@ -908,9 +998,10 @@ function mount(root) {
       noMatchText.textContent = view === VIEW_ALL ? `Nothing contains “${query.trim()}”.` : `Nothing in “${clip(ui.viewName, 40)}” contains “${query.trim()}”.`;
     }
     if (elsewhereCount) elsewhereText.textContent = `${elsewhereCount} more in other sections`;
+    // The "Notes" heading only separates them from pinned ones; alone it would say nothing.
     syncChildren(listBody, [
       ...(pinned.length ? [pinnedHead, pinnedList] : []),
-      ...(others.length ? [notesHead, notesList] : []),
+      ...(others.length ? (pinned.length ? [notesHead, notesList] : [notesList]) : []),
       ...(!total ? [viewEmpty] : visible.length ? [] : [noMatch]),
       ...(elsewhereCount ? [elsewhere] : []),
     ]);
@@ -947,6 +1038,66 @@ function mount(root) {
     });
     const shown = ui.terms.length ? notesInView(s.items, VIEW_ALL, ui.terms).length : counts.all;
     boardCount.textContent = ui.terms.length ? `${num(shown)} ${shown === 1 ? 'match' : 'matches'}` : `${num(shown)} ${shown === 1 ? 'note' : 'notes'}`;
+    paintJumpMenu();
+  }
+
+  /** The phone's section menu: the open view on its button; every view and the section commands in the menu. */
+  function paintViewMenu(s, counts) {
+    const choices = viewChoices(s.sections, counts);
+    const current = choices.find((c) => c.view === ui.view) ?? choices[0];
+    const sig = JSON.stringify([current.view, choices.map((c) => [c.view, c.label, c.count, c.section?.icon ?? null, c.section?.color ?? null])]);
+    if (sig === viewMenuSig) return;
+    viewMenuSig = sig;
+    const { section } = current;
+    viewGlyph.replaceChildren(icon(viewIconName(s.sections, current.view), { size: 14 }));
+    viewNameEl.textContent = current.label;
+    // Color coding: the open section's icon in its color
+    paintColor(viewMenu.button, 'sections', section?.color ?? null);
+    viewCountEl.textContent = num(current.count);
+    const items = choices.map((c) =>
+      c.section
+        ? { value: c.view, label: sectionItemLabel(c.label, viewIconName(s.sections, c.view), c.section.color), hint: num(c.count) }
+        : { value: c.view, label: c.label, icon: viewIconName(s.sections, c.view), hint: num(c.count) },
+    );
+    items.push({ separator: true });
+    if (section) items.push({ label: `Edit “${clip(section.name, 28)}”…`, icon: 'edit', action: () => editSection(section.id) });
+    items.push({ label: 'New section…', icon: 'plus', action: () => newSection() });
+    // No sections yet: the one-tap starters the chip strip offers
+    if (!s.sections.length) {
+      for (const sug of availableSuggestions(s.sections)) items.push({ label: `Add “${sug.name}”`, icon: sectionGlyph(sug.icon), action: () => addSection(sug) });
+    }
+    items.push({ label: 'Manage sections…', icon: 'nt-sliders', action: () => manageSections() });
+    viewMenu.update({ items, value: current.view });
+    nameViewMenu();
+  }
+
+  /** The section menu's name says the view and its count (the dropdown names it by its label alone). */
+  function nameViewMenu() {
+    const s = getState();
+    const count = viewCount(sectionCounts(s.items, s.sections), ui.view);
+    viewMenu.button.setAttribute('aria-label', `Section: ${ui.viewName}, ${plural(count, 'note')}`);
+  }
+
+  /** The board's column menu (phones): the first column in view on its button, every column in the menu. */
+  function paintJumpMenu() {
+    const cols = board.columns();
+    const searching = ui.terms.length > 0;
+    const lit = cols.filter((c) => jumpInView.includes(c.id));
+    const first = lit[0] ?? cols[0] ?? null;
+    const sig = JSON.stringify([lit.map((c) => c.id), searching, cols.map((c) => [c.id, c.name, c.icon, c.color, c.total, c.shown])]);
+    if (sig === jumpSig) return;
+    jumpSig = sig;
+    const items = cols.map((c) => ({ value: c.id, label: sectionItemLabel(c.name, c.icon, c.color), hint: searching ? `${num(c.shown)}/${num(c.total)}` : num(c.total) }));
+    items.push({ separator: true }, { label: 'New section…', icon: 'plus', action: () => newSection() }, { label: 'Manage sections…', icon: 'nt-sliders', action: () => manageSections() });
+    jumpNameEl.textContent = first?.name ?? '';
+    jumpNameEl.hidden = !first;
+    jumpMenu.update({ items, value: first?.id ?? null });
+    nameJumpMenu();
+  }
+
+  function nameJumpMenu() {
+    const lit = board.columns().filter((c) => jumpInView.includes(c.id));
+    jumpMenu.button.setAttribute('aria-label', lit.length ? `Jump to a column. In view: ${lit.map((c) => c.name).join(', ')}` : 'Jump to a column');
   }
 
   /** Copy for a view with no notes at all. */
@@ -1758,7 +1909,7 @@ function mount(root) {
     freshList();
     save({ ...s, items, view: next, selectedId });
 
-    if (fromNav) nav.focusView(next);
+    if (fromNav) focusViewNav(next);
     else if (fromList && !listBody.contains(document.activeElement)) listBody.querySelector('.nt-item, .btn')?.focus({ preventScroll: true });
     else if (hadFocus && focusLost()) focusListFallback();
     // A focused row or chip already says where we are; elsewhere ('[' / ']', Show all) say it.
@@ -1944,7 +2095,7 @@ function mount(root) {
         if (moveId) {
           if (moveBtn.offsetParent !== null) moveBtn.focus({ preventScroll: true });
         } else if (open) {
-          nav.focusView(created);
+          focusViewNav(created);
         }
       },
     });
@@ -1961,7 +2112,7 @@ function mount(root) {
     if (!open) return;
     switchView(r.section.id);
     // The starter chips are gone now that a section exists.
-    nav.focusView(r.section.id);
+    focusViewNav(r.section.id);
   }
 
   function editSection(id) {
@@ -2055,7 +2206,10 @@ function mount(root) {
     // Focus was on the deleted row (or its Delete button): move to the row that took its place.
     if (isBoard()) {
       if (focusLost()) board.focusFallback();
-    } else if (onRow || focusLost()) nav.focusSectionAt(removed.index);
+    } else if (onRow || focusLost()) {
+      if (navShown()) nav.focusSectionAt(removed.index);
+      else focusViewNav(ui.view);
+    }
 
     const name = bdi(clip(removed.section.name, 40));
     const n = removed.notes.length;
@@ -2111,7 +2265,7 @@ function mount(root) {
       if (refocus) board.focusColumn(section.id);
       return;
     }
-    if (refocus) nav.focusView(section.id);
+    if (refocus) focusViewNav(section.id);
     if (viewChanged && !refocus) announceView();
   }
 
@@ -2130,13 +2284,13 @@ function mount(root) {
 
   /* ---- Layout: list or board ---- */
 
-  /** Put New note + search where the layout shows them, keeping focus if they had it. */
+  /** Put the search where the layout shows it, keeping focus if it had it. */
   function placeTools() {
     const host = isBoard() ? boardTools : listHead;
-    if (newBtn.parentNode === host) return;
+    if (search.parentNode === host) return;
     const active = document.activeElement;
-    host.append(newBtn, search);
-    if ((active === newBtn || active === searchInput) && document.activeElement !== active) active.focus({ preventScroll: true });
+    host.append(search);
+    if (active === searchInput && document.activeElement !== active) active.focus({ preventScroll: true });
   }
 
   /** Copy that names where Back / Esc lead in this layout. */
@@ -2231,6 +2385,8 @@ function mount(root) {
     ui.query = value;
     ui.terms = queryTerms(value);
     search.classList.toggle('has-query', !!value);
+    // Phones show the list's count line only while it counts matches
+    listPanel.classList.toggle('is-searching', !!value);
     searchClear.hidden = !value;
     listBody.scrollTop = 0;
     render();

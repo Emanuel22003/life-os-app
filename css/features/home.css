@@ -9,20 +9,52 @@
   max-width: 1360px;
 }
 
-/* ---- Header: greeting, date, what's next ---- */
+/* ---- Header: greeting, then the date and what's next on one line ---- */
 
 .hm-page .page-header {
   align-items: flex-end;
 }
 
+/* The heading takes the room the buttons leave. The date line doesn't ask for any (inline-size
+   containment): a long "Now" would otherwise push Customize and Quick note into two rows on a
+   tablet. Where the line doesn't fit, the "Now" pill goes under the date */
+.hm-page .page-header .page-heading {
+  flex: 1 1 auto;
+}
+
+.hm-sub {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  min-width: 0;
+  white-space: nowrap;
+  contain: inline-size;
+}
+
+.hm-date {
+  flex: none;
+}
+
+/* The short date and the dot are for phones */
+.hm-date-short,
+.hm-sub-sep {
+  display: none;
+}
+
+.hm-sub-sep {
+  flex: none;
+  color: var(--text-3);
+}
+
 .hm-next {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-2);
-  width: fit-content;
+  flex: 0 1 auto;
+  gap: 6px;
+  min-width: 0;
   max-width: 100%;
-  margin-top: var(--space-2);
-  padding: 5px 12px 5px 9px;
+  padding: 3px 11px 3px 8px;
   border: 1px solid var(--line-strong);
   border-radius: var(--radius-pill);
   font-family: var(--font-mono);
@@ -64,9 +96,10 @@
 
 /* ---- Layout: your own board ----
    home.js places each widget (position + width) from home.logic.js: four columns on a wide
-   board, two on a narrower one, one on a phone (it sets data-cols on the page). A widget keeps
-   its own height and sits as high as it fits in its columns. The board's row-gap is the gap
-   between widgets (home.js reads it). */
+   board, two on a narrower one and on a phone, one only when very narrow (it sets data-cols on
+   the page). A widget keeps its own height and sits as high as it fits in its columns. The
+   board's row-gap is the gap between widgets (home.js reads it). Each widget is a container
+   (hm-widget), so a card can tighten itself when it is small (a half-width phone column). */
 
 .hm-board {
   position: relative;
@@ -81,6 +114,7 @@
   flex-direction: column;
   min-width: 0;
   max-width: 100%;
+  container: hm-widget / inline-size;
 }
 
 /* Until it is placed, a widget would show at the top left */
@@ -102,20 +136,18 @@
 
 @media (max-width: 640px) {
   .hm-board {
-    row-gap: var(--space-4);
+    row-gap: var(--space-3);
   }
 
   .hm-below:not(:empty) {
-    margin-top: var(--space-4);
+    margin-top: var(--space-3);
   }
 }
 
 /* ---- Customize ---- */
 
 .hm-edit-hint {
-  margin: calc(var(--space-2) * -1) 0 var(--space-4);
-  font-size: var(--fs-sm);
-  color: var(--text-2);
+  margin-bottom: var(--space-4);
 }
 
 .hm-widget.is-editing {
@@ -167,40 +199,61 @@
   font-size: var(--fs-sm);
   font-weight: 600;
   white-space: nowrap;
+}
+
+.hm-wname > span {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.hm-wname svg {
+  flex: none;
 }
 
 .hm-wsizes .seg-btn {
   min-width: 32px;
 }
 
-.hm-hint-phone {
+.hm-hint-narrow {
   display: none;
 }
 
 /* A narrow widget: handle, name and remove on the first line, the sizes under them */
-.hm-widget.is-editing {
-  container-type: inline-size;
-}
+@container hm-widget (max-width: 400px) {
+  .hm-wname {
+    flex-basis: 0;
+  }
 
-@container (max-width: 400px) {
   .hm-wremove {
     order: 2;
   }
 
   .hm-wsizes {
     order: 3;
+    flex: 1 1 100%;
+  }
+
+  .hm-wsizes .seg-btn {
+    flex: 1;
+    min-width: 0;
+    padding-inline: 4px;
   }
 }
 
-/* One column (a phone): every size is full width there, so the size picker would do nothing */
+/* One column (a very narrow window): every size is full width there, so the size picker
+   would do nothing. On two columns (a phone) Small is half, the rest full: the tip says so */
 [data-cols="1"] .hm-wsizes {
   display: none;
 }
 
-[data-cols="1"] .hm-hint-phone {
+[data-cols="2"] .hm-hint-narrow {
   display: inline;
+}
+
+/* The calendar takes the whole width on two columns (HM.ROOMY), so Small would do nothing */
+[data-cols="2"] .hm-widget[data-widget="week"] .hm-wsizes [data-size="s"] {
+  display: none;
 }
 
 .hm-widget.is-dragging {
@@ -300,7 +353,8 @@
 
 .hm-clock-time {
   font-family: var(--font-display);
-  font-size: clamp(40px, 6vw, 64px);
+  /* By the widget's width: big on a wide one, still on one line in a half-width phone column */
+  font-size: clamp(32px, 22cqi, 64px);
   font-weight: 600;
   line-height: 1;
   letter-spacing: -0.02em;
@@ -538,6 +592,10 @@
   white-space: nowrap;
 }
 
+.hm-title-short {
+  display: none;
+}
+
 .hm-card-title svg {
   flex: none;
   color: var(--text-3);
@@ -631,6 +689,7 @@
   --cal-slot: 22px;
 }
 
+/* Wide: the title, then the menus, the way back, ‹ › and the Calendar link, on one row */
 .hm-week-head {
   display: flex;
   align-items: center;
@@ -675,12 +734,69 @@
 .hm-week-nav {
   display: flex;
   align-items: center;
-  gap: var(--space-1);
+  gap: 2px;
+}
+
+.hm-week-now[hidden] {
+  display: none;
+}
+
+/* The two menus: the view (Day · Week · Month) and what it shows */
+.hm-cal-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
   margin-left: auto;
 }
 
-.hm-week-nav .hm-more {
-  margin-left: var(--space-2);
+/* Narrow (a phone, a half-width widget): two short rows. The title and ‹ ›, then the two
+   menus and the way back; the Calendar link moves into the view menu */
+@container hm-week (max-width: 640px) {
+  .hm-week-head {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: var(--space-2);
+  }
+
+  .hm-week-kicker,
+  .hm-week-link {
+    display: none;
+  }
+
+  .hm-week-title {
+    grid-area: 1 / 1;
+  }
+
+  .hm-week-nav {
+    grid-area: 1 / 2;
+    justify-self: end;
+  }
+
+  .hm-cal-bar {
+    grid-area: 2 / 1;
+    margin-left: 0;
+  }
+
+  .hm-week-now {
+    grid-area: 2 / 2;
+    justify-self: end;
+  }
+}
+
+/* Very narrow (a small calendar in a quarter of a narrow window): the menus get the whole row
+   and wrap rather than shrink, so they keep their words; the way back goes under them */
+@container hm-week (max-width: 300px) {
+  .hm-cal-bar {
+    grid-column: 1 / -1;
+    flex-wrap: wrap;
+  }
+
+  .hm-week-now {
+    grid-area: 3 / 1 / auto / -1;
+    justify-self: start;
+  }
 }
 
 .hm-days {
@@ -858,81 +974,6 @@
   padding: 0 2px;
 }
 
-/* ---- The calendar's bar: Day · Week · Month, and what it shows ---- */
-
-.hm-cal-bar {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: var(--space-2) var(--space-3);
-  margin-top: calc(var(--space-1) * -1);
-}
-
-.hm-cal-views .seg-btn {
-  min-width: 0;
-  padding-inline: 10px;
-}
-
-.hm-cal-layers {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.hm-cal-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: 26px;
-  padding: 0 10px 0 6px;
-  border: 1px solid var(--line-strong);
-  border-radius: var(--radius-pill);
-  background: transparent;
-  font-size: var(--fs-xs);
-  color: var(--text-2);
-  cursor: pointer;
-  transition: background var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
-}
-
-.hm-cal-toggle:hover:not(:disabled) {
-  border-color: var(--text-2);
-  color: var(--text);
-}
-
-.hm-cal-tick {
-  display: grid;
-  place-items: center;
-  width: 14px;
-  height: 14px;
-  border: 1.5px solid currentColor;
-  border-radius: 4px;
-}
-
-.hm-cal-tick .icon {
-  opacity: 0;
-}
-
-.hm-cal-toggle[aria-pressed="true"] {
-  border-color: var(--text-2);
-  background: var(--surface-2);
-  color: var(--text);
-}
-
-.hm-cal-toggle[aria-pressed="true"] .hm-cal-tick {
-  border-color: var(--text);
-  background: var(--text);
-  color: var(--bg);
-}
-
-.hm-cal-toggle[aria-pressed="true"] .hm-cal-tick .icon {
-  opacity: 1;
-}
-
-.hm-cal-toggle:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-}
-
 /* ---- One day, listed ---- */
 
 .hm-days[data-view="day"] {
@@ -1010,6 +1051,13 @@
 .hm-dayview .cal-task-title {
   white-space: normal;
   overflow-wrap: anywhere;
+}
+
+/* The day's habits flow into two columns where there is room (a phone), so a long list stays short */
+.hm-dv-rows.is-habits {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 2px var(--space-3);
 }
 
 .hm-dv-habit {
@@ -1388,40 +1436,57 @@
   }
 }
 
-/* Narrow (a tablet column, a phone): one row per day, the date on the left */
+/* Narrow (a tablet column, a phone): a list, one row per day. The date on the left, the
+   day's items in the middle, its habit dots at the end; a free day is one thin row */
 @container hm-week (max-width: 600px) {
   .hm-days {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .hm-day {
+  .hm-day,
+  .hm-days.is-quiet .hm-day {
     display: grid;
-    grid-template-columns: 64px minmax(0, 1fr);
-    column-gap: var(--space-3);
-    row-gap: 4px;
+    grid-template-columns: 56px minmax(0, 1fr) auto;
+    align-items: start;
+    column-gap: var(--space-2);
     min-height: 0;
-    padding: var(--space-2) var(--space-3);
+    padding: 6px var(--space-2);
   }
 
   .hm-day-head {
-    grid-row: 1 / span 2;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 2px;
+    align-items: baseline;
+    gap: 4px;
+    padding: 3px 0 0;
   }
 
+  .hm-day-num {
+    padding: 0 4px;
+  }
+
+  /* The highlighted number says today (and the head's name says it to screen readers) */
   .hm-day-tag {
-    margin-left: 0;
-  }
-
-  .hm-day-items {
-    grid-column: 2;
+    display: none;
   }
 
   .hm-day > .cal-hb {
-    grid-column: 2;
+    grid-column: 3;
+    grid-row: 1;
     margin-top: 0;
     padding: 0;
+    height: 24px;
+  }
+
+  .hm-day.is-free {
+    align-items: center;
+    padding-block: 2px;
+  }
+
+  .hm-day.is-free .hm-day-head {
+    padding-top: 0;
+  }
+
+  .hm-day.is-free .hm-day-free {
+    padding-block: 0;
   }
 }
 
@@ -1669,6 +1734,10 @@
   margin-left: auto;
 }
 
+.hm-note-btn-short {
+  display: none;
+}
+
 /* A wide quick note keeps a button's width */
 [data-cols="4"] .hm-widget:is([data-size="l"], [data-size="xl"]) .hm-note-btn {
   align-self: flex-start;
@@ -1814,18 +1883,235 @@
   opacity: 0.6;
 }
 
+/* ---- A small card (a half-width phone column, a narrow window's quarter) ----
+   About 160px wide: the links show their arrow only (the words stay their name), buttons show
+   their icon, digits shrink, rows tighten. The doubled class outranks the templates' own rules
+   (css/skins), which size the timer digits for a wide card. */
+
+@container hm-widget (max-width: 260px) {
+  .hm-card.hm-card {
+    gap: var(--space-3);
+    padding: var(--space-3);
+  }
+
+  .hm-card-head,
+  .hm-card-tools {
+    gap: var(--space-2);
+  }
+
+  /* The title gets the icon's room */
+  .hm-card-title > svg {
+    display: none;
+  }
+
+  .hm-more > span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .hm-kbd {
+    display: none;
+  }
+
+  /* Focus timer: smaller digits, icon buttons */
+  .hm-pomo-body {
+    gap: var(--space-2);
+  }
+
+  .hm-pomo-meta {
+    flex-wrap: wrap;
+    gap: 0 var(--space-2);
+  }
+
+  .hm-pomo .hm-pomo-digits.hm-pomo-digits {
+    width: auto;
+    font-size: clamp(30px, 25cqi, 46px);
+  }
+
+  .hm-pomo-ctl .btn {
+    padding-inline: 0;
+  }
+
+  .hm-pomo-ctl .btn > span {
+    display: none;
+  }
+
+  /* Habits today: a list of small checks; the ring goes (the count is in the header) */
+  .hm-habits-body {
+    gap: var(--space-2);
+  }
+
+  .hm-habits-body:not(.is-complete) .hm-habits-sum,
+  .hm-ring {
+    display: none;
+  }
+
+  .hm-habit {
+    gap: var(--space-2);
+    min-height: 28px;
+    padding: 2px;
+  }
+
+  /* Quick note: a shorter button */
+  .hm-note-btn {
+    --btn-h: 36px;
+  }
+
+  .hm-note-btn-text {
+    display: none;
+  }
+
+  .hm-note-btn-short {
+    display: inline;
+  }
+
+  .hm-title-long {
+    display: none;
+  }
+
+  .hm-title-short {
+    display: inline;
+  }
+
+  /* Recent notes: the title gets the whole row (a wider card and Notes show when it changed) */
+  .hm-recent-time {
+    display: none;
+  }
+
+  /* Clock */
+  .hm-clock {
+    padding: var(--space-3);
+  }
+
+  .hm-clock-date {
+    font-size: var(--fs-sm);
+  }
+
+  .hm-clock-date .hm-date-long {
+    display: none;
+  }
+
+  .hm-clock-date .hm-date-short {
+    display: inline;
+  }
+
+  /* Agenda: a narrower time column */
+  .hm-agenda-item {
+    grid-template-columns: 40px minmax(0, 1fr);
+    gap: var(--space-1);
+    font-size: var(--fs-sm);
+  }
+
+  .hm-agenda-time {
+    padding-top: 1px;
+  }
+
+  /* Payments: the name and amount, the date under them */
+  .hm-pay-sum {
+    font-size: var(--fs-xl);
+  }
+
+  .hm-pay-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas: "name amount" "when when";
+    gap: 0 var(--space-2);
+  }
+
+  .hm-pay-when {
+    grid-area: when;
+  }
+
+  .hm-pay-name {
+    grid-area: name;
+  }
+
+  .hm-pay-amount {
+    grid-area: amount;
+  }
+
+  /* Training: Start shows its icon */
+  .hm-train-count {
+    font-size: var(--fs-xl);
+  }
+
+  .hm-train-go-btn {
+    width: var(--btn-h, 28px);
+    padding: 0;
+  }
+
+  .hm-train-go-btn > span {
+    display: none;
+  }
+
+  /* To do in a small card: the title gets the room ("3 days late" is in its name) */
+  .hm-task-late {
+    display: none;
+  }
+
+  .hm-bars {
+    gap: 2px;
+  }
+
+  .hm-graph-note {
+    flex-direction: column;
+    gap: 2px;
+  }
+}
+
 /* ---- Phones ---- */
 
 @media (max-width: 640px) {
   .hm-card {
-    padding: var(--space-4);
-  }
-
-  .hm-quick {
-    width: 100%;
+    gap: var(--space-3);
+    padding: var(--space-3) var(--space-3) var(--space-4);
   }
 
   .hm-kbd {
+    display: none;
+  }
+
+  /* The header: the short date · what's next as plain text, on one line */
+  .hm-sub .hm-date-long {
+    display: none;
+  }
+
+  .hm-sub .hm-date-short,
+  .hm-sub-sep {
+    display: inline;
+  }
+
+  /* One line: a long "Now" ends in "…" */
+  .hm-sub {
+    flex-wrap: nowrap;
+    gap: 6px;
+  }
+
+  .hm-page .page-header .hm-next {
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: none;
+    box-shadow: none;
+    font: inherit;
+    color: var(--text);
+  }
+
+  .hm-page .page-header .hm-next svg {
+    display: none;
+  }
+
+  /* Quick note is an icon too, so the greeting keeps its room (compact.css keeps a primary
+     button's word; this outranks it) */
+  html[data-skin] .main .view.hm-page > .page-header .page-actions .hm-quick {
+    width: 36px;
+    padding: 0;
+  }
+
+  html[data-skin] .main .view.hm-page > .page-header .page-actions .hm-quick > span {
     display: none;
   }
 

@@ -4,7 +4,7 @@
 // workspace), the move menu and the section dialogs. Every change is reported
 // through callbacks; notes.js owns the store, the selection and the autosave.
 
-import { h, icon, registerIcon, openModal, num, plural, clamp, reducedMotion } from '../ui.js';
+import { h, icon, registerIcon, openModal, num, plural, clamp, reducedMotion, tip } from '../ui.js';
 import { paintColor, colorPicker } from '../colors.js';
 import {
   VIEW_ALL,
@@ -329,7 +329,7 @@ export function createSectionNav(ctx) {
     railEmpty.hidden = sections.length > 0;
     if (sections.length || railEmpty.firstChild) return;
     railEmpty.append(
-      h('p', { class: 'nt-rail-hint' }, 'Keep notes apart: one section per stream of ideas.'),
+      tip({ id: 'notes.sections', className: 'nt-rail-hint', text: 'Keep notes apart: one section per stream of ideas.' }),
       suggestionChips(availableSuggestions([]), (s) => ctx.onSuggest(s), { verb: 'Create section', stack: true, custom: () => ctx.onCreate() }),
     );
   }
@@ -1379,7 +1379,7 @@ export function openManageSections({ getState, subscribe, counts, onCreate, onSu
   const unsubscribe = subscribe(render);
   const m = openModal({
     title: 'Manage sections',
-    body: [h('p', { class: 'nt-mg-intro' }, 'Rename, reorder or delete. Deleting a section can keep its notes in Unsorted.'), list, empty],
+    body: [tip({ id: 'notes.manage', className: 'nt-mg-intro', text: 'Rename, reorder or delete. Deleting a section can keep its notes in Unsorted.' }), list, empty],
     footer: [newBtn, h('span', { class: 'spacer' }), doneBtn],
     className: 'nt-modal nt-mg-modal',
     initialFocus: doneBtn,

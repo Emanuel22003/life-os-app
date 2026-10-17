@@ -94,6 +94,8 @@ const ICONS = {
   circle: '<circle cx="12" cy="12" r="9"/>',
   inbox: '<path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.5 5h13L22 12v6a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-6Z"/>',
   activity: '<path d="M22 12h-4l-3 8L9 4l-3 8H2"/>',
+  tip: '<path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-3.6 10.8c.6.5 1 1.2 1 2v.2h5.2v-.2c0-.8.4-1.5 1-2A6 6 0 0 0 12 3Z"/>',
+  sliders: '<path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/>',
   palette: '<path d="M12 3a9 9 0 1 0 0 18c1.2 0 1.8-.9 1.8-1.8 0-.5-.2-.9-.5-1.2-.3-.3-.5-.7-.5-1.2 0-1 .8-1.8 1.8-1.8H17a4 4 0 0 0 4-4C21 6.6 17 3 12 3Z"/><circle cx="7.5" cy="11.5" r="1"/><circle cx="10" cy="7.5" r="1"/><circle cx="14.5" cy="7.5" r="1"/>',
 };
 
@@ -118,8 +120,43 @@ export function brandMark(size = 26) {
    Shared widgets
    ========================================================================== */
 
-/** Standard page header used by every feature. Returns the <header>. */
-export function pageHeader({ index, title, subtitle, actions = [] }) {
+/**
+ * Standard page header used by every feature. Returns the <header>.
+ * tipId: the subtitle explains the page (a tip): it carries a ✓ that hides it for good
+ * (settings.tips). Action buttons get their text as their name and tooltip, so a phone can
+ * show them as icons only (css/compact.css).
+ */
+export function pageHeader({ index, title, subtitle, actions = [], tipId = null }) {
+  for (const a of actions) {
+    if (!(a instanceof HTMLElement) || !a.matches('button, a')) continue;
+    const text = [...a.children].filter((c) => c.tagName === 'SPAN' && !c.classList.contains('kbd')).map((c) => c.textContent.trim()).join(' ').trim();
+    if (!text) continue;
+    if (!a.hasAttribute('aria-label')) a.setAttribute('aria-label', text);
+    if (!a.title) a.title = text;
+  }
+  let sub = null;
+  if (subtitle && !(tipId && tipHidden(tipId))) {
+    sub = h('p', { class: ['page-subtitle', tipId && 'page-tip'] }, h('span', null, subtitle));
+    if (tipId) {
+      sub.append(
+        h(
+          'button',
+          {
+            type: 'button',
+            class: 'page-tip-ok',
+            title: 'Got it: hide this explanation',
+            'aria-label': 'Got it, hide this explanation',
+            onClick: () => {
+              dismissTip(tipId);
+              hideTip(sub);
+            },
+          },
+          icon('check', { size: 12, stroke: 2 }),
+          h('span', null, 'Got it'),
+        ),
+      );
+    }
+  }
   return h(
     'header',
     { class: 'page-header' },
@@ -129,10 +166,285 @@ export function pageHeader({ index, title, subtitle, actions = [] }) {
       // The kicker ("01 // TASKS") is decoration: the Simple template hides it (.lo-deco)
       h('div', { class: 'page-kicker label lo-deco' }, index ? h('span', null, index) : null, index ? h('span', { class: 'crumb-sep' }, '//') : null, h('span', null, title)),
       h('h1', { class: 'page-title' }, title),
-      subtitle ? h('p', { class: 'page-subtitle' }, subtitle) : null,
+      sub,
     ),
     actions.length ? h('div', { class: 'page-actions' }, actions) : null,
   );
+}
+
+/* ---- Tips: short explanations with a ✓ that hides each one for good (settings.tips) ----
+   The settings store lives in store.js, which needs a browser; ui.js stays importable without
+   one (the tests), so app.js hands the store over at start-up (useSettings). */
+
+let settingsStore = null;
+
+export function useSettings(store) {
+  settingsStore = store;
+}
+
+
+export function tipHidden(id) {
+  return !!settingsStore?.get().tips?.[id];
+}
+
+export function dismissTip(id) {
+  if (!settingsStore) return;
+  const s = settingsStore.get();
+  settingsStore.update({ tips: { ...(s.tips ?? {}), [id]: true } });
+}
+
+/** How many tips are hidden on this device. */
+export function hiddenTipCount() {
+  return Object.values(settingsStore?.get().tips ?? {}).filter(Boolean).length;
+}
+
+export function resetTips() {
+  settingsStore?.update({ tips: {} });
+}
+
+const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+/** Hide a tip and, if focus was on its button, move it to whatever comes next on the page. */
+function hideTip(box) {
+  const hadFocus = box.contains(document.activeElement);
+  const next = hadFocus ? [...document.querySelectorAll(FOCUSABLE)].find((n) => !box.contains(n) && box.compareDocumentPosition(n) & Node.DOCUMENT_POSITION_FOLLOWING && n.getClientRects().length) : null;
+  if (box.matches('.page-tip')) box.remove();
+  else box.hidden = true;
+  next?.focus({ preventScroll: true });
+}
+
+/**
+ * A tip box: a short explanation and "✓ Got it", which hides it for good on this device.
+ * Returns the element (hidden already when it was dismissed before), so callers can always
+ * append it. text: a string or nodes.
+ */
+export function tip({ id, text, className = '' } = {}) {
+  const el = h('div', { class: ['tip', className], role: 'note', hidden: tipHidden(id) });
+  el.append(
+    h('span', { class: 'tip-icon', 'aria-hidden': 'true' }, icon('tip', { size: 15 })),
+    h('p', { class: 'tip-text' }, text),
+    h(
+      'button',
+      {
+        type: 'button',
+        class: 'tip-ok',
+        title: 'Got it: hide this tip',
+        'aria-label': 'Got it, hide this tip',
+        onClick: () => {
+          dismissTip(id);
+          hideTip(el);
+        },
+      },
+      icon('check', { size: 13, stroke: 2 }),
+      h('span', null, 'Got it'),
+    ),
+  );
+  return el;
+}
+
+/* ---- Dropdown menus ---- */
+
+let openMenu = null;
+
+/** Whether a dropdown menu is open (page shortcuts stay quiet meanwhile). */
+export function menuOpen() {
+  return !!openMenu;
+}
+
+/**
+ * A dropdown: a compact button that opens a short menu under it.
+ *   dropdown({ label, icon, items, value, onSelect, multi, align, className, title, showValue })
+ * items: [{ value, label, icon?, hint?, checked?, disabled?, danger?, action?, separator? }]
+ * - Pick one (default): `value` is the current one; the button shows `label: <its label>` (or
+ *   just its label without `label`); onSelect(value) closes the menu.
+ * - multi: true: each item is a checkbox (`checked`); onSelect(value, checked) keeps it open.
+ *   The button shows `label` and how many are on.
+ * - An item with `action` is a command (New section…); `separator: true` draws a line.
+ * ariaLabel: the button's name, a string or ({ label, value, picked, on }) => string, so it can
+ * follow the value ('Calendar view: Week'); menuLabel: the open menu's name (default: label).
+ * Returns { el, button, update({ items, value, label, ariaLabel }), open(), close() }.
+ */
+export function dropdown({ label = '', icon: iconName = null, items = [], value = null, onSelect = () => {}, multi = false, align = 'start', className = '', title = '', showValue = true, ariaLabel = '', menuLabel = '' } = {}) {
+  const state = { items, value, label, ariaLabel };
+  const labelEl = h('span', { class: 'dd-label' });
+  const countEl = h('span', { class: 'dd-count tnum' });
+  const button = h(
+    'button',
+    { type: 'button', class: ['btn btn--sm dd-btn', className], 'aria-haspopup': 'menu', 'aria-expanded': 'false', title: title || null },
+    iconName ? icon(iconName, { size: 14 }) : null,
+    labelEl,
+    countEl,
+    icon('chevron-down', { size: 13, className: 'dd-chev' }),
+  );
+  const el = h('div', { class: 'dd' }, button);
+  let menu = null;
+
+  function paint() {
+    const picked = state.items.find((it) => !it.action && !it.separator && it.value === state.value);
+    let text = state.label;
+    if (!multi && showValue && picked) text = state.label ? `${state.label}: ${picked.label}` : picked.label;
+    labelEl.textContent = text;
+    labelEl.hidden = !text;
+    const on = multi ? state.items.filter((it) => !it.action && !it.separator && it.checked && !it.disabled).length : 0;
+    countEl.textContent = multi ? String(on) : '';
+    countEl.hidden = !multi;
+    const named = typeof state.ariaLabel === 'function' ? state.ariaLabel({ label: state.label, value: state.value, picked, on }) : state.ariaLabel;
+    button.setAttribute('aria-label', named || (multi ? `${state.label}: ${on} on` : text || title || 'Menu'));
+  }
+
+  function itemEl(it, i) {
+    if (it.separator) return h('div', { class: 'dd-sep', role: 'separator' });
+    const role = it.action ? 'menuitem' : multi ? 'menuitemcheckbox' : 'menuitemradio';
+    const checked = it.action ? null : multi ? !!it.checked : it.value === state.value;
+    return h(
+      'button',
+      {
+        type: 'button',
+        class: ['dd-item', it.danger && 'is-danger'],
+        role,
+        tabindex: '-1',
+        disabled: !!it.disabled,
+        'aria-checked': checked === null ? null : String(checked),
+        dataset: { i: String(i) },
+        onClick: () => choose(it),
+      },
+      h('span', { class: 'dd-mark', 'aria-hidden': 'true' }, checked ? icon('check', { size: 13, stroke: 2 }) : null),
+      it.icon ? icon(it.icon, { size: 14 }) : null,
+      h('span', { class: 'dd-item-label' }, it.label),
+      it.hint ? h('span', { class: 'dd-hint' }, it.hint) : null,
+    );
+  }
+
+  function choose(it) {
+    if (it.disabled) return;
+    if (it.action) {
+      close(true);
+      it.action();
+      return;
+    }
+    if (multi) {
+      it.checked = !it.checked;
+      onSelect(it.value, it.checked);
+      if (menu) {
+        const fresh = menu.querySelector(`[data-i="${state.items.indexOf(it)}"]`);
+        fresh?.setAttribute('aria-checked', String(!!it.checked));
+        fresh?.querySelector('.dd-mark')?.replaceChildren(...(it.checked ? [icon('check', { size: 13, stroke: 2 })] : []));
+      }
+      paint();
+      return;
+    }
+    state.value = it.value;
+    paint();
+    close(true);
+    onSelect(it.value);
+  }
+
+  function place() {
+    if (!menu) return;
+    const r = button.getBoundingClientRect();
+    const vw = document.documentElement.clientWidth;
+    const vh = window.innerHeight;
+    menu.style.minWidth = `${Math.max(r.width, 180)}px`;
+    menu.style.maxHeight = `${Math.max(160, vh - r.bottom - 16)}px`;
+    const w = menu.offsetWidth;
+    let left = align === 'end' ? r.right - w : r.left;
+    left = Math.max(8, Math.min(left, vw - w - 8));
+    let top = r.bottom + 4;
+    // Not enough room below: open upwards
+    if (top + menu.offsetHeight > vh - 8 && r.top - menu.offsetHeight - 4 > 8) top = r.top - menu.offsetHeight - 4;
+    menu.style.left = `${Math.round(left)}px`;
+    menu.style.top = `${Math.round(top)}px`;
+  }
+
+  const onDocDown = (e) => {
+    if (menu && !menu.contains(e.target) && !button.contains(e.target)) close(false);
+  };
+  const onScroll = (e) => {
+    if (menu && !menu.contains(e.target)) close(false);
+  };
+
+  function items_() {
+    return menu ? [...menu.querySelectorAll('.dd-item:not(:disabled)')] : [];
+  }
+
+  function open() {
+    if (menu) return;
+    if (openMenu && openMenu !== api) openMenu.close(false);
+    menu = h('div', { class: 'dd-menu', role: 'menu', 'aria-label': menuLabel || state.label || title || 'Menu' }, state.items.map(itemEl));
+    menu.addEventListener('keydown', (e) => {
+      const list = items_();
+      const at = list.indexOf(document.activeElement);
+      let to = null;
+      if (e.key === 'ArrowDown') to = list[(at + 1) % list.length];
+      else if (e.key === 'ArrowUp') to = list[(at - 1 + list.length) % list.length];
+      else if (e.key === 'Home') to = list[0];
+      else if (e.key === 'End') to = list[list.length - 1];
+      else if (e.key === 'Escape') {
+        e.preventDefault();
+        close(true);
+      } else if (e.key === 'Tab') close(false);
+      if (to) {
+        e.preventDefault();
+        to.focus();
+      }
+      // Keys pressed in the menu are the menu's: page shortcuts don't fire
+      e.stopPropagation();
+    });
+    document.body.append(menu);
+    button.setAttribute('aria-expanded', 'true');
+    button.classList.add('is-open');
+    openMenu = api;
+    place();
+    const list = items_();
+    (list.find((b) => b.getAttribute('aria-checked') === 'true') ?? list[0])?.focus({ preventScroll: true });
+    document.addEventListener('pointerdown', onDocDown, true);
+    window.addEventListener('scroll', onScroll, true);
+    window.addEventListener('resize', onScroll);
+  }
+
+  function close(refocus = false) {
+    if (!menu) return;
+    menu.remove();
+    menu = null;
+    if (openMenu === api) openMenu = null;
+    button.setAttribute('aria-expanded', 'false');
+    button.classList.remove('is-open');
+    document.removeEventListener('pointerdown', onDocDown, true);
+    window.removeEventListener('scroll', onScroll, true);
+    window.removeEventListener('resize', onScroll);
+    if (refocus && button.isConnected) button.focus({ preventScroll: true });
+  }
+
+  button.addEventListener('click', () => (menu ? close(true) : open()));
+  button.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowDown' && !menu) {
+      e.preventDefault();
+      open();
+    }
+  });
+
+  const api = {
+    el,
+    button,
+    open,
+    close,
+    /** New items, value or label (the open menu is rebuilt). */
+    update({ items: nextItems, value: nextValue, label: nextLabel, ariaLabel: nextName } = {}) {
+      if (nextItems) state.items = nextItems;
+      if (nextValue !== undefined) state.value = nextValue;
+      if (nextLabel !== undefined) state.label = nextLabel;
+      if (nextName !== undefined) state.ariaLabel = nextName;
+      paint();
+      if (menu) {
+        // Rebuilt while open: the keyboard stays on the same entry
+        const at = menu.contains(document.activeElement) ? document.activeElement.dataset.i : null;
+        menu.replaceChildren(...state.items.map(itemEl));
+        if (at != null) (menu.querySelector(`[data-i="${at}"]:not(:disabled)`) ?? items_()[0])?.focus({ preventScroll: true });
+      }
+    },
+  };
+  paint();
+  return api;
 }
 
 /** Dashed, hatched empty state. */

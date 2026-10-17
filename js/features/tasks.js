@@ -28,6 +28,8 @@ import {
   isTyping,
   modalOpen,
   plainSkin,
+  tip,
+  dropdown,
 } from '../ui.js';
 import { createStore } from '../store.js';
 import {
@@ -65,6 +67,11 @@ import {
   isTimeOfDay,
   DEFAULT_TASK_MINUTES,
   recolorSection,
+  addSteps,
+  nextAddStep,
+  prevAddStep,
+  resolveAdd,
+  dueChoice,
 } from './tasks.logic.js';
 import { paintColor, colorDot, colorPicker, colorButton } from '../colors.js';
 import { registerContextProvider } from '../contextmenu.js';
@@ -76,6 +83,16 @@ const METER_TICKS = 20;
 const IS_MAC = /Mac|iPhone|iPad|iPod/.test(globalThis.navigator?.userAgent ?? '');
 const MOD_KEY = IS_MAC ? '⌘' : 'Ctrl';
 const ALT_KEY = IS_MAC ? '⌥' : 'Alt';
+// The quick-add's steps after the title (tasks.logic.js ADD_STEPS)
+const STEP_LABEL = { priority: 'Priority', due: 'When', section: 'Section' };
+// The filter dropdown names what it shows: "All" alone reads like the sections' "All"
+const VIEW_LABEL = { all: 'All tasks', today: 'Today', upcoming: 'Upcoming', done: 'Done' };
+// More sections than this, or longer names together, and wide screens get the dropdown too
+const SECTION_TABS_MAX = 4;
+const SECTION_TABS_CHARS = 36;
+// Phones: a tap on a task opens its details (no pencil or trash on the row there)
+const phoneQuery = globalThis.matchMedia?.('(max-width: 640px)') ?? null;
+const isPhone = () => !!phoneQuery?.matches;
 
 /* ==========================================================================
    Store (module singleton: shared by mount() and badge())
@@ -343,23 +360,29 @@ function mount(root) {
   let swapTimer = 0;
 
   /* ---- header ---- */
-  // Same voice as Notes and Habits: a short static tagline. The live counts are in the stats strip.
-  const header = pageHeader({ index: '02', title: 'Tasks', subtitle: 'Capture in one line. Sort by what matters. Clear the queue.' });
-  // Simple has no stats strip: its subtitle says, in one line, what today holds instead
-  const summaryEl = plainSkin() ? header.querySelector('.page-subtitle') : null;
+  // Simple says in its subtitle what today holds (it has no stats strip). The other templates keep
+  // their tagline, now a tip with ✓, and get the same one-line status on a phone, where the stats
+  // strip makes way for the tasks: there it sits on the title's row (tasks.css).
+  const plain = plainSkin();
+  const header = pageHeader(
+    plain
+      ? { index: '02', title: 'Tasks', subtitle: ' ' } // paint() writes the status
+      : { index: '02', title: 'Tasks', subtitle: 'Capture in one line. Sort by what matters. Clear the queue.', tipId: 'tasks.intro' },
+  );
+  let summaryEl = plain ? header.querySelector('.page-subtitle') : null;
+  if (!summaryEl) {
+    summaryEl = h('p', { class: 'page-subtitle tk-summary--phone' });
+    header.querySelector('.page-heading').append(summaryEl);
+  }
+  summaryEl.classList.add('tk-summary');
 
-  /* ---- sections: All · Work · Life … (tabs; the open one scopes the whole page) ---- */
-  const sectionBar = h('div', { class: 'tk-sections' });
-  let sectionSeg = null;
-  let sectionSig = null;
-
-  /* ---- command bar ---- */
+  /* ---- add box: the title first, then one step at a time (Priority → When → Section) ---- */
   // Screen-reader instructions sit on the controls that actually take focus (the add input
   // and every row); aria-describedby on a non-focusable <ol> is ignored by many readers.
   const addHelp = h(
     'p',
     { class: 'sr-only', id: 'tk-add-help' },
-    'Type !h, !m or !l to set a priority and @today, @tomorrow or a weekday such as @fri to set a due date. When the field is empty, Down arrow moves to your tasks.',
+    'Enter goes on to the priority, the due date and the section, one at a time; Command or Control plus Enter adds the task at once. Type !h, !m or !l to set a priority and @today, @tomorrow or a weekday such as @fri to set a due date. When the field is empty, Down arrow moves to your tasks.',
   );
   const addInput = h('input', {
     class: 'tk-add-input',
@@ -368,16 +391,19 @@ function mount(root) {
     'aria-label': 'New task',
     'aria-describedby': 'tk-add-help',
     autocomplete: 'off',
-    enterkeyhint: 'enter',
+    enterkeyhint: 'next',
     maxlength: '500',
-    onInput: () => {
-      if (!addInput.value.trim()) ignoreTokens.clear();
-      renderReadout();
-    },
+    onInput: onAddInput,
     onKeydown: (e) => {
+      if (isComposing(e)) return;
       if (e.key === 'Escape') {
         e.preventDefault();
-        addInput.blur();
+        if (steps) closeSteps();
+        else addInput.blur();
+      } else if (e.key === 'Enter' && (e.metaKey || e.ctrlKey || e.shiftKey)) {
+        // Add now: whatever the steps would ask keeps its default
+        e.preventDefault();
+        addFromInput();
       } else if (e.key === 'ArrowDown' && !addInput.value) {
         const first = root.querySelector('.tk-row');
         if (first) {
@@ -387,9 +413,17 @@ function mount(root) {
       }
     },
   });
-  const priPick = priorityPicker('none');
-  const duePick = duePicker(null);
+  const addIcon = h('span', { class: 'tk-add-icon' });
+  const addLabel = h('span', { class: 'tk-add-label' }, 'Add');
+  const addBtn = h('button', { type: 'submit', class: 'btn btn--primary btn--sm tk-add-btn', 'aria-label': 'Add task', 'aria-controls': 'tk-steps' }, addIcon, addLabel, h('span', { class: 'kbd tk-add-kbd lo-hint', 'aria-hidden': 'true' }, '⏎'));
   const readout = h('div', { class: 'tk-readout', 'aria-live': 'polite' });
+  const stepsEl = h('div', { class: 'tk-steps', id: 'tk-steps', hidden: true });
+  // Shown on the steps (not at rest): the shortcut past them, once, until "Got it"
+  const tokensTip = tip({
+    id: 'tasks.tokens',
+    className: 'tk-steps-tip',
+    text: ['Skip the steps: type ', kbd('!h'), ' or ', kbd('@fri'), ' in the title.', h('span', { class: 'lo-hint' }, ' ', kbd(MOD_KEY), kbd('⏎'), ' adds at once.')],
+  });
 
   const form = h(
     'form',
@@ -398,7 +432,7 @@ function mount(root) {
       'aria-label': 'Add a task',
       onSubmit: (e) => {
         e.preventDefault();
-        addFromInput();
+        submitAdd();
       },
     },
     h(
@@ -407,16 +441,25 @@ function mount(root) {
       h('span', { class: 'tk-prompt', 'aria-hidden': 'true' }, '›'),
       addInput,
       h('span', { class: 'tk-key-hint label lo-hint', 'aria-hidden': 'true' }, 'Press', kbd('N')),
-      h('button', { type: 'submit', class: 'btn btn--primary btn--sm tk-add-btn', 'aria-label': 'Add task' }, icon('plus', { size: 14, stroke: 2 }), h('span', { class: 'tk-add-label' }, 'Add'), h('span', { class: 'kbd tk-add-kbd lo-hint', 'aria-hidden': 'true' }, '⏎')),
+      addBtn,
     ),
-    h(
-      'div',
-      { class: 'tk-command-tools' },
-      h('div', { class: 'tk-tool' }, h('span', { class: 'label tk-tool-label', 'aria-hidden': 'true' }, term('tasks.priority', 'Pri')), priPick.el),
-      h('div', { class: 'tk-tool' }, h('span', { class: 'label tk-tool-label', 'aria-hidden': 'true' }, 'Due'), duePick.el),
-      readout,
-    ),
+    readout,
+    stepsEl,
   );
+  stepsEl.addEventListener('keydown', onStepsKeydown);
+  // "Got it" hides the tip from under the keyboard focus: put it back on the step's choice
+  tokensTip.querySelector('.tip-ok')?.addEventListener('click', () => {
+    (stepsEl.querySelector('.tk-step-chip[aria-pressed="true"]') ?? stepsEl.querySelector('.tk-step-chip'))?.focus({ preventScroll: true });
+  });
+
+  // The steps' state: which one is open, and what was picked so far (kept until the task is added
+  // or the title is cleared, so Escape and Enter again come back to the same choices)
+  let steps = null; // null = closed; { at: 'priority' | 'due' | 'section', list: the steps asked }
+  let picks = {}; // { priority?, due?, section? }: a key present counts, null included
+  let presetDue; // a due date an empty state's button asked for ("Schedule for tomorrow")
+  let datePicking = false; // the When step shows its date field
+  let dateTypedAt = 0; // last key press in that field: a date being typed is not a pick yet
+  let stepsSig = '';
 
   /* ---- stats strip ---- */
   function statCell(n, label, onClick) {
@@ -452,7 +495,16 @@ function mount(root) {
   );
   const statsEl = h('section', { class: 'tk-stats lo-deco', 'aria-label': 'Task summary' }, stOpen.el, stDone.el, stOver.el, stProg);
 
-  /* ---- toolbar ---- */
+  /* ---- toolbar: section · filter · sort on one row ---- */
+  // Sections: tabs where they fit (a wide window, a few short names), else a dropdown (phones).
+  // Filter: tabs with counts on a wide window, a dropdown (counts as hints) on a phone. Both are
+  // built; tasks.css shows one by width, so nothing re-renders when the window is resized.
+  const secTabs = h('div', { class: 'tk-sec-tabs' });
+  let sectionSeg = null;
+  let sectionSig = null;
+  const secDd = dropdown({ title: 'Section', className: 'tk-sec-dd-btn', onSelect: (id) => setSection(id) });
+  secDd.el.classList.add('tk-sec-dd');
+
   const filterSeg = segGroup({
     label: 'Filter tasks',
     options: FILTERS.map((f) => ({ value: f, label: FILTER_LABEL[f], count: true })),
@@ -460,15 +512,20 @@ function mount(root) {
     className: 'tk-filters',
     onChange: (f) => setFilter(f),
   });
-  const sortSeg = segGroup({
-    label: 'Sort tasks',
-    options: SORTS.map((s) => ({ value: s, label: term(`tasks.sort.${s}`, SORT_LABEL[s]) })),
-    value: getState().view.sort,
-    onChange: (s) => setView({ sort: s }),
+  const filterDd = dropdown({ title: 'Show', className: 'tk-filter-dd-btn', onSelect: (f) => setFilter(f) });
+  filterDd.el.classList.add('tk-filter-dd');
+  const sortDd = dropdown({
+    icon: 'sort',
+    title: 'Sort tasks',
+    align: 'end',
+    className: 'tk-sort-dd-btn',
+    onSelect: (s) => (getState().view.sort !== s ? setView({ sort: s }) : render()),
   });
-  const sortWrap = h('div', { class: 'tk-sort' }, h('span', { class: 'label', 'aria-hidden': 'true' }, 'Sort'), sortSeg.el);
-  const clearDoneBtn = h('button', { type: 'button', class: 'btn btn--danger btn--sm', onClick: clearCompleted }, icon('trash', { size: 14 }), 'Clear completed');
-  const toolbar = h('div', { class: 'tk-toolbar' }, filterSeg.el, h('span', { class: 'spacer' }), sortWrap, clearDoneBtn);
+  sortDd.el.classList.add('tk-sort-dd');
+  // A phone shows only its trash icon (tasks.css): the name stays on the button
+  const clearDoneBtn = h('button', { type: 'button', class: 'btn btn--danger btn--sm tk-clear-done', 'aria-label': 'Clear completed', title: 'Clear completed', onClick: clearCompleted }, icon('trash', { size: 14 }), h('span', null, 'Clear completed'));
+  const toolbar = h('div', { class: 'tk-toolbar' }, secTabs, secDd.el, filterSeg.el, filterDd.el, h('span', { class: 'spacer' }), sortDd.el, clearDoneBtn);
+  const ddSigs = new WeakMap();
 
   /* ---- lists ---- */
   // Referenced by every row (see createRow), the element that receives focus.
@@ -511,22 +568,27 @@ function mount(root) {
     donePanel,
   );
 
-  // One .kbd per key, as in the Notes and Habits hint bars
+  // The keyboard reference: a tip like the others, so it can go for good (keyboard and Mission
+  // Control only: .lo-hint, and tasks.css hides it on touch screens). One .kbd per key, as in the
+  // Notes and Habits hint bars.
   const hint = (keys, text) => h('span', { class: 'tk-hint' }, keys.map(kbd), h('span', null, text));
-  const hints = h(
-    'div',
-    { class: 'tk-hints label lo-hint', 'aria-hidden': 'true' },
-    hint(['N'], 'New'),
-    hint(['↑', '↓'], 'Select'),
-    hint(['⏎'], 'Rename'),
-    hint(['Space'], 'Done'),
-    hint(['E'], 'Details'),
-    hint([ALT_KEY, '↑', '↓'], 'Reorder'),
-    hint(['Del'], 'Delete'),
-  );
+  const hints = tip({
+    id: 'tasks.keys',
+    className: 'tk-hints lo-hint',
+    text: [
+      hint(['N'], 'New'),
+      hint([MOD_KEY, '⏎'], 'Add now'),
+      hint(['↑', '↓'], 'Select'),
+      hint(['⏎'], 'Rename'),
+      hint(['Space'], 'Done'),
+      hint(['E'], 'Details'),
+      hint([ALT_KEY, '↑', '↓'], 'Reorder'),
+      hint(['Del'], 'Delete'),
+    ],
+  });
 
   root.classList.add('tk-root');
-  root.append(header, sectionBar, form, statsEl, toolbar, mainPanel, emptyHost, doneSection, hints, addHelp, kbdHelp);
+  root.append(header, form, statsEl, toolbar, mainPanel, emptyHost, doneSection, hints, addHelp, kbdHelp);
   root.addEventListener('keydown', onRowKeydown);
 
   /* ==========================================================================
@@ -576,9 +638,23 @@ function mount(root) {
     // toolbar
     filterSeg.set(view.filter);
     FILTERS.forEach((f) => filterSeg.count(f, String(counts[f])));
-    sortSeg.set(view.sort);
-    sortWrap.hidden = view.filter === 'done';
+    syncDropdown(filterDd, FILTERS.map((f) => ({ value: f, label: VIEW_LABEL[f], hint: String(counts[f]) })), view.filter, '', `Show: ${VIEW_LABEL[view.filter]}`);
+    const sortItems = SORTS.map((s) => ({ value: s, label: term(`tasks.sort.${s}`, SORT_LABEL[s]) }));
+    syncDropdown(sortDd, sortItems, view.sort, '', `Sort: ${sortItems.find((it) => it.value === view.sort)?.label ?? ''}`);
+    // On a phone the usual order needs no words: just the sort icon (tasks.css)
+    sortDd.el.classList.toggle('is-default', view.sort === 'manual');
+    // Completed tasks keep their completion order: no sort there, Clear in its place
+    sortDd.el.hidden = view.filter === 'done';
     clearDoneBtn.hidden = view.filter !== 'done' || counts.done === 0;
+    // The open steps follow sections and the view (a section deleted, Today opened meanwhile)
+    const sig = `${sections.map((sec) => `${sec.id}\u241f${sec.name}\u241f${sec.color ?? ''}`).join('\u241e')}|${view.section}|${view.filter}|${today}`;
+    if (sig !== stepsSig) {
+      // The day an empty state's button asked for ("Schedule for tomorrow") was for that view
+      if (stepsSig) presetDue = undefined;
+      stepsSig = sig;
+      if (steps) refreshSteps();
+      else paintAddButton(); // the first section makes one more step: Next instead of Add
+    }
     addInput.placeholder = sectionName
       ? `Add a task to ${sectionName}${view.filter === 'today' ? ' for today' : ''}…`
       : view.filter === 'today'
@@ -673,7 +749,10 @@ function mount(root) {
 
   /* ---- empty states ---- */
 
-  /** The section tabs: rebuilt when sections change, counts and the open tab updated every paint. */
+  /**
+   * Sections: the tabs (wide screens, a few short names) rebuilt when sections change, the
+   * dropdown (phones, or too many to fit) kept in step; counts and the open one every paint.
+   */
   function paintSections(sections, counts, active) {
     const sig = sections.map((sec) => `${sec.id}\u241f${sec.name}\u241f${sec.color ?? ''}`).join('\u241e');
     if (sig !== sectionSig) {
@@ -686,28 +765,63 @@ function mount(root) {
           className: 'tk-sec-seg',
           onChange: (id) => setSection(id),
         });
-        sectionBar.replaceChildren(
+        secTabs.replaceChildren(
           sectionSeg.el,
-          h('button', { type: 'button', class: 'btn btn--ghost btn--sm tk-sec-btn', title: 'New section', onClick: () => openSections({ adding: true }) }, icon('plus', { size: 14 }), h('span', { class: 'tk-sec-btn-label' }, 'Section')),
+          h('button', { type: 'button', class: 'btn btn--ghost btn--icon btn--sm tk-sec-btn', 'aria-label': 'New section', title: 'New section', onClick: () => openSections({ adding: true }) }, icon('plus', { size: 14 })),
           h('button', { type: 'button', class: 'btn btn--ghost btn--icon btn--sm', 'aria-label': 'Edit sections', title: 'Rename or delete sections', onClick: () => openSections() }, icon('edit', { size: 14 })),
         );
       } else {
         sectionSeg = null;
-        // None yet: one click makes the usual ones, or any other
-        const suggest = (label, onClick) => h('button', { type: 'button', class: 'btn btn--ghost btn--sm tk-sec-btn', onClick }, icon('plus', { size: 14 }), label);
-        sectionBar.replaceChildren(
-          h('span', { class: 'label tk-sec-label' }, 'Sections'),
-          suggest('Work', () => createSection('Work', { open: true })),
-          suggest('Life', () => createSection('Life', { open: true })),
-          suggest('Other…', () => openSections({ adding: true })),
-        );
+        secTabs.replaceChildren();
       }
+      const chars = sections.reduce((n, sec) => n + sec.name.length, 0);
+      toolbar.classList.toggle('tk-secs-dd', !sections.length || sections.length > SECTION_TABS_MAX || chars > SECTION_TABS_CHARS);
     }
     if (sectionSeg) {
       sectionSeg.set(active);
       sectionSeg.count('all', String(counts.get('all') ?? 0));
       for (const sec of sections) sectionSeg.count(sec.id, String(counts.get(sec.id) ?? 0));
     }
+    if (sections.length) {
+      const name = sections.find((sec) => sec.id === active)?.name ?? 'All sections';
+      syncDropdown(
+        secDd,
+        [
+          { value: 'all', label: 'All sections', hint: String(counts.get('all') ?? 0) },
+          ...sections.map((sec) => ({ value: sec.id, label: sec.name, hint: String(counts.get(sec.id) ?? 0) })),
+          { separator: true },
+          { label: 'New section…', icon: 'plus', action: () => openSections({ adding: true }) },
+          { label: 'Edit sections…', icon: 'edit', action: () => openSections() },
+        ],
+        active,
+        '',
+        `Section: ${name}`,
+      );
+    } else {
+      // None yet: one click makes the usual ones, or any other
+      syncDropdown(
+        secDd,
+        [
+          { label: 'Work', icon: 'plus', action: () => createSection('Work', { open: true }) },
+          { label: 'Life', icon: 'plus', action: () => createSection('Life', { open: true }) },
+          { label: 'Other…', icon: 'plus', action: () => openSections({ adding: true }) },
+        ],
+        null,
+        'Sections',
+        'Sections: add one',
+      );
+    }
+  }
+
+  /** New items / value / text for a dropdown, only when they changed (update() rebuilds an open menu). */
+  function syncDropdown(dd, items, value, label, aria) {
+    const sig = JSON.stringify([items, value, label]);
+    if (ddSigs.get(dd) !== sig) {
+      ddSigs.set(dd, sig);
+      dd.update({ items, value, label });
+    }
+    // The button's text is the value alone ("Today"): its name says what it is for
+    if (dd.button.getAttribute('aria-label') !== aria) dd.button.setAttribute('aria-label', aria);
   }
 
   function emptyKind(filter, counts, sectionName) {
@@ -824,7 +938,7 @@ function mount(root) {
     );
     const check = checkButton({ label: 'Mark done', onToggle: (checked) => toggleDone(id, checked) });
     check.classList.add('tk-check');
-    const title = h('span', { class: 'tk-title', onClick: () => startEdit(id) });
+    const title = h('span', { class: 'tk-title' });
     const titleWrap = h('div', { class: 'tk-title-line' }, title);
     const meta = h('div', { class: 'tk-meta' });
     const details = h('button', { type: 'button', class: 'btn btn--ghost btn--icon btn--sm', title: 'Details (E)', onClick: () => openDetails(id) }, icon('edit', { size: 15 }));
@@ -842,6 +956,13 @@ function mount(root) {
       icon('trash', { size: 15 }),
     );
     row.append(grip, check, h('div', { class: 'tk-body' }, titleWrap, meta), h('div', { class: 'row-actions tk-actions' }, details, del));
+    // A click on the title renames it in place. A phone has no pencil or trash on the row (no
+    // room), so a tap anywhere on the task opens its details there: title, dates, Delete.
+    row.addEventListener('click', (e) => {
+      if (e.target.closest('.tk-check, .tk-grip, .tk-actions, .tk-edit-input')) return;
+      if (isPhone()) openDetails(id);
+      else if (e.target.closest('.tk-title')) startEdit(id);
+    });
     // One-shot animation classes must go once played, or re-inserting the row
     // (e.g. into the Completed list) would replay them.
     row.addEventListener('animationend', (e) => {
@@ -881,7 +1002,8 @@ function mount(root) {
 
   function metaNodes(t, today, overdue, doneAgo, section) {
     const out = [];
-    if (section) out.push(h('span', { class: 'tag tk-sec-tag', title: `Section: ${section}` }, h('span', { class: 'sr-only' }, 'Section: '), section));
+    // A long name may give way on a phone's one-line meta ("Marketer c…"); a short one never (tasks.css)
+    if (section) out.push(h('span', { class: ['tag', 'tk-sec-tag', section.length > 6 && 'tk-sec-tag--long'], title: `Section: ${section}` }, h('span', { class: 'sr-only' }, 'Section: '), section));
     if (t.priority !== 'none') {
       out.push(
         h(
@@ -904,7 +1026,7 @@ function mount(root) {
             h('span', { class: 'tk-blink', 'aria-hidden': 'true' }),
             h('strong', null, 'Overdue'),
             h('span', { class: 'tk-sep', 'aria-hidden': 'true' }, '/'),
-            rel,
+            h('span', { class: 'tk-due-rel' }, rel),
           ),
         );
       } else {
@@ -914,7 +1036,7 @@ function mount(root) {
             { class: ['tag', 'tk-due-tag', !t.done && t.due === today && 'tk-due-tag--today'], title: `Due ${long}` },
             icon('calendar', { size: 11 }),
             h('span', { class: 'sr-only' }, 'Due: '),
-            rel,
+            h('span', { class: 'tk-due-rel' }, rel),
           ),
         );
       }
@@ -974,36 +1096,379 @@ function mount(root) {
      ========================================================================== */
 
   function focusAdd({ due } = {}) {
-    if (due !== undefined) duePick.set(due);
+    if (due !== undefined) {
+      // An empty state's "Schedule for tomorrow": the When step starts on that day
+      presetDue = due;
+      delete picks.due;
+      if (steps) renderSteps();
+    }
     addInput.focus();
   }
 
-  function addFromInput() {
-    const today = todayKey();
-    const parsed = parseQuickAdd(addInput.value, today, ignoreTokens);
+  /* ---- the stepped quick-add ---- */
+
+  const parseTitle = () => parseQuickAdd(addInput.value, todayKey(), ignoreTokens);
+  const stepsFor = (parsed) => addSteps(parsed, getState().sections.length);
+
+  /** What a step starts on when nothing was picked there: no priority, the open section, Today in Today. */
+  function addDefaults() {
+    const { view, sections } = getState();
+    return {
+      priority: 'none',
+      due: presetDue !== undefined ? presetDue : view.filter === 'today' ? todayKey() : null,
+      section: view.section !== 'all' && sections.some((sec) => sec.id === view.section) ? view.section : null,
+    };
+  }
+
+  const currentChoice = (kind) => (kind in picks ? picks[kind] : addDefaults()[kind]);
+
+  /** Enter in the title, or Next: open the first step, or go on from the open one keeping its choice. */
+  function submitAdd() {
+    const parsed = parseTitle();
     if (!parsed.title) {
       if (addInput.value.trim()) bump(form, 'is-rejected');
       addInput.focus();
       return;
     }
-    const { view } = getState();
-    const task = createTask({
-      title: parsed.title,
-      priority: parsed.priority ?? priPick.get(),
-      due: parsed.due ?? duePick.get() ?? (view.filter === 'today' ? today : null),
-      sectionId: view.section !== 'all' ? view.section : null,
+    const list = stepsFor(parsed);
+    if (steps && list.includes(steps.at)) picks[steps.at] = currentChoice(steps.at);
+    goStep(nextAddStep(list, steps?.at ?? null), list, { focus: true });
+  }
+
+  /** Pick a choice on the open step and go on. */
+  function pickStep(kind, value) {
+    picks[kind] = value;
+    goStep(nextAddStep(stepsFor(parseTitle()), kind), undefined, { focus: true });
+  }
+
+  function goStep(step, list = stepsFor(parseTitle()), { focus = false } = {}) {
+    if (step === 'done') {
+      addFromInput();
+      return;
+    }
+    datePicking = false;
+    steps = { at: step, list };
+    renderSteps({ focus });
+  }
+
+  function backStep() {
+    if (!steps) return;
+    const prev = prevAddStep(steps.list, steps.at);
+    if (prev) goStep(prev, steps.list, { focus: true });
+    else closeSteps({ focus: true });
+  }
+
+  /** Close the steps; the title and what was picked stay (Enter opens them again). */
+  function closeSteps({ focus = true } = {}) {
+    steps = null;
+    datePicking = false;
+    renderSteps();
+    if (focus) addInput.focus();
+  }
+
+  /** The title or the sections changed while the steps are open: drop a step a token now answers. */
+  function refreshSteps() {
+    if (!steps) return;
+    const parsed = parseTitle();
+    const list = stepsFor(parsed);
+    const had = stepsEl.contains(document.activeElement);
+    if (!parsed.title) {
+      closeSteps({ focus: false });
+      return;
+    }
+    if (list.includes(steps.at)) steps = { at: steps.at, list };
+    else {
+      const next = nextAddStep(list, steps.at);
+      // Never add on a keystroke: with nothing left to ask, Enter adds
+      if (next === 'done') {
+        closeSteps({ focus: false });
+        if (had) addInput.focus();
+        return;
+      }
+      steps = { at: next, list };
+      datePicking = false;
+    }
+    renderSteps({ focus: had });
+  }
+
+  function onAddInput() {
+    if (!addInput.value.trim()) {
+      // A cleared title starts over
+      ignoreTokens.clear();
+      picks = {};
+      if (steps) closeSteps({ focus: false });
+    } else refreshSteps();
+    renderReadout();
+    paintAddButton();
+  }
+
+  /** The add button: Next while steps remain, Add when the task is ready. */
+  function paintAddButton() {
+    const parsed = parseTitle();
+    const next = parsed.title ? nextAddStep(stepsFor(parsed), steps?.at ?? null) : 'done';
+    const mode = next === 'done' ? 'add' : 'next';
+    if (addBtn.dataset.mode !== mode) {
+      addBtn.dataset.mode = mode;
+      addLabel.textContent = mode === 'add' ? 'Add' : 'Next';
+      addIcon.replaceChildren(icon(mode === 'add' ? 'plus' : 'chevron-right', { size: 14, stroke: 2 }));
+    }
+    addBtn.setAttribute('aria-label', next === 'done' ? 'Add task' : `Next: ${STEP_LABEL[next].toLowerCase()}`);
+    addBtn.setAttribute('aria-expanded', String(!!steps));
+    addInput.setAttribute('enterkeyhint', next === 'done' ? 'done' : 'next');
+  }
+
+  /** The open step: what was picked so far (tap to go back), its choices, Back and Add now. */
+  function renderSteps({ focus = false } = {}) {
+    form.classList.toggle('is-stepping', !!steps);
+    stepsEl.hidden = !steps;
+    readout.hidden = !!steps || readout.classList.contains('is-idle');
+    paintAddButton();
+    if (!steps) {
+      stepsEl.replaceChildren();
+      return;
+    }
+    const { at, list } = steps;
+    const parsed = parseTitle();
+    const today = todayKey();
+    const n = list.indexOf(at) + 1;
+    const last = nextAddStep(list, at) === 'done';
+    const prev = prevAddStep(list, at);
+
+    // What is already settled: picks on earlier steps (tap to change) and tokens in the title
+    const picked = [];
+    for (const kind of ['priority', 'due', 'section']) {
+      const fromToken = kind !== 'section' && parsed[kind];
+      if (fromToken) {
+        const raw = parsed.tokens[kind]?.raw ?? '';
+        picked.push(h('span', { class: 'tag tk-step-pick', title: `Set by ${raw} in the title` }, h('span', { class: 'sr-only' }, `${STEP_LABEL[kind]}: `), choiceText(kind, parsed[kind], today)));
+      } else if (list.includes(kind) && list.indexOf(kind) < list.indexOf(at)) {
+        const text = choiceText(kind, currentChoice(kind), today);
+        picked.push(
+          h(
+            'button',
+            { type: 'button', class: 'tag tk-step-pick', 'aria-label': `${STEP_LABEL[kind]}: ${text}. Change`, title: `Change ${STEP_LABEL[kind].toLowerCase()}`, onClick: () => goStep(kind, undefined, { focus: true }) },
+            text,
+          ),
+        );
+      }
+    }
+
+    const head = h(
+      'div',
+      { class: 'tk-step-head' },
+      h(
+        'button',
+        { type: 'button', class: 'btn btn--ghost btn--sm tk-step-back', 'aria-label': prev ? `Back to ${STEP_LABEL[prev].toLowerCase()}` : 'Back to the title', title: 'Back', onClick: backStep },
+        icon('chevron-left', { size: 14 }),
+        h('span', null, 'Back'),
+      ),
+      picked,
+      h('span', { class: 'label tk-step-label', id: 'tk-step-label' }, STEP_LABEL[at], list.length > 1 ? h('span', { class: 'tk-step-count tnum' }, `${n}/${list.length}`) : null),
+      h('span', { class: 'spacer' }),
+      last ? null : h('button', { type: 'button', class: 'btn btn--sm tk-step-now', onClick: addFromInput }, icon('plus', { size: 14, stroke: 2 }), h('span', null, 'Add now')),
+    );
+
+    const options = stepOptions(at, today);
+    // While its date field is open, "Pick a date…" is the choice being made
+    const chosen = at === 'due' && datePicking ? 'date' : choiceValue(at, currentChoice(at), today);
+    const chips = options.map((o, i) => {
+      const btn = h(
+        'button',
+        {
+          type: 'button',
+          class: 'seg-btn tk-step-chip',
+          'aria-pressed': String(o.value === chosen),
+          dataset: { value: o.value },
+          onClick: () => chooseStep(at, o.value),
+        },
+        h('span', { class: 'tk-step-key lo-hint', 'aria-hidden': 'true' }, String(i + 1)),
+        'color' in o ? colorDot() : null,
+        o.label,
+      );
+      if ('color' in o) paintColor(btn, 'sections', o.color);
+      return btn;
     });
+    const body = h('div', { class: 'tk-step-body' }, h('div', { class: 'seg tk-step-seg', role: 'group', 'aria-labelledby': 'tk-step-label' }, chips));
+
+    let dateIn = null;
+    if (at === 'due' && datePicking) {
+      const cur = currentChoice('due');
+      dateIn = h('input', {
+        type: 'date',
+        class: 'input tk-step-date-input',
+        'aria-label': 'Due date',
+        value: isDateKey(cur) ? cur : '',
+        // A day picked in the calendar counts at once; a date being typed waits for Enter or Set
+        onChange: () => {
+          if (Date.now() - dateTypedAt > 1000 && isDateKey(dateIn.value)) pickStep('due', dateIn.value);
+        },
+      });
+      body.append(
+        h(
+          'div',
+          { class: 'tk-step-date' },
+          dateIn,
+          h('button', { type: 'button', class: 'btn btn--sm', onClick: () => (isDateKey(dateIn.value) ? pickStep('due', dateIn.value) : dateIn.focus()) }, 'Set'),
+        ),
+      );
+    }
+
+    stepsEl.replaceChildren(head, body, tokensTip);
+    if (!focus) return;
+    if (dateIn) {
+      dateIn.focus({ preventScroll: true });
+      return;
+    }
+    (chips.find((c) => c.getAttribute('aria-pressed') === 'true') ?? chips[0])?.focus({ preventScroll: true });
+  }
+
+  /** A step's choices: [{ value, label, color? }] */
+  function stepOptions(kind, today) {
+    if (kind === 'priority') {
+      return [
+        { value: 'none', label: term('tasks.priority.none', 'None') },
+        { value: 'low', label: term('tasks.priority.low', 'Low') },
+        { value: 'med', label: term('tasks.priority.med', 'Med') },
+        { value: 'high', label: term('tasks.priority.high', 'High') },
+      ];
+    }
+    if (kind === 'due') {
+      const cur = currentChoice('due');
+      return [
+        { value: 'today', label: 'Today' },
+        { value: 'tomorrow', label: 'Tomorrow' },
+        { value: 'date', label: dueChoice(cur, today) === 'date' ? formatDay(cur) : 'Pick a date…' },
+        { value: 'none', label: 'No date' },
+      ];
+    }
+    return [{ value: '', label: 'No section' }, ...getState().sections.map((sec) => ({ value: sec.id, label: sec.name, color: sec.color ?? null }))];
+  }
+
+  /** Which choice a step's value shows as picked. */
+  function choiceValue(kind, value, today) {
+    if (kind === 'due') return dueChoice(value, today);
+    if (kind === 'section') return value ?? '';
+    return value;
+  }
+
+  /** A choice in words, for the picked chips: 'High', 'Tomorrow', 'Work'. */
+  function choiceText(kind, value, today) {
+    if (kind === 'priority') return value === 'none' ? 'No priority' : term(`tasks.priority.${value}`, PRIORITY_LABEL[value]);
+    if (kind === 'due') return isDateKey(value) ? relativeDay(value, today) : 'No date';
+    return getState().sections.find((sec) => sec.id === value)?.name ?? 'No section';
+  }
+
+  function chooseStep(kind, value) {
+    if (kind === 'due') {
+      const today = todayKey();
+      if (value === 'date') {
+        datePicking = true;
+        renderSteps({ focus: true });
+        // Straight to the browser's date picker (this click allows it); typing works too
+        try {
+          stepsEl.querySelector('.tk-step-date-input')?.showPicker?.();
+        } catch {
+          // no picker without a click (or not supported): the field is focused either way
+        }
+        return;
+      }
+      pickStep('due', value === 'today' ? today : value === 'tomorrow' ? shiftKey(today, 1) : null);
+    } else pickStep(kind, kind === 'section' ? value || null : value);
+  }
+
+  /** Keys on a step: arrows between choices, 1–9 picks, Backspace goes back, Esc closes. */
+  function onStepsKeydown(e) {
+    if (isComposing(e) || !steps) return;
+    const inDate = e.target.classList?.contains('tk-step-date-input');
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      e.stopPropagation();
+      if (inDate) {
+        datePicking = false;
+        renderSteps({ focus: true });
+      } else closeSteps();
+      return;
+    }
+    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+      e.preventDefault();
+      addFromInput();
+      return;
+    }
+    if (inDate) {
+      dateTypedAt = Date.now();
+      if (e.key === 'Enter') {
+        // Not the form's Enter (that would keep the old choice): this date
+        e.preventDefault();
+        if (isDateKey(e.target.value)) pickStep('due', e.target.value);
+      }
+      return;
+    }
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    const chips = [...stepsEl.querySelectorAll('.tk-step-chip')];
+    const at = chips.indexOf(document.activeElement);
+    if (/^[1-9]$/.test(e.key)) {
+      // The page's own 1–7 (switch pages) must not fire from here
+      e.preventDefault();
+      e.stopPropagation();
+      chips[Number(e.key) - 1]?.click();
+      return;
+    }
+    if (e.key === 'Backspace' && !e.repeat) {
+      e.preventDefault();
+      backStep();
+      return;
+    }
+    if (at === -1) return;
+    // Enter keeps the choice shown and goes on. On a date already picked ("Sun 25 Oct") that
+    // means keeping it; a click on it still opens the date field to change it.
+    if (e.key === 'Enter' && chips[at].dataset.value === 'date' && dueChoice(currentChoice('due'), todayKey()) === 'date') {
+      e.preventDefault();
+      if (!e.repeat) pickStep('due', currentChoice('due'));
+      return;
+    }
+    let to = null;
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') to = chips[(at + 1) % chips.length];
+    else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') to = chips[(at - 1 + chips.length) % chips.length];
+    else if (e.key === 'Home') to = chips[0];
+    else if (e.key === 'End') to = chips[chips.length - 1];
+    if (to) {
+      e.preventDefault();
+      to.focus();
+    }
+  }
+
+  /** Add the task now: the title's tokens, the picks, and the defaults for whatever wasn't asked yet. */
+  function addFromInput() {
+    const today = todayKey();
+    const parsed = parseTitle();
+    if (!parsed.title) {
+      if (addInput.value.trim()) bump(form, 'is-rejected');
+      addInput.focus();
+      return;
+    }
+    const { view, sections } = getState();
+    const task = createTask(resolveAdd(parsed, picks, addDefaults(), new Set(sections.map((sec) => sec.id))));
     justAdded.add(task.id);
     setItems((items) => addTask(items, task));
 
     addInput.value = '';
     ignoreTokens.clear();
-    priPick.set('none');
-    duePick.set(null);
+    picks = {};
+    presetDue = undefined;
+    steps = null;
+    datePicking = false;
     renderReadout();
+    renderSteps();
     addInput.focus();
 
-    if (!(view.filter === 'all' || matchesFilter(task, view.filter, today))) {
+    // Added somewhere this view doesn't show (another section, or outside the filter): say where
+    const otherSection = view.section !== 'all' && task.sectionId !== view.section;
+    if (otherSection) {
+      const where = sections.find((sec) => sec.id === task.sectionId)?.name;
+      toast(`“${clip(task.title, 28)}” added to ${where ? clip(where, 20) : 'no section'}.`, {
+        action: { label: 'Show', onClick: () => setSection(task.sectionId ?? 'all') },
+      });
+    } else if (!(view.filter === 'all' || matchesFilter(task, view.filter, today))) {
       toast(`“${clip(task.title, 28)}” added — not shown in ${FILTER_LABEL[view.filter]}.`, {
         action: { label: 'Show', onClick: () => setFilter('all') },
       });
@@ -1028,6 +1493,8 @@ function mount(root) {
           onClick: () => {
             ignoreTokens.add(kind);
             renderReadout();
+            refreshSteps();
+            paintAddButton();
             addInput.focus();
           },
         },
@@ -1045,9 +1512,10 @@ function mount(root) {
       chips.push(h('span', { class: 'label tk-kept', title: 'Only the last priority and due token apply. The others stay in the title.' }, 'Kept as text', kept.map(kbd)));
     }
 
+    // Only while there is something to show: at rest the add box is one line
     readout.classList.toggle('is-idle', !chips.length);
-    if (chips.length) readout.replaceChildren(h('span', { class: 'label tk-readout-label' }, term('tasks.parsed', 'Parsed')), ...chips);
-    else readout.replaceChildren(h('span', { class: 'label tk-tip lo-hint' }, 'Tip', kbd('!h'), kbd('@tomorrow'), kbd('@fri')));
+    readout.hidden = !chips.length || !!steps;
+    readout.replaceChildren(...(chips.length ? [h('span', { class: 'label tk-readout-label' }, term('tasks.parsed', 'Parsed')), ...chips] : []));
   }
 
   function toggleDone(id, done) {
@@ -1230,7 +1698,7 @@ function mount(root) {
       title: 'Sections',
       className: 'tk-secs-modal',
       body: [
-        h('p', { class: 'tk-secs-lead' }, 'Split your tasks, like Work and Life. Open a section to see only its tasks; new tasks go into the open one.'),
+        tip({ id: 'tasks.sections', className: 'tk-secs-lead', text: 'Split your tasks, like Work and Life. Open a section to see only its tasks; new tasks go into the open one.' }),
         list,
         h('div', { class: 'tk-secs-add' }, addIn, h('button', { type: 'button', class: 'btn btn--sm', onClick: add }, icon('plus', { size: 14 }), 'Add')),
         msg,
@@ -1877,14 +2345,16 @@ function mount(root) {
   const offMenu = registerContextProvider('tasks', contextTarget);
   const unsubscribe = store.subscribe(() => render());
   const offDay = onDayChange(() => {
-    duePick.refresh();
     readoutKey = '';
     renderReadout();
+    // New choices for the new day ("Today" moved); a keyboard user stays on the step
+    if (steps) renderSteps({ focus: stepsEl.contains(document.activeElement) });
     render();
   });
   const minuteTimer = setInterval(render, 60000); // keeps "Done 5m ago" honest
 
   renderReadout();
+  paintAddButton();
   render();
 
   // Reveal once the view has laid out (it may arrive with this mount, or while it is open)

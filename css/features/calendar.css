@@ -118,15 +118,13 @@
   gap: var(--space-2);
 }
 
-.cal-layer[aria-pressed="false"] {
-  color: var(--text-3);
+/* The view menu stands in for the Month / Week / Day buttons on a narrow calendar only */
+.cal-view-dd {
+  display: none;
 }
 
-.cal-layer[aria-pressed="false"] .cal-glyph {
-  opacity: 0.45;
-}
-
-/* Layer glyphs double as the legend: bar = event, square = task, dot = habit */
+/* Glyphs double as the legend: bar = event, square = task, dot = habit (the Show menu draws
+   the same marks as icons) */
 .cal-glyph {
   flex: none;
   display: inline-block;
@@ -165,6 +163,11 @@
   display: inline-flex;
 }
 
+/* No count, no gap for it: the icon alone (on a phone) stays centred */
+.cal-tray-toggle .seg-count:empty {
+  display: none;
+}
+
 .cal-tray-toggle[aria-expanded="true"] {
   background: var(--accent);
   border-color: var(--accent);
@@ -175,48 +178,21 @@
   display: none;
 }
 
-/* ---- Sub bar: period stats + hint, legend ---- */
+/* ---- Tips under the toolbar: how to start, the look key (each with its own ✓) ---- */
 
-.cal-subbar {
+.cal-tips {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.cal-tips[hidden] {
+  display: none;
+}
+
+.cal-legend-tip .tip-text {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: var(--space-2) var(--space-5);
-  min-height: 22px;
-  padding-bottom: var(--space-1);
-}
-
-.cal-summary {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: var(--space-2) var(--space-5);
-  min-width: 0;
-}
-
-.cal-stat {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 6px;
-}
-
-.cal-stat-v {
-  font-family: var(--font-mono);
-  font-size: var(--fs-xs);
-  color: var(--text);
-}
-
-.cal-hint {
-  padding-left: var(--space-4);
-  border-left: 1px solid var(--line-strong);
-  font-size: var(--fs-xs);
-  color: var(--text-3);
-}
-
-.cal-summary > .cal-hint:first-child {
-  padding-left: 0;
-  border-left: 0;
 }
 
 .cal-legend {
@@ -953,7 +929,8 @@ button.cal-date:hover {
   flex-direction: column;
   align-items: center;
   gap: 4px;
-  min-height: 58px;
+  /* Taller when the screen has room (calendar.js sizeMonth): the grid fills it */
+  min-height: var(--cal-cell-h, 58px);
   padding: 5px 2px 6px;
   cursor: pointer;
 }
@@ -1176,6 +1153,8 @@ button.cal-dh-btn:hover {
   padding: 4px 8px 0 0;
   text-align: right;
   font-size: 9px;
+  /* Wide-tracked templates wrap it to two lines: both fit the one-row lane */
+  line-height: 1.1;
 }
 
 .cal-ad-col {
@@ -1244,6 +1223,12 @@ button.cal-dh-btn:hover {
   background-size: 100% var(--cal-hour, 48px), 100% calc(var(--cal-hour, 48px) / 2);
   cursor: cell;
   touch-action: pan-y;
+}
+
+/* Hours squeezed to fit the screen: hour lines only */
+.cal-tl.is-dense .cal-tl-col {
+  background-image: linear-gradient(var(--line) 1px, transparent 1px);
+  background-size: 100% var(--cal-hour, 48px);
 }
 
 .cal-tl-col.is-today {
@@ -1518,7 +1503,7 @@ button.cal-dh-btn:hover {
 }
 
 /* ==========================================================================
-   Day: timeline + planning panel
+   Day: the timeline (fitted to the screen), then its Tasks and Habits lists
    ========================================================================== */
 
 .cal-day {
@@ -1533,11 +1518,17 @@ button.cal-dh-btn:hover {
   overflow: hidden;
 }
 
+/* The view's focus anchor after zooming in: a quiet ring when the keyboard lands on it */
+.cal-day-tl:focus-visible {
+  outline: 1px solid var(--line-focus);
+  outline-offset: 2px;
+}
+
 .cal-day-head {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  padding: var(--space-3) var(--space-4);
+  padding: var(--space-2) var(--space-4);
   border-bottom: 1px solid var(--line);
   background: var(--surface-2);
 }
@@ -1548,16 +1539,76 @@ button.cal-dh-btn:hover {
   color: var(--text-4);
 }
 
+/* ---- The day's all-day lane: "All day +" adds one, the empty lane does too ---- */
+
+.cal-day-allday {
+  grid-template-columns: var(--cal-gutter) minmax(0, 1fr) auto;
+  max-height: 120px;
+}
+
+.cal-day-allday .cal-ad-label {
+  align-self: center;
+  padding-top: 0;
+}
+
+.cal-ad-add {
+  display: grid;
+  place-items: center;
+  align-self: stretch;
+  width: 32px;
+  margin: -4px 0;
+  border-left: 1px solid var(--line);
+  color: var(--text-3);
+  transition: color var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease);
+}
+
+.cal-ad-add:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.cal-ad-add:focus-visible {
+  outline: 1px solid var(--line-focus);
+  outline-offset: -2px;
+}
+
+.cal-ad-note {
+  position: relative;
+  align-self: stretch;
+  margin: -4px 0;
+  padding-left: var(--space-2);
+  text-align: left;
+  color: var(--text-3);
+}
+
+.cal-ad-note-go {
+  color: var(--text);
+  text-decoration: underline;
+  text-decoration-color: var(--text-4);
+  text-underline-offset: 3px;
+}
+
+.cal-ad-note:hover .cal-ad-note-go {
+  text-decoration-color: var(--text);
+}
+
+.cal-ad-note:focus-visible {
+  outline: 1px solid var(--line-focus);
+  outline-offset: -2px;
+}
+
+/* ---- Tasks / Habits: a heading row that opens or folds its list ---- */
+
 .cal-plan {
   display: flex;
   flex-direction: column;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .cal-plan-sec {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
-  padding: var(--space-4);
   border-bottom: 1px solid var(--line);
 }
 
@@ -1565,16 +1616,34 @@ button.cal-dh-btn:hover {
   border-bottom: 0;
 }
 
-.cal-plan-body {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
+.cal-plan-h {
+  margin: 0;
+  font: inherit;
 }
 
-.cal-plan-head {
+.cal-plan-toggle {
   display: flex;
   align-items: center;
   gap: var(--space-2);
+  width: 100%;
+  min-height: 42px;
+  padding: 0 var(--space-3) 0 var(--space-4);
+  text-align: left;
+  color: var(--text-2);
+  transition: background var(--dur-fast) var(--ease);
+}
+
+.cal-plan-toggle:hover {
+  background: var(--surface-2);
+}
+
+.cal-plan-toggle:focus-visible {
+  outline: 1px solid var(--line-focus);
+  outline-offset: -2px;
+}
+
+.cal-plan-toggle .cal-glyph {
+  color: var(--text-3);
 }
 
 .cal-plan-title {
@@ -1587,6 +1656,27 @@ button.cal-dh-btn:hover {
   font-family: var(--font-mono);
   font-size: var(--fs-xs);
   color: var(--text);
+}
+
+.cal-plan-chev {
+  flex: none;
+  color: var(--text-3);
+  transition: transform var(--dur-fast) var(--ease);
+}
+
+.cal-plan-toggle[aria-expanded="true"] .cal-plan-chev {
+  transform: rotate(90deg);
+}
+
+.cal-plan-body,
+.cal-plan-items {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.cal-plan-body {
+  padding: 0 var(--space-4) var(--space-4);
 }
 
 .cal-plan-sub {
@@ -1616,18 +1706,12 @@ button.cal-dh-btn:hover {
   text-decoration-color: var(--text);
 }
 
-.cal-plan-donelink,
-.cal-plan-addev {
+.cal-plan-donelink {
   align-self: flex-start;
   display: inline-flex;
   align-items: center;
   gap: 4px;
   color: var(--text-2);
-}
-
-.cal-plan-evs .cal-ev {
-  height: 30px;
-  font-size: var(--fs-sm);
 }
 
 /* ---- Task rows ---- */
@@ -1915,8 +1999,10 @@ button.cal-dh-btn:hover {
   gap: var(--space-2);
 }
 
-.cal-tray-hint {
-  color: var(--text-3);
+/* The how-to tip in the narrow tray: smaller, its ✓ under the text when it can't fit beside it */
+.cal-tray-tip {
+  flex-wrap: wrap;
+  font-size: var(--fs-xs);
 }
 
 .cal-tray-list {
@@ -2122,26 +2208,48 @@ html.cal-vt::view-transition {
    ========================================================================== */
 
 @container cal (max-width: 900px) {
-  .cal-legend {
+  .cal-legend,
+  .cal-legend-tip {
     display: none;
   }
 }
 
-/* The day view keeps timeline + plan side by side down to 620px of calendar (iPad landscape,
-   split windows); below that it stacks with the PLAN FIRST, so the day's tasks and habits are on
-   the first screen, and the timeline's scroll hands over to the page at its ends (no trap). */
+/* The day view keeps timeline + lists side by side down to 620px of calendar (iPad landscape,
+   split windows); below that the TIMELINE COMES FIRST, fitted so the whole day shows on the
+   first screen, with the Tasks and Habits rows folded under it. The timeline's own scroll (for
+   hours outside the day's span) hands over to the page at its ends (no trap). */
 @container cal (max-width: 620px) {
   .cal-day {
     grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-2);
   }
 
-  .cal-day .cal-plan {
-    order: -1;
+  /* The toolbar already names the day */
+  .cal-day-head {
+    display: none;
+  }
+
+  /* A busy day's all-day lane stays short (about three rows, then it scrolls): the hours keep
+     the room */
+  .cal-day-allday {
+    max-height: calc(var(--cal-slot) * 3.5 + 15px);
   }
 
   .cal-day .cal-tl-scroll {
-    height: clamp(300px, 55dvh, 640px);
     overscroll-behavior-y: auto;
+  }
+
+  .cal-plan {
+    overflow: visible;
+  }
+
+  .cal-plan-toggle {
+    min-height: 40px;
+    padding-left: var(--space-3);
+  }
+
+  .cal-plan-body {
+    padding: 0 var(--space-3) var(--space-3);
   }
 }
 
@@ -2152,6 +2260,7 @@ html.cal-vt::view-transition {
 
   .cal-toolbar {
     align-items: stretch;
+    row-gap: var(--space-2);
   }
 
   .cal-nav {
@@ -2175,39 +2284,30 @@ html.cal-vt::view-transition {
   }
 }
 
-@container cal (max-width: 560px) {
+/* A narrow calendar (a phone): one row of navigation, one row of compact menus: the view, what
+   shows, and the Unscheduled tray as an icon with its count */
+@container cal (max-width: 600px) {
   .cal-controls {
+    flex-wrap: nowrap;
     width: 100%;
+    min-width: 0;
   }
 
   .cal-zoom {
-    flex: 1 1 auto;
+    display: none;
   }
 
-  .cal-zoom .seg-btn {
-    flex: 1 1 0;
-    justify-content: center;
-  }
-
-  .cal-layers {
-    order: 3;
-    flex: 1 1 100%;
-  }
-
-  .cal-layers .seg-btn {
-    flex: 1 1 0;
-    justify-content: center;
-    padding: 0 var(--space-2);
+  .cal-view-dd {
+    display: inline-flex;
   }
 
   .cal-tray-toggle {
     flex: none;
+    margin-left: auto;
   }
 
-  .cal-hint {
-    padding-left: 0;
-    border-left: 0;
-    flex-basis: 100%;
+  .cal-tray-word {
+    display: none;
   }
 
   .cal-wk-gutter,

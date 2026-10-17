@@ -11,7 +11,7 @@
 // included, is one short move away even when it is scrolled out of sight.
 
 import { h, icon, registerIcon, num, plural, timeAgo, clamp, reducedMotion } from '../ui.js';
-import { VIEW_UNSORTED, excerpt, highlight, clip, findSection } from './notes.logic.js';
+import { VIEW_UNSORTED, excerpt, highlight, clip, findSection, heldInPlace } from './notes.logic.js';
 import { paintColor } from '../colors.js';
 import {
   boardColumns,
@@ -37,6 +37,7 @@ const EDGE_SLACK = 48; // px past the board's side a pointer (a finger at the sc
 const LIFT_GAP = 28; // touch: the lifted card floats this far above the finger
 const FADE = 28; // px of the pager's edge fade, kept clear when a chip is brought into view
 const SLOT_DWELL_MS = 220; // a column scrolls to the drop slot once the card rests over it this long
+const HOLD_SLOP = 12; // touch: a lifted card let go within this many px of where it was pressed opens Move to…
 
 // Board glyphs: the layout toggle's columns and a column's fold control
 registerIcon('nt-board', '<rect x="3" y="4" width="5" height="16" rx="1"/><rect x="10" y="4" width="5" height="11" rx="1"/><rect x="17" y="4" width="4" height="7" rx="1"/>');
@@ -124,6 +125,7 @@ function buzz() {
  *   onNewSection(),                       the trailing "+ Section" strip
  *   onToggleCollapse(column),             fold / unfold a column
  *   onPick(column),                       a pager chip was used: that column is where the user is
+ *   onInView(columns),                    the columns in view changed (left to right)
  *   onAnnounce(text),                     polite live-region message
  *   coverLeft() -> number | null,         left edge of the editor panel over the board, if open
  * }
@@ -175,8 +177,11 @@ export function createBoard(ctx) {
       onFocusin: onFocusIn,
       onScroll: onBoardScroll,
       onContextmenu: (e) => {
-        // A long press on a card belongs to the drag, not the browser's menu.
-        if (drag?.touch) e.preventDefault();
+        // A long press on a card belongs to the drag: neither the browser's menu nor the app's
+        // right-click menu (which steps aside for a cancelled event) opens; letting go where it was
+        // pressed opens Move to….
+        if (!drag?.touch) return;
+        e.preventDefault();
       },
     },
     colsEl,
@@ -291,6 +296,29 @@ export function createBoard(ctx) {
     pulse(id);
   }
 
+  /**
+   * The column menu (phones): like a pager chip, but the column lines up at the board's start, so
+   * it is the first of the two in view. Its first card becomes the Tab stop.
+   */
+  function jumpTo(id) {
+    const col = colCache.get(id);
+    if (drag || !col?.el.isConnected) return;
+    chipTab = id;
+    syncChipTab();
+    const first = grid[order.indexOf(id)]?.[0];
+    if (first && first !== tabId) {
+      tabId = first;
+      syncTabStop();
+    }
+    ctx.onPick?.(id);
+    if (visible()) {
+      const pad = parseFloat(getComputedStyle(scroller).scrollPaddingInlineStart) || 0;
+      const delta = col.el.getBoundingClientRect().left - scroller.getBoundingClientRect().left - pad;
+      if (Math.abs(delta) > 1) scroller.scrollBy({ left: delta, behavior: scrollBehavior() });
+    }
+    pulse(id);
+  }
+
   /** Fade the pager's edges only on the sides with more chips. */
   function updatePagerFades() {
     const max = pagerChips.scrollWidth - pagerChips.clientWidth;
@@ -340,6 +368,7 @@ export function createBoard(ctx) {
     const sig = lit.join('\u0001');
     if (sig === inView) return;
     inView = sig;
+    ctx.onInView?.(lit);
     const set = new Set(lit);
     for (const chip of chipCache.values()) chip.btn.classList.toggle('is-inview', set.has(chip.id));
     // Keep the first column in view in sight in the pager (phones swipe one column at a time).
@@ -839,6 +868,7 @@ export function createBoard(ctx) {
       raf: 0,
       aimRaf: 0,
       slotTimer: 0,
+      wandered: false, // touch: the finger left the spot it pressed after the card lifted
       scrolled: new Map(), // column body -> scrollTop before it showed the slot
     };
     if (drag.touch) {
@@ -875,6 +905,8 @@ export function createBoard(ctx) {
       if (!drag?.active) return;
     }
     if (drag.cancelled) return;
+    // A finger that leaves where it pressed is dragging; one that stays put is asking for the menu.
+    if (drag.touch && !drag.wandered && !heldInPlace({ x: drag.x0, y: drag.y0 }, drag, HOLD_SLOP)) drag.wandered = true;
     placeLift();
     aim();
     if (!drag.raf) drag.raf = requestAnimationFrame(autoScroll);
@@ -1096,12 +1128,16 @@ export function createBoard(ctx) {
       aim();
     }
     const missed = drag.active && !drag.cancelled && !drag.target;
+    // Lifted by touch and let go where it was pressed: a long press, which opens Move to… (the
+    // way to that menu on phones, where the cards have no ⋯ button).
+    const held = missed && drag.touch && !drag.wandered && heldInPlace({ x: drag.x0, y: drag.y0 }, { x: e.clientX, y: e.clientY }, HOLD_SLOP);
     const d = end({ fly: missed });
     // No drag happened: the card's own click opens the note.
     if (!d.active) return;
     swallowClick(scroller);
     if (d.cancelled) return;
     if (d.target) ctx.onMove(d.id, d.target, { via: 'pointer' });
+    else if (held && cardCache.get(d.id)?.btn.isConnected) ctx.onMenu(d.id, cardCache.get(d.id).btn, { keyboard: false });
     else ctx.onAnnounce('Not moved.');
   }
 
@@ -1204,6 +1240,18 @@ export function createBoard(ctx) {
       return active instanceof Node && scroller.contains(active);
     },
     columnOrder: () => order.slice(),
+    /** The columns as last drawn, left to right: [{ id, name, icon, color, total, shown, collapsed }]. */
+    columns: () =>
+      columns.map((c) => ({
+        id: c.id,
+        name: c.section ? c.section.name : 'Unsorted',
+        icon: c.section ? glyphOf(c.section) : 'inbox',
+        color: c.section?.color ?? null,
+        total: c.total,
+        shown: c.notes.length,
+        collapsed: c.collapsed,
+      })),
+    jumpTo,
     firstCard: () => grid.find((ids) => ids.length)?.[0] ?? null,
     dragging: () => !!drag?.active,
     cancelDrag,
