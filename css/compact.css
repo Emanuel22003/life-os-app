@@ -3,15 +3,16 @@
    Every page starts higher, and on a phone the page top is one row: the title, then the
    page's buttons (icons, the main one keeps its word). A page's explanation is a tip with
    its own ✓ (ui.pageHeader tipId), so it can go for good.
-   `html[data-skin] .main .view > …` outranks the templates' own `[data-skin="x"] …` rules and
-   leaves the template previews (not in .main's view) alone.
+   `html[data-skin] .main .view :is(.view > .page-header, …)` outranks the templates' own
+   `[data-skin="x"] …` rules and leaves the template previews (not a page's own header) alone.
+   Training keeps its header one level down (in .tr-normal), so that one counts too.
    ========================================================================== */
 
 html[data-skin] .main .view {
   padding-top: var(--space-6);
 }
 
-html[data-skin] .main .view > .page-header {
+html[data-skin] .main .view :is(.view > .page-header, .tr-normal > .page-header) {
   padding-bottom: var(--space-4);
   margin-bottom: var(--space-5);
 }
@@ -26,7 +27,7 @@ html[data-skin] .main .view > .page-header {
 
   /* Title and buttons on the first row; whatever else the heading holds (an explanation, Home's
      "Now" line) runs full width under them */
-  html[data-skin] .main .view > .page-header {
+  html[data-skin] .main .view :is(.view > .page-header, .tr-normal > .page-header) {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
     align-items: center;
@@ -36,33 +37,33 @@ html[data-skin] .main .view > .page-header {
     border-bottom: 0;
   }
 
-  html[data-skin] .main .view > .page-header .page-heading {
+  html[data-skin] .main .view :is(.view > .page-header, .tr-normal > .page-header) .page-heading {
     display: contents;
   }
 
-  html[data-skin] .main .view > .page-header .page-heading > * {
+  html[data-skin] .main .view :is(.view > .page-header, .tr-normal > .page-header) .page-heading > * {
     grid-column: 1 / -1;
   }
 
-  html[data-skin] .main .view > .page-header .page-heading > .page-title {
+  html[data-skin] .main .view :is(.view > .page-header, .tr-normal > .page-header) .page-heading > .page-title {
     grid-column: 1;
     grid-row: 1;
   }
 
-  html[data-skin] .main .view > .page-header > .page-actions {
+  html[data-skin] .main .view :is(.view > .page-header, .tr-normal > .page-header) > .page-actions {
     grid-column: 2;
     grid-row: 1;
   }
 
-  html[data-skin] .main .view > .page-header::after {
+  html[data-skin] .main .view :is(.view > .page-header, .tr-normal > .page-header)::after {
     content: none;
   }
 
-  html[data-skin] .main .view > .page-header .page-kicker {
+  html[data-skin] .main .view :is(.view > .page-header, .tr-normal > .page-header) .page-kicker {
     display: none;
   }
 
-  html[data-skin] .main .view > .page-header .page-title {
+  html[data-skin] .main .view :is(.view > .page-header, .tr-normal > .page-header) .page-title {
     overflow: hidden;
     font-size: 26px;
     line-height: 1.1;
@@ -70,12 +71,12 @@ html[data-skin] .main .view > .page-header {
     white-space: nowrap;
   }
 
-  html[data-skin] .main .view > .page-header .page-subtitle {
+  html[data-skin] .main .view :is(.view > .page-header, .tr-normal > .page-header) .page-subtitle {
     font-size: var(--fs-sm);
     line-height: 1.35;
   }
 
-  html[data-skin] .main .view > .page-header .page-actions {
+  html[data-skin] .main .view :is(.view > .page-header, .tr-normal > .page-header) .page-actions {
     flex: none;
     flex-wrap: nowrap;
     width: auto;
@@ -84,24 +85,24 @@ html[data-skin] .main .view > .page-header {
   }
 
   /* Secondary buttons become icons (their name stays on them: pageHeader sets it) */
-  html[data-skin] .main .view > .page-header .page-actions .btn:not(.btn--primary) {
+  html[data-skin] .main .view :is(.view > .page-header, .tr-normal > .page-header) .page-actions .btn:not(.btn--primary) {
     width: 36px;
     padding: 0;
   }
 
-  html[data-skin] .main .view > .page-header .page-actions .btn:not(.btn--primary) > span {
+  html[data-skin] .main .view :is(.view > .page-header, .tr-normal > .page-header) .page-actions .btn:not(.btn--primary) > span {
     display: none;
   }
 
-  html[data-skin] .main .view > .page-header .page-actions .btn {
+  html[data-skin] .main .view :is(.view > .page-header, .tr-normal > .page-header) .page-actions .btn {
     --btn-h: 36px;
   }
 
-  html[data-skin] .main .view > .page-header .page-actions .btn--primary {
+  html[data-skin] .main .view :is(.view > .page-header, .tr-normal > .page-header) .page-actions .btn--primary {
     padding-inline: var(--space-3);
   }
 
-  html[data-skin] .main .view > .page-header .page-actions .kbd {
+  html[data-skin] .main .view :is(.view > .page-header, .tr-normal > .page-header) .page-actions .kbd {
     display: none;
   }
 }

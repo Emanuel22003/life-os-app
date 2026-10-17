@@ -21,6 +21,7 @@ export const PALETTE_SLOTS = Object.freeze({
   oldmoney: Object.freeze([slot('bg', 'Paper', '--bg'), slot('text', 'Ink', '--text'), slot('accent', 'Brass', '--om-brass')]),
   coquette: Object.freeze([slot('bg', 'Background', '--bg'), slot('text', 'Ink', '--text'), slot('accent', 'Ribbon', '--accent')]),
   y2k: Object.freeze([slot('bg', 'Background', '--bg'), slot('text', 'Text', '--text'), slot('accent', 'Glitter', '--accent')]),
+  minimal: Object.freeze([slot('bg', 'Paper', '--bg'), slot('text', 'Ink', '--text')]),
 });
 
 export function slotsFor(skin) {

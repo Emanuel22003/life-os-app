@@ -11,6 +11,7 @@ export const DEFAULT_SKIN = 'simple';
 export const SKINS = Object.freeze(
   [
     { id: 'simple', name: 'Simple', description: 'Calm and plain. Fewer numbers, everyday words. Easiest to start with.' },
+    { id: 'minimal', name: 'Minimal', description: 'Only what matters: no boxes, no colors, no tips, lots of space. The least on the screen.', plain: true },
     { id: 'hud', name: 'Mission Control', description: 'The grayscale HUD: blueprint grid, readouts, zero-padded counters.' },
     { id: 'brutalist', name: 'Brutalist', description: 'Loud black-and-white blocks, hard shadows, hazard-yellow accent.' },
     { id: 'terminal', name: 'Terminal', description: 'A retro computer terminal in phosphor green, all monospace.' },
@@ -66,6 +67,12 @@ export const SKIN_BOOT = Object.freeze({
     light: '#f7f7f5',
     plain: true,
   }),
+  minimal: Object.freeze({
+    font: 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap',
+    dark: '#0d0d0d',
+    light: '#ffffff',
+    plain: true,
+  }),
   hud: Object.freeze({
     font: 'https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap',
     dark: '#060606',
@@ -107,6 +114,7 @@ export const SKIN_BOOT = Object.freeze({
  */
 export const SKIN_NUMBERS = Object.freeze({
   simple: Object.freeze({ padIndex: false, padCount: false }),
+  minimal: Object.freeze({ padIndex: false, padCount: false }),
   hud: Object.freeze({ padIndex: true, padCount: true }),
   brutalist: Object.freeze({ padIndex: true, padCount: true }),
   terminal: Object.freeze({ padIndex: true, padCount: true }),

@@ -148,7 +148,8 @@ const btn = (label, onClick, { iconName, primary = false, ghost = false, small =
     'button',
     { type: 'button', class: ['btn', small && 'btn--sm', primary && 'btn--primary', ghost && 'btn--ghost', !label && 'btn--icon'], title: title ?? null, 'aria-label': aria ?? null, onClick },
     iconName ? icon(iconName, { size: 14 }) : null,
-    label || null,
+    // The words in their own span, as on every page: a phone's page top shows header buttons as icons
+    label ? h('span', null, label) : null,
   );
 
 function seg(label, options, value, onChange, className) {

@@ -119,6 +119,19 @@ function whenText(date, today) {
   return rel === formatDay(date) ? rel : rel.startsWith('In ') ? `${rel} · ${formatDay(date)}` : rel;
 }
 
+/** A row's 'Next in 3 days · Tue 20 Oct' chip. 'in 3 days · ' gets its own span, so a template can
+ *  show the date alone (Minimal: 'Next Tue 20 Oct', css/skins/minimal.css); the text is the same.
+ *  One inner span holds it all: the chip is a flex box, which would drop the spaces between parts. */
+function nextTag(date, today, soon) {
+  const text = `Next ${whenText(date, today).replace(/^(Today|Tomorrow|In )/, (w) => w.toLowerCase())}`;
+  const parts = text.match(/^Next (in \d+ days · )(.+)$/);
+  return h(
+    'span',
+    { class: ['tag', 'fn-next', soon && 'tag--solid'] },
+    parts ? h('span', null, 'Next ', h('span', { class: 'fn-next-rel' }, parts[1]), parts[2]) : text,
+  );
+}
+
 const initial = (name) => (name.match(/[\p{L}\p{N}]/u)?.[0] ?? '·').toUpperCase();
 
 /* ==========================================================================
@@ -258,7 +271,7 @@ function mount(root) {
           { class: 'fn-meta' },
           h('span', { class: 'tag fn-cat' }, F.categoryName(sub.category)),
           status,
-          next && sub.status === 'active' ? h('span', { class: ['tag', 'fn-next', soon && 'tag--solid'] }, `Next ${whenText(next, today).replace(/^(Today|Tomorrow|In )/, (w) => w.toLowerCase())}`) : null,
+          next && sub.status === 'active' ? nextTag(next, today, soon) : null,
         ),
       ),
       h(

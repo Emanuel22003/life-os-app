@@ -100,6 +100,7 @@ const CORE = [
   'css/skins/coquette-bow.webp',
   'css/skins/y2k.css',
   'css/skins/y2k-butterflies.webp',
+  'css/skins/minimal.css',
   'css/palette.css',
   'css/colors.css',
   'css/icons.css',

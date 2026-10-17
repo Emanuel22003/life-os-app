@@ -35,23 +35,30 @@ const BACKUP_ERRORS = {
 
 /* ---- Small builders ---- */
 
-/** A settings row: title + explanation on the left, the control on the right. */
-function row({ title, hint, control }) {
+/**
+ * A settings row: title + explanation on the left, the control on the right. Styling hooks only
+ * (no behavior): a hint that reports how things are (Sync's status, the version, storage, blocked
+ * notifications) rather than explaining the row carries st-row-hint--state (`state`, or per
+ * update), so a template that hides explanations (Minimal) keeps it; `key` names the row
+ * (data-row) for a template's own rules.
+ */
+function row({ title, hint, control, state = false, key = null }) {
   const id = `st-${uid()}`;
-  const hintEl = h('p', { class: 'st-row-hint' }, hint ?? '');
+  const hintEl = h('p', { class: ['st-row-hint', state && 'st-row-hint--state'] }, hint ?? '');
   hintEl.hidden = !hint;
   const el = h(
     'div',
-    { class: 'st-row' },
+    { class: 'st-row', dataset: key ? { row: key } : null },
     h('div', { class: 'st-row-text' }, h('div', { class: 'st-row-title', id }, title), hintEl),
     h('div', { class: 'st-row-control' }, typeof control === 'function' ? control(id) : control),
   );
   return {
     el,
     id,
-    hint(text) {
+    hint(text, { state: isState } = {}) {
       hintEl.textContent = text ?? '';
       hintEl.hidden = !text;
+      if (isState !== undefined) hintEl.classList.toggle('st-row-hint--state', isState);
     },
   };
 }
@@ -233,6 +240,7 @@ function mount(root) {
         : perm === 'denied'
           ? 'Blocked by the browser. Allow notifications for this site in its site settings, then switch them on here.'
           : 'A notification when a timer ends while you’re in another app.',
+      { state: perm === 'unsupported' || perm === 'denied' },
     );
   }
 
@@ -266,6 +274,7 @@ function mount(root) {
   /* Tips: the short explanations on each page, and their "✓ Got it" */
   const tipsBtn = h('button', { type: 'button', class: 'btn btn--sm', onClick: () => { resetTips(); toast('The tips are back on every page.'); } }, 'Show them again');
   const tipsRow = row({
+    key: 'tips',
     title: 'Tips',
     hint: 'Short explanations on the pages. “✓ Got it” hides one for good on this device.',
     control: tipsBtn,
@@ -339,7 +348,7 @@ function mount(root) {
   }
 
   /* Sync & backup */
-  const syncRow = row({ title: 'Sync', hint: '', control: button('Open Sync', () => openSyncPanel(), { iconName: 'sync' }) });
+  const syncRow = row({ title: 'Sync', hint: '', state: true, control: button('Open Sync', () => openSyncPanel(), { iconName: 'sync' }) });
   const paintSync = () => syncRow.hint(syncLabel(syncStatus()) ?? 'Off: your data stays on this computer. Turn it on to use LIFE/OS on your other computers too.');
 
   const backupRow = row({
@@ -364,7 +373,7 @@ function mount(root) {
     control: [button('Choose file…', () => fileInput.click(), { iconName: 'arrow-up' }), fileInput],
   });
 
-  const storageRow = row({ title: 'Storage', hint: STORAGE_TEXT.checking, control: [] });
+  const storageRow = row({ title: 'Storage', hint: STORAGE_TEXT.checking, state: true, control: [] });
   async function paintStorage() {
     // The browser answers the persistence question shortly after start-up
     for (let i = 0; i < 20 && shell.storageState() === 'checking'; i++) await new Promise((r) => setTimeout(r, 250));
@@ -377,7 +386,7 @@ function mount(root) {
   }
 
   /* About */
-  const versionRow = row({ title: 'Version', hint: `LIFE/OS ${shell.version}`, control: [] });
+  const versionRow = row({ title: 'Version', hint: `LIFE/OS ${shell.version}`, state: true, control: [] });
   const versionControl = versionRow.el.querySelector('.st-row-control');
   const checkBtn = button('Check for updates', checkUpdates, { iconName: 'sync' });
   versionControl.append(checkBtn);

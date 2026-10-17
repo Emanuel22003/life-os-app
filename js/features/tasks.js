@@ -1150,10 +1150,14 @@ function mount(root) {
           ),
         );
       } else {
+        // This week's later days by name ('Fri', 'Fri · 17:30'): Minimal shows it in place of
+        // 'In 3 days' (css/skins/minimal.css); every other template ignores it
+        const thisWeek = kind === 'date' && t.due > today && t.due < shiftKey(today, 7);
+        const day = thisWeek ? `${formatDay(t.due).slice(0, 3)}${t.time ? ` · ${t.time}` : ''}` : null;
         out.push(
           h(
             'span',
-            { class: ['tag', 'tk-due-tag', !t.done && `tk-due-tag--${kind}`], title: `Due ${long}` },
+            { class: ['tag', 'tk-due-tag', !t.done && `tk-due-tag--${kind}`], title: `Due ${long}`, dataset: day ? { day } : null },
             chipIcon(DUE_ICON[kind]),
             h('span', { class: 'sr-only' }, 'Due: '),
             h('span', { class: 'tk-due-rel' }, rel),

@@ -300,6 +300,9 @@
 
 .tr-detail {
   display: grid;
+  /* One column that never grows past its box: a lift's five measures scroll in their switch
+     instead of widening the graph past a phone's edge */
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-4);
   padding: var(--space-5);
   min-width: 0;
