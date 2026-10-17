@@ -94,6 +94,270 @@
   opacity: 0.55;
 }
 
+/* What's next is on the Today strip's Calendar tile; only a phone, whose tiles have no room
+   for it, keeps it on the date's line */
+@media (min-width: 641px) {
+  .hm-sub .hm-next {
+    display: none;
+  }
+}
+
+/* A tablet-wide window: the greeting and its sun or moon keep one line ("Good afternoon" in a
+   large display face needs the room), so Customize and Quick note show their icons, as on a
+   phone. Their names stay on them (aria-label, tooltip); Done keeps its word while arranging */
+@media (min-width: 641px) and (max-width: 1023px) {
+  .hm-page .page-header .page-actions :is(.hm-customize:not(.btn--primary), .hm-quick) {
+    width: var(--btn-h, 36px);
+    padding: 0;
+  }
+
+  .hm-page .page-header .page-actions :is(.hm-customize:not(.btn--primary), .hm-quick) > span {
+    display: none;
+  }
+}
+
+/* ---- The one color that means something: late (overdue) ----
+   Red in the colored templates while Color coding is on, as on the Tasks page; ink in the
+   others (the weight and the alert icon say it there). Priorities are a flag's weight, not a
+   color (as on the Tasks page), so red only ever means late. */
+
+.hm-page {
+  --hm-alert: var(--alert);
+}
+
+/* ---- Today: the strip under the greeting, the first place to look ----
+   One panel split in four by hairlines (calm, not four loud cards). A tile: its page's badge,
+   one big number, a few words. Wide: the badge beside the words, with one more line under them
+   (what's next, how many are late). Narrow (a tablet column, a phone): the badge over the
+   number over its words, all four in one row. A phone drops the extra line (a late count moves
+   beside the badge). */
+
+.hm-glance {
+  display: grid;
+  /* The Calendar tile's extra line (what's next) is the longest: it gets a little more room */
+  grid-template-columns: minmax(0, 1.4fr) repeat(3, minmax(0, 1fr));
+  margin-bottom: var(--space-5);
+  container: hm-glance / inline-size;
+}
+
+@media (max-width: 640px) {
+  .hm-glance {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.hm-gl {
+  /* The tile's own color: its page's tone where pages are colored, else ink */
+  --gl-c: var(--text);
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+  padding: 14px var(--space-4);
+  color: var(--text);
+  text-decoration: none;
+  transition: background var(--dur-fast) var(--ease);
+}
+
+.hm-gl + .hm-gl {
+  border-left: 1px solid var(--line);
+}
+
+.hm-gl:first-child {
+  border-radius: var(--radius) 0 0 var(--radius);
+}
+
+.hm-gl:last-child {
+  border-radius: 0 var(--radius) var(--radius) 0;
+}
+
+.hm-gl:hover {
+  background: var(--surface-2);
+}
+
+/* The focus ring inside the tile, so it doesn't run over the strip's edge or the next tile
+   (outranks the templates' own ":focus-visible" offset) */
+.hm-glance .hm-gl:focus-visible {
+  outline-offset: -3px;
+}
+
+.cc-on.cc-pages .hm-gl[data-tile="calendar"] { --gl-c: var(--mod-calendar); }
+.cc-on.cc-pages .hm-gl[data-tile="tasks"] { --gl-c: var(--mod-tasks); }
+.cc-on.cc-pages .hm-gl[data-tile="habits"] { --gl-c: var(--mod-habits); }
+.cc-on.cc-pages .hm-gl[data-tile="focus"] { --gl-c: var(--mod-pomodoro); }
+
+.hm-gl-ib {
+  --ib-box: 38px;
+  border-radius: var(--radius);
+}
+
+.hm-gl-text {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.hm-gl-main {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.hm-gl-value {
+  flex: none;
+  font-family: var(--font-display);
+  font-size: var(--fs-xl);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+}
+
+.hm-gl-label {
+  min-width: 0;
+  overflow: hidden;
+  font-size: var(--fs-sm);
+  text-overflow: ellipsis;
+  color: var(--text-2);
+}
+
+.hm-gl-sub,
+.hm-gl-alert {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  font-size: var(--fs-xs);
+  line-height: 1.3;
+  white-space: nowrap;
+}
+
+.hm-gl-sub {
+  color: var(--text-3);
+}
+
+.hm-gl-sub > .icon,
+.hm-gl-alert > .icon {
+  flex: none;
+}
+
+.hm-gl-sub > span,
+.hm-gl-alert > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hm-gl-alert {
+  font-weight: 600;
+  color: var(--hm-alert);
+}
+
+.hm-gl-alert[hidden],
+.hm-gl.has-alert .hm-gl-sub,
+.hm-gl-alert-short {
+  display: none;
+}
+
+/* Going on now (an event under way, the timer running): a dot before the words */
+.hm-gl[data-state="live"] .hm-gl-label::before {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin: 0 5px 1px 0;
+  vertical-align: middle;
+  border-radius: 50%;
+  background: var(--gl-c);
+  animation: hm-gl-pulse 2s var(--ease) infinite;
+}
+
+@keyframes hm-gl-pulse {
+  50% {
+    opacity: 0.35;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hm-gl[data-state="live"] .hm-gl-label::before {
+    animation: none;
+  }
+}
+
+/* A paused timer waits, dimmed */
+.hm-gl[data-state="paused"] .hm-gl-value {
+  color: var(--text-2);
+}
+
+/* Nothing today: the zero is quiet. All habits done: the number and its tick take the page's
+   color (the number too, as a phone has no line under it) */
+.hm-gl[data-state="clear"] .hm-gl-value {
+  color: var(--text-3);
+}
+
+.hm-gl[data-state="done"] :is(.hm-gl-sub, .hm-gl-value) {
+  color: var(--gl-c);
+}
+
+/* The badge goes over the number below about 900px: beside it, a quarter of the strip has no
+   room left for "00/12 habits" (a 1024px window with the menu open) */
+@container hm-glance (max-width: 899px) {
+  .hm-gl {
+    grid-template-columns: minmax(0, 1fr);
+    align-content: start;
+    justify-items: start;
+    gap: 5px;
+    padding: 7px var(--space-2);
+  }
+
+  .hm-gl-ib {
+    --ib-box: 24px;
+    border-radius: var(--radius-sm);
+  }
+
+  .hm-gl-ib > .icon {
+    width: 14px;
+    height: 14px;
+  }
+
+  .hm-gl-text {
+    gap: 2px;
+    width: 100%;
+  }
+
+  .hm-gl-main {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+  }
+
+  .hm-gl-value {
+    font-size: 20px;
+    line-height: 1;
+  }
+
+  .hm-gl-label,
+  .hm-gl-alert {
+    max-width: 100%;
+    font-size: var(--fs-xs);
+    line-height: 14px;
+  }
+
+  .hm-gl-alert {
+    gap: 3px;
+  }
+
+  .hm-gl-alert > .icon {
+    width: 11px;
+    height: 11px;
+  }
+}
+
 /* ---- Layout: your own board ----
    home.js places each widget (position + width) from home.logic.js: four columns on a wide
    board, two on a narrower one and on a phone, one only when very narrow (it sets data-cols on
@@ -207,8 +471,8 @@
   text-overflow: ellipsis;
 }
 
-.hm-wname svg {
-  flex: none;
+.hm-wname > .hm-ib {
+  --ib-box: 22px;
 }
 
 .hm-wsizes .seg-btn {
@@ -313,13 +577,8 @@
 }
 
 .hm-shelf-icon {
-  display: grid;
-  place-items: center;
-  width: 36px;
-  height: 36px;
-  border-radius: var(--radius-sm);
-  background: var(--surface-2);
-  color: var(--text-2);
+  --ib-box: 36px;
+  border-radius: var(--radius);
 }
 
 .hm-shelf-text {
@@ -361,7 +620,20 @@
 }
 
 .hm-clock-date {
+  min-width: 0;
   color: var(--text-2);
+}
+
+/* The clock has no header (the time is its title): its badge sits before the date */
+.hm-clock-foot {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.hm-clock-foot > .hm-ib {
+  --ib-box: 20px;
 }
 
 .hm-agenda-body,
@@ -379,7 +651,15 @@
 }
 
 .hm-agenda-when {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   margin: 0;
+}
+
+.hm-agenda-when > .icon {
+  flex: none;
+  color: var(--text-3);
 }
 
 .hm-agenda-list,
@@ -392,7 +672,7 @@
 
 .hm-agenda-item {
   display: grid;
-  grid-template-columns: 56px minmax(0, 1fr);
+  grid-template-columns: 64px minmax(0, 1fr);
   gap: var(--space-2);
   width: 100%;
   padding: 5px 0;
@@ -410,9 +690,18 @@
 }
 
 .hm-agenda-time {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   font-size: var(--fs-xs);
   color: var(--text-3);
   padding-top: 2px;
+  white-space: nowrap;
+}
+
+.hm-agenda-time > .icon {
+  flex: none;
+  opacity: 0.8;
 }
 
 .hm-agenda-title {
@@ -576,29 +865,35 @@
 .hm-card-title {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: 10px;
   min-width: 0;
   font-family: var(--label-font);
   font-size: var(--label-size);
   font-weight: var(--label-weight);
   letter-spacing: calc(0.14em * var(--label-tracking));
   text-transform: var(--label-case);
-  color: var(--text-2);
+  color: var(--text);
 }
 
-.hm-card-title span {
+.hm-card-name {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.hm-title-short {
-  display: none;
+/* Every widget's badge: its page's icon in a small tinted square. In a card's header it is the
+   header's own height (24px), so no card got taller for it; the calendar's bigger month title
+   has room for the full size */
+.hm-card-title > .hm-ib {
+  --ib-box: 24px;
 }
 
-.hm-card-title svg {
-  flex: none;
-  color: var(--text-3);
+.hm-week-name > .hm-ib {
+  --ib-box: 26px;
+}
+
+.hm-title-short {
+  display: none;
 }
 
 .hm-card-head > .hm-more,
@@ -697,6 +992,13 @@
   gap: var(--space-2) var(--space-3);
 }
 
+.hm-week-name {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
 .hm-week-kicker {
   flex: none;
 }
@@ -765,7 +1067,7 @@
     display: none;
   }
 
-  .hm-week-title {
+  .hm-week-name {
     grid-area: 1 / 1;
   }
 
@@ -777,6 +1079,16 @@
   .hm-cal-bar {
     grid-area: 2 / 1;
     margin-left: 0;
+  }
+
+  /* On the current period (no way back to show) the menus get the whole row; beside the way
+     back, Show keeps its eye and count (its name stays on the button) so the view keeps its word */
+  .hm-week-head:has(> .hm-week-now[hidden]) .hm-cal-bar {
+    grid-column: 1 / -1;
+  }
+
+  .hm-week-head:has(> .hm-week-now:not([hidden])) .hm-cal-show .dd-label {
+    display: none;
   }
 
   .hm-week-now {
@@ -1006,7 +1318,34 @@
 }
 
 .hm-dv-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   color: var(--text-3);
+}
+
+.hm-dv-title > .icon {
+  flex: none;
+}
+
+/* A habit's icon before its name: muted, in the habits' color once it is done */
+.hm-hb-ic {
+  display: grid;
+  flex: none;
+  place-items: center;
+  color: var(--text-3);
+  transition: color var(--dur-fast) var(--ease);
+}
+
+.hm-habit.is-done .hm-hb-ic,
+.hm-dv-habit.is-done .hm-hb-ic,
+.hm-dv-habit.is-bonus .hm-hb-ic {
+  color: var(--text);
+}
+
+.cc-on.cc-pages .hm-habit.is-done .hm-hb-ic,
+.cc-on.cc-pages .hm-dv-habit:is(.is-done, .is-bonus) .hm-hb-ic {
+  color: var(--mod-habits);
 }
 
 .hm-dv-rows {
@@ -1611,7 +1950,7 @@
 .hm-habit {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
+  gap: 10px;
   min-height: 34px;
   padding: 4px;
   border-radius: var(--radius-xs);
@@ -1708,9 +2047,34 @@
   text-decoration: line-through;
 }
 
-.hm-task-late,
-.hm-task .cal-pri {
+/* Late: the alert icon and how late, in the late color */
+.hm-task-late {
+  display: inline-flex;
   flex: none;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--hm-alert);
+  white-space: nowrap;
+}
+
+/* Priority: the Tasks page's flag, three weights and no color (red means late): High filled,
+   Medium an outline, Low the quiet one */
+.hm-pri {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 18px;
+  color: var(--text-3);
+}
+
+.hm-pri:is(.is-high, .is-med) {
+  color: var(--text);
+}
+
+.hm-pri.is-high .icon path {
+  fill: currentColor;
 }
 
 .hm-todo-foot:empty {
@@ -1883,6 +2247,19 @@
   opacity: 0.6;
 }
 
+/* A quarter-width card: the links in its header show their arrow only (the words stay their
+   name), so the title next to its badge isn't cut ("Habits · today 3/12 ›") */
+@container hm-widget (max-width: 320px) {
+  .hm-card-head .hm-more > span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
+
 /* ---- A small card (a half-width phone column, a narrow window's quarter) ----
    About 160px wide: the links show their arrow only (the words stay their name), buttons show
    their icon, digits shrink, rows tighten. The doubled class outranks the templates' own rules
@@ -1899,9 +2276,13 @@
     gap: var(--space-2);
   }
 
-  /* The title gets the icon's room */
-  .hm-card-title > svg {
-    display: none;
+  /* The badge stays (it says what the card is at a glance), a little smaller */
+  .hm-card-title {
+    gap: var(--space-2);
+  }
+
+  .hm-card-title > .hm-ib {
+    --ib-box: 22px;
   }
 
   .hm-more > span {
@@ -1999,7 +2380,7 @@
     display: inline;
   }
 
-  /* Agenda: a narrower time column */
+  /* Agenda: a narrower time column, without the clock (the day's icon is above it) */
   .hm-agenda-item {
     grid-template-columns: 40px minmax(0, 1fr);
     gap: var(--space-1);
@@ -2008,6 +2389,10 @@
 
   .hm-agenda-time {
     padding-top: 1px;
+  }
+
+  .hm-agenda-time > .icon {
+    display: none;
   }
 
   /* Payments: the name and amount, the date under them */
@@ -2072,6 +2457,35 @@
 
   .hm-kbd {
     display: none;
+  }
+
+  /* Today strip: the number and its words only. A late count ("⚠ 3") sits beside the badge,
+     like a notification, so every tile keeps its words in the same place ("6 to do") */
+  .hm-glance {
+    margin-bottom: var(--space-3);
+  }
+
+  .hm-gl-sub,
+  .hm-gl-alert-long {
+    display: none;
+  }
+
+  .hm-gl-alert-short {
+    display: inline;
+  }
+
+  .hm-gl-alert {
+    position: absolute;
+    top: 7px;
+    right: var(--space-2);
+    height: 24px;
+    font-size: var(--fs-sm);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .hm-gl-alert > .icon {
+    width: 13px;
+    height: 13px;
   }
 
   /* The header: the short date · what's next as plain text, on one line */

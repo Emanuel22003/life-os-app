@@ -22,7 +22,7 @@
 // is normalized, persisted and picked up by other tabs. Changes that touch more than one event
 // are written in a single store update, and every delete or series-wide edit offers Undo.
 
-import { h, icon, registerIcon, openModal, toast, todayKey, formatDay, plural, WEEKDAYS_SHORT } from '../ui.js';
+import { h, icon, openModal, toast, todayKey, formatDay, plural, WEEKDAYS_SHORT } from '../ui.js';
 import { colorPicker, colorKey, paintColor } from '../colors.js';
 import { isValidKey, weekdayOfKey } from './habits.logic.js';
 import {
@@ -65,8 +65,6 @@ import {
 import { getEvents, getEvent, saveEvent, replaceEvents, subscribeCalendar, isNewerFormat } from './calendar.store.js';
 import { undoToast, snapshot, revertEvents } from './calendar.undo.js';
 
-registerIcon('cal-repeat', '<path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/>');
-registerIcon('cal-location', '<path d="M12 21s-7-6.1-7-11.5a7 7 0 0 1 14 0C19 14.9 12 21 12 21Z"/><circle cx="12" cy="9.5" r="2.5"/>');
 
 const STEP = SNAP_MINUTES;
 const START_GRID = Array.from({ length: 1440 / STEP }, (_, i) => i * STEP);
@@ -96,6 +94,11 @@ const cleanText = (v) => String(v ?? '').replace(/\s+/g, ' ').trim();
 const shortTitle = (t, max = 48) => (t.length > max ? `${t.slice(0, max - 1).trimEnd()}…` : t);
 const quote = (t) => `“${shortTitle(cleanText(t) || 'Untitled event')}”`;
 const kbd = (text) => h('span', { class: 'kbd' }, text);
+/**
+ * A field's label with its icon in front (the app's shared icons: a date is a calendar, a time a
+ * clock, a place a pin), so the dialog scans by icons. A <label for> when `for` is given.
+ */
+const lab = (iconName, text, props = {}) => h(props.for ? 'label' : 'span', { ...props, class: ['label cal-ed-lab', props.class] }, icon(iconName, { size: 13 }), h('span', null, text));
 const isComposing = (e) => e.isComposing || e.keyCode === 229;
 
 /* ==========================================================================
@@ -529,11 +532,12 @@ export function openEventEditor({ event = null, occurrenceKey = null, defaults =
   fillStart(startSel, sMin);
   fillEnd(endSel, sMin, eMin);
 
-  const startDateLabel = h('label', { class: 'label', for: startDate.id }, 'Date');
+  // The date fields carry the calendar like the times carry the clock (and line up with them)
+  const startDateLabel = lab('calendar', 'Date', { for: startDate.id });
   const fStartDate = h('div', { class: 'field cal-ed-f-date' }, startDateLabel, startDate);
-  const fEndDate = h('div', { class: 'field cal-ed-f-end' }, h('label', { class: 'label', for: endDate.id }, 'End date'), endDate);
-  const fStartTime = h('div', { class: 'field cal-ed-f-time' }, h('label', { class: 'label', for: startSel.id }, 'Start'), startSel);
-  const fEndTime = h('div', { class: 'field cal-ed-f-time' }, h('label', { class: 'label', for: endSel.id }, 'End'), endSel);
+  const fEndDate = h('div', { class: 'field cal-ed-f-end' }, lab('calendar', 'End date', { for: endDate.id }), endDate);
+  const fStartTime = h('div', { class: 'field cal-ed-f-time' }, lab('clock', 'Start', { for: startSel.id }), startSel);
+  const fEndTime = h('div', { class: 'field cal-ed-f-time' }, lab('clock', 'End', { for: endSel.id }), endSel);
   const whenGrid = h('div', { class: 'cal-ed-when' }, fStartDate, fEndDate, fStartTime, fEndTime);
   const lengthOut = h('p', { class: 'cal-ed-hint', 'aria-live': 'polite' });
 
@@ -614,7 +618,7 @@ export function openEventEditor({ event = null, occurrenceKey = null, defaults =
     onInput: syncRepeat,
   });
   const summaryText = h('span');
-  const summary = h('p', { class: 'cal-ed-summary', 'aria-live': 'polite' }, icon('cal-repeat', { size: 12 }), summaryText);
+  const summary = h('p', { class: 'cal-ed-summary', 'aria-live': 'polite' }, icon('repeat', { size: 12 }), summaryText);
   const daysRow = h('div', { class: 'cal-ed-row' }, h('span', { class: 'label cal-ed-row-label', id: fid('on-label') }, 'On'), daysGroup);
   const repeatBox = h(
     'div',
@@ -671,7 +675,7 @@ export function openEventEditor({ event = null, occurrenceKey = null, defaults =
       ? h(
           'div',
           { class: 'cal-ed-banner' },
-          icon('cal-repeat', { size: 12 }),
+          icon('repeat', { size: 12 }),
           h(
             'span',
             null,
@@ -708,26 +712,28 @@ export function openEventEditor({ event = null, occurrenceKey = null, defaults =
     banner,
     notice,
     errLive,
-    h('div', { class: 'field' }, h('label', { class: 'label', for: titleIn.id }, 'Title'), titleIn, titleErr),
+    // Every part starts with its icon: title, when (date, then times), repeat, place, notes, look
+    h('div', { class: 'field' }, lab('pen', 'Title', { for: titleIn.id }), titleIn, titleErr),
     h(
       'div',
       { class: 'cal-ed-group', role: 'group', 'aria-labelledby': fid('when-label') },
-      h('div', { class: 'cal-ed-group-head' }, h('span', { class: 'label', id: fid('when-label') }, 'When'), allDaySw),
+      h('div', { class: 'cal-ed-group-head' }, lab('calendar', 'When', { id: fid('when-label') }), allDaySw),
       whenGrid,
       lengthOut,
       whenErr,
     ),
-    h('div', { class: 'cal-ed-group' }, h('span', { class: 'label', id: fid('repeat-label') }, 'Repeat'), freqSeg.el, repeatBox, repeatErr),
+    h('div', { class: 'cal-ed-group' }, lab('repeat', 'Repeat', { id: fid('repeat-label') }), freqSeg.el, repeatBox, repeatErr),
     h(
       'div',
       { class: 'cal-ed-details' },
-      h('div', { class: 'field' }, h('label', { class: 'label', for: locIn.id }, 'Location'), h('div', { class: 'input-group' }, icon('cal-location', { size: 14 }), locIn)),
-      h('div', { class: 'field' }, h('label', { class: 'label', for: notesIn.id }, 'Notes'), notesIn),
+      h('div', { class: 'field' }, lab('map-pin', 'Location', { for: locIn.id }), locIn),
+      h('div', { class: 'field' }, lab('note', 'Notes', { for: notesIn.id }), notesIn),
     ),
     h(
       'div',
       { class: 'cal-ed-group', role: 'group', 'aria-labelledby': fid('look-label') },
-      h('div', { class: 'cal-ed-group-head' }, h('span', { class: 'label', id: fid('look-label') }, 'Look'), h('span', { class: 'cal-ed-hint' }, 'Tell kinds of events apart')),
+      // The look tells kinds of events apart (said in its tooltip: one line less to read)
+      h('div', { class: 'cal-ed-group-head' }, lab('palette', 'Look', { id: fid('look-label'), title: 'Tell kinds of events apart' })),
       styleGroup,
       h('div', { class: 'cal-ed-color cc-field', dataset: { ccFor: 'events' } }, h('span', { class: 'label' }, 'Color'), colorIn.el),
       h('div', { class: 'cal-ed-preview-row', 'aria-hidden': 'true' }, h('span', { class: 'label' }, 'Preview'), preview),
@@ -833,7 +839,7 @@ export function openEventEditor({ event = null, occurrenceKey = null, defaults =
     fEndDate.hidden = !allDay;
     fStartTime.hidden = allDay;
     fEndTime.hidden = allDay;
-    startDateLabel.textContent = allDay ? 'Start date' : 'Date';
+    startDateLabel.lastChild.textContent = allDay ? 'Start date' : 'Date';
     syncLength();
     syncPreview();
   }

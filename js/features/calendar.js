@@ -10,7 +10,7 @@
 //   height that shows the whole day without scrolling).
 // - Which day-plan lists are open is a preference of this device ('calendar-prefs', not synced).
 
-import { h, icon, registerIcon, pageHeader, term, toast, openModal, isTyping, modalOpen, menuOpen, todayKey, onDayChange, debounce, weekday, uid, MONTHS_SHORT, reducedMotion, plainSkin, promptDialog, dropdown, tip, tipHidden } from '../ui.js';
+import { h, icon, pageHeader, term, toast, openModal, isTyping, modalOpen, menuOpen, todayKey, onDayChange, debounce, weekday, uid, MONTHS_SHORT, reducedMotion, plainSkin, promptDialog, dropdown, tip, tipHidden } from '../ui.js';
 import { createStore } from '../store.js';
 import { tasksApi } from './tasks.js';
 import { habitsApi } from './habits.js';
@@ -25,17 +25,13 @@ import { registerContextProvider } from '../contextmenu.js';
 import { clipText, slotMinute } from '../contextmenu.logic.js';
 
 const DEPTH = { month: 0, week: 1, day: 2 };
+// The Show menu: each layer with the app's own icon for it (L.LAYER_ICON), so it reads at a glance
 const LAYER_UI = [
-  { id: 'events', label: 'Events', glyph: 'ev' },
-  { id: 'tasks', label: 'Tasks', glyph: 'task' },
-  { id: 'habits', label: 'Habits', glyph: 'hb' },
-  { id: 'completed', label: 'Done', glyph: 'done' },
+  { id: 'events', label: 'Events' },
+  { id: 'tasks', label: 'Tasks' },
+  { id: 'habits', label: 'Habits' },
+  { id: 'completed', label: 'Done' },
 ];
-// The Show menu's marks repeat the views' own glyphs: bar = event, square = task, dot = habit
-registerIcon('cal-l-ev', '<rect x="4" y="9" width="16" height="6" rx="1" fill="currentColor" stroke="none"/>');
-registerIcon('cal-l-task', '<rect x="7" y="7" width="10" height="10" rx="1.5"/>');
-registerIcon('cal-l-hb', '<circle cx="12" cy="12" r="4.5" fill="currentColor" stroke="none"/>');
-registerIcon('cal-l-done', '<rect x="7" y="7" width="10" height="10" rx="1.5"/><path d="M7 12h10"/>');
 
 const PHONE_QUERY = '(max-width: 640px)';
 // The day view puts its Tasks / Habits lists under the timeline below this calendar width
@@ -253,6 +249,8 @@ function openTaskSheet(id, cursor, onClose) {
     cursor !== today && cursor !== tomorrow ? [shortDay(cursor), cursor] : null,
     ['Next Monday', nextMonday(today)],
   ].filter(Boolean);
+  /** A label with its icon in front (a date is a calendar, a time a clock). */
+  const lab = (iconName, text, id) => h('label', { class: 'label cal-lab', for: id }, icon(iconName, { size: 13 }), h('span', null, text));
   let m;
   const set = (key) => {
     m.close();
@@ -278,10 +276,18 @@ function openTaskSheet(id, cursor, onClose) {
   const quick = h(
     'div',
     { class: 'cal-sheet-quick', role: 'group', 'aria-label': 'Quick dates' },
+    // Each day with its icon (☀ today, sunrise tomorrow, a calendar for later; no date: ⊘)
+    // A day named by a word also shows its date ("Tomorrow 18 Oct"; phones leave it out)
     choices.map(([label, key]) =>
-      h('button', { type: 'button', class: ['btn btn--sm', task.due === key && 'is-current'], 'aria-pressed': String(task.due === key), onClick: () => set(key) }, label, h('span', { class: 'cal-sheet-date label tnum' }, `${Number(key.slice(8))} ${MONTHS_SHORT[Number(key.slice(5, 7)) - 1]}`)),
+      h(
+        'button',
+        { type: 'button', class: ['btn btn--sm', task.due === key && 'is-current'], 'aria-pressed': String(task.due === key), title: L.viewTitle('day', key), onClick: () => set(key) },
+        icon(L.dayIcon(key, today), { size: 14 }),
+        h('span', { class: 'cal-sheet-word' }, label),
+        label === shortDay(key) ? null : h('span', { class: 'cal-sheet-date label tnum' }, `${Number(key.slice(8))} ${MONTHS_SHORT[Number(key.slice(5, 7)) - 1]}`),
+      ),
     ),
-    task.due ? h('button', { type: 'button', class: 'btn btn--sm btn--ghost', onClick: () => set(null) }, 'No date') : null,
+    task.due ? h('button', { type: 'button', class: 'btn btn--sm btn--ghost', onClick: () => set(null) }, icon('circle-slash', { size: 14 }), h('span', null, 'No date')) : null,
   );
   const setBtn = h(
     'button',
@@ -295,13 +301,20 @@ function openTaskSheet(id, cursor, onClose) {
     },
     'Set',
   );
-  const pri = priorityBadge(task.priority, { hidden: false });
+  const pri = priorityBadge(task.priority, { hidden: false, flag: true });
+  const late = L.dueIcon(task, today) === 'alert';
   m = openModal({
     title: task.due ? 'Reschedule task' : 'Schedule task',
     className: 'cal-sheet',
     body: [
       h('div', { class: 'cal-sheet-task' }, h('span', { class: ['cal-sheet-box', task.done && 'is-done'], 'aria-hidden': 'true' }), h('span', { class: 'cal-sheet-title cal-wrap' }, task.title), pri),
-      h('p', { class: 'label' }, task.due ? `Due ${L.viewTitle('day', task.due)}${task.time ? `, ${task.time}` : ''}` : 'No due date yet'),
+      // Its due day with the day's icon; a late one says so, in the alert color (⚠ Overdue: …)
+      h(
+        'p',
+        { class: ['label cal-lab cal-sheet-due', late && 'is-alert'] },
+        icon(L.dueIcon(task, today), { size: 13 }),
+        h('span', null, task.due ? `${late ? 'Overdue: was due' : 'Due'} ${L.viewTitle('day', task.due)}${task.time ? `, ${task.time}` : ''}` : 'No due date yet'),
+      ),
       quick,
       h(
         'form',
@@ -312,9 +325,9 @@ function openTaskSheet(id, cursor, onClose) {
             setWhen();
           },
         },
-        h('label', { class: 'label', for: dateId }, 'Pick a date'),
+        lab('calendar', 'Pick a date', dateId),
         dateIn,
-        h('label', { class: 'label', for: timeId }, 'Time (optional)'),
+        lab('clock', 'Time (optional)', timeId),
         h('div', { class: 'cal-sheet-time' }, timeIn, lengthSel),
         h('button', { type: 'submit', hidden: true, tabindex: '-1' }),
       ),
@@ -404,9 +417,15 @@ function openAddTask(day, onClose) {
         submit();
       },
     },
-    h('label', { class: 'field' }, h('span', { class: 'label' }, 'Task'), input),
+    // Labels with the shared icons: a task, its due date, its priority flag
+    h('label', { class: 'field' }, h('span', { class: 'label cal-lab' }, icon(L.LAYER_ICON.tasks, { size: 13 }), 'Task'), input),
     error,
-    h('div', { class: 'cal-form-row' }, h('label', { class: 'field' }, h('span', { class: 'label' }, 'Due'), dateIn), h('div', { class: 'field' }, h('span', { class: 'label' }, 'Priority'), h('div', { class: 'seg', role: 'group', 'aria-label': 'Priority' }, priBtns))),
+    h(
+      'div',
+      { class: 'cal-form-row' },
+      h('label', { class: 'field' }, h('span', { class: 'label cal-lab' }, icon('calendar', { size: 13 }), 'Due'), dateIn),
+      h('div', { class: 'field' }, h('span', { class: 'label cal-lab' }, icon('flag', { size: 13 }), 'Priority'), h('div', { class: 'seg', role: 'group', 'aria-label': 'Priority' }, priBtns)),
+    ),
   );
   input.addEventListener('input', () => {
     error.textContent = '';
@@ -464,7 +483,8 @@ function mount(root) {
     h('span', null, 'New event'),
     h('span', { class: 'kbd cal-kbd lo-hint', 'aria-hidden': 'true' }, 'N'),
   );
-  const addTaskBtn = h('button', { type: 'button', class: 'btn cal-addtask-btn', onClick: () => openAddTask(state.cursor, returnFocusAfter()) }, icon('list'), h('span', null, 'Add task'));
+  // A task's icon (a checked square), the same as the Tasks layer and the day's Tasks row
+  const addTaskBtn = h('button', { type: 'button', class: 'btn cal-addtask-btn', onClick: () => openAddTask(state.cursor, returnFocusAfter()) }, icon('check-square'), h('span', null, 'Add task'));
   // The subtitle explains the page: a tip with its own ✓, gone for good once read
   const header = pageHeader({ index: '05', title: 'Calendar', subtitle: term('calendar.subtitle', 'Month, week and day: events, tasks and habits on one timeline.'), actions: [addTaskBtn, newBtn], tipId: 'calendar.intro' });
 
@@ -482,20 +502,24 @@ function mount(root) {
   );
   const prevBtn = h('button', { type: 'button', class: 'btn btn--icon btn--sm', onClick: () => step(-1) }, icon('chevron-left'));
   const nextBtn = h('button', { type: 'button', class: 'btn btn--icon btn--sm', onClick: () => step(1) }, icon('chevron-right'));
-  const todayBtn = h('button', { type: 'button', class: 'btn btn--sm cal-today-btn', 'aria-keyshortcuts': 'T', title: 'Today (T)', onClick: () => goToday() }, 'Today');
+  const todayBtn = h('button', { type: 'button', class: 'btn btn--sm cal-today-btn', 'aria-keyshortcuts': 'T', title: 'Today (T)', onClick: () => goToday() }, icon('sun', { size: 14 }), h('span', null, 'Today'));
+  // Each view with its icon: a month is a grid, a week columns, a day rows
   const zoomBtns = new Map(
     L.VIEWS.map((v) => [
       v,
       h(
         'button',
-        { type: 'button', class: 'seg-btn', 'aria-keyshortcuts': v[0].toUpperCase(), title: `${L.VIEW_LABEL[v]} view (${v[0].toUpperCase()})`, onClick: () => zoomTo(v) },
-        L.VIEW_LABEL[v],
+        { type: 'button', class: 'seg-btn cal-zoom-btn', 'aria-keyshortcuts': v[0].toUpperCase(), title: `${L.VIEW_LABEL[v]} view (${v[0].toUpperCase()})`, onClick: () => zoomTo(v) },
+        icon(L.VIEW_ICON[v], { size: 14 }),
+        h('span', null, L.VIEW_LABEL[v]),
       ),
     ]),
   );
-  // A narrow calendar (a phone) picks the view from a menu instead (CSS shows one or the other)
+  // A narrow calendar (a phone) picks the view from a menu instead (CSS shows one or the other);
+  // its button carries the current view's icon (setViewIcon)
   const viewDd = dropdown({
-    items: L.VIEWS.map((v) => ({ value: v, label: L.VIEW_LABEL[v] })),
+    icon: L.VIEW_ICON[state.view],
+    items: L.VIEWS.map((v) => ({ value: v, label: L.VIEW_LABEL[v], icon: L.VIEW_ICON[v] })),
     value: state.view,
     title: 'View: month, week or day',
     className: 'cal-view-btn',
@@ -507,6 +531,8 @@ function mount(root) {
   });
   viewDd.el.classList.add('cal-view-dd');
   let viewShown = state.view;
+  /** The view menu's button shows the icon of the view on screen. */
+  const setViewIcon = (v) => viewDd.button.querySelector('.icon:not(.dd-chev)')?.replaceWith(icon(L.VIEW_ICON[v], { size: 14 }));
   // Events · Tasks · Habits · Done: one menu (each with the period's count), so the toolbar stays one row
   const showDd = dropdown({
     label: 'Show',
@@ -927,6 +953,7 @@ function mount(root) {
     if (viewShown !== state.view) {
       viewShown = state.view;
       updateMenu(viewDd, { value: state.view });
+      setViewIcon(state.view);
     }
     // The button shows only the view's name; its accessible name says what it picks
     viewDd.button.setAttribute('aria-label', `View: ${L.VIEW_LABEL[state.view]}`);
@@ -945,7 +972,7 @@ function mount(root) {
   }
 
   /**
-   * The Show menu's items: each layer with its glyph, whether it's on, and the shown period's
+   * The Show menu's items: each layer with its icon, whether it's on, and the shown period's
    * count (events, open tasks, habits done so far, done tasks): the totals the old stats bar had.
    */
   function layerItems(ctx) {
@@ -970,7 +997,7 @@ function mount(root) {
       habits: ctx.habits && from <= ctx.today ? (planned ? `${Math.round((done / planned) * 100)}%` : '—') : '',
       completed: String(doneTasks),
     };
-    return LAYER_UI.map((l) => ({ value: l.id, label: l.label, icon: `cal-l-${l.glyph}`, hint: hints[l.id] || null, checked: !!ctx.layers[l.id] }));
+    return LAYER_UI.map((l) => ({ value: l.id, label: l.label, icon: L.LAYER_ICON[l.id], hint: hints[l.id] || null, checked: !!ctx.layers[l.id] }));
   }
 
   /** dropdown.update(), keeping keyboard focus on the same item when its menu is open. */

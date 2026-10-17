@@ -175,7 +175,7 @@
   color: var(--text);
 }
 
-.nt-pager-chip.is-inview svg {
+.nt-pager-chip.is-inview svg:not(.nt-sec-icon) {
   color: var(--text-2);
 }
 
@@ -225,7 +225,8 @@
 }
 
 .nt-pager-chip.is-drop svg,
-.nt-pager-chip.is-drop .nt-chip-count {
+.nt-pager-chip.is-drop .nt-chip-count,
+.cc-on .nt-pager-chip.is-drop .nt-sec-icon.icon {
   color: inherit;
 }
 
@@ -378,11 +379,10 @@
   background: var(--text-3);
 }
 
-.nt-col-icon {
-  flex: none;
-  display: grid;
-  place-items: center;
-  color: var(--text-2);
+/* The column's icon in a tinted square (sectionBadge): the Notes tone or the section's own
+   color, gray for Unsorted. Bigger than the other icons: it names the column at a glance */
+.nt-col-ib {
+  --ib-box: 26px;
 }
 
 .nt-col-title {
@@ -773,9 +773,14 @@
   color: var(--accent-ink);
 }
 
-.nt-col.is-drop > .nt-col-head :is(.nt-col-name, .nt-col-icon, .btn),
-.nt-col.is-drop > .nt-col-strip :is(.nt-col-stripname, .nt-col-icon) {
+.nt-col.is-drop > .nt-col-head :is(.nt-col-name, .btn),
+.nt-col.is-drop > .nt-col-strip .nt-col-stripname {
   color: inherit;
+}
+
+/* On the lit header the square takes the header's ink (beats the tone and section colors) */
+.nt-col.is-drop > :is(.nt-col-head, .nt-col-strip) .ib.nt-sec-ib.nt-col-ib {
+  --ib-c: currentColor;
 }
 
 .nt-col.is-drop .nt-col-count {
@@ -1063,15 +1068,38 @@
     margin: 6px 6px 0;
   }
 
-  /* Column heads: name, count and + (the fold control steps aside; a folded column still
-     unfolds with a tap on its strip) */
+  /* Column heads: icon, name, count and + (the fold control steps aside; a folded column
+     still unfolds with a tap on its strip). The icon tells the columns apart when a long
+     name is cut short. One height for every head, one or two lines of name, so the cards
+     start level. */
   .nt-col-head {
-    min-height: 38px;
+    height: 38px;
+    min-height: 0;
     gap: 4px;
-    padding: 2px 2px 2px var(--space-2);
+    padding: 2px 2px 2px 5px;
   }
 
-  .nt-col-head .nt-col-icon,
+  .nt-col-head .nt-col-ib {
+    --ib-box: 22px;
+    margin-right: 2px;
+  }
+
+  /* A long name takes a second line instead of being cut to a few letters (the head is tall
+     enough for two) */
+  .nt-col-name {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    white-space: normal;
+    line-height: 1.1;
+    overflow-wrap: break-word;
+    /* Room below the last line for descenders (the p of "scripts"), which the tight line
+       height would clip; the negative margin keeps the name centred as before */
+    padding-bottom: 2px;
+    margin-bottom: -2px;
+  }
+
   .nt-col-head .nt-col-fold {
     display: none;
   }

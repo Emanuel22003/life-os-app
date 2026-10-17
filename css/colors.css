@@ -90,7 +90,7 @@
 .cc-sections [data-cc-kind="sections"][data-cc] .cc-dot {
   display: inline-block;
 }
-.cc-sections [data-cc-kind="sections"][data-cc] :is(.nt-rail-icon, .nt-chip > .icon:first-child, .nt-col-icon) {
+.cc-sections [data-cc-kind="sections"][data-cc] .nt-chip > .icon:first-child {
   color: var(--cc);
 }
 .cc-sections .nt-col[data-cc] {

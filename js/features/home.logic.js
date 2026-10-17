@@ -1,5 +1,6 @@
-// LIFE/OS — 01 // Home: pure helpers for the overview page (greeting, what's next, the week,
-// the to-do list, the habit graph). DOM-free, so tools/tests/home.test.js runs them in JavaScriptCore.
+// LIFE/OS — 01 // Home: pure helpers for the overview page (greeting, what's next, the Today
+// strip, the week, the to-do list, the habit graph, the board). DOM-free, so
+// tools/tests/home.test.js runs them in JavaScriptCore.
 // Home stores nothing of its own except per-device preferences (store 'home': { quickNoteSection,
 // layout, calendar }).
 
@@ -9,6 +10,139 @@ export function greeting(hour) {
   if (h >= 5 && h < 12) return 'Good morning';
   if (h >= 12 && h < 17) return 'Good afternoon';
   return 'Good evening';
+}
+
+/** The greeting's icon: the sun for morning and afternoon (5–16), the moon for the evening. */
+export function greetingIcon(hour) {
+  const h = Number(hour);
+  return h >= 5 && h < 17 ? 'sun' : 'moon';
+}
+
+/* ==========================================================================
+   Today: the strip under the greeting, the first place to look. One tile per page that has
+   something for today (events, tasks, habits, the timer): its icon in the page's color, one
+   big number and a few words. A tap opens that page.
+   ========================================================================== */
+
+export const GLANCE = Object.freeze(
+  [
+    { id: 'calendar', name: 'Calendar', icon: 'calendar', tone: 'calendar', href: '#/calendar' },
+    { id: 'tasks', name: 'Tasks', icon: 'list', tone: 'tasks', href: '#/tasks' },
+    { id: 'habits', name: 'Habits', icon: 'target', tone: 'habits', href: '#/habits' },
+    { id: 'focus', name: 'Focus timer', icon: 'timer', tone: 'pomodoro', href: '#/pomodoro' },
+  ].map((t) => Object.freeze(t)),
+);
+
+/** How many occurrences (calendar.logic occurrencesInRange) touch day `key`. */
+export function countOn(occs, key) {
+  return (Array.isArray(occs) ? occs : []).filter((o) => o.start <= key && o.end >= key).length;
+}
+
+/** Focus minutes in words: '25 min', '1 h', '1 h 10 min'. */
+export function minutesText(min) {
+  const m = Math.max(0, Math.round(Number(min) || 0));
+  if (m < 60) return `${m} min`;
+  return `${Math.floor(m / 60)} h${m % 60 ? ` ${m % 60} min` : ''}`;
+}
+
+const PHASE_WORD = { focus: 'focus', short: 'break', long: 'break' };
+
+/**
+ * The four tiles of the Today strip, from what the pages hold today:
+ *   events, next ("Next: 19:00 Dinner", the header's words), nextKind (nextUp's kind: 'now'
+ *   while an event is under way), todo (open tasks due today or overdue), overdue, doneToday,
+ *   habits: { any, planned, done }, timer: { clock, status, phase } (Pomodoro), focusMin (focus
+ *   minutes today), round ("Round 2 of 4").
+ * -> [{ ...GLANCE entry, value, label, alert, alertShort, sub, subIcon, state, aria }]
+ *   value: the big number; label: what it counts (a few words, all a phone shows under it);
+ *   alert: something late ('2 overdue', with the alert icon, in place of `sub` where there is
+ *   room; a phone shows alertShort, the bare count, beside the badge); sub: one more line where
+ *   there is room;
+ *   state: 'live' (going on now), 'paused', 'done', 'clear' (nothing today: a quiet zero),
+ *   'alert' or null.
+ * `num` formats a number the template's way (ui.num).
+ */
+export function glanceTiles(data = {}, { num = String } = {}) {
+  const d = data ?? {};
+  const n = (x) => Math.max(0, Math.round(Number(x) || 0));
+  const words = (count, one, many) => (count === 1 ? one : many);
+  const tiles = [];
+  for (const t of GLANCE) {
+    if (t.id === 'calendar') {
+      const events = n(d.events);
+      const next = d.next || 'Nothing scheduled';
+      tiles.push({
+        ...t,
+        value: num(events),
+        label: words(events, 'event', 'events'),
+        alert: null,
+        sub: next,
+        subIcon: d.nextKind === 'now' ? 'activity' : 'clock',
+        state: d.nextKind === 'now' ? 'live' : events ? null : 'clear',
+        aria: `Calendar: ${events} ${words(events, 'event', 'events')} today. ${next}.`,
+      });
+    } else if (t.id === 'tasks') {
+      const todo = n(d.todo);
+      const overdue = Math.min(n(d.overdue), todo);
+      const done = n(d.doneToday);
+      const sub = done ? `${done} done today` : todo ? 'Due today' : 'Nothing due today';
+      tiles.push({
+        ...t,
+        value: num(todo),
+        label: 'to do',
+        alert: overdue ? `${overdue} overdue` : null,
+        alertShort: overdue ? num(overdue) : null,
+        sub,
+        subIcon: done || !todo ? 'check-circle' : 'sun',
+        state: overdue ? 'alert' : todo ? null : 'clear',
+        aria: `Tasks: ${todo} to do today${overdue ? `, ${overdue} overdue` : ''}${done ? `, ${done} done` : ''}.`,
+      });
+    } else if (t.id === 'habits') {
+      const h = d.habits ?? {};
+      const planned = n(h.planned);
+      const done = Math.min(n(h.done), planned);
+      if (!h.any) {
+        tiles.push({ ...t, value: num(0), label: 'habits', alert: null, sub: 'None yet', subIcon: 'plus', state: 'clear', aria: 'Habits: none yet. Add one.' });
+      } else if (!planned) {
+        tiles.push({ ...t, value: '—', label: 'rest day', alert: null, sub: 'Nothing planned today', subIcon: 'moon', state: 'clear', aria: 'Habits: a rest day, nothing planned today.' });
+      } else {
+        const all = done === planned;
+        tiles.push({
+          ...t,
+          value: `${num(done)}/${num(planned)}`,
+          label: 'habits',
+          alert: null,
+          sub: all ? 'All done' : `${planned - done} to go`,
+          subIcon: all ? 'check-circle' : 'circle',
+          state: all ? 'done' : null,
+          aria: `Habits: ${done} of ${planned} done today${all ? ', all done' : ''}.`,
+        });
+      }
+    } else if (t.id === 'focus') {
+      const timer = d.timer ?? {};
+      const status = timer.status === 'running' || timer.status === 'paused' ? timer.status : 'idle';
+      const phase = PHASE_WORD[timer.phase] ?? 'focus';
+      const clock = timer.clock || '25:00';
+      const min = n(d.focusMin);
+      const label = status === 'paused' ? 'paused' : phase;
+      const sub = status !== 'idle' && d.round ? d.round : min ? `${minutesText(min)} today` : 'Ready to start';
+      // What a screen reader hears: the clock, what it is doing, then the line under it (idle:
+      // "Ready to start" says it already)
+      const going = status === 'running' ? `${phase === 'focus' ? 'Focus' : 'Break'} running` : status === 'paused' ? 'Paused' : null;
+      const said = status === 'idle' && min ? `${minutesText(min)} of focus today` : sub;
+      tiles.push({
+        ...t,
+        value: clock,
+        label,
+        alert: null,
+        sub,
+        subIcon: status === 'idle' && min ? 'check-circle' : 'clock',
+        state: status === 'running' ? 'live' : status === 'paused' ? 'paused' : null,
+        aria: `Focus timer: ${clock}. ${going ? `${going}. ` : ''}${said}.`,
+      });
+    }
+  }
+  return tiles;
 }
 
 const startsBefore = (a, b) => (a.start !== b.start ? (a.start < b.start ? -1 : 1) : Number(!a.allDay) - Number(!b.allDay) || (a.startMin ?? 0) - (b.startMin ?? 0) || String(a.title).localeCompare(String(b.title)));
@@ -115,19 +249,23 @@ export function graphBars(series) {
    very narrow one has one.
    ========================================================================== */
 
-/** Every widget Home can show, in the order the Add shelf lists them. */
+/**
+ * Every widget Home can show, in the order the Add shelf lists them. `icon` and `tone` are its
+ * badge in its header, its Customize bar and the shelf: the icon of what it shows, in the color
+ * of the page it belongs to (css/icons.css --mod-<tone>).
+ */
 export const WIDGETS = Object.freeze(
   [
-    { id: 'week', name: 'Calendar', text: 'Your day, week or month, with the events, tasks and habits you pick.', size: 'l' },
-    { id: 'pomodoro', name: 'Focus timer', text: 'Start, pause and skip Pomodoro rounds.', size: 's' },
-    { id: 'todo', name: 'To do', text: 'Today’s and overdue tasks, with a quick add.', size: 'm' },
-    { id: 'habits', name: 'Habits today', text: 'Tick off the habits planned for today.', size: 's' },
-    { id: 'graph', name: 'Habit graph', text: 'How the last two weeks of habits went.', size: 'm' },
-    { id: 'note', name: 'Quick note', text: 'Write a note fast; your latest notes.', size: 's' },
-    { id: 'clock', name: 'Clock', text: 'The time and date, large.', size: 's' },
-    { id: 'agenda', name: 'Agenda', text: 'Your next events, day by day.', size: 's' },
-    { id: 'payments', name: 'Payments', text: 'Subscriptions due soon and what they cost a month.', size: 's' },
-    { id: 'training', name: 'Training', text: 'Start a routine, or get back to the workout in progress.', size: 's' },
+    { id: 'week', name: 'Calendar', text: 'Your day, week or month, with the events, tasks and habits you pick.', size: 'l', icon: 'calendar', tone: 'calendar' },
+    { id: 'pomodoro', name: 'Focus timer', text: 'Start, pause and skip Pomodoro rounds.', size: 's', icon: 'timer', tone: 'pomodoro' },
+    { id: 'todo', name: 'To do', text: 'Today’s and overdue tasks, with a quick add.', size: 'm', icon: 'list', tone: 'tasks' },
+    { id: 'habits', name: 'Habits today', text: 'Tick off the habits planned for today.', size: 's', icon: 'target', tone: 'habits' },
+    { id: 'graph', name: 'Habit graph', text: 'How the last two weeks of habits went.', size: 'm', icon: 'activity', tone: 'habits' },
+    { id: 'note', name: 'Quick note', text: 'Write a note fast; your latest notes.', size: 's', icon: 'note', tone: 'notes' },
+    { id: 'clock', name: 'Clock', text: 'The time and date, large.', size: 's', icon: 'clock', tone: 'home' },
+    { id: 'agenda', name: 'Agenda', text: 'Your next events, day by day.', size: 's', icon: 'calendar', tone: 'calendar' },
+    { id: 'payments', name: 'Payments', text: 'Subscriptions due soon and what they cost a month.', size: 's', icon: 'coins', tone: 'finance' },
+    { id: 'training', name: 'Training', text: 'Start a routine, or get back to the workout in progress.', size: 's', icon: 'dumbbell', tone: 'training' },
   ].map((w) => Object.freeze(w)),
 );
 
@@ -429,9 +567,12 @@ export function placeOf(placed, id, cols = COLUMNS) {
 
 export const CAL_VIEWS = Object.freeze(['day', 'week', 'month']);
 export const CAL_VIEW_LABEL = Object.freeze({ day: 'Day', week: 'Week', month: 'Month' });
+// The same icons as the Calendar page's views: a day's rows, a week's columns, a month's grid
+export const CAL_VIEW_ICON = Object.freeze({ day: 'rows', week: 'columns', month: 'grid' });
 export const CAL_NOW_LABEL = Object.freeze({ day: 'Today', week: 'This week', month: 'This month' });
 export const CAL_LAYERS = Object.freeze(['events', 'tasks', 'habits', 'completed']);
 export const CAL_LAYER_LABEL = Object.freeze({ events: 'Events', tasks: 'Tasks', habits: 'Habits', completed: 'Done tasks' });
+export const CAL_LAYER_ICON = Object.freeze({ events: 'calendar', tasks: 'check-square', habits: 'target', completed: 'check-circle' });
 export const DEFAULT_CAL = Object.freeze({ view: 'week', layers: Object.freeze({ events: true, tasks: true, habits: true, completed: false }) });
 
 /** The widget's settings, repaired: a known view, every layer on or off (the default where unset). */
@@ -456,7 +597,7 @@ export function calLayerItems(layers) {
   const on = normalizeCalView({ layers }).layers;
   return CAL_LAYERS.map((k) => {
     const off = k === 'completed' && !on.tasks;
-    return { value: k, label: CAL_LAYER_LABEL[k], checked: on[k], disabled: off, hint: off ? 'needs Tasks' : null };
+    return { value: k, label: CAL_LAYER_LABEL[k], icon: CAL_LAYER_ICON[k], checked: on[k], disabled: off, hint: off ? 'needs Tasks' : null };
   });
 }
 

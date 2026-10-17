@@ -40,11 +40,12 @@ export const COLOR_KINDS = Object.freeze([
   Object.freeze({ id: 'notes', name: 'Notes', hint: 'One note, in the list and on the board' }),
   Object.freeze({ id: 'events', name: 'Events', hint: 'Calendar events' }),
   Object.freeze({ id: 'days', name: 'Days', hint: 'Whole days in the month view' }),
+  Object.freeze({ id: 'pages', name: 'Pages', hint: 'Each page’s icon in its own color: in the menu, at the top of the page and on Home (the grayscale templates keep it gray)' }),
 ]);
 
-export const DEFAULT_COLOR_PREFS = Object.freeze({ on: true, sections: true, tasks: true, notes: true, events: true, days: true });
+export const DEFAULT_COLOR_PREFS = Object.freeze({ on: true, sections: true, tasks: true, notes: true, events: true, days: true, pages: true });
 
-/** settings.colors -> { on, sections, tasks, notes, events, days } (missing switches are on). */
+/** settings.colors -> { on, sections, tasks, notes, events, days, pages } (missing switches are on). */
 export function normalizeColorPrefs(raw) {
   const src = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {};
   const out = { on: typeof src.on === 'boolean' ? src.on : DEFAULT_COLOR_PREFS.on };

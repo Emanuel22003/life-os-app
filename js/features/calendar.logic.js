@@ -42,6 +42,7 @@
 
 import { uid, MONTHS_SHORT, WEEKDAYS_SHORT } from '../ui.js';
 import { isValidKey, toDayNum, fromDayNum, weekdayOf, normalizeDays, compileHabit, scheduledAt, activeAt } from './habits.logic.js';
+import { iconOf } from '../icons.logic.js';
 
 /* ==========================================================================
    Vocabulary
@@ -49,6 +50,10 @@ import { isValidKey, toDayNum, fromDayNum, weekdayOf, normalizeDays, compileHabi
 
 export const VIEWS = Object.freeze(['month', 'week', 'day']);
 export const VIEW_LABEL = Object.freeze({ month: 'Month', week: 'Week', day: 'Day' });
+// The app's shared icon words (every page uses the same ones): a month is a grid, a week its
+// columns, a day its rows; the Show menu's layers: events, a task, a habit, done
+export const VIEW_ICON = Object.freeze({ month: 'grid', week: 'columns', day: 'rows' });
+export const LAYER_ICON = Object.freeze({ events: 'calendar', tasks: 'check-square', habits: 'target', completed: 'check-circle' });
 export const STYLES = Object.freeze(['solid', 'outline', 'hatched', 'ink']);
 export const STYLE_LABEL = Object.freeze({ solid: 'Solid', outline: 'Outline', hatched: 'Hatched', ink: 'Ink' });
 export const FREQS = Object.freeze(['daily', 'weekly', 'monthly', 'yearly']);
@@ -1350,6 +1355,24 @@ export function setDayPanel(raw, layout, panel, open) {
    Planning: tasks and habits per day
    ========================================================================== */
 
+/**
+ * The icon for a day as seen from today (the app's shared words): today 'sun', tomorrow
+ * 'sunrise', any other day 'calendar' ('circle-slash' for no day at all).
+ */
+export function dayIcon(key, today) {
+  if (!isValidKey(key)) return 'circle-slash';
+  if (!isValidKey(today)) return 'calendar';
+  const d = daysBetween(today, key);
+  return d === 0 ? 'sun' : d === 1 ? 'sunrise' : 'calendar';
+}
+
+/** A task's due icon: overdue (open, due before today) 'alert', else its day's (dayIcon). */
+export function dueIcon(task, today) {
+  const due = isObject(task) ? task.due : null;
+  if (isValidKey(due) && isValidKey(today) && !task.done && due < today) return 'alert';
+  return dayIcon(due, today);
+}
+
 const rankOf = (t) => PRIORITY_RANK.get(t.priority) ?? 0;
 const isTask = (t) => isObject(t) && typeof t.title === 'string';
 
@@ -1403,10 +1426,11 @@ export function unscheduledTasks(tasks) {
 /**
  * Habits per day for [from, to] -> Map(key -> { scheduled, bonus, done, planned, rate }) with
  * an entry for EVERY day in the range:
- * - scheduled: [{ id, name, done, status }] habits planned that day by the plan in effect
+ * - scheduled: [{ id, name, icon, done, status }] habits planned that day by the plan in effect
  *   THAT day (history-safe; archived habits stop on their archive date), in habit order.
  *   status: 'done' | 'pending' (today, not done) | 'miss' (past, not done) | 'future'.
- * - bonus: [{ id, name, done: true, status: 'bonus' }] check-ins on unplanned days.
+ *   icon: the habit's picked icon, else the one its name suggests ('target' when none).
+ * - bonus: [{ id, name, icon, done: true, status: 'bonus' }] check-ins on unplanned days.
  * - done / planned: scheduled habits done / planned; rate = done / planned or null.
  * Matches habits.logic dayStatus. Meant for view ranges (a few weeks).
  * Invalid keys -> empty Map.
@@ -1422,7 +1446,8 @@ export function habitsByDay(habits, from, to, today) {
     .map(([h]) => h);
   for (const h of list) {
     try {
-      compiled.push({ h, c: compileHabit(h) });
+      // Its picked icon, else the one its name suggests (the same as on the Habits page)
+      compiled.push({ h, c: compileHabit(h), icon: iconOf(h, 'target') });
     } catch {
       // A habit with a broken plan is skipped here; the Habits module repairs it on load.
     }
@@ -1433,13 +1458,13 @@ export function habitsByDay(habits, from, to, today) {
     const scheduled = [];
     const bonus = [];
     let done = 0;
-    for (const { h, c } of compiled) {
+    for (const { h, c, icon } of compiled) {
       const logged = n <= t && !!c.log[key];
       if (scheduledAt(c, n)) {
         if (logged) done++;
-        scheduled.push({ id: h.id, name: h.name, done: logged, status: n > t ? 'future' : logged ? 'done' : n === t ? 'pending' : 'miss' });
+        scheduled.push({ id: h.id, name: h.name, icon, done: logged, status: n > t ? 'future' : logged ? 'done' : n === t ? 'pending' : 'miss' });
       } else if (logged && activeAt(c, n)) {
-        bonus.push({ id: h.id, name: h.name, done: true, status: 'bonus' });
+        bonus.push({ id: h.id, name: h.name, icon, done: true, status: 'bonus' });
       }
     }
     out.set(key, { scheduled, bonus, done, planned: scheduled.length, rate: scheduled.length ? done / scheduled.length : null });

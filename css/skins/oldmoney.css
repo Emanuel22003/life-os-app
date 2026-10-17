@@ -802,6 +802,15 @@
   font-size: 17px;
 }
 
+/* A task's small capitals each lead with their icon, which parts them instead of the middle dot */
+[data-skin="oldmoney"] .tk-meta .tag + .tag::before {
+  content: none;
+}
+
+[data-skin="oldmoney"] .tk-root .tk-row .tk-meta {
+  column-gap: 9px;
+}
+
 [data-skin="oldmoney"] .nt-title {
   font-family: var(--font-display);
   font-weight: 400;
@@ -832,6 +841,18 @@
 /* Events and task chips: square cut, like cards */
 [data-skin="oldmoney"] :is(.cal-ev, .cal-tlev, .cal-task, .cal-tltask, .cal-mark-ev) {
   border-radius: 1px;
+}
+
+/* The event editor's Repeat words on a phone: closer together and less tracked, so Weekly,
+   Monthly and Yearly fit whole on one line */
+@media (max-width: 640px) {
+  [data-skin="oldmoney"] .cal-ed-seg {
+    column-gap: 12px;
+  }
+
+  [data-skin="oldmoney"] .cal-ed-seg .cal-ed-seg-opt {
+    letter-spacing: 0.1em;
+  }
 }
 
 /* Hints under fields read as an italic sentence, not as capitals */

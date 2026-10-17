@@ -6,7 +6,8 @@
 // touches the store: it reads through `source` and writes through `actions`
 // (both supplied by habits.js).
 
-import { h, icon, openModal, confirmDialog, toast, onDayChange, formatDay, clamp, idx, term, plural, WEEKDAYS_SHORT } from '../ui.js';
+import { h, icon, iconBadge, iconPicker, openModal, confirmDialog, toast, onDayChange, formatDay, clamp, idx, term, plural, WEEKDAYS_SHORT } from '../ui.js';
+import { ICON_CHOICES, cleanIcon, suggestIcon } from '../icons.logic.js';
 import * as L from './habits.logic.js';
 
 export const WEEKDAYS_LONG = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -37,6 +38,35 @@ export function dayNames(days) {
 }
 
 export const perWeek = (days) => `${days.length}× / week`;
+
+/**
+ * A habit's icon in a small tinted square (the Habits color), shown before its name wherever
+ * habits are listed. Decoration: the name beside it says what it is, so screen readers skip it.
+ * -> { el, update(habit) }: update redraws only when the icon changes (rows are patched in place).
+ */
+export function habitBadge(className = '') {
+  let shown = L.HABIT_ICON;
+  const el = iconBadge(shown, { tone: 'habits', size: 14, className: ['hb-ib', className].filter(Boolean).join(' ') });
+  return {
+    el,
+    update(habit) {
+      const name = L.habitIcon(habit);
+      if (name === shown) return;
+      shown = name;
+      el.replaceChildren(icon(name, { size: 14 }));
+    },
+  };
+}
+
+/** habitBadge for a list that is rebuilt each time (dialogs, the Insights ranking). */
+export function habitIb(habit, className = '') {
+  const b = habitBadge(className);
+  b.update(habit);
+  return b.el;
+}
+
+/** The picker's name for an icon ('Water'), for labels. */
+const iconLabel = (name) => ICON_CHOICES.find((c) => c.name === name)?.label ?? name;
 
 const sameIds = (a, b) => a.length === b.length && a.every((hb, i) => hb.id === b[i].id);
 
@@ -100,7 +130,7 @@ export function openHabitModal({ habit = null, weekday = null, draft = null, act
   const isEdit = !!habit;
   const archived = isEdit && L.isArchived(habit, today);
   const n = nextId('hb-f');
-  const ids = { name: `${n}-name`, err: `${n}-err`, days: `${n}-days`, start: `${n}-start` };
+  const ids = { name: `${n}-name`, err: `${n}-err`, days: `${n}-days`, start: `${n}-start`, icons: `${n}-icons`, iconsLabel: `${n}-icons-l` };
   const initialDays = draft?.days ?? (isEdit ? L.planOn(habit, today) : Number.isInteger(weekday) ? [weekday] : L.ALL_DAYS);
   // The dialog stays clickable while it fades out (~140ms): without this a
   // double-click on Create would add the habit twice, or stack two prompts.
@@ -120,8 +150,62 @@ export function openHabitModal({ habit = null, weekday = null, draft = null, act
     'aria-describedby': ids.err,
     onInput: () => {
       if (!errEl.hidden && L.cleanName(nameInput.value)) clearError();
+      // "Auto" follows the name as it is typed ('Drink water' -> a drop)
+      iconGrid.setAuto(autoIcon());
+      paintIcon();
     },
   });
+
+  /* ---- Icon: a button beside the name shows it; it opens the grid of icons to pick from ---- */
+
+  // null = Auto: the icon follows the name. Sent on save only once the user picks one, so an icon
+  // this copy doesn't know (synced from a newer one) stays stored until something else is picked.
+  let pickedIcon = draft && 'icon' in draft ? draft.icon : cleanIcon(habit?.icon);
+  let iconTouched = !!draft?.iconTouched;
+  const autoIcon = () => suggestIcon(nameInput.value, L.HABIT_ICON);
+  const iconPreview = iconBadge(pickedIcon ?? autoIcon(), { tone: 'habits', size: 20, className: 'hb-f-ib' });
+  const iconBtn = h(
+    'button',
+    { type: 'button', class: 'hb-f-iconbtn', 'aria-expanded': 'false', 'aria-controls': ids.icons, onClick: () => showIcons(iconWrap.hidden) },
+    iconPreview,
+    h('span', { class: 'hb-f-iconbtn-chev', 'aria-hidden': 'true' }, icon('chevron-down', { size: 12, stroke: 2 })),
+  );
+  const iconGrid = iconPicker({
+    choices: ICON_CHOICES,
+    value: pickedIcon,
+    auto: autoIcon(),
+    labelledBy: ids.iconsLabel,
+    onChange: (name) => {
+      pickedIcon = name;
+      iconTouched = true;
+      paintIcon();
+    },
+  });
+  const iconWrap = h('div', { class: 'hb-f-icons', id: ids.icons, hidden: true }, h('span', { class: 'label', id: ids.iconsLabel }, 'Icon'), iconGrid.el);
+  // A tap (or Enter / Space) on an icon picks it and folds the grid away, so the rest of the form
+  // comes back into view on a phone; the arrow keys only move the pick and leave it open.
+  iconGrid.el.addEventListener('click', (e) => {
+    if (!(e.target instanceof Element) || !e.target.closest('.ip-btn')) return;
+    showIcons(false);
+    iconBtn.focus({ preventScroll: true });
+  });
+
+  function paintIcon() {
+    const name = pickedIcon ?? autoIcon();
+    if (iconPreview.dataset.icon !== name) {
+      iconPreview.dataset.icon = name;
+      iconPreview.replaceChildren(icon(name, { size: 20 }));
+    }
+    const words = `Icon: ${iconLabel(name)}${pickedIcon ? '' : ' (follows the name)'}`;
+    iconBtn.setAttribute('aria-label', `${words}. Change icon`);
+    iconBtn.title = `${words} — change`;
+  }
+
+  function showIcons(open) {
+    iconWrap.hidden = !open;
+    iconBtn.setAttribute('aria-expanded', String(open));
+    if (open) iconWrap.scrollIntoView?.({ block: 'nearest' });
+  }
 
   const picker = weekdayPicker({ days: initialDays, labelledBy: ids.days, onChange: syncDays });
   const presetBtns = L.PRESETS.map((p) =>
@@ -191,11 +275,11 @@ export function openHabitModal({ habit = null, weekday = null, draft = null, act
     const createdAt = L.isValidKey(raw) && (maxStart === null || raw <= now) ? raw : fallback;
     m.close();
     if (!isEdit) {
-      actions.create({ name, days, createdAt });
+      actions.create({ name, days, createdAt, icon: pickedIcon });
     } else if (!actions.find(habit.id)) {
       toast('That habit no longer exists.');
     } else {
-      actions.edit(habit.id, { name, days, createdAt });
+      actions.edit(habit.id, { name, days, createdAt, ...(iconTouched ? { icon: pickedIcon } : {}) });
     }
   }
 
@@ -208,7 +292,7 @@ export function openHabitModal({ habit = null, weekday = null, draft = null, act
 
   async function remove() {
     if (closed) return;
-    const keep = { name: nameInput.value, days: picker.get(), createdAt: startInput.value };
+    const keep = { name: nameInput.value, days: picker.get(), createdAt: startInput.value, icon: pickedIcon, iconTouched };
     m.close();
     const removed = await actions.remove(habit.id);
     // Cancelled: bring the dialog back with whatever the user had typed.
@@ -231,7 +315,7 @@ export function openHabitModal({ habit = null, weekday = null, draft = null, act
         }
       },
     },
-    h('div', { class: 'field' }, h('label', { class: 'label', for: ids.name }, 'Designation'), nameInput, errEl),
+    h('div', { class: 'field' }, h('label', { class: 'label', for: ids.name }, 'Designation'), h('div', { class: 'hb-f-namerow' }, iconBtn, nameInput), errEl, iconWrap),
     h(
       'div',
       { class: 'field' },
@@ -258,6 +342,7 @@ export function openHabitModal({ habit = null, weekday = null, draft = null, act
   );
 
   syncDays();
+  paintIcon();
 
   const title = isEdit ? 'Edit habit' : Number.isInteger(weekday) ? `New habit · ${WEEKDAYS_LONG[weekday]}` : 'New habit';
   const m = openModal({
@@ -311,7 +396,7 @@ export function mountPlan(container, source, actions) {
   const head = h(
     'div',
     { class: 'hb-plan-head' },
-    h('h2', { class: 'label hb-plan-title' }, 'Week plan'),
+    h('h2', { class: 'label hb-plan-title' }, icon('columns', { size: 14 }), h('span', null, 'Week plan')),
     summaryEl,
     h('span', { class: 'hb-rule', 'aria-hidden': 'true' }),
     h(
@@ -437,6 +522,7 @@ export function mountPlan(container, source, actions) {
       },
     },
     h('span', { class: 'hb-fold-icon', 'aria-hidden': 'true' }, icon('chevron-right', { size: 14 })),
+    icon('archive', { size: 14, className: 'hb-fold-kind' }),
     h('span', { class: 'label hb-fold-title' }, 'Archived'),
     archCount,
   );
@@ -447,6 +533,7 @@ export function mountPlan(container, source, actions) {
   /* ---- Rows ---- */
 
   function createRow(id) {
+    const badge = habitBadge();
     const nameText = h('span', { class: 'hb-plan-name-text' });
     const nameBtn = h('button', { type: 'button', class: 'hb-plan-name', onClick: () => actions.openEditor(id) }, nameText, h('span', { class: 'sr-only' }, ', edit'));
     const sub = h('span', { class: 'hb-plan-sub label tnum' });
@@ -481,13 +568,14 @@ export function mountPlan(container, source, actions) {
       h(
         'th',
         { scope: 'row', class: 'hb-plan-rowhead' },
-        h('div', { class: 'hb-plan-rowin' }, h('div', { class: 'hb-plan-ident' }, nameBtn, sub), h('div', { class: 'row-actions hb-plan-acts' }, editBtn, archiveBtn, deleteBtn)),
+        h('div', { class: 'hb-plan-rowin' }, badge.el, h('div', { class: 'hb-plan-ident' }, nameBtn, sub), h('div', { class: 'row-actions hb-plan-acts' }, editBtn, archiveBtn, deleteBtn)),
       ),
       cells.map((c) => c.td),
     );
 
     function update(it, today, todayCol) {
       const days = L.planOn(it, today);
+      badge.update(it);
       nameText.textContent = it.name;
       nameBtn.title = `${it.name} — edit`;
       editBtn.setAttribute('aria-label', `Edit “${it.name}”`);
@@ -549,15 +637,17 @@ export function mountPlan(container, source, actions) {
   /* ---- Archived rows ---- */
 
   function createArchRow(id) {
+    const badge = habitBadge();
     const name = h('span', { class: 'hb-arch-name' });
     const meta = h('span', { class: 'label tnum hb-arch-meta' });
     const restore = h('button', { type: 'button', class: 'btn btn--sm', onClick: () => actions.unarchive(id) }, icon('undo', { size: 14 }), 'Restore');
     const del = h('button', { type: 'button', class: 'btn btn--sm btn--danger', onClick: () => actions.remove(id) }, icon('trash', { size: 14 }), h('span', null, 'Delete forever'));
-    const li = h('li', { class: 'hb-arch-row' }, h('div', { class: 'hb-arch-ident' }, name, meta), h('div', { class: 'hb-arch-acts' }, restore, del));
+    const li = h('li', { class: 'hb-arch-row' }, badge.el, h('div', { class: 'hb-arch-ident' }, name, meta), h('div', { class: 'hb-arch-acts' }, restore, del));
     return {
       li,
       update(it) {
         const logged = Object.keys(it.log).length;
+        badge.update(it);
         name.textContent = it.name;
         name.title = it.name;
         meta.textContent = `Archived ${formatDay(it.archivedAt)} · ${plural(logged, 'logged day')}`;
@@ -695,7 +785,7 @@ export function mountPlan(container, source, actions) {
         { class: 'hb-dm-lineup' },
         h('span', { class: 'label' }, `${plural(lineup.length, 'habit')} on ${name}s`),
         lineup.length
-          ? h('ol', { class: 'hb-dm-names' }, lineup.map((hb, i) => h('li', null, h('span', { class: 'label tnum' }, idx(i + 1)), h('span', { class: 'hb-wrap' }, hb.name))))
+          ? h('ol', { class: 'hb-dm-names' }, lineup.map((hb) => h('li', null, habitIb(hb), h('span', { class: 'hb-wrap' }, hb.name))))
           : h('p', { class: 'hb-f-note' }, 'Nothing planned — a rest day.'),
         h('button', { type: 'button', class: 'btn btn--sm btn--ghost hb-dm-add', onClick: addHere }, icon('plus', { size: 14 }), `New habit on ${name}`),
       ),

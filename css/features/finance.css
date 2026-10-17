@@ -160,6 +160,13 @@
   color: var(--text-2);
 }
 
+/* In Finance's own color while Color coding → Pages is on (gray in the grayscale templates) */
+.cc-on.cc-pages .fn-avatar {
+  border-color: color-mix(in srgb, var(--mod-finance) 35%, transparent);
+  background: color-mix(in srgb, var(--mod-finance) 14%, transparent);
+  color: var(--mod-finance);
+}
+
 .fn-row-main {
   display: flex;
   flex-direction: column;

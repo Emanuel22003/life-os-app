@@ -29,6 +29,28 @@
   animation: lo-rise var(--dur-slow) var(--ease-out) both;
 }
 
+/* ---- Section icons: one look everywhere (rail, chips, menus, columns, note rows) ----
+   A section's icon takes the Notes page's tone (Settings → Color coding → Pages), or the
+   section's own color while Color coding → Sections shows it; with both off it is quiet gray.
+   .nt-sec-icon is a plain icon, .nt-sec-ib the tinted square (ui.iconBadge, css/icons.css).
+   All notes and Unsorted are no sections: they keep the gray. */
+.nt-sec-icon {
+  flex: none;
+  color: var(--text-3);
+}
+
+.cc-on.cc-pages .nt-sec-icon {
+  color: var(--mod-notes);
+}
+
+.cc-sections [data-cc-kind="sections"][data-cc] .nt-sec-icon {
+  color: var(--cc);
+}
+
+.cc-sections [data-cc-kind="sections"][data-cc] .ib.nt-sec-ib {
+  --ib-c: var(--cc);
+}
+
 .nt-view [hidden] {
   display: none !important;
 }
@@ -163,10 +185,12 @@
   width: 100%;
 }
 
+/* The open view's icon in a small square: what the list shows, at a glance. It sits close to the
+   name (the square's tint already spaces them), so "All notes" still fits beside the search in
+   the wide-lettered templates (Old Money, Brutalist) */
 .nt-dd-icon {
-  flex: none;
-  display: grid;
-  color: var(--text-3);
+  --ib-box: 20px;
+  margin: 0 -2px 0 -4px;
 }
 
 .nt-dd-count {
@@ -196,11 +220,9 @@
   text-overflow: ellipsis;
 }
 
-/* Color coding: the open section's icon on the button, each section's in the menus, as the
-   rail, the chips and the columns show them */
-.cc-sections [data-cc-kind="sections"][data-cc] > .nt-dd-icon,
-.cc-sections .nt-dd-sec[data-cc-kind="sections"][data-cc] > .icon {
-  color: var(--cc);
+/* All notes and Unsorted in the menu: their gray icons line up with the sections' */
+.nt-dd-sec > .icon:not(.nt-sec-icon) {
+  color: var(--text-3);
 }
 
 /* ---- Search ---- */
@@ -383,7 +405,8 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: var(--fs-md);
-  font-weight: 500;
+  /* The title is what the eye looks for; the section, time and excerpt stay quiet */
+  font-weight: 600;
   line-height: 1.3;
   color: var(--text);
 }
@@ -1077,12 +1100,12 @@
 .nt-rail-item {
   position: relative;
   display: grid;
-  grid-template-columns: 16px minmax(0, 1fr) auto;
+  grid-template-columns: 24px minmax(0, 1fr) auto;
   align-items: center;
   gap: 10px;
   width: 100%;
   height: 36px;
-  padding: 0 var(--space-2) 0 10px;
+  padding: 0 var(--space-2) 0 6px;
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
   text-align: left;
@@ -1116,16 +1139,15 @@
   box-shadow: 0 0 10px var(--glow-c);
 }
 
-.nt-rail-icon {
-  display: grid;
-  place-items: center;
-  color: var(--text-3);
+/* The row's icon in a tinted square (sectionBadge): a section's in the Notes tone or its own
+   color, All notes and Unsorted in gray, which brightens on the open or hovered row */
+.nt-rail-ib {
+  --ib-box: 24px;
   transition: opacity var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
 }
 
-.nt-rail-item:hover .nt-rail-icon,
-.nt-rail-item[aria-current="true"] .nt-rail-icon {
-  color: var(--text);
+.nt-rail-item:is(:hover, [aria-current="true"]) .nt-rail-ib:not([data-tone]) {
+  --ib-c: var(--text);
 }
 
 .nt-rail-name {
@@ -1169,12 +1191,12 @@
 /* Grip: a pointer affordance laid over the icon (keyboard users press Alt + arrows) */
 .nt-sgrip {
   position: absolute;
-  left: 9px;
+  left: 7px;
   top: 50%;
   z-index: 1;
   display: grid;
   place-items: center;
-  width: 20px;
+  width: 24px;
   height: 28px;
   transform: translateY(-50%);
   border-radius: var(--radius-xs);
@@ -1195,7 +1217,7 @@
   opacity: 1;
 }
 
-.nt-rail:not(.is-dropzone, .is-sorting) .nt-srow:not(.nt-srow--fixed):hover .nt-rail-icon {
+.nt-rail:not(.is-dropzone, .is-sorting) .nt-srow:not(.nt-srow--fixed):hover .nt-rail-ib {
   opacity: 0;
 }
 
@@ -1224,7 +1246,7 @@
 
 /* The hidden count's column (and its gap) go too, so the name keeps that room */
 .nt-rail:not(.is-dropzone, .is-sorting) .nt-srow:not(.nt-srow--fixed):is(:hover, :focus-within) .nt-rail-item {
-  grid-template-columns: 16px minmax(0, 1fr);
+  grid-template-columns: 24px minmax(0, 1fr);
   padding-right: 58px;
 }
 
@@ -1317,7 +1339,7 @@
   color: var(--text);
 }
 
-.nt-srow.is-dragging .nt-rail-icon {
+.nt-srow.is-dragging .nt-rail-ib {
   opacity: 0;
 }
 
@@ -1334,7 +1356,7 @@
   border-color: var(--line-strong);
 }
 
-.nt-rail.is-dropzone .nt-srow:not(.nt-srow--fixed) .nt-rail-icon {
+.nt-rail.is-dropzone .nt-srow:not(.nt-srow--fixed) .nt-rail-ib {
   opacity: 1;
 }
 
@@ -1347,8 +1369,9 @@
   box-shadow: var(--glow-strong);
 }
 
-.nt-srow.is-drop .nt-rail-icon {
-  color: inherit;
+/* On the lit drop target the square takes the row's ink (beats the tone and section colors) */
+.nt-rail .nt-srow.is-drop .ib.nt-sec-ib.nt-rail-ib {
+  --ib-c: currentColor;
 }
 
 .nt-srow.is-drop .nt-rail-count {
@@ -1538,6 +1561,11 @@
   color: var(--text-3);
 }
 
+/* The lit chip: its icon takes the chip's ink, whatever its tone */
+.cc-on.cc-pages .nt-chip[aria-current="true"] .nt-sec-icon {
+  color: inherit;
+}
+
 .nt-chip-name {
   min-width: 0;
   overflow: hidden;
@@ -1598,21 +1626,19 @@
   animation: lo-fade-in var(--dur) var(--ease) both;
 }
 
-/* Leads the excerpt line (All notes), so a filed row is no taller than an unsorted one */
+/* Where the note lives (All notes): the section's icon and name, quiet, leading the excerpt
+   line, so a filed row is no taller than an unsorted one and the title stays the focal point */
 .nt-item-tag {
   max-width: min(100%, 168px);
   height: 17px;
-  margin-right: 6px;
+  margin-right: 8px;
+  padding: 0;
   vertical-align: top;
   margin-top: 1px;
-  border-color: var(--line);
+  border: 0;
   font-style: normal;
   line-height: 1;
   color: var(--text-3);
-}
-
-.nt-item-tag svg {
-  flex: none;
 }
 
 .nt-item-tag-name {
@@ -1623,7 +1649,6 @@
 
 .nt-item:hover .nt-item-tag,
 .nt-item[aria-current="true"] .nt-item-tag {
-  border-color: var(--line-strong);
   color: var(--text-2);
 }
 
@@ -1989,38 +2014,6 @@
   color: var(--text);
 }
 
-/* 13 icons in two even rows (7 + 6) at every width, no orphan */
-.nt-icon-grid {
-  display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: 6px;
-}
-
-.nt-icon-opt {
-  display: grid;
-  place-items: center;
-  height: 40px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  background: var(--surface);
-  color: var(--text-2);
-  transition: color var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease),
-    border-color var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease);
-}
-
-.nt-icon-opt:hover {
-  border-color: var(--text-3);
-  background: var(--surface-2);
-  color: var(--text);
-}
-
-.nt-icon-opt[aria-checked="true"] {
-  border-color: var(--accent);
-  background: var(--accent);
-  color: var(--accent-ink);
-  box-shadow: var(--glow);
-}
-
 /* ---- Delete: keep the notes (default) or delete them too ---- */
 
 .nt-dx-choices {
@@ -2128,7 +2121,7 @@
 
 .nt-mg-row {
   display: grid;
-  grid-template-columns: 16px minmax(0, 1fr) auto;
+  grid-template-columns: 26px minmax(0, 1fr) auto;
   align-items: center;
   gap: var(--space-3);
   padding: var(--space-2) var(--space-2) var(--space-2) var(--space-3);
@@ -2139,9 +2132,7 @@
 }
 
 .nt-mg-icon {
-  display: grid;
-  place-items: center;
-  color: var(--text-2);
+  --ib-box: 26px;
 }
 
 .nt-mg-text {
@@ -2342,7 +2333,7 @@
 
   /* Manage sections: the actions get their own line so names keep the full width */
   .nt-mg-row {
-    grid-template-columns: 16px minmax(0, 1fr);
+    grid-template-columns: 26px minmax(0, 1fr);
     row-gap: var(--space-1);
   }
 
@@ -2515,7 +2506,7 @@
     display: block;
   }
 
-  .nt-rail:not(.is-dropzone, .is-sorting) .nt-srow:not(.nt-srow--fixed):hover .nt-rail-icon {
+  .nt-rail:not(.is-dropzone, .is-sorting) .nt-srow:not(.nt-srow--fixed):hover .nt-rail-ib {
     opacity: 1;
   }
 
@@ -2524,7 +2515,7 @@
     opacity: 1;
   }
 
-  .nt-rail:not(.is-dropzone, .is-sorting) .nt-srow.is-current:not(.nt-srow--fixed) .nt-rail-icon {
+  .nt-rail:not(.is-dropzone, .is-sorting) .nt-srow.is-current:not(.nt-srow--fixed) .nt-rail-ib {
     opacity: 0;
   }
 
@@ -2535,11 +2526,11 @@
   }
 
   .nt-rail:not(.is-dropzone, .is-sorting) .nt-srow:not(.nt-srow--fixed):is(:hover, :focus-within) .nt-rail-item {
-    grid-template-columns: 16px minmax(0, 1fr) auto;
+    grid-template-columns: 24px minmax(0, 1fr) auto;
   }
 
   .nt-rail:not(.is-dropzone, .is-sorting) .nt-srow.is-current:not(.nt-srow--fixed) .nt-rail-item {
-    grid-template-columns: 16px minmax(0, 1fr);
+    grid-template-columns: 24px minmax(0, 1fr);
     padding-right: 70px;
   }
 

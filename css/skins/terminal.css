@@ -1230,6 +1230,20 @@
   color: var(--text-3);
 }
 
+/* Phones: a monospaced name broken over two lines reads as noise: one line, cut. The icon
+   square tells the column, so the brackets step aside and leave the name their room */
+@media (max-width: 640px) {
+  [data-skin="terminal"] .nt-col-name {
+    display: block;
+    white-space: nowrap;
+  }
+
+  [data-skin="terminal"] .nt-col-head .nt-col-title::before,
+  [data-skin="terminal"] .nt-col-head .nt-col-title::after {
+    content: none;
+  }
+}
+
 [data-skin="terminal"] .nt-view[data-layout="board"] .page-title {
   font-size: 44px;
 }
@@ -1257,6 +1271,18 @@
   border-style: dashed;
   border-color: var(--accent);
   transform: none;
+}
+
+/* ==========================================================================
+   Tasks: the stats keep their index numbers ("01 OPEN"), as the page title keeps its words
+   ========================================================================== */
+
+[data-skin="terminal"] .tk-stat-label > .tk-stat-ib {
+  display: none;
+}
+
+[data-skin="terminal"] .tk-stat-label > .tk-stat-idx {
+  display: inline;
 }
 
 /* ==========================================================================
@@ -1327,14 +1353,20 @@
   color: var(--text);
 }
 
-[data-skin="terminal"] .hm-card-title span::before {
+[data-skin="terminal"] .hm-card-title .hm-card-name::before {
   content: "[ ";
   color: var(--text-3);
 }
 
-[data-skin="terminal"] .hm-card-title span::after {
+[data-skin="terminal"] .hm-card-title .hm-card-name::after {
   content: " ]";
   color: var(--text-3);
+}
+
+/* Words only in the card titles, as in the page titles (the Today strip keeps its icons) */
+[data-skin="terminal"] .hm-card-title > .hm-ib,
+[data-skin="terminal"] .hm-week-name > .hm-ib {
+  display: none;
 }
 
 [data-skin="terminal"] .hm-week-title {

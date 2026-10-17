@@ -247,7 +247,8 @@ function mount(root) {
           }
         },
       },
-      h('span', { class: 'fn-avatar', 'aria-hidden': 'true' }, initial(sub.name)),
+      // The category's icon (TV, music, dumbbell…): a list of subscriptions scans by its icons
+      h('span', { class: 'fn-avatar', 'aria-hidden': 'true' }, icon(F.categoryIcon(sub.category), { size: 18 })),
       h(
         'div',
         { class: 'fn-row-main' },
@@ -255,7 +256,7 @@ function mount(root) {
         h(
           'span',
           { class: 'fn-meta' },
-          h('span', { class: 'tag' }, F.categoryName(sub.category)),
+          h('span', { class: 'tag fn-cat' }, F.categoryName(sub.category)),
           status,
           next && sub.status === 'active' ? h('span', { class: ['tag', 'fn-next', soon && 'tag--solid'] }, `Next ${whenText(next, today).replace(/^(Today|Tomorrow|In )/, (w) => w.toLowerCase())}`) : null,
         ),

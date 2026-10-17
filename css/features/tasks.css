@@ -1,13 +1,26 @@
 /* ==========================================================================
    LIFE/OS — 01 // Tasks
-   Grayscale only: state is carried by contrast, weight, pattern and motion.
-   Every class is prefixed tk-. Colors come from tokens.css exclusively.
+   Grayscale first: state is carried by icons, contrast, weight, pattern and motion. Hue only
+   means something (overdue, today's sun, a section's color) and only in the templates with
+   color while color coding is on. Every class is prefixed tk-. Colors come from tokens.css.
    ========================================================================== */
 
 /* .btn / .seg set display, which beats the UA [hidden] rule */
 .tk-root [hidden],
 .tk-modal [hidden] {
   display: none !important;
+}
+
+/* The two meaning colors: overdue (alert) and today's sun. The grayscale templates keep the text
+   color and say "overdue" with weight and hatching instead. */
+.tk-root,
+.tk-modal {
+  --tk-alert: var(--alert);
+  --tk-sun: currentColor;
+}
+
+:root.cc-on[data-plain] :is(.tk-root, .tk-modal) {
+  --tk-sun: var(--cc-yellow);
 }
 
 /* ==========================================================================
@@ -181,9 +194,8 @@
 
 .tk-step-pick {
   height: 24px;
-  max-width: 16ch;
+  max-width: 18ch;
   overflow: hidden;
-  text-overflow: ellipsis;
   color: var(--text);
 }
 
@@ -213,13 +225,19 @@ button.tk-step-pick:hover {
   overflow: visible;
 }
 
-.tk-step-chip .cc-dot {
-  margin-right: 2px;
+/* A section's color tints its icon (tabs, steps, the sections button, the row's chip) */
+.cc-sections :is(.tk-sec-seg .seg-btn, .tk-step-chip, .tk-step-pick, .tk-sec-tag, .tk-sec-dd-btn, .tk-secs-icon, .tk-field-section-icon)[data-cc-kind="sections"][data-cc] :is(.tk-seg-icon, .tk-chip-icon, .tk-dd-icon, .icon:only-child) {
+  color: var(--cc);
 }
 
 .tk-step-key {
   margin-right: 2px;
   opacity: 0.5;
+}
+
+/* A choice's short name is for phones (below) */
+.tk-lbl-short {
+  display: none;
 }
 
 .tk-step-date {
@@ -257,7 +275,7 @@ button.tk-step-pick:hover {
   transition: background var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease);
 }
 
-.tk-token svg {
+.tk-token .tk-token-x {
   opacity: 0.55;
 }
 
@@ -266,7 +284,7 @@ button.tk-step-pick:hover {
   background: transparent;
 }
 
-.tk-token:hover svg {
+.tk-token:hover .tk-token-x {
   opacity: 1;
 }
 
@@ -327,6 +345,20 @@ button.tk-stat:active {
 /* index stays the quietest part of the label, but at a readable contrast */
 .tk-stat-idx {
   color: var(--text-3);
+}
+
+/* Each number under its icon (Terminal keeps the index numbers instead: skins/terminal.css). The
+   badge overhangs the label's line so the cards keep their height. */
+.tk-stat-label > .tk-stat-idx {
+  display: none;
+}
+
+.tk-stat-ib {
+  margin: -5px 0;
+}
+
+.tk-stat.is-alert .tk-ib-alert {
+  --ib-c: var(--tk-alert);
 }
 
 .tk-stat-value {
@@ -449,6 +481,12 @@ button.tk-stat:active {
   max-width: 22ch;
 }
 
+/* Tabs, choices and menu buttons lead with the icon of what they show */
+.tk-seg-icon,
+.tk-dd-icon {
+  flex: none;
+}
+
 /* ==========================================================================
    Sections: All · Work · Life …; the open one scopes the page
    ========================================================================== */
@@ -471,14 +509,14 @@ button.tk-stat:active {
   text-align: right;
 }
 
-/* In All, a row names its section */
+/* In All, a row names its section: its icon and name, quieter than the chips that ask for action
+   (no frame, lined up with the title above) */
 .tk-sec-tag {
-  display: inline-block;
-  max-width: 18ch;
-  overflow: hidden;
-  line-height: calc(20px - 2 * var(--border-w-sm));
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  max-width: 20ch;
+  min-width: 0;
+  padding-left: 0;
+  border-color: transparent;
+  background: none;
   color: var(--text-2);
 }
 
@@ -502,18 +540,77 @@ button.tk-stat:active {
 
 .tk-secs-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
   align-items: center;
   gap: var(--space-3);
 }
 
-/* With color coding on, each section starts with its color button */
+/* With color coding on, its color button follows the icon */
 .cc-sections .tk-secs-row {
-  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  grid-template-columns: auto auto minmax(0, 1fr) auto auto;
+}
+
+.cc-sections .tk-secs-row > .tk-secs-color {
+  margin-left: calc(var(--space-3) * -1 + 4px);
 }
 
 .tk-sec-seg .seg-btn .cc-dot {
   margin-right: 6px;
+}
+
+/* A section's icon: tap it for the picker under the row */
+.tk-secs-icon,
+.tk-secs-add-icon {
+  --btn-h: 34px;
+  width: 34px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.tk-secs-icon.is-open {
+  box-shadow: inset 0 0 0 1.5px var(--text);
+}
+
+.tk-secs-add-icon {
+  display: grid;
+  place-items: center;
+  height: 34px;
+  color: var(--text-3);
+}
+
+.tk-secs-picker {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-2) var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  animation: lo-rise var(--dur) var(--ease-out) both;
+}
+
+.tk-secs-picker-label {
+  padding: 0 2px;
+}
+
+/* A phone's dialog is narrow: the name gets the room (the count is in the delete question) */
+@media (max-width: 480px) {
+  .tk-secs-row {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: var(--space-2);
+  }
+
+  .cc-sections .tk-secs-row > .tk-secs-color {
+    margin-left: -4px;
+  }
+
+  .cc-sections .tk-secs-row {
+    grid-template-columns: auto auto minmax(0, 1fr) auto;
+  }
+
+  .tk-secs-count {
+    display: none;
+  }
 }
 
 .tk-secs-count {
@@ -522,7 +619,7 @@ button.tk-stat:active {
 
 .tk-secs-add {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: var(--space-2);
 }
@@ -824,20 +921,62 @@ button.tk-stat:active {
   height: 18px;
 }
 
+/* ---- Chips: each one led by its icon ---- */
+.tk-chip-icon {
+  flex: none;
+}
+
+.tk-chip-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .tk-due-tag svg {
   flex: none;
   margin-left: -1px;
 }
 
+/* Priority: one flag, three weights. High is a filled flag on the solid tag, Medium an outline,
+   Low the quietest (the steps and the details dialog use the same flags). */
+:is(.tk-pri--high, .tk-step-pick--priority[data-value="high"]) .tk-chip-icon path,
+:is(.tk-step-seg, .tk-pri-seg) .seg-btn[data-value="high"] .tk-seg-icon path {
+  fill: currentColor;
+}
+
+.tk-pri--med {
+  color: var(--text);
+}
+
+.tk-pri--low {
+  color: var(--text-3);
+}
+
+:is(.tk-step-seg, .tk-pri-seg) .seg-btn[data-value="low"] .tk-seg-icon {
+  opacity: 0.6;
+}
+
+/* Due: today's sun stands out, tomorrow's sunrise is plain, a later day quieter */
 .tk-due-tag--today {
   color: var(--text);
   border-color: var(--text-2);
 }
 
+.tk-due-tag--today .tk-chip-icon,
+.tk-step-chip[data-value="today"] .tk-seg-icon,
+.tk-sum--today > .icon {
+  color: var(--tk-sun);
+}
+
+.tk-due-tag--date {
+  color: var(--text-3);
+}
+
+/* Overdue: the alert, in the alert tone (red where there is color; hatching where there isn't) */
 .tk-due-tag--overdue {
   gap: 5px;
-  color: var(--text);
-  border-color: var(--text);
+  color: var(--tk-alert);
+  border-color: var(--tk-alert);
   background: repeating-linear-gradient(-45deg, var(--hatch) 0 2px, transparent 2px 5px);
 }
 
@@ -849,19 +988,14 @@ button.tk-stat:active {
   opacity: 0.45;
 }
 
-.tk-blink {
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: var(--accent);
-  box-shadow: 0 0 6px var(--glow-c);
-  animation: lo-pulse 1.4s var(--ease) infinite;
-}
-
 .tk-done-ago {
   display: inline-flex;
   align-items: center;
   gap: 4px;
+}
+
+.tk-done-ago > .icon {
+  flex: none;
 }
 
 .tk-note {
@@ -1020,12 +1154,16 @@ button.tk-stat:active {
   background: var(--surface-2);
 }
 
-.tk-done-toggle svg {
+.tk-done-toggle .tk-done-chev {
   transition: transform var(--dur) var(--ease);
 }
 
-.tk-done-toggle[aria-expanded="true"] svg {
+.tk-done-toggle[aria-expanded="true"] .tk-done-chev {
   transform: rotate(90deg);
+}
+
+.tk-done-icon {
+  margin-left: -4px;
 }
 
 .tk-done-count {
@@ -1121,6 +1259,41 @@ button.tk-stat:active {
 
 .tk-modal-delete {
   margin-right: auto;
+}
+
+/* Every field's name with its icon */
+.tk-field-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tk-field-label > .icon {
+  flex: none;
+  color: var(--text-3);
+}
+
+.tk-field-section-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.tk-field-section-row > .select {
+  flex: 1;
+  min-width: 0;
+}
+
+/* The picked section's icon, in front of its select (options can't draw icons) */
+.tk-field-section-icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text);
 }
 
 /* ==========================================================================
@@ -1292,9 +1465,39 @@ button.tk-stat:active {
   }
 }
 
-/* The status line ("6 to do today.") is for phones only where there is a stats strip */
+/* The status line is for phones only where there is a stats strip */
 .tk-summary--phone {
   display: none;
+}
+
+/* Today at a glance: "☀ 3 today  ⚠ 2 overdue  ✓ 1 done", the numbers bold, overdue in its tone */
+.tk-sum {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  vertical-align: middle;
+}
+
+.tk-sum.is-count {
+  white-space: nowrap;
+}
+
+.tk-sum:not(:first-child) {
+  margin-left: var(--space-3);
+}
+
+.tk-sum > .icon {
+  flex: none;
+}
+
+.tk-sum-n {
+  font-weight: 700;
+  color: var(--text);
+}
+
+.tk-sum--overdue,
+.tk-sum--overdue .tk-sum-n {
+  color: var(--tk-alert);
 }
 
 /* ==========================================================================
@@ -1315,8 +1518,13 @@ button.tk-stat:active {
     text-align: right;
   }
 
-  /* The numbers strip makes way for the tasks; the status line says what today holds */
+  /* The numbers strip makes way for the tasks; the status line says what today holds (today and
+     overdue: "done" waits for a wider screen, so the line never wraps under the title) */
   .tk-root .tk-stats {
+    display: none;
+  }
+
+  .tk-summary .tk-sum--done.is-count {
     display: none;
   }
 
@@ -1414,7 +1622,31 @@ button.tk-stat:active {
   .tk-root .tk-step-seg .seg-btn {
     flex: 1 1 auto;
     justify-content: center;
-    padding: 0 var(--space-2);
+    gap: 4px;
+    padding: 0 6px;
+  }
+
+  /* "Date…" and "None" under When (and "Med" in the details): with their icons, the choices
+     still fit one row */
+  :is(.tk-root .tk-step-seg, .tk-modal .seg) .tk-lbl-full {
+    display: none;
+  }
+
+  :is(.tk-root .tk-step-seg, .tk-modal .seg) .tk-lbl-short {
+    display: inline;
+  }
+
+  /* The details dialog's choices fill its width like one control */
+  .tk-modal :is(.tk-pri-seg, .tk-due-chips) {
+    display: flex;
+    width: 100%;
+  }
+
+  .tk-modal :is(.tk-pri-seg, .tk-due-chips) .seg-btn {
+    flex: 1 1 auto;
+    justify-content: center;
+    gap: 4px;
+    padding: 0 6px;
   }
 
   /* ---- One row of dropdowns: section · filter · sort ---- */
@@ -1439,20 +1671,29 @@ button.tk-stat:active {
     min-width: 0;
   }
 
+  /* Snug, so each button's icon costs no words (Brutalist's wide capitals included) */
   .tk-toolbar .dd-btn {
     width: 100%;
+    gap: 4px;
+    padding-inline: 7px;
   }
 
   .tk-sec-dd .dd-btn {
     max-width: none;
   }
 
+  /* Sort keeps to the right without the spacer's extra gap */
   .tk-toolbar > .spacer {
-    min-width: 0;
+    display: none;
   }
 
-  /* Sort in the usual order (My order) is its icon alone; another order shows its name */
-  .tk-toolbar .tk-sort-dd.is-default .dd-label {
+  .tk-toolbar > :is(.tk-sort-dd, .tk-clear-done) {
+    margin-left: auto;
+  }
+
+  /* Sort is its icon alone: the sort lines for My order, else the order's own (the calendar for
+     Due date, the flag for Priority), so section and view keep their names */
+  .tk-toolbar .tk-sort-dd .dd-label {
     display: none;
   }
 
@@ -1518,7 +1759,7 @@ button.tk-stat:active {
      than this minimum get the class (tasks.js), so it never widens a tag. */
   .tk-root .tk-row .tk-meta > .tk-sec-tag--long {
     flex: 0 100000 auto;
-    min-width: 3.5em;
+    min-width: calc(3.5em + 16px);
   }
 
   .tk-root .tk-row .tk-meta > .tk-due-tag {
@@ -1533,9 +1774,28 @@ button.tk-stat:active {
     white-space: nowrap;
   }
 
+  /* Overdue is its alert icon and tone here ("⚠ 2 days ago"): the word stays for screen readers,
+     and the room goes to the section name and the date */
+  .tk-root .tk-row .tk-due-tag--overdue > :is(strong, .tk-sep) {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .tk-root .tk-row .tk-due-tag--overdue {
+    position: relative;
+  }
+
   .tk-root .tk-row .tk-meta .tag {
     height: 18px;
     padding: 0 5px;
+  }
+
+  .tk-root .tk-row .tk-meta .tk-sec-tag {
+    padding-left: 0;
   }
 
   /* A note shows as its icon (its text is in the details), so it never squeezes the date. Screen

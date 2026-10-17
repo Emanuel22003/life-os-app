@@ -3,7 +3,9 @@
 //
 // Store shape ('notes'):
 //   { items: [{ id, title, body, pinned, createdAt, updatedAt, sectionId }],
-//     sections: [{ id, name, icon, createdAt, order }],   // display order, order === index
+//     sections: [{ id, name, icon, createdAt, order }],   // display order, order === index;
+//                                                          // icon: picked (js/icons.logic.js) or null = follows the name
+//                                                          // (an icon name a newer copy stored is kept, drawn by the name)
 //     view: 'all' | 'unsorted' | <section id>,
 //     selectedId, seeded,
 //     layout: 'list' | 'board',                            // last layout chosen (each tab keeps its own)
@@ -12,6 +14,7 @@
 // Color coding adds an optional `color` (a palette id, js/colors.logic.js) to notes and sections.
 
 import { colorKey, withColor } from '../colors.logic.js';
+import { ICON_CHOICES, ICON_NAMES, cleanIcon, iconOf, suggestIcon } from '../icons.logic.js';
 
 export const EXCERPT_LENGTH = 140;
 
@@ -153,24 +156,15 @@ export const VIEW_ALL = 'all';
 export const VIEW_UNSORTED = 'unsorted';
 export const SECTION_NAME_MAX = 40;
 
-/** Icon names for the section icon picker. 'folder' is the default and is stored as icon: null. */
+/**
+ * Section icons are the app's shared set (js/icons.logic.js), so a section can have any icon a
+ * habit can. A section without a picked icon (icon: null) shows the one its name suggests
+ * ('Gym' -> dumbbell, 'Recipes' -> knife and fork), and the folder when the name suggests none.
+ * The 13 icons sections had before the shared set are all in it, so stored picks stay valid.
+ */
 export const DEFAULT_SECTION_ICON = 'folder';
-export const SECTION_ICONS = Object.freeze(['folder', 'note', 'video', 'play', 'bulb', 'zap', 'star', 'flag', 'target', 'code', 'camera', 'music', 'hash']);
-export const SECTION_ICON_LABELS = Object.freeze({
-  folder: 'Folder',
-  note: 'Note',
-  video: 'Video',
-  play: 'Play',
-  bulb: 'Idea',
-  zap: 'Bolt',
-  star: 'Star',
-  flag: 'Flag',
-  target: 'Target',
-  code: 'Code',
-  camera: 'Camera',
-  music: 'Music',
-  hash: 'Hashtag',
-});
+export const SECTION_ICONS = ICON_NAMES;
+export const SECTION_ICON_LABELS = Object.freeze(Object.fromEntries(ICON_CHOICES.map((c) => [c.name, c.label])));
 
 /** One-click starters offered while the user has no sections. */
 export const SUGGESTED_SECTIONS = Object.freeze([
@@ -285,14 +279,29 @@ export function validateSectionName(name, sections = [], exceptId = null) {
   return { ok: true, name: clean };
 }
 
-/** Stored icon value: a known picker icon, else null (null shows the default folder). */
+/** A picked icon: one of the shared set (the folder too: picked on purpose), else null. */
 export function cleanSectionIcon(icon) {
-  return typeof icon === 'string' && icon !== DEFAULT_SECTION_ICON && SECTION_ICONS.includes(icon) ? icon : null;
+  return cleanIcon(icon);
 }
 
-/** The icon name to draw for a section (its icon, or the default folder). */
+// Loading keeps a stored icon that looks like an icon name, even one this copy can't draw: a
+// newer copy may have offered it, and dropping it here would sync the loss back there. Until
+// then the section shows the icon its name suggests (sectionIcon), as habits and tasks do.
+const ICON_SHAPE = /^[a-z][a-z0-9-]{0,31}$/;
+
+/** The icon value to keep when reading the store: a picked icon or an unknown icon name, else null. */
+export function storedSectionIcon(icon) {
+  return typeof icon === 'string' && ICON_SHAPE.test(icon) ? icon : null;
+}
+
+/** The icon a section name suggests (the picker's Auto), else the folder. */
+export function autoSectionIcon(name) {
+  return suggestIcon(name, DEFAULT_SECTION_ICON);
+}
+
+/** The icon to draw for a section: the one picked, else the one its name suggests, else the folder. */
 export function sectionIcon(section) {
-  return cleanSectionIcon(section?.icon) ?? DEFAULT_SECTION_ICON;
+  return iconOf(section, DEFAULT_SECTION_ICON);
 }
 
 /** Lowercase names already in use, including the built-in view names. */
@@ -334,7 +343,7 @@ function readSection(raw, now) {
     ...raw,
     id,
     name: name || UNTITLED_SECTION,
-    icon: cleanSectionIcon(raw.icon),
+    icon: storedSectionIcon(raw.icon),
     createdAt: toTime(raw.createdAt) ?? now,
     order: 0,
   };
@@ -531,7 +540,7 @@ export function createSection(state, { name, icon = null, color = null } = {}, {
 }
 
 /**
- * Change a section's name and/or icon (undefined keeps a field, icon null resets to the folder).
+ * Change a section's name and/or icon (undefined keeps a field, icon null follows the name again).
  *   { state, section }   or   { error, code } (code 'missing' when the section is gone)
  * Unchanged values return the same state.
  */

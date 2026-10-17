@@ -82,6 +82,7 @@ import {
   toggleCollapsed,
   viewChoices,
   availableSuggestions,
+  cleanSectionIcon,
 } from './notes.logic.js';
 import { columnOf, columnSection } from './notes.board.logic.js';
 import { registerContextProvider } from '../contextmenu.js';
@@ -94,7 +95,9 @@ import {
   hint,
   viewIconName,
   glyphOf,
-  sectionGlyph,
+  sectionBadge,
+  paintBadge,
+  sectionIconEl,
   createSectionNav,
   createNoteDrag,
   openSectionMenu,
@@ -495,11 +498,11 @@ function mount(root) {
 
   /* ---- Section menu (phones): All notes · Unsorted · each section, then New / Edit / Manage ----
      It stands in for the chip strip, in the same row as the search. Its button shows the open
-     view's icon (in its color), name and count; the menu is rebuilt only when what it lists
-     changes. The button's name is our own span, so the menu itself is named "Sections" (the
+     view's icon (a tinted square, in the section's color), name and count; the menu is rebuilt
+     only when what it lists changes. The button's name is our own span, so the menu itself is named "Sections" (the
      dropdown names its menu after its label). */
 
-  const viewGlyph = h('span', { class: 'nt-dd-icon', 'aria-hidden': 'true' });
+  const viewGlyph = sectionBadge('nt-all', { section: false, size: 13, className: 'nt-dd-icon' });
   const viewNameEl = h('span', { class: 'dd-label nt-dd-name' });
   const viewCountEl = h('span', { class: 'nt-dd-count', 'aria-hidden': 'true' });
   const viewMenu = dropdown({
@@ -518,12 +521,12 @@ function mount(root) {
 
   /* ---- Column menu (board, phones): jump to a column; New section, Manage ----
      Phones show two columns at a time, so the pager's chip row gives way to this. Its button
-     names the first column in view (our own span again, so the menu is "Jump to a column");
-     the pager comes back as the drop dock while a card is lifted. */
+     shows the first column in view, its icon square and name (our own spans again, so the menu
+     is "Jump to a column"); the pager comes back as the drop dock while a card is lifted. */
 
+  const jumpGlyph = sectionBadge('nt-board', { section: false, size: 13, className: 'nt-dd-icon' });
   const jumpNameEl = h('span', { class: 'dd-label nt-dd-name' });
   const jumpMenu = dropdown({
-    icon: 'nt-board',
     className: 'nt-jumpdd-btn',
     title: 'Jump to a column',
     showValue: false,
@@ -533,16 +536,22 @@ function mount(root) {
     },
   });
   jumpMenu.el.classList.add('nt-jumpdd');
+  jumpMenu.button.prepend(jumpGlyph);
   jumpMenu.button.querySelector('.dd-chev')?.before(jumpNameEl);
   let jumpSig = '';
   let jumpInView = [];
 
   /**
-   * A section's line in the phone menus: its icon, in the section's color as the rail, the chips
-   * and the columns show it, then its name. The dropdown takes it as the item's label.
+   * A line in the phone menus: the icon, then the name. A section's icon is tinted as the rail,
+   * the chips and the columns show it (its color, else the Notes tone); All notes and Unsorted
+   * stay gray. The dropdown takes it as the item's label.
    */
-  const sectionItemLabel = (name, glyph, color) =>
-    paintColor(h('span', { class: 'nt-dd-sec' }, icon(glyph, { size: 14 }), h('span', { class: 'nt-dd-sec-name' }, name)), 'sections', color ?? null);
+  const sectionItemLabel = (name, glyph, color, isSection = true) =>
+    paintColor(
+      h('span', { class: 'nt-dd-sec' }, isSection ? sectionIconEl(glyph, 16) : icon(glyph, { size: 16 }), h('span', { class: 'nt-dd-sec-name' }, name)),
+      'sections',
+      isSection ? (color ?? null) : null,
+    );
 
   /* ---- List panel ---- */
 
@@ -613,7 +622,7 @@ function mount(root) {
   // An empty view: "No notes in TikTok ideas yet" + a button that starts one there.
   const viewEmptyLabel = h('span');
   const viewEmpty = emptyState({
-    icon: 'nt-folder',
+    icon: 'folder',
     title: ' ',
     text: ' ',
     action: h('button', { type: 'button', class: 'btn btn--sm btn--primary nt-viewempty-btn', onClick: () => newNote() }, icon('plus'), viewEmptyLabel),
@@ -666,7 +675,7 @@ function mount(root) {
       h(
         'button',
         { type: 'button', class: 'btn btn--ghost btn--icon btn--sm nt-board-manage', 'aria-label': 'Manage sections', title: 'Manage sections', onClick: () => manageSections() },
-        icon('nt-sliders'),
+        icon('sliders'),
       ),
     ),
     // By touch, a hold let go in place opens Move to… (phones hide the cards' ⋯): the tip says so.
@@ -1049,24 +1058,24 @@ function mount(root) {
     if (sig === viewMenuSig) return;
     viewMenuSig = sig;
     const { section } = current;
-    viewGlyph.replaceChildren(icon(viewIconName(s.sections, current.view), { size: 14 }));
+    paintBadge(viewGlyph, viewIconName(s.sections, current.view), { section: !!section, size: 13 });
     viewNameEl.textContent = current.label;
-    // Color coding: the open section's icon in its color
+    // Color coding: the open section's square in its color
     paintColor(viewMenu.button, 'sections', section?.color ?? null);
     viewCountEl.textContent = num(current.count);
-    const items = choices.map((c) =>
-      c.section
-        ? { value: c.view, label: sectionItemLabel(c.label, viewIconName(s.sections, c.view), c.section.color), hint: num(c.count) }
-        : { value: c.view, label: c.label, icon: viewIconName(s.sections, c.view), hint: num(c.count) },
-    );
+    const items = choices.map((c) => ({
+      value: c.view,
+      label: sectionItemLabel(c.label, viewIconName(s.sections, c.view), c.section?.color, !!c.section),
+      hint: num(c.count),
+    }));
     items.push({ separator: true });
     if (section) items.push({ label: `Edit “${clip(section.name, 28)}”…`, icon: 'edit', action: () => editSection(section.id) });
     items.push({ label: 'New section…', icon: 'plus', action: () => newSection() });
     // No sections yet: the one-tap starters the chip strip offers
     if (!s.sections.length) {
-      for (const sug of availableSuggestions(s.sections)) items.push({ label: `Add “${sug.name}”`, icon: sectionGlyph(sug.icon), action: () => addSection(sug) });
+      for (const sug of availableSuggestions(s.sections)) items.push({ label: `Add “${sug.name}”`, icon: sug.icon, action: () => addSection(sug) });
     }
-    items.push({ label: 'Manage sections…', icon: 'nt-sliders', action: () => manageSections() });
+    items.push({ label: 'Manage sections…', icon: 'sliders', action: () => manageSections() });
     viewMenu.update({ items, value: current.view });
     nameViewMenu();
   }
@@ -1087,10 +1096,13 @@ function mount(root) {
     const sig = JSON.stringify([lit.map((c) => c.id), searching, cols.map((c) => [c.id, c.name, c.icon, c.color, c.total, c.shown])]);
     if (sig === jumpSig) return;
     jumpSig = sig;
-    const items = cols.map((c) => ({ value: c.id, label: sectionItemLabel(c.name, c.icon, c.color), hint: searching ? `${num(c.shown)}/${num(c.total)}` : num(c.total) }));
-    items.push({ separator: true }, { label: 'New section…', icon: 'plus', action: () => newSection() }, { label: 'Manage sections…', icon: 'nt-sliders', action: () => manageSections() });
+    const items = cols.map((c) => ({ value: c.id, label: sectionItemLabel(c.name, c.icon, c.color, c.id !== VIEW_UNSORTED), hint: searching ? `${num(c.shown)}/${num(c.total)}` : num(c.total) }));
+    items.push({ separator: true }, { label: 'New section…', icon: 'plus', action: () => newSection() }, { label: 'Manage sections…', icon: 'sliders', action: () => manageSections() });
     jumpNameEl.textContent = first?.name ?? '';
     jumpNameEl.hidden = !first;
+    // The first column in view: its icon (in its color), else the board's glyph
+    paintBadge(jumpGlyph, first?.icon ?? 'nt-board', { section: !!first && first.id !== VIEW_UNSORTED, size: 13 });
+    paintColor(jumpMenu.button, 'sections', first?.color ?? null);
     jumpMenu.update({ items, value: first?.id ?? null });
     nameJumpMenu();
   }
@@ -1135,7 +1147,7 @@ function mount(root) {
       entry = { li, btn };
       itemCache.set(note.id, entry);
     }
-    const key = section ? `${baseKey}\u0002${section.id}\u0001${section.name}\u0001${section.icon}` : baseKey;
+    const key = section ? `${baseKey}\u0002${section.id}\u0001${section.name}\u0001${section.icon}\u0001${section.color ?? ''}` : baseKey;
     // Color coding: the note's own color, else its section's
     paintColor(entry.btn, 'notes', note.color, sectionColor(note.sectionId));
     if (entry.dirty || entry.note !== note || entry.index !== index || entry.selected !== selected || entry.key !== key) {
@@ -1168,7 +1180,18 @@ function mount(root) {
           'span',
           { class: ['nt-item-excerpt', !preview && 'is-empty'] },
           section
-            ? h('span', { class: 'tag nt-item-tag' }, icon(glyphOf(section), { size: 10 }), h('span', { class: 'sr-only' }, 'In section '), h('span', { class: 'nt-item-tag-name' }, section.name), h('span', { class: 'sr-only' }, '. '))
+            ? paintColor(
+                h(
+                  'span',
+                  { class: 'tag nt-item-tag' },
+                  sectionIconEl(glyphOf(section), 12),
+                  h('span', { class: 'sr-only' }, 'In section '),
+                  h('span', { class: 'nt-item-tag-name' }, section.name),
+                  h('span', { class: 'sr-only' }, '. '),
+                ),
+                'sections',
+                section.color ?? null,
+              )
             : null,
           preview ? marked(preview, terms) : h('span', { class: 'nt-item-filler' }, 'No additional text'),
         ),
@@ -1265,11 +1288,13 @@ function mount(root) {
   }
 
   function paintMoveButton(section) {
+    // Color coding: the section's icon in its color, as in the rail and on the board
+    paintColor(moveBtn, 'sections', section?.color ?? null);
     const sig = section ? `${section.id}\u0001${section.name}\u0001${section.icon}` : '';
     if (sig === moveSig) return;
     moveSig = sig;
     const name = section ? section.name : 'Unsorted';
-    moveIcon.replaceChildren(icon(section ? glyphOf(section) : 'inbox', { size: 12 }));
+    moveIcon.replaceChildren(section ? sectionIconEl(glyphOf(section), 14) : icon('inbox', { size: 14 }));
     moveName.textContent = name;
     moveBtn.classList.toggle('is-unsorted', !section);
     moveBtn.setAttribute('aria-label', `Section: ${name}. Move note`);
@@ -2588,9 +2613,13 @@ function mount(root) {
 
 const freezeNote = (n) => Object.freeze({ ...n });
 
-/** The sections in display order: [{ id, name, icon }] (icon null = the default folder). */
+/**
+ * The sections in display order: [{ id, name, icon }]. icon is the one picked, or null: the
+ * section then shows the icon its name suggests, iconOf(section, 'folder') (js/icons.logic.js).
+ * An icon only a newer copy can draw reads as null here, so callers draw what the name suggests.
+ */
 function apiGetSections() {
-  return Object.freeze(getState().sections.map((s) => Object.freeze({ id: s.id, name: s.name, icon: s.icon ?? null })));
+  return Object.freeze(getState().sections.map((s) => Object.freeze({ id: s.id, name: s.name, icon: cleanSectionIcon(s.icon) })));
 }
 
 /** The `limit` most recently edited notes with something in them, newest first. */

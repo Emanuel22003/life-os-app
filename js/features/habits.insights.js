@@ -10,10 +10,14 @@
 // Contract: mountInsights(container, source) -> cleanup
 //   source = { getItems(), today(), subscribe(fn) -> unsub, openTab(name) }
 
-import { h, icon, emptyState, formatDay, onDayChange, plural, idx, clamp, MONTHS_SHORT, WEEKDAYS_SHORT, plainSkin } from '../ui.js';
+import { h, icon, registerIcon, emptyState, formatDay, onDayChange, plural, idx, clamp, MONTHS_SHORT, WEEKDAYS_SHORT, plainSkin } from '../ui.js';
 import { createStore } from '../store.js';
 import * as L from './habits.logic.js';
 import * as S from './habits.stats.js';
+import { habitIb } from './habits.plan.js';
+
+// The ranking's card: a cup (same grid as the shared icons: 24px, 1.5 stroke)
+registerIcon('hb-trophy', '<path d="M7 4h10v4.5a5 5 0 0 1-10 0Z"/><path d="M7 6H4.5v1.5A3.5 3.5 0 0 0 7.6 11M17 6h2.5v1.5a3.5 3.5 0 0 1-3.1 3.5M12 13.5V17M8.5 20.5h7l-.8-3.5H9.3Z"/>');
 
 /* ==========================================================================
    Preferences — this tab's own store, separate from the habit data
@@ -603,24 +607,25 @@ export function mountInsights(container, source) {
 
   /* ---- Stat tiles ---- */
 
-  function tile(label) {
+  // Each tile's caption leads with an icon, so the four numbers can be told apart at a glance
+  function tile(label, iconName) {
     const value = h('div', { class: 'hbi-tile-value' });
     const sub = h('div', { class: 'hbi-tile-sub label' });
-    const el = h('div', { class: 'panel hbi-tile' }, h('div', { class: 'hbi-tile-label label' }, label), value, sub);
+    const el = h('div', { class: 'panel hbi-tile' }, h('div', { class: 'hbi-tile-label label' }, icon(iconName, { size: 13, className: 'hbi-tile-ic' }), h('span', null, label)), value, sub);
     return { el, value, sub };
   }
 
-  const tCompletion = tile('Completion');
-  const tChange = tile('Change');
-  const tCheckins = tile('Check-ins');
-  const tBest = tile('Best weekday');
+  const tCompletion = tile('Completion', 'check-circle');
+  const tChange = tile('Change', 'activity');
+  const tCheckins = tile('Check-ins', 'check-square');
+  const tBest = tile('Best weekday', 'calendar');
   const meterTicks = Array.from({ length: 20 }, () => h('span', { class: 'meter-tick' }));
   tCompletion.el.append(h('div', { class: 'meter hbi-tile-meter', 'aria-hidden': 'true' }, meterTicks));
   const tiles = h('div', { class: 'hbi-tiles' }, tCompletion.el, tChange.el, tCheckins.el, tBest.el);
 
   /* ---- Cards ---- */
 
-  function card(index, title) {
+  function card(index, title, iconName) {
     const id = `hbi-card-${++seq}`;
     const titleEl = h('span', null, title);
     const sub = h('span', { class: 'label hbi-card-sub' });
@@ -632,7 +637,12 @@ export function mountInsights(container, source) {
       h(
         'header',
         { class: 'hbi-card-head' },
-        h('div', { class: 'hbi-card-titles' }, h('h2', { class: 'hbi-card-title', id }, h('span', { class: 'hbi-card-index lo-deco', 'aria-hidden': 'true' }, index), titleEl), sub),
+        h(
+          'div',
+          { class: 'hbi-card-titles' },
+          h('h2', { class: 'hbi-card-title', id }, h('span', { class: 'hbi-card-index lo-deco', 'aria-hidden': 'true' }, index), icon(iconName, { size: 16, className: 'hbi-card-ic' }), titleEl),
+          sub,
+        ),
         legend,
       ),
       body,
@@ -640,19 +650,19 @@ export function mountInsights(container, source) {
     return { el, titleEl, sub, legend, body };
   }
 
-  const mainCard = card('01', 'Daily completion');
+  const mainCard = card('01', 'Daily completion', 'activity');
   const mainPlot = createPlot('Daily completion chart');
   const mainTable = h('div', { class: 'hbi-table-wrap', tabindex: '0', role: 'region', 'aria-label': 'Daily completion table', hidden: true });
   const note = h('p', { class: 'hbi-note', hidden: true }, icon('activity', { size: 14 }), h('span', null, 'Your graph fills in as you check off habits.'));
   mainCard.body.append(mainPlot.el, mainTable);
   mainCard.el.append(note);
 
-  const dayCard = card('02', 'By weekday');
+  const dayCard = card('02', 'By weekday', 'calendar');
   const dayPlot = createPlot('Completion by weekday chart');
   const dayTable = h('div', { class: 'hbi-table-wrap', tabindex: '0', role: 'region', 'aria-label': 'Completion by weekday table', hidden: true });
   dayCard.body.append(dayPlot.el, dayTable);
 
-  const rankCard = card('03', 'Habit ranking');
+  const rankCard = card('03', 'Habit ranking', 'hb-trophy');
   const rankList = h('ol', { class: 'hbi-rank-list' });
   rankCard.body.append(
     h(
@@ -697,6 +707,7 @@ export function mountInsights(container, source) {
       breakdown,
       best: bestWeekday(breakdown),
       board: S.habitLeaderboard(items, from, to, today),
+      byId: new Map(items.map((hb) => [hb.id, hb])),
       remaining: L.habitsForDay(items, today)
         .filter((hb) => !hb.log?.[today])
         .map((hb) => hb.name),
@@ -722,7 +733,7 @@ export function mountInsights(container, source) {
 
     paintTiles(c);
     paintHeads(c);
-    rankList.replaceChildren(...c.board.map(rankRow));
+    rankList.replaceChildren(...c.board.map((r, i) => rankRow(r, i, c.byId.get(r.id))));
 
     const table = c.prefs.table;
     mainPlot.el.hidden = table;
@@ -1127,7 +1138,7 @@ export function mountInsights(container, source) {
 
   /* ---- Habit ranking ---- */
 
-  function rankRow(r, i) {
+  function rankRow(r, i, habit) {
     const width = Math.round((r.rate ?? 0) * 100);
     return h(
       'li',
@@ -1136,6 +1147,7 @@ export function mountInsights(container, source) {
       h(
         'span',
         { class: 'hbi-rank-name' },
+        habitIb(habit ?? r),
         h('span', { class: 'hbi-rank-text', title: r.name }, r.name),
         r.archived ? h('span', { class: 'tag hbi-rank-tag' }, 'Archived') : null,
       ),

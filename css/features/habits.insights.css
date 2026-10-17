@@ -87,6 +87,19 @@
   opacity: 0.7;
 }
 
+/* Caption: an icon says which number this is */
+.hbi-tile-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.hbi-tile-ic {
+  flex: none;
+  color: var(--text-3);
+}
+
 .hbi-tile-value {
   display: flex;
   align-items: baseline;
@@ -175,11 +188,16 @@
 
 .hbi-card-title {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: var(--space-2);
   font-size: var(--fs-md);
   font-weight: 600;
   letter-spacing: -0.01em;
+}
+
+.hbi-card-ic {
+  flex: none;
+  color: var(--text-3);
 }
 
 .hbi-card-index {
@@ -896,8 +914,9 @@
 }
 
 @container (max-width: 420px) {
+  /* Range, measure and the table switch share one row on a phone */
   .hbi-filters .seg-btn {
-    padding: 0 10px;
+    padding: 0 8px;
   }
 
   .hbi-table-btn {

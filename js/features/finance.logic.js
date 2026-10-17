@@ -49,6 +49,26 @@ export const CATEGORIES = Object.freeze(
 );
 const CATEGORY_IDS = new Set(CATEGORIES.map((c) => c.id));
 
+/** Each category's icon (js/icons.js): a subscription shows its category's at the front of its row. */
+export const CATEGORY_ICON = Object.freeze({
+  streaming: 'tv',
+  music: 'music',
+  software: 'code',
+  cloud: 'folder',
+  news: 'book',
+  gaming: 'gamepad',
+  fitness: 'dumbbell',
+  phone: 'phone',
+  home: 'home',
+  insurance: 'heart',
+  transport: 'car',
+  other: 'wallet',
+});
+
+export function categoryIcon(id) {
+  return CATEGORY_ICON[id] ?? CATEGORY_ICON.other;
+}
+
 export function categoryName(id) {
   return CATEGORIES.find((c) => c.id === id)?.name ?? 'Other';
 }

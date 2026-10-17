@@ -11,9 +11,11 @@
 //
 // Visual language (grayscale): EVENTS are filled bars and blocks in one of four looks
 // (solid · outline · hatched · ink); TASKS are outlined chips with a square check; HABITS
-// are round dots and a done / planned readout, never squares.
+// are round dots and a done / planned readout, never squares. Headings, counts and notes use
+// the app's shared icons (calendar.logic VIEW_ICON / LAYER_ICON / dayIcon): a task is a checked
+// square, a habit a target (or its own icon), overdue an alert, today a sun, time a clock.
 
-import { h, icon, registerIcon, idx, term, plural, tip, weekday, WEEKDAYS_SHORT, MONTHS_SHORT } from '../ui.js';
+import { h, icon, iconBadge, registerIcon, idx, term, plural, tip, weekday, WEEKDAYS_SHORT, MONTHS_SHORT } from '../ui.js';
 import { paintColor } from '../colors.js';
 import {
   WEEK_ORDER,
@@ -31,6 +33,8 @@ import {
   durationLabel,
   daysBetween,
   formatTime,
+  dayIcon,
+  LAYER_ICON,
 } from './calendar.logic.js';
 
 registerIcon('repeat', '<path d="m17 2 4 4-4 4"/><path d="M3 11V9a3 3 0 0 1 3-3h15"/><path d="m7 22-4-4 4-4"/><path d="M21 13v2a3 3 0 0 1-3 3H3"/>');
@@ -44,13 +48,24 @@ export const PRIORITY_TAG = {
   low: { text: 'Low', letter: 'L', cls: 'tag--dashed' },
 };
 
-/** The H / M / L badge, or null for no priority. */
-export function priorityBadge(priority, { hidden = true } = {}) {
+/** The H / M / L badge, or null for no priority. flag: a flag before the letter (roomy lists). */
+export function priorityBadge(priority, { hidden = true, flag = false } = {}) {
   const pri = PRIORITY_TAG[priority];
   if (!pri) return null;
-  return h('span', { class: ['tag', 'cal-pri', `cal-pri--${priority}`, pri.cls], title: `${pri.text} priority`, 'aria-hidden': hidden ? 'true' : null }, pri.letter);
+  return h(
+    'span',
+    { class: ['tag', 'cal-pri', `cal-pri--${priority}`, pri.cls, flag && 'has-flag'], title: `${pri.text} priority`, 'aria-hidden': hidden ? 'true' : null },
+    flag ? icon('flag', { size: 10, stroke: 2 }) : null,
+    pri.letter,
+  );
+}
+
+/** A small icon + words line for an empty list or a note ("Nothing due …"). */
+function note(iconName, ...text) {
+  return h('p', { class: 'cal-plan-note' }, icon(iconName, { size: 14, className: 'cal-note-ic' }), h('span', null, ...text));
 }
 const HABIT_STATE = { done: 'Done', pending: 'Due', miss: 'Missed', future: 'Planned', bonus: 'Bonus' };
+const STATE_WORD = new Set(['miss', 'bonus']);
 const MIN_BLOCK_PX = 18;
 
 const pad2 = (n) => String(n).padStart(2, '0');
@@ -177,7 +192,8 @@ export function habitMeter(info, { max = 5, readout = true } = {}) {
   const dots = info.scheduled.length <= max ? info.scheduled : null;
   const el = h('span', { class: ['cal-hb', perfect && 'is-perfect', future && 'is-future', !dots && 'is-count'], title: label, role: 'img', 'aria-label': label });
   if (dots) for (const s of dots) el.append(h('span', { class: ['cal-hb-dot', `is-${s.status}`] }));
-  else el.append(h('span', { class: ['cal-hb-dot', info.done ? 'is-done' : future ? 'is-future' : 'is-pending'] }));
+  // Too many to draw one by one: the habits icon with the count beside it ("◎ 9/12")
+  else el.append(h('span', { class: ['cal-hb-ic', info.done ? 'is-done' : future ? 'is-future' : 'is-pending'] }, icon(LAYER_ICON.habits, { size: 12, stroke: 1.75 })));
   if (dots) info.bonus.slice(0, 2).forEach(() => el.append(h('span', { class: 'cal-hb-dot is-bonus' })));
   if (readout && info.planned && (!future || !dots)) el.append(h('span', { class: 'cal-hb-n tnum' }, future ? String(info.planned) : `${info.done}/${info.planned}`));
   return el;
@@ -676,7 +692,7 @@ function fillAllday(el, ctx, keys, { tasks: withTasks = true, add = false } = {}
   // Events hidden: the lane says so, with the way back
   if (add && !ctx.layers.events) {
     // The whole lane row is the button: a big enough target in a one-row lane
-    const show = h('button', { type: 'button', class: 'cal-ad-note label', dataset: { act: 'layer-on', layer: 'events', fid: 'link:events', focus: 'ad-add' } }, 'Events hidden · ', h('span', { class: 'cal-ad-note-go' }, 'Show'));
+    const show = h('button', { type: 'button', class: 'cal-ad-note label', dataset: { act: 'layer-on', layer: 'events', fid: 'link:events', focus: 'ad-add' } }, icon('eye', { size: 12 }), 'Events hidden · ', h('span', { class: 'cal-ad-note-go' }, 'Show'));
     show.style.gridColumn = `2 / ${keys.length + 2}`;
     show.style.gridRow = '1';
     items.push(show);
@@ -790,9 +806,12 @@ function taskRow(task, ctx, { prefix, showDue = false }) {
       { type: 'button', class: 'cal-trow-title', 'aria-label': `${taskLabel(task, ctx)}. Open to schedule`, dataset: { act: 'task-open', task: task.id, fid: `rt:${prefix}:${task.id}` } },
       task.title,
     ),
-    task.time ? h('span', { class: 'cal-trow-due label tnum', title: `${task.time}–${formatTime(parseTime(task.time) + (task.minutes || 30))}` }, task.time) : null,
-    showDue && task.due ? h('span', { class: 'cal-trow-due label tnum' }, shortDay(task.due)) : null,
-    priorityBadge(task.priority),
+    // Meta in small icons + words: its time (clock), its late due date (alert), its priority (flag)
+    task.time
+      ? h('span', { class: 'cal-trow-due label tnum', title: `${task.time}–${formatTime(parseTime(task.time) + (task.minutes || 30))}` }, icon('clock', { size: 12 }), task.time)
+      : null,
+    showDue && task.due ? h('span', { class: ['cal-trow-due label tnum', overdue && 'is-alert'], title: overdue ? `Overdue: was due ${longDay(task.due)}` : null }, icon(overdue ? 'alert' : dayIcon(task.due, ctx.today), { size: 12 }), shortDay(task.due)) : null,
+    priorityBadge(task.priority, { flag: true }),
   );
 }
 
@@ -815,26 +834,44 @@ function habitRow(item, key, ctx) {
       },
       icon('check', { size: 12, stroke: 2.5 }),
     ),
+    // The habit's own icon (picked, or the one its name suggests), as on the Habits page
+    iconBadge(item.icon || LAYER_ICON.habits, { tone: 'habits', size: 14, box: 24, className: 'cal-hrow-ib' }),
     h('span', { class: 'cal-hrow-name' }, item.name),
-    h('span', { class: 'cal-hrow-state label' }, HABIT_STATE[item.status] ?? ''),
+    // The check already shows done / to do / planned: only a miss or a bonus says it in words
+    STATE_WORD.has(item.status) ? h('span', { class: 'cal-hrow-state label' }, HABIT_STATE[item.status]) : null,
   );
 }
 
 /**
- * A day-plan list's heading: one button that opens or folds the list ("Tasks · 6 ▸"). It is also
- * the list's focus anchor (data-fid plan-tasks / plan-habits). calendar.js keeps the open state.
+ * A day-plan list's heading: one button that opens or folds the list ("☑ Tasks  ⚠3  6 ▸"): the
+ * layer's icon in its page color, the name, then the number that matters, big. `alert` holds the
+ * overdue count (Tasks on today). It is also the list's focus anchor (data-fid plan-tasks /
+ * plan-habits). calendar.js keeps the open state.
  */
-function planToggle(panel, label, glyph, bodyId) {
+function planToggle(panel, label, bodyId) {
   const count = h('span', { class: 'cal-plan-count tnum' });
+  const alert = h('span', { class: 'cal-plan-alert tnum', hidden: true });
   const el = h(
     'button',
     { type: 'button', class: 'cal-plan-toggle', 'aria-expanded': 'false', 'aria-controls': bodyId, dataset: { act: 'plan-toggle', panel, fid: `plan-${panel}` } },
-    h('span', { class: ['cal-glyph', `cal-glyph--${glyph}`], 'aria-hidden': 'true' }),
+    iconBadge(LAYER_ICON[panel], { tone: panel, size: 14, box: 24, className: 'cal-plan-ib' }),
     h('span', { class: 'cal-plan-title label' }, label),
+    alert,
     count,
     icon('chevron-right', { size: 14, stroke: 2, className: 'cal-plan-chev' }),
   );
-  return { el, count };
+  return { el, count, alert };
+}
+
+/** A sub-heading inside a day list: icon, word, count ("⚠ Overdue 3", "☀ Due today"). */
+function planSub(iconName, text, n = null, { cls = null, fid = null } = {}) {
+  return h(
+    'div',
+    { class: ['cal-plan-sub label', cls], tabindex: fid ? '-1' : null, dataset: fid ? { fid } : null },
+    icon(iconName, { size: 12 }),
+    h('span', null, text),
+    n !== null ? h('span', { class: 'cal-plan-sub-n tnum' }, String(n)) : null,
+  );
 }
 
 /**
@@ -881,9 +918,9 @@ export function dayView({ onAddTask }) {
   );
   const tasksItems = h('div', { class: 'cal-plan-items' });
   const tasksBody = h('div', { class: 'cal-plan-body', id: 'cal-plan-tasks' }, tasksItems, addForm);
-  const tasksToggle = planToggle('tasks', 'Tasks', 'task', 'cal-plan-tasks');
+  const tasksToggle = planToggle('tasks', 'Tasks', 'cal-plan-tasks');
   const habitsBody = h('div', { class: 'cal-plan-body', id: 'cal-plan-habits' });
-  const habitsToggle = planToggle('habits', 'Habits', 'hb', 'cal-plan-habits');
+  const habitsToggle = planToggle('habits', 'Habits', 'cal-plan-habits');
   // Dropping a task here makes it a whole-day task of this day (off the timeline)
   const tasksSec = h('section', { class: 'cal-plan-sec cal-plan-tasks', 'aria-label': 'Tasks' }, h('h3', { class: 'cal-plan-h' }, tasksToggle.el), tasksBody);
   const habitsSec = h('section', { class: 'cal-plan-sec cal-plan-habits', 'aria-label': 'Habits' }, h('h3', { class: 'cal-plan-h' }, habitsToggle.el), habitsBody);
@@ -914,10 +951,14 @@ export function dayView({ onAddTask }) {
       const timed = ctx.layers.events ? ctx.occs.filter((o) => !o.allDay && o.start === key) : [];
       const booked = timed.reduce((n, o) => n + (o.endMin - o.startMin), 0);
       timeline.setAttribute('aria-label', `Timeline, ${longDay(key)}`);
+      // The day (☀ today, ☼ tomorrow, a date), then its numbers in icons: events and booked time
+      const rel = daysBetween(ctx.today, key);
+      const stat = (name, text) => h('span', { class: 'cal-day-head-stat label' }, icon(name, { size: 12 }), text);
       tlHead.replaceChildren(
-        h('span', { class: 'label' }, isToday ? 'Today' : daysBetween(ctx.today, key) === 1 ? 'Tomorrow' : daysBetween(ctx.today, key) === -1 ? 'Yesterday' : WEEKDAYS_SHORT[weekday(key)]),
+        h('span', { class: ['cal-day-head-day label', isToday && 'is-today'] }, icon(dayIcon(key, ctx.today), { size: 13 }), isToday ? 'Today' : rel === 1 ? 'Tomorrow' : rel === -1 ? 'Yesterday' : WEEKDAYS_SHORT[weekday(key)]),
         h('span', { class: 'cal-day-head-sep', 'aria-hidden': 'true' }, term('calendar.sep', '//')),
-        h('span', { class: 'label' }, ctx.layers.events ? `${plural(timed.length, 'timed event')}${booked ? ` · ${durationLabel(0, booked)} booked` : ''}` : 'Events hidden'),
+        ctx.layers.events ? stat(LAYER_ICON.events, plural(timed.length, 'timed event')) : stat('eye', 'Events hidden'),
+        ctx.layers.events && booked ? stat('clock', `${durationLabel(0, booked)} booked`) : null,
       );
       fillAllday(allday, ctx, [key], { tasks: false, add: true });
       allday.dataset.dropDay = key;
@@ -936,33 +977,39 @@ export function dayView({ onAddTask }) {
       if (!ctx.layers.tasks) {
         // Folded, the row itself says why it has no count
         tasksToggle.count.textContent = 'Hidden';
+        tasksToggle.count.classList.add('is-word');
+        tasksToggle.alert.hidden = true;
         tasksToggle.el.setAttribute('aria-label', 'Tasks, hidden');
         tasksToggle.el.title = 'Tasks are hidden';
-        tasksItems.replaceChildren(h('p', { class: 'cal-plan-note' }, 'The Tasks layer is off. ', h('button', { type: 'button', class: 'cal-link', dataset: { act: 'layer-on', layer: 'tasks', fid: 'link:tasks', focus: 'plan-tasks' } }, 'Show tasks')));
+        tasksItems.replaceChildren(note('eye', 'The Tasks layer is off. ', h('button', { type: 'button', class: 'cal-link', dataset: { act: 'layer-on', layer: 'tasks', fid: 'link:tasks', focus: 'plan-tasks' } }, 'Show tasks')));
         addForm.hidden = true;
       } else {
         const n = openTasks.length + overdue.length;
         tasksToggle.count.textContent = n ? String(n) : '';
+        tasksToggle.count.classList.remove('is-word');
+        // Late tasks stand out on the row itself: ⚠ and how many
+        tasksToggle.alert.hidden = !overdue.length;
+        tasksToggle.alert.replaceChildren(...(overdue.length ? [icon('alert', { size: 12, stroke: 2 }), String(overdue.length)] : []));
         const due = isToday ? 'Tasks due today' : `Tasks due ${shortDay(key)}`;
         tasksToggle.el.title = `${due}${overdue.length ? ` · ${overdue.length} overdue` : ''}`;
         tasksToggle.el.setAttribute('aria-label', `${due}, ${openTasks.length} open${overdue.length ? `, ${overdue.length} overdue` : ''}`);
         addForm.hidden = false;
         const body = [];
         if (overdue.length) {
-          body.push(h('div', { class: 'cal-plan-sub label' }, `Overdue · ${overdue.length}`));
+          body.push(planSub('alert', 'Overdue', overdue.length, { cls: 'is-alert' }));
           body.push(h('div', { class: 'cal-plan-list is-overdue' }, overdue.map((t) => taskRow(t, ctx, { prefix: 'od', showDue: true }))));
         }
-        if (overdue.length && openTasks.length) body.push(h('div', { class: 'cal-plan-sub label' }, isToday ? 'Due today' : 'Due'));
+        if (overdue.length && openTasks.length) body.push(planSub(dayIcon(key, ctx.today), isToday ? 'Due today' : 'Due', openTasks.length));
         if (openTasks.length) body.push(h('div', { class: 'cal-plan-list' }, openTasks.map((t) => taskRow(t, ctx, { prefix: 'dy' }))));
         if (!openTasks.length && !overdue.length) {
-          body.push(h('p', { class: 'cal-plan-note' }, done.length ? 'Everything due is done.' : 'Nothing due. Add a task below or drag one here from Unscheduled.'));
+          body.push(done.length ? note('check-circle', 'Everything due is done.') : note(LAYER_ICON.tasks, 'Nothing due. Add one below or drag one here from Unscheduled.'));
         }
         if (done.length) {
           if (ctx.layers.completed) {
-            body.push(h('div', { class: 'cal-plan-sub label', tabindex: '-1', dataset: { fid: 'plan-done' } }, `Done · ${done.length}`));
+            body.push(planSub(LAYER_ICON.completed, 'Done', done.length, { fid: 'plan-done' }));
             body.push(h('div', { class: 'cal-plan-list' }, done.map((t) => taskRow(t, ctx, { prefix: 'dd' }))));
           } else {
-            body.push(h('button', { type: 'button', class: 'cal-link cal-plan-donelink label', dataset: { act: 'layer-on', layer: 'completed', fid: 'link:done', focus: 'plan-done' } }, `${done.length} done · show`));
+            body.push(h('button', { type: 'button', class: 'cal-link cal-plan-donelink label', dataset: { act: 'layer-on', layer: 'completed', fid: 'link:done', focus: 'plan-done' } }, icon(LAYER_ICON.completed, { size: 12 }), `${done.length} done · show`));
           }
         }
         tasksItems.replaceChildren(...body);
@@ -978,7 +1025,7 @@ export function dayView({ onAddTask }) {
         habitsToggle.count.textContent = info?.planned ? (future ? `${info.planned} planned` : `${info.done}/${info.planned}`) : '';
         habitsToggle.el.title = future && rows.length ? 'Planned: check in on the day' : '';
         habitsToggle.el.setAttribute('aria-label', `Habits${info?.planned ? (future ? `, ${info.planned} planned` : `, ${info.done} of ${info.planned} done`) : ''}`);
-        habitsBody.replaceChildren(rows.length ? h('div', { class: 'cal-plan-list' }, rows.map((it) => habitRow(it, key, ctx))) : h('p', { class: 'cal-plan-note' }, 'No habits planned for this day.'));
+        habitsBody.replaceChildren(rows.length ? h('div', { class: 'cal-plan-list' }, rows.map((it) => habitRow(it, key, ctx))) : note(LAYER_ICON.habits, 'No habits planned for this day.'));
       }
     },
   };
@@ -1001,10 +1048,11 @@ export function agendaView(ctx) {
         ...occs.map((o) => eventBar(o, ctx, { prefix: `ag${key}`, tab: '0', drag: false })),
         ...tasks.map((t) => taskChip(t, ctx, { prefix: `ag${key}`, tab: '0' })),
       ];
+      // A day with nothing planned folds into its heading row, so the busy days stand out
       return h(
         'section',
         {
-          class: ['cal-ag-day panel', key === ctx.today && 'is-today', key === ctx.cursor && 'is-selected', key < ctx.today && 'is-past'],
+          class: ['cal-ag-day panel', key === ctx.today && 'is-today', key === ctx.cursor && 'is-selected', key < ctx.today && 'is-past', !items.length && 'is-empty'],
           'aria-label': longDay(key),
           dataset: { dropDay: key, zoom: `day:${key}` },
         },
@@ -1016,8 +1064,9 @@ export function agendaView(ctx) {
             { type: 'button', class: 'cal-ag-date', 'aria-label': `Open ${longDay(key)}`, dataset: { act: 'zoom-day', key, fid: `ag:${key}` } },
             h('span', { class: 'cal-dh-dow label' }, WEEKDAYS_SHORT[weekday(key)]),
             h('span', { class: 'cal-dh-num tnum' }, idx(Number(key.slice(8)))),
-            key === ctx.today ? h('span', { class: 'tag tag--solid cal-ag-today' }, 'Today') : null,
+            key === ctx.today ? h('span', { class: 'tag tag--solid cal-ag-today' }, icon('sun', { size: 11, stroke: 2 }), 'Today') : null,
           ),
+          items.length ? null : h('span', { class: 'cal-ag-empty label' }, 'Nothing planned'),
           habitMeter(info, { max: 5 }),
           h(
             'button',
@@ -1025,7 +1074,7 @@ export function agendaView(ctx) {
             icon('plus', { size: 14 }),
           ),
         ),
-        items.length ? h('div', { class: 'cal-ag-items' }, items) : h('p', { class: 'cal-ag-empty label' }, 'Nothing planned'),
+        items.length ? h('div', { class: 'cal-ag-items' }, items) : null,
       );
     }),
   );
@@ -1052,7 +1101,7 @@ export function trayView() {
   const el = h(
     'aside',
     { class: 'cal-tray panel hud', 'aria-label': 'Unscheduled tasks', dataset: { dropTray: '' } },
-    h('div', { class: 'cal-tray-head' }, icon('inbox', { size: 14 }), h('h3', { class: 'label cal-tray-title', tabindex: '-1', dataset: { fid: 'tray-head' } }, 'Unscheduled'), count),
+    h('div', { class: 'cal-tray-head' }, iconBadge('inbox', { tone: 'tasks', size: 14, box: 24 }), h('h3', { class: 'label cal-tray-title', tabindex: '-1', dataset: { fid: 'tray-head' } }, 'Unscheduled'), count),
     body,
   );
   return {
@@ -1061,12 +1110,19 @@ export function trayView() {
       const list = ctx.unscheduled;
       count.textContent = list.length ? String(list.length) : '';
       if (!ctx.layers.tasks) {
-        body.replaceChildren(h('p', { class: 'cal-plan-note' }, 'The Tasks layer is off. ', h('button', { type: 'button', class: 'cal-link', dataset: { act: 'layer-on', layer: 'tasks', fid: 'link:tray-tasks', focus: 'tray-head' } }, 'Show tasks')));
+        body.replaceChildren(note('eye', 'The Tasks layer is off. ', h('button', { type: 'button', class: 'cal-link', dataset: { act: 'layer-on', layer: 'tasks', fid: 'link:tray-tasks', focus: 'tray-head' } }, 'Show tasks')));
         return;
       }
       if (!list.length) {
         const anyOpen = ctx.tasks.some((t) => !t.done);
-        body.replaceChildren(h('p', { class: 'cal-tray-empty' }, anyOpen ? 'Every open task has a date. Drop a task here to unschedule it.' : 'No open tasks yet. Use Add task to plan one.'));
+        body.replaceChildren(
+          h(
+            'p',
+            { class: 'cal-tray-empty' },
+            icon(anyOpen ? 'check-circle' : 'inbox', { size: 18, className: 'cal-tray-empty-ic' }),
+            h('span', null, anyOpen ? 'Every open task has a date. Drop a task here to unschedule it.' : 'No open tasks yet. Use Add task to plan one.'),
+          ),
+        );
         return;
       }
       body.replaceChildren(
@@ -1089,19 +1145,19 @@ export function legend() {
     h(
       'span',
       { class: 'cal-legend-group' },
-      h('span', { class: 'label' }, 'Events'),
+      h('span', { class: 'label cal-legend-name' }, icon(LAYER_ICON.events, { size: 12 }), 'Events'),
       STYLES.map((s) => h('span', { class: ['cal-legend-ev', `cal-ev--${s}`], title: `${STYLE_LABEL[s]} event` }, STYLE_LABEL[s])),
     ),
     h(
       'span',
       { class: 'cal-legend-group' },
-      h('span', { class: 'label' }, 'Task'),
+      h('span', { class: 'label cal-legend-name' }, icon(LAYER_ICON.tasks, { size: 12 }), 'Task'),
       h('span', { class: 'cal-legend-task' }, h('span', { class: 'cal-legend-box' }), 'Square check'),
     ),
     h(
       'span',
       { class: 'cal-legend-group cal-legend-group--hb' },
-      h('span', { class: 'label' }, 'Habits'),
+      h('span', { class: 'label cal-legend-name' }, icon(LAYER_ICON.habits, { size: 12 }), 'Habits'),
       h('span', { class: 'cal-hb cal-legend-hb' }, h('span', { class: 'cal-hb-dot is-done' }), h('span', { class: 'cal-hb-dot is-done' }), h('span', { class: 'cal-hb-dot is-pending' }), h('span', { class: 'cal-hb-n tnum' }, '2/3')),
     ),
   );

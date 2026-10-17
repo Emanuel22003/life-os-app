@@ -15,6 +15,30 @@
   overflow-wrap: anywhere;
 }
 
+/* The Habits color (css/icons.css): it marks what is done and the open tab. Grayscale templates
+   keep gray for "some done" and bright text for "all done"; colored ones use the page's green. */
+:root {
+  --hb-tone: var(--text-2);
+  --hb-ok: var(--text);
+  --hb-mark: currentColor;
+}
+
+:root.cc-on.cc-pages:is([data-skin="simple"], [data-skin="coquette"], [data-skin="y2k"], [data-skin="oldmoney"]) {
+  --hb-tone: var(--mod-habits);
+  --hb-ok: var(--mod-habits);
+  --hb-mark: var(--mod-habits);
+}
+
+/* A habit's icon before its name (habitBadge in habits.plan.js), everywhere habits are listed */
+.hb-ib {
+  --ib-box: 24px;
+}
+
+.hb-ib > .icon {
+  width: 15px;
+  height: 15px;
+}
+
 /* ---- Header actions (placement comes from the shell's .page-actions) ---- */
 
 .hb-add-kbd {
@@ -44,6 +68,14 @@
 .hb-tab {
   height: 32px;
   padding: 0 var(--space-4);
+}
+
+.hb-tab > svg {
+  flex: none;
+}
+
+.hb-tab[aria-selected="true"] > svg {
+  color: var(--hb-mark);
 }
 
 .hb-tab-count:empty {
@@ -266,6 +298,12 @@
   flex: none;
 }
 
+/* The open overview's icon, leading the menu button */
+.hb-view-ic {
+  display: inline-grid;
+  flex: none;
+}
+
 /* What the week matrix's squares mean, under the table */
 .hb-mx-legend {
   gap: 4px var(--space-3);
@@ -273,32 +311,77 @@
   border-top: 1px solid var(--line);
 }
 
-/* ---- Readout: small ring + done / planned for one day ---- */
+/* ---- Readout: ✓ done / planned (big), 🔥 the best streak running, the day under them ---- */
 
 .hb-ro {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
   min-width: 0;
   max-width: 100%;
-}
-
-.hb-ro-ring {
-  flex: none;
 }
 
 .hb-ro-text {
   display: flex;
   flex-direction: column;
+  gap: 1px;
   min-width: 0;
   line-height: 1.15;
 }
 
+.hb-ro-main {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.hb-ro-done {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-3);
+}
+
+/* A box (not inline) so the celebration's scale applies to it */
+.hb-ro-ic {
+  display: inline-grid;
+  flex: none;
+}
+
+.hb-ro.is-started .hb-ro-done {
+  color: var(--hb-tone);
+}
+
+.hb-ro.is-complete .hb-ro-done {
+  color: var(--hb-ok);
+}
+
+.hb-ro.is-complete .hb-ro-ic {
+  filter: drop-shadow(0 0 3px var(--glow-c));
+}
+
 .hb-ro-frac {
-  font-size: var(--fs-sm);
-  font-weight: 600;
+  font-size: var(--fs-md);
+  font-weight: 700;
+  letter-spacing: -0.01em;
   white-space: nowrap;
   color: var(--text);
+}
+
+.hb-ro-streak {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--text-2);
+}
+
+.hb-ro-streak > svg {
+  flex: none;
+  color: var(--text-3);
 }
 
 .hb-ro-cap {
@@ -308,11 +391,7 @@
   text-overflow: ellipsis;
 }
 
-.hb-ro.is-complete .ring-fill {
-  filter: drop-shadow(0 0 3px var(--glow-c));
-}
-
-.hb-ro.is-celebrating .hb-ro-ring {
+.hb-ro.is-celebrating .hb-ro-ic {
   animation: hb-pop 480ms var(--ease-out), hb-ring-glow 1.2s var(--ease) 2;
 }
 
@@ -501,11 +580,23 @@
   flex: 1 1 auto;
   align-self: stretch;
   display: flex;
-  flex-direction: column;
-  justify-content: center;
+  align-items: center;
+  gap: var(--space-2);
   min-width: 0;
   border-radius: var(--radius-xs);
   text-align: left;
+}
+
+.hb-mx-ident {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+}
+
+.hb-mx-row.is-archived .hb-ib {
+  opacity: 0.55;
 }
 
 .hb-mx-name-text,
@@ -840,16 +931,33 @@
   border-bottom: 1px solid var(--line);
 }
 
-/* The title already names the day */
+/* The title already names the day; the numbers keep their room, the title gives way */
 .hb-dl-head .hb-ro-cap {
   display: none;
 }
 
+.hb-dl-head > .hb-ro {
+  flex: none;
+}
+
 .hb-dl-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   min-width: 0;
-  overflow: hidden;
   font-size: var(--fs-sm);
   font-weight: 600;
+}
+
+.hb-dl-title-ic {
+  display: inline-grid;
+  flex: none;
+  color: var(--text-3);
+}
+
+.hb-dl-title-text {
+  min-width: 0;
+  overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
 }
@@ -874,7 +982,14 @@
 }
 
 .hb-dl-sub {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   padding: var(--space-2) var(--space-3) 2px;
+}
+
+.hb-dl-sub > svg {
+  flex: none;
 }
 
 .hb-row {
@@ -891,6 +1006,16 @@
 
 .hb-row-check {
   --size: 24px;
+}
+
+/* The check, then the habit's icon right before its name (6px apart: they read as one unit) */
+.hb-row-ib {
+  margin-left: -6px;
+}
+
+.hb-dl.is-other .hb-row:not(.is-bonus) .hb-row-ib,
+.hb-row.is-locked .hb-row-ib {
+  opacity: 0.6;
 }
 
 .hb-row-check.is-popping {
@@ -989,6 +1114,11 @@
 
 .hb-fold-title {
   color: inherit;
+}
+
+.hb-fold-kind {
+  flex: none;
+  margin-right: -2px;
 }
 
 .hb-arch-list {
@@ -1118,7 +1248,15 @@
 }
 
 .hb-plan-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   color: var(--text);
+}
+
+.hb-plan-title > svg {
+  flex: none;
+  color: var(--text-3);
 }
 
 .hb-plan-summary {
@@ -1328,7 +1466,10 @@ th.hb-plan-corner {
   gap: 2px;
 }
 
+/* Positioned: its hidden ", edit" (sr-only) is clipped here instead of sitting after a long name,
+   where it widened the table into a sideways scroll on a phone */
 .hb-plan-name {
+  position: relative;
   display: block;
   max-width: 100%;
   overflow: hidden;
@@ -1353,6 +1494,10 @@ th.hb-plan-corner {
 
 .hb-plan-row.is-idle .hb-plan-name {
   color: var(--text-3);
+}
+
+.hb-plan-row.is-idle .hb-ib {
+  opacity: 0.55;
 }
 
 /* Revealed on row hover, or once keyboard focus reaches a button (Tab from the name). Focus on the
@@ -1537,6 +1682,10 @@ th.hb-plan-corner {
   color: var(--text-2);
 }
 
+.hb-arch-row > .hb-ib {
+  opacity: 0.6;
+}
+
 .hb-arch-acts {
   display: flex;
   gap: var(--space-2);
@@ -1550,6 +1699,72 @@ th.hb-plan-corner {
   display: flex;
   flex-direction: column;
   gap: var(--space-5);
+}
+
+/* Name row: the habit's icon (a button that opens the icon grid), then the name */
+.hb-f-namerow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.hb-f-namerow > .hb-f-name {
+  flex: 1;
+  min-width: 0;
+}
+
+.hb-f-iconbtn {
+  position: relative;
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-sm);
+  transition: transform var(--dur-fast) var(--ease);
+}
+
+.hb-f-iconbtn:active {
+  transform: scale(0.94);
+}
+
+.hb-f-ib {
+  --ib-box: 40px;
+}
+
+.hb-f-iconbtn:hover .hb-f-ib,
+.hb-f-iconbtn[aria-expanded="true"] .hb-f-ib {
+  box-shadow: inset 0 0 0 1.5px var(--ib-c);
+}
+
+/* A small chevron on the corner says it opens something */
+.hb-f-iconbtn-chev {
+  position: absolute;
+  right: -3px;
+  bottom: -3px;
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  border: 1px solid var(--line-strong);
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--text-2);
+  transition: transform var(--dur) var(--ease);
+}
+
+.hb-f-iconbtn[aria-expanded="true"] .hb-f-iconbtn-chev {
+  transform: rotate(180deg);
+}
+
+.hb-f-icons {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
 }
 
 .hb-f-name[aria-invalid="true"] {
@@ -1680,9 +1895,9 @@ th.hb-plan-corner {
 
 .hb-dm-names li {
   display: flex;
-  align-items: baseline;
-  gap: var(--space-3);
-  padding: var(--space-2) var(--space-3);
+  align-items: center;
+  gap: var(--space-2);
+  padding: 6px var(--space-3);
   font-size: var(--fs-sm);
 }
 
@@ -1828,11 +2043,23 @@ th.hb-plan-corner {
   .hb-tab {
     flex: 1;
     justify-content: center;
+    gap: 6px;
+    min-width: 0;
     padding: 0 var(--space-2);
   }
 
-  .hb-tab > svg {
+  /* Icons fill the tabs on a phone; the counts repeat what the views show right below */
+  .hb-tab-count {
     display: none;
+  }
+
+  .hb-ib {
+    --ib-box: 22px;
+  }
+
+  .hb-ib > .icon {
+    width: 14px;
+    height: 14px;
   }
 
   .hb-chart-slot {
@@ -1859,17 +2086,17 @@ th.hb-plan-corner {
     display: none;
   }
 
-  /* ---- overview tables: ~110px names + seven ~33px days fit 343px; rows stay short ---- */
+  /* ---- overview tables: ~120px icons + names, seven ~31px days fit 341px; rows stay short ---- */
 
   .hb-mx-panel {
-    --hb-mx-name: 112px;
+    --hb-mx-name: 120px;
     --hb-mx-row: 35px;
     --hb-mx-cell: 28px;
   }
 
-  /* History: twelve weeks need the room */
+  /* History: twelve weeks need the room (108px still fits "Drink water" beside its icon) */
   .hb-hi {
-    --hb-mx-name: 96px;
+    --hb-mx-name: 108px;
     --hb-mx-cell: 22px;
   }
 
@@ -1882,12 +2109,36 @@ th.hb-plan-corner {
     padding: 0 var(--space-1) 0 var(--space-2);
   }
 
+  .hb-mx-name {
+    gap: 6px;
+  }
+
   .hb-mx-name-text {
     font-size: var(--fs-xs);
   }
 
   .hb-mx-sub {
     display: none;
+  }
+
+  /* The streak sits under the name (where wider screens show the plan), so the name keeps the
+     row's width beside its icon: "Drink water" fits even when every habit has a streak. Taps on
+     it fall through to the name button. */
+  .hb-mx-rowin {
+    --hb-streak-x: calc(var(--space-2) + 28px); /* the row's padding + the icon (22px) + its gap */
+    position: relative;
+  }
+
+  .hb-mx:not(.hb-hi) .hb-mx-rowin > .hb-mx-streak {
+    position: absolute;
+    left: var(--hb-streak-x);
+    bottom: 3px;
+    line-height: 1;
+    pointer-events: none;
+  }
+
+  .hb-mx:not(.hb-hi) .hb-mx-rowin.has-streak .hb-mx-ident {
+    padding-bottom: 13px;
   }
 
   .hb-mx-th {
@@ -1964,6 +2215,10 @@ th.hb-plan-corner {
     padding-left: var(--space-2);
   }
 
+  .hb-row-ib {
+    margin-left: -2px;
+  }
+
   .hb-howto {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -1971,8 +2226,12 @@ th.hb-plan-corner {
   /* ---- week plan: 104px sticky names + seven >= 32px cells fit 341px ---- */
 
   .hb-plan {
-    --hb-name-w: 104px;
+    --hb-name-w: 110px;
     --hb-cell-min: 33px;
+  }
+
+  .hb-plan-rowin {
+    gap: 6px;
   }
 
   .hb-plan-table {
@@ -1983,8 +2242,33 @@ th.hb-plan-corner {
     padding: var(--space-3);
   }
 
-  .hb-plan-head .hb-legend {
+  .hb-plan-head .hb-legend,
+  .hb-plan-head .hb-rule {
     display: none;
+  }
+
+  /* The tab above already says "Week plan": its icon leads the summary, the words stay for
+     screen readers, and the head keeps to one line */
+  .hb-plan-title > span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+
+  .hb-plan-head {
+    flex-wrap: nowrap;
+    gap: var(--space-2);
+  }
+
+  .hb-plan-summary {
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
   }
 
   th.hb-plan-corner {
@@ -2076,11 +2360,19 @@ th.hb-plan-corner {
 /* The smallest phones (320px): a narrower name column keeps all seven days on screen */
 @media (max-width: 360px) {
   .hb-mx-panel {
-    --hb-mx-name: 88px;
+    --hb-mx-name: 96px;
     --hb-mx-cell: 26px;
   }
 
   .hb-hi {
-    --hb-mx-name: 80px;
+    --hb-mx-name: 84px;
+  }
+
+  .hb-ib {
+    --ib-box: 20px;
+  }
+
+  .hb-mx-rowin {
+    --hb-streak-x: calc(var(--space-2) + 26px);
   }
 }

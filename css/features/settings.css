@@ -16,7 +16,15 @@
 }
 
 .st-card-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   margin: var(--space-4) 0 var(--space-1);
+}
+
+.st-card-title > .icon {
+  flex: none;
+  color: var(--text-2);
 }
 
 .st-row {

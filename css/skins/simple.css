@@ -750,25 +750,23 @@
   height: 22px;
 }
 
+/* Low is the quiet flag: no frame (Medium has one, High is solid) */
 [data-plain] .tk-pri.tag--dashed {
-  border-style: solid;
+  border-color: transparent;
 }
 
+/* Overdue: a tinted chip in the alert tone (red while color coding is on, else gray) */
 [data-plain] .tk-due-tag--overdue {
-  background: var(--surface-3);
+  background: color-mix(in srgb, var(--tk-alert) 14%, transparent);
   border-color: transparent;
-  color: var(--text);
+  color: var(--tk-alert);
 }
 
 [data-plain] .tk-due-tag--overdue strong {
   font-weight: 600;
 }
 
-/* "Overdue · 2 days ago": a calm dot instead of a blinking light and a slash */
-[data-plain] .tk-blink {
-  display: none;
-}
-
+/* "Overdue · 2 days ago": a calm dot instead of a slash */
 [data-plain] .tk-sep {
   font-size: 0;
   opacity: 1;
@@ -885,9 +883,10 @@
   font-size: var(--fs-2xs);
 }
 
+/* The section tag is the section's icon and name, no pill: quiet beside the title */
 [data-plain] .nt-item-tag {
   height: 20px;
-  border-radius: var(--radius-pill);
+  padding: 0;
 }
 
 [data-plain] .nt-hit {

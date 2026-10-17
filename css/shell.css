@@ -722,17 +722,20 @@
   }
 
   /* Six tabs are ~62px wide on a phone: the badge stays inside its tab ("25m", "2/5") */
+  /* A count is never cut ('0/12' must not read '0/1'): it may reach a little past its tab */
   .tab .nav-badge {
     position: absolute;
     top: 8px;
-    left: calc(50% + 6px);
+    left: calc(50% + 4px);
     right: auto;
-    max-width: calc(50% - 7px);
+    max-width: none;
     margin: 0;
     min-width: 0;
-    padding: 0 3px;
-    overflow: hidden;
+    padding: 0 2px;
+    overflow: visible;
     font-size: 9px;
+    letter-spacing: -0.02em;
+    white-space: nowrap;
   }
 }
 

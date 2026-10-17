@@ -1,0 +1,160 @@
+/* ==========================================================================
+   LIFE/OS — icons (js/icons.js draws them, js/icons.logic.js picks them)
+   - Page colors: each page has a tone (--mod-<page>) its icon takes in the menu, the tab bar, the
+     page title and Home's widgets, while Color coding → Pages is on (html.cc-on.cc-pages). The
+     grayscale templates (Mission Control, Terminal, Brutalist) keep them gray, Old Money brass.
+   - .ib: an icon in a small tinted square (ui.iconBadge).
+   - .ip: the icon picker (ui.iconPicker).
+   ========================================================================== */
+
+:root {
+  --mod-home: var(--text-2);
+  --mod-tasks: var(--text-2);
+  --mod-notes: var(--text-2);
+  --mod-habits: var(--text-2);
+  --mod-calendar: var(--text-2);
+  --mod-pomodoro: var(--text-2);
+  --mod-training: var(--text-2);
+  --mod-finance: var(--text-2);
+  --mod-health: var(--text-2);
+  --mod-settings: var(--text-2);
+}
+
+:root:is([data-skin="simple"], [data-skin="coquette"], [data-skin="y2k"]) {
+  --mod-home: var(--cc-purple);
+  --mod-tasks: var(--cc-blue);
+  --mod-notes: var(--cc-yellow);
+  --mod-habits: var(--cc-green);
+  --mod-calendar: var(--cc-red);
+  --mod-pomodoro: var(--cc-orange);
+  --mod-training: var(--cc-pink);
+  --mod-finance: var(--cc-teal);
+  --mod-health: var(--cc-red);
+}
+
+:root[data-skin="oldmoney"] {
+  --mod-home: var(--om-brass, var(--accent));
+  --mod-tasks: var(--om-brass, var(--accent));
+  --mod-notes: var(--om-brass, var(--accent));
+  --mod-habits: var(--om-brass, var(--accent));
+  --mod-calendar: var(--om-brass, var(--accent));
+  --mod-pomodoro: var(--om-brass, var(--accent));
+  --mod-training: var(--om-brass, var(--accent));
+  --mod-finance: var(--om-brass, var(--accent));
+  --mod-health: var(--om-brass, var(--accent));
+}
+
+/* ---- Late (overdue): one color for every page ----
+   Red in the colored templates while Color coding is on; the text's own color elsewhere (there
+   the alert icon and the weight say it). Red means late and nothing else. */
+
+:root {
+  --alert: var(--text);
+}
+
+:root.cc-on[data-plain] {
+  --alert: var(--cc-red);
+}
+
+/* ---- Icon badge ---- */
+
+.ib {
+  --ib-c: var(--text-2);
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: var(--ib-box, 26px);
+  height: var(--ib-box, 26px);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--ib-c) 14%, transparent);
+  color: var(--ib-c);
+  vertical-align: middle;
+}
+
+.ib > .icon {
+  display: block;
+}
+
+.cc-on.cc-pages .ib[data-tone="home"] { --ib-c: var(--mod-home); }
+.cc-on.cc-pages .ib[data-tone="tasks"] { --ib-c: var(--mod-tasks); }
+.cc-on.cc-pages .ib[data-tone="notes"] { --ib-c: var(--mod-notes); }
+.cc-on.cc-pages .ib[data-tone="habits"] { --ib-c: var(--mod-habits); }
+.cc-on.cc-pages .ib[data-tone="calendar"] { --ib-c: var(--mod-calendar); }
+.cc-on.cc-pages .ib[data-tone="pomodoro"] { --ib-c: var(--mod-pomodoro); }
+.cc-on.cc-pages .ib[data-tone="training"] { --ib-c: var(--mod-training); }
+.cc-on.cc-pages .ib[data-tone="finance"] { --ib-c: var(--mod-finance); }
+.cc-on.cc-pages .ib[data-tone="health"] { --ib-c: var(--mod-health); }
+.cc-on.cc-pages .ib[data-tone="settings"] { --ib-c: var(--mod-settings); }
+
+/* ---- The menu and the tab bar: each page's icon in its color ---- */
+
+.cc-on.cc-pages :is(.nav-item, .tab)[data-id="home"] > .icon { color: var(--mod-home); }
+.cc-on.cc-pages :is(.nav-item, .tab)[data-id="tasks"] > .icon { color: var(--mod-tasks); }
+.cc-on.cc-pages :is(.nav-item, .tab)[data-id="notes"] > .icon { color: var(--mod-notes); }
+.cc-on.cc-pages :is(.nav-item, .tab)[data-id="habits"] > .icon { color: var(--mod-habits); }
+.cc-on.cc-pages :is(.nav-item, .tab)[data-id="calendar"] > .icon { color: var(--mod-calendar); }
+.cc-on.cc-pages :is(.nav-item, .tab)[data-id="pomodoro"] > .icon { color: var(--mod-pomodoro); }
+.cc-on.cc-pages :is(.nav-item, .tab)[data-id="training"] > .icon { color: var(--mod-training); }
+.cc-on.cc-pages :is(.nav-item, .tab)[data-id="finance"] > .icon { color: var(--mod-finance); }
+.cc-on.cc-pages :is(.nav-item, .tab)[data-id="health"] > .icon { color: var(--mod-health); }
+
+/* ---- A page's title with its icon ---- */
+
+.page-title > .page-ib {
+  --ib-box: 0.86em;
+  margin: -0.12em 0.32em 0 0;
+  border-radius: 0.2em;
+}
+
+.page-title > .page-ib > .icon {
+  width: 0.5em;
+  height: 0.5em;
+}
+
+/* Terminal is text on a screen: its page titles stay words only */
+[data-skin="terminal"] .page-title > .page-ib {
+  display: none;
+}
+
+/* ---- Icon picker ---- */
+
+.ip {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(38px, 1fr));
+  gap: 4px;
+  max-height: 228px;
+  padding: 2px;
+  overflow-y: auto;
+}
+
+.ip-btn {
+  position: relative;
+  display: grid;
+  place-items: center;
+  height: 38px;
+  border-radius: var(--radius-sm);
+  color: var(--text-2);
+  transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+}
+
+.ip-btn:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.ip-btn[aria-checked="true"] {
+  background: var(--surface-3);
+  color: var(--text);
+  box-shadow: inset 0 0 0 1.5px var(--text);
+}
+
+.ip-auto-tag {
+  position: absolute;
+  right: 2px;
+  bottom: 1px;
+  font-family: var(--font-mono);
+  font-size: 8px;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  color: var(--text-3);
+}

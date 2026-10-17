@@ -8,7 +8,6 @@
 import {
   h,
   icon,
-  registerIcon,
   pageHeader,
   tip,
   dropdown,
@@ -16,7 +15,6 @@ import {
   emptyState,
   checkButton,
   setChecked,
-  ring,
   toast,
   confirmDialog,
   todayKey,
@@ -36,35 +34,36 @@ import {
 import { createStore } from '../store.js';
 import * as L from './habits.logic.js';
 import * as S from './habits.stats.js';
-import { mountPlan, openHabitModal, replay, prose, dayNames, WEEKDAYS_LONG } from './habits.plan.js';
+import { mountPlan, openHabitModal, replay, prose, dayNames, habitBadge, WEEKDAYS_LONG } from './habits.plan.js';
 import { mountInsights } from './habits.insights.js';
 import { mountTradingChart, mountTicker } from './habits.ticker.js';
 import { registerContextProvider } from '../contextmenu.js';
 import { copyName, pasteName, insertAfter } from '../contextmenu.logic.js';
 
+// The app's shared icon words: today = a sun, a week = columns, trends = a graph line
 const TABS = Object.freeze([
   { id: 'today', label: 'Today', icon: 'sun' },
-  { id: 'plan', label: 'Week plan', icon: 'calendar' },
+  { id: 'plan', label: 'Week plan', icon: 'columns' },
   { id: 'insights', label: 'Insights', icon: 'activity' },
 ]);
 const TAB_IDS = TABS.map((t) => t.id);
 const HABITS_ROUTE = /^#\/habits(?![\w-])/;
 
-registerIcon('hb-grid', '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9.5h18M3 14.8h18M9 4v16M15 4v16"/>');
-
-// The Today tab's overviews (the `view` preference, kept per device)
+// The Today tab's overviews (the `view` preference, kept per device). The menu's button shows
+// the open one's icon, so the icon alone says which overview this is.
 const VIEW_ITEMS = Object.freeze([
-  { value: 'day', label: 'Day', icon: 'list', hint: 'One day, listed' },
-  { value: 'week', label: 'Week', icon: 'hb-grid', hint: 'Habits × days' },
+  { value: 'day', label: 'Day', icon: 'rows', hint: 'One day, listed' },
+  { value: 'week', label: 'Week', icon: 'columns', hint: 'Habits × days' },
   { value: 'history', label: 'History', icon: 'activity', hint: `Last ${L.HISTORY_WEEKS} weeks` },
 ]);
 const VIEW_KEYS = Object.freeze({ d: 'day', w: 'week', h: 'history' });
 
+// Starter habits, each with its icon ("Move" suggests none, so it says which)
 const SUGGESTIONS = [
-  { name: 'Drink water', days: L.ALL_DAYS, hint: 'Daily' },
-  { name: 'Move 30 min', days: [1, 2, 3, 4, 5], hint: 'Weekdays' },
-  { name: 'Read 20 min', days: [1, 3, 5], hint: 'Mon · Wed · Fri' },
-  { name: 'Plan the week', days: [0], hint: 'Sundays' },
+  { name: 'Drink water', days: L.ALL_DAYS, hint: 'Daily', icon: 'droplet' },
+  { name: 'Move 30 min', days: [1, 2, 3, 4, 5], hint: 'Weekdays', icon: 'walk' },
+  { name: 'Read 20 min', days: [1, 3, 5], hint: 'Mon · Wed · Fri', icon: 'book' },
+  { name: 'Plan the week', days: [0], hint: 'Sundays', icon: 'target' },
 ];
 
 // Day state -> words (tooltips, aria labels)
@@ -329,8 +328,8 @@ function mount(root) {
 
   /* ---- Actions: every write from every tab goes through these ---- */
 
-  function create({ name, days, createdAt } = {}) {
-    const habit = L.createHabit({ name, days, createdAt }, getItems().length, todayKey());
+  function create({ name, days, createdAt, icon: picked } = {}) {
+    const habit = L.createHabit({ name, days, createdAt, icon: picked }, getItems().length, todayKey());
     updateItems((items) => [...items, { ...habit, order: items.length }]);
     toast(prose(`“${habit.name}” is online · ${L.scheduleLabel(habit.plan[0].days)}.`), {
       action: { label: 'Undo', onClick: () => updateItems((items) => (items.some((it) => it.id === habit.id) ? L.removeHabit(items, habit.id) : items)) },
@@ -452,9 +451,9 @@ function mount(root) {
 
   /* ---- Copy, paste, duplicate (the right-click menu) ---- */
 
-  /** What a copy carries: the name and the weekdays planned from today on (never the check-ins). */
+  /** What a copy carries: the name, a picked icon and the weekdays planned from today on (never the check-ins). */
   function habitSnapshot(hb) {
-    return { name: hb.name, days: L.planOn(hb, todayKey()) };
+    return { name: hb.name, days: L.planOn(hb, todayKey()), icon: hb.icon ?? null };
   }
 
   /**
@@ -467,7 +466,7 @@ function mount(root) {
     const items = getItems();
     const name = naming(String(src.name ?? ''), items.map((it) => it.name), { max: L.NAME_MAX, fallback: 'Untitled habit' }) || 'Untitled habit';
     const days = Array.isArray(src.days) ? src.days : [...L.ALL_DAYS];
-    const habit = L.createHabit({ name, days }, items.length, today);
+    const habit = L.createHabit({ name, days, icon: src.icon }, items.length, today);
     updateItems((list) => L.reindex(insertAfter(list, habit, afterId, { fallback: 'end' })));
     const made = findHabit(habit.id);
     if (!made) return;
@@ -624,7 +623,7 @@ function mount(root) {
         tabindex: '-1',
         onClick: () => openTab(t.id),
       },
-      icon(t.icon, { size: 12 }),
+      icon(t.icon, { size: 14 }),
       h('span', null, t.label),
       count,
     );
@@ -836,10 +835,14 @@ function createBar(ctx, { onToday }) {
         onToday();
       },
     },
-    icon('target', { size: 14 }),
+    icon('sun', { size: 14 }),
     h('span', null, 'Today'),
   );
   const viewMenu = dropdown({ items: VIEW_ITEMS, value: 'week', align: 'end', className: 'hb-view-dd', title: 'Overview (D · W · H)', onSelect: (v) => ctx.show(v) });
+  // The button leads with the open overview's icon (the dropdown draws a fixed one, so it is ours)
+  let viewIcon = null;
+  const viewIconEl = h('span', { class: 'hb-view-ic', 'aria-hidden': 'true' });
+  viewMenu.button.prepend(viewIconEl);
   const el = h(
     'div',
     { class: 'hb-bar' },
@@ -871,34 +874,58 @@ function createBar(ctx, { onToday }) {
       // Only while away from today (History always ends with this week)
       todayBtn.hidden = history || key === today;
       viewMenu.update({ value: view });
-      const label = VIEW_ITEMS.find((v) => v.value === view)?.label ?? '';
-      viewMenu.button.setAttribute('aria-label', `Overview: ${label}`);
+      const item = VIEW_ITEMS.find((v) => v.value === view);
+      viewMenu.button.setAttribute('aria-label', `Overview: ${item?.label ?? ''}`);
+      if (item && item.icon !== viewIcon) {
+        viewIcon = item.icon;
+        viewIconEl.replaceChildren(icon(item.icon, { size: 14 }));
+      }
     },
   };
 }
 
-/* ---- Small readout: a ring and done / planned for one day ---- */
+/* ---- Small readout: ✓ done / planned for one day, 🔥 the best streak running, the day ---- */
 
 function createReadout(ctx) {
-  const ringEl = ring({ value: 0, size: 22, stroke: 3 });
-  ringEl.classList.add('hb-ro-ring');
+  // Icons say what each number is, so the words can go: a tick for done, a flame for a streak.
+  // A day still ahead shows an open circle (its number is what's planned, nothing is done yet),
+  // a day with nothing planned a crossed circle.
+  const doneIcon = h('span', { class: 'hb-ro-ic' });
+  let doneIconName = null;
   const frac = h('span', { class: 'hb-ro-frac mono tnum' });
+  const streakNum = h('span', { class: 'tnum' });
+  const streak = h('span', { class: 'hb-ro-streak' }, icon('flame', { size: 12 }), streakNum);
   const cap = h('span', { class: 'hb-ro-cap label' });
-  const el = h('div', { class: 'hb-ro', role: 'img' }, ringEl, h('span', { class: 'hb-ro-text', 'aria-hidden': 'true' }, frac, cap));
+  const el = h(
+    'div',
+    { class: 'hb-ro', role: 'img' },
+    h('span', { class: 'hb-ro-text', 'aria-hidden': 'true' }, h('span', { class: 'hb-ro-main' }, h('span', { class: 'hb-ro-done' }, doneIcon, frac), streak), cap),
+  );
   return {
     el,
-    /** `day`: the day's habits.stats dailySeries entry. */
-    update(day, key, today) {
+    /**
+     * `day`: the day's habits.stats dailySeries entry. `best`: L.topStreak as of today (the
+     * longest streak running now, whichever day is shown).
+     */
+    update(day, key, today, best = { value: 0, habit: null }) {
       const future = key > today;
       const complete = !!day.planned && !future && day.done === day.planned;
-      ringEl.setValue(!day.planned || future ? 0 : day.done / day.planned);
       frac.textContent = !day.planned ? '—' : future ? String(day.planned) : `${day.done}/${day.planned}`;
+      const iconName = !day.planned ? 'circle-slash' : future ? 'circle' : 'check-circle';
+      if (iconName !== doneIconName) {
+        doneIconName = iconName;
+        doneIcon.replaceChildren(icon(iconName, { size: 15, stroke: 1.75 }));
+      }
       cap.textContent = key === today ? 'Today' : `${WEEKDAYS_SHORT[day.weekday]} ${dayOf(key)}`;
+      streak.hidden = !best.value;
+      streakNum.textContent = num(best.value);
       const counts = !day.planned ? 'nothing planned' : future ? `${plural(day.planned, 'habit')} planned` : `${day.done} of ${day.planned} done`;
-      const label = `${key === today ? 'Today' : formatDay(key)}: ${counts}`;
+      const run = best.value ? `. Best streak: ${best.habit.name}, ${plural(best.value, 'day')} in a row` : '';
+      const label = `${key === today ? 'Today' : formatDay(key)}: ${counts}${run}`;
       el.setAttribute('aria-label', label);
       el.title = label;
       el.classList.toggle('is-complete', complete);
+      el.classList.toggle('is-started', !future && day.done > 0);
       el.classList.toggle('is-rest', !day.planned);
     },
     celebrate() {
@@ -910,19 +937,22 @@ function createReadout(ctx) {
 
 /* ---- Shared by the week and history tables ---- */
 
-/** Name button (opens the editor) + streak, for a habit's row header. */
+/** Name button (its icon + name; opens the editor) + streak, for a habit's row header. */
 function createRowHead(ctx, id) {
+  const badge = habitBadge();
   const nameText = h('span', { class: 'hb-mx-name-text' });
   const sub = h('span', { class: 'hb-mx-sub label' });
-  const name = h('button', { type: 'button', class: 'hb-mx-name', onClick: () => ctx.actions.openEditor(id) }, nameText, sub);
+  const name = h('button', { type: 'button', class: 'hb-mx-name', onClick: () => ctx.actions.openEditor(id) }, badge.el, h('span', { class: 'hb-mx-ident' }, nameText, sub));
   const streakNum = h('span');
   const streak = h('span', { class: 'hb-mx-streak tnum' }, icon('flame', { size: 12 }), h('span', { class: 'sr-only' }, 'streak '), streakNum);
-  const th = h('th', { scope: 'row', class: 'hb-mx-rowhead' }, h('div', { class: 'hb-mx-rowin' }, name, streak));
+  const rowin = h('div', { class: 'hb-mx-rowin' }, name, streak);
+  const th = h('th', { scope: 'row', class: 'hb-mx-rowhead' }, rowin);
   return {
     th,
     name,
     update(hb, today, archived) {
       const s = L.currentStreak(hb, today);
+      badge.update(hb);
       nameText.textContent = hb.name;
       sub.textContent = archived
         ? `Archived ${formatDay(hb.archivedAt)}`
@@ -932,6 +962,8 @@ function createRowHead(ctx, id) {
       name.title = `${hb.name} · ${sub.textContent} — edit (${ALT_KEY} ↑ ↓ reorders)`;
       name.setAttribute('aria-label', `${hb.name}${archived ? ' (archived)' : ''}, edit`);
       streak.hidden = s === 0;
+      // Phones put the streak under the name (habits.css), which then moves up to make room
+      rowin.classList.toggle('has-streak', s !== 0);
       streakNum.textContent = num(s);
       streak.title = `${plural(s, 'day')} in a row`;
     },
@@ -1129,7 +1161,7 @@ function createWeekView(ctx) {
       week = L.weekDays(key);
       const series = S.dailySeries(items, week[0], week[6], today);
       paintHeads(series, key, today);
-      readout.update(series[week.indexOf(key)], key, today);
+      readout.update(series[week.indexOf(key)], key, today, L.topStreak(items, today));
       table.setAttribute('aria-label', `Habits, week of ${formatDay(week[0])}`);
       const list = L.weekRows(items, key, today);
       for (const r of list) {
@@ -1176,12 +1208,16 @@ function createDayView(ctx) {
   const rows = new Map(); // id -> row (one per habit, moved between the two lists)
   let groups = { planned: [], other: [] }; // ids per list, top to bottom
 
-  const titleEl = h('h2', { class: 'hb-dl-title' });
+  const titleIcon = h('span', { class: 'hb-dl-title-ic', 'aria-hidden': 'true' });
+  const titleText = h('span', { class: 'hb-dl-title-text' });
+  const titleEl = h('h2', { class: 'hb-dl-title' }, titleIcon, titleText);
+  let titleIconName = null;
   const addLabel = h('span');
   const addBtn = h('button', { type: 'button', class: 'btn btn--ghost btn--sm hb-dl-add', onClick: () => actions.openEditor(null, { weekday: L.weekdayOfKey(ui.key) }) }, icon('plus', { size: 14 }), addLabel);
   const plannedList = h('ul', { class: 'hb-dl' });
   const emptyEl = h('p', { class: 'hb-dl-empty' });
-  const otherTitle = h('h3', { class: 'label hb-dl-sub' });
+  const otherCount = h('span', { class: 'tnum' });
+  const otherTitle = h('h3', { class: 'label hb-dl-sub' }, icon('circle-slash', { size: 13 }), h('span', null, 'Not planned'), otherCount);
   const otherList = h('ul', { class: 'hb-dl is-other' });
   const otherSec = h('section', { class: 'hb-dl-more' }, otherTitle, otherList);
   const el = h(
@@ -1189,7 +1225,8 @@ function createDayView(ctx) {
     { class: 'hb-view hb-dayview', 'aria-label': 'Day' },
     tip({ id: 'habits.day', className: 'hb-tip', text: "Tick a habit once you've done it." }),
     strip.el,
-    h('div', { class: 'panel hud hb-dl-panel' }, h('div', { class: 'hb-dl-head' }, readout.el, titleEl, h('span', { class: 'spacer' }), addBtn), plannedList, emptyEl, otherSec),
+    // The day first (where you are), its numbers at the end of the line, then "add"
+    h('div', { class: 'panel hud hb-dl-panel' }, h('div', { class: 'hb-dl-head' }, titleEl, h('span', { class: 'spacer' }), readout.el, addBtn), plannedList, emptyEl, otherSec),
   );
 
   function fill(list, entries, group, c) {
@@ -1217,9 +1254,15 @@ function createDayView(ctx) {
       const day = series[week.indexOf(key)];
       const wd = L.weekdayOfKey(key);
       strip.update(series, key, today);
-      readout.update(day, key, today);
+      readout.update(day, key, today, L.topStreak(items, today));
       const near = Math.abs(L.toDayNum(key) - L.toDayNum(today)) <= 1;
-      titleEl.textContent = near ? `${relativeDay(key, today)} · ${formatDay(key)}` : longDate(key, today);
+      titleText.textContent = near ? `${relativeDay(key, today)} · ${formatDay(key)}` : longDate(key, today);
+      // A sun for today, a sunrise for tomorrow, a calendar for any other day (the app's icon words)
+      const dayIcon = key === today ? 'sun' : L.toDayNum(key) - L.toDayNum(today) === 1 ? 'sunrise' : 'calendar';
+      if (dayIcon !== titleIconName) {
+        titleIconName = dayIcon;
+        titleIcon.replaceChildren(icon(dayIcon, { size: 15 }));
+      }
       addLabel.textContent = `Add to ${WEEKDAYS_LONG[wd]}`;
       addBtn.setAttribute('aria-label', `New habit on ${WEEKDAYS_LONG[wd]}s`);
       addBtn.title = `New habit on ${WEEKDAYS_LONG[wd]}s`;
@@ -1240,7 +1283,7 @@ function createDayView(ctx) {
             ? `Nothing was planned on ${formatDay(key)}: a rest day.`
             : `Nothing planned for ${WEEKDAYS_LONG[wd]}: a rest day.`;
       otherSec.hidden = !other.length;
-      otherTitle.textContent = `Not planned · ${other.length}`;
+      otherCount.textContent = `· ${other.length}`;
       otherTitle.title = 'A tick here counts as a bonus: logged, but neutral for streaks';
       otherList.setAttribute('aria-label', `Not planned on ${formatDay(key)}`);
     },
@@ -1320,13 +1363,14 @@ function createDayRow(ctx, id, onMove) {
   let cur = { key: null, wd: null };
   const check = checkButton({ onToggle: (next) => actions.log(id, cur.key, next) });
   check.classList.add('hb-row-check');
+  const badge = habitBadge('hb-row-ib');
   const nameText = h('span', { class: 'hb-row-name-text' });
   const name = h('button', { type: 'button', class: 'hb-row-name', onClick: () => actions.openEditor(id) }, nameText);
   const sub = h('span', { class: 'hb-row-sub label' });
   const streakNum = h('span');
   const streak = h('span', { class: 'hb-mx-streak hb-row-streak tnum' }, icon('flame', { size: 12 }), h('span', { class: 'sr-only' }, 'streak '), streakNum);
   const more = dropdown({ icon: 'more', items: [], showValue: false, align: 'end', className: 'btn--ghost btn--icon hb-row-more', title: 'More' });
-  const li = h('li', { class: 'hb-row', dataset: { id }, onKeydown: onRowKey }, check, h('div', { class: 'hb-row-ident' }, name, sub), streak, more.el);
+  const li = h('li', { class: 'hb-row', dataset: { id }, onKeydown: onRowKey }, check, badge.el, h('div', { class: 'hb-row-ident' }, name, sub), streak, more.el);
   const row = { li, group: 'planned', update, focus, pop };
 
   function onRowKey(e) {
@@ -1377,6 +1421,7 @@ function createDayRow(ctx, id, onMove) {
     check.disabled = !canLog;
     check.setAttribute('aria-label', group === 'planned' ? `${hb.name}: done ${when}` : `${hb.name}: bonus session ${when}`);
     check.title = !canLog ? (state === 'future' ? 'Check-ins open on the day' : '') : group === 'other' ? 'Bonus: logged, but neutral for streaks' : '';
+    badge.update(hb);
     nameText.textContent = hb.name;
     name.title = `${hb.name} — edit`;
     sub.textContent = subText(hb, state, { ...c, plannedNow: entry.plannedNow });
@@ -1554,8 +1599,14 @@ function buildFirstRun(ctx, archivedCount) {
       SUGGESTIONS.map((s) =>
         h(
           'button',
-          { type: 'button', class: 'btn btn--sm hb-suggest-btn', 'aria-label': `Add “${s.name}” (${s.hint})`, onClick: () => actions.create({ name: s.name, days: s.days }) },
-          icon('plus', { size: 14 }),
+          {
+            type: 'button',
+            class: 'btn btn--sm hb-suggest-btn',
+            'aria-label': `Add “${s.name}” (${s.hint})`,
+            // Stored only when the name wouldn't suggest it, so a rename can still move the icon
+            onClick: () => actions.create({ name: s.name, days: s.days, icon: L.habitIcon({ name: s.name }) === s.icon ? null : s.icon }),
+          },
+          icon(s.icon, { size: 14 }),
           h('span', null, s.name),
           h('span', { class: 'hb-suggest-hint', 'aria-hidden': 'true' }, s.hint),
         ),

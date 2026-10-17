@@ -3,6 +3,7 @@
 
 import { dateKey, parseKey, shiftKey, weekday, clamp, uid } from '../ui.js';
 import { colorKey, withColor } from '../colors.logic.js';
+import { cleanIcon, iconOf } from '../icons.logic.js';
 
 /* ==========================================================================
    Vocabulary
@@ -22,8 +23,15 @@ export const SORT_LABEL = { manual: 'Manual', due: 'Due', priority: 'Priority' }
 export const DEFAULT_VIEW = Object.freeze({ filter: 'all', sort: 'manual', completedOpen: false, section: 'all' });
 export const DEFAULT_STATE = Object.freeze({ items: [], sections: Object.freeze([]), view: DEFAULT_VIEW });
 
-/** Sections split the list (Work, Life …): [{ id, name }] in display order; a task's sectionId points at one or is null. */
+/**
+ * Sections split the list (Work, Life …): [{ id, name, icon? }] in display order; a task's
+ * sectionId points at one or is null. `icon` is one the user picked (js/icons.logic.js); without
+ * one a section shows the icon its name suggests ('Work' -> a briefcase), else a folder.
+ */
 export const SECTION_NAME_MAX = 40;
+// A stored icon is kept when it looks like an icon name, even one this version doesn't draw: a
+// newer device may have offered it, and stripping it here would sync the strip back there.
+const ICON_SHAPE = /^[a-z][a-z0-9-]{0,31}$/;
 
 /**
  * A task with a due date can also get a time of day ('HH:MM') and a length in minutes: the
@@ -105,7 +113,10 @@ export function normalizeSection(raw) {
   const name = cleanTitle(raw.name).slice(0, SECTION_NAME_MAX).trim();
   const id = typeof raw.id === 'number' ? String(raw.id) : raw.id;
   if (typeof id !== 'string' || !id || !name) return null;
-  return { ...raw, id, name };
+  const out = { ...raw, id, name };
+  // No icon (or a broken one) means: follow the name
+  if ('icon' in out && !(typeof out.icon === 'string' && ICON_SHAPE.test(out.icon))) delete out.icon;
+  return out;
 }
 
 export function normalizeView(raw, sectionIds = new Set()) {
@@ -632,6 +643,51 @@ export function dueChoice(due, today) {
 export function notePreview(notes, max = 90) {
   const line = String(notes ?? '').split('\n').map((l) => l.trim()).find(Boolean) ?? '';
   return line.length > max ? `${line.slice(0, max - 1)}…` : line;
+}
+
+/** The icon a section shows: the one picked, else what its name suggests, else a folder. */
+export function sectionIcon(section) {
+  return iconOf(section, 'folder');
+}
+
+/**
+ * Sections with one section's icon picked (an icon name from the choices), or back to following
+ * its name (null: the field goes). The same list when nothing changes or the name isn't an icon.
+ */
+export function withSectionIcon(sections, id, icon) {
+  const next = icon === null ? null : cleanIcon(icon);
+  if (icon !== null && !next) return sections;
+  let changed = false;
+  const out = sections.map((sec) => {
+    if (sec.id !== id) return sec;
+    if (next === null ? !Object.prototype.hasOwnProperty.call(sec, 'icon') : sec.icon === next) return sec;
+    changed = true;
+    if (next !== null) return { ...sec, icon: next };
+    const { icon: _old, ...rest } = sec;
+    return rest;
+  });
+  return changed ? out : sections;
+}
+
+/* ==========================================================================
+   Icons: one vocabulary for the whole page (and the app): what each view, order, priority and
+   kind of due date looks like, so a row reads at a glance without its words.
+   ========================================================================== */
+
+export const VIEW_ICON = Object.freeze({ all: 'list', today: 'sun', upcoming: 'calendar', done: 'check-circle' });
+export const SORT_ICON = Object.freeze({ manual: 'grip', due: 'calendar', priority: 'flag' });
+// None is "no flag"; Low, Medium and High share the flag and differ in weight (tasks.css)
+export const PRIORITY_ICON = Object.freeze({ none: 'circle-slash', low: 'flag', med: 'flag', high: 'flag' });
+export const DUE_ICON = Object.freeze({ overdue: 'alert', today: 'sun', tomorrow: 'sunrise', date: 'calendar', none: 'circle-slash' });
+
+/**
+ * Which kind of day a task is due, for its chip: 'overdue' (open and past), 'today', 'tomorrow',
+ * 'date' (any other day, a done task's past one too) or null without a due date.
+ */
+export function dueKind(t, today) {
+  if (!t || !isDateKey(t.due)) return null;
+  if (isOverdue(t, today)) return 'overdue';
+  return dueChoice(t.due, today);
 }
 
 /** Sections with one section's color set (null clears it): the same list when nothing changes. */

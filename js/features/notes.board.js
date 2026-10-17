@@ -24,7 +24,7 @@ import {
   clampEdgeScroll,
   columnsInView,
 } from './notes.board.logic.js';
-import { glyphOf, ALT_KEY } from './notes.sections.js';
+import { glyphOf, sectionBadge, paintBadge, sectionIconEl, ALT_KEY } from './notes.sections.js';
 
 const DRAG_THRESHOLD = 5; // px a mouse or pen moves before a press becomes a drag
 const LONG_PRESS_MS = 300; // touch: hold this long to pick a card up
@@ -218,11 +218,13 @@ export function createBoard(ctx) {
     return chip;
   }
 
-  function paintChip(chip, { name, iconName, total, shown, searching, onBoard }) {
+  // A section's chip shows its icon tinted as its column's square (its color, else the Notes tone)
+  function paintChip(chip, { name, iconName, total, shown, searching, onBoard, color = null }) {
+    if (chip.id !== VIEW_UNSORTED) paintColor(chip.btn, 'sections', color);
     const sig = [name, iconName, total, shown, searching, onBoard].join('\u0001');
     if (chip.sig === sig) return;
     chip.sig = sig;
-    chip.iconEl.replaceChildren(icon(iconName, { size: 12 }));
+    chip.iconEl.replaceChildren(chip.id === VIEW_UNSORTED ? icon(iconName, { size: 14 }) : sectionIconEl(iconName));
     chip.nameEl.textContent = name;
     chip.countEl.textContent = searching ? `${num(shown)}/${num(total)}` : num(total);
     // Unsorted without notes has no column: its chip only shows in the dock, as a drop target.
@@ -251,7 +253,7 @@ export function createBoard(ctx) {
     for (const c of columns) {
       if (!c.section) continue;
       const chip = chipOf(c.id);
-      paintChip(chip, { name: c.section.name, iconName: glyphOf(c.section), total: c.total, shown: c.notes.length, searching, onBoard: shownIds.has(c.id) });
+      paintChip(chip, { name: c.section.name, iconName: glyphOf(c.section), total: c.total, shown: c.notes.length, searching, onBoard: shownIds.has(c.id), color: c.section.color ?? null });
       nodes.push(chip.btn);
     }
     syncChildren(pagerChips, nodes);
@@ -392,7 +394,8 @@ export function createBoard(ctx) {
     const col = { id, sig: '' };
     const nameId = nextId('nt-col-name');
     const countId = nextId('nt-col-count');
-    col.iconEl = h('span', { class: 'nt-col-icon', 'aria-hidden': 'true' });
+    // The column's icon in a tinted square: what makes a column recognisable at a glance
+    col.iconEl = sectionBadge('inbox', { section: id !== VIEW_UNSORTED, className: 'nt-col-ib' });
     col.nameEl = h('span', { class: 'nt-col-name', id: nameId });
     col.countEl = h('span', { class: 'nt-col-count', 'aria-hidden': 'true' });
     col.srEl = h('span', { class: 'sr-only', id: countId });
@@ -409,7 +412,7 @@ export function createBoard(ctx) {
     // Folded: the whole strip is one button that unfolds the column (and still takes drops).
     col.stripCount = h('span', { class: 'nt-col-count', 'aria-hidden': 'true' });
     col.stripName = h('span', { class: 'nt-col-stripname' });
-    col.stripIcon = h('span', { class: 'nt-col-icon', 'aria-hidden': 'true' });
+    col.stripIcon = sectionBadge('inbox', { section: id !== VIEW_UNSORTED, className: 'nt-col-ib' });
     col.strip = h(
       'button',
       { type: 'button', class: 'nt-col-strip', 'aria-expanded': 'false', 'aria-keyshortcuts': 'ArrowLeft ArrowRight', onClick: () => ctx.onToggleCollapse(id) },
@@ -435,8 +438,8 @@ export function createBoard(ctx) {
     col.collapsed = c.collapsed;
     col.el.classList.toggle('is-collapsed', c.collapsed);
     col.el.classList.toggle('is-unsorted', !c.section);
-    col.iconEl.replaceChildren(icon(iconName, { size: 14 }));
-    col.stripIcon.replaceChildren(icon(iconName, { size: 14 }));
+    paintBadge(col.iconEl, iconName, { section: !!c.section });
+    paintBadge(col.stripIcon, iconName, { section: !!c.section });
     col.nameEl.textContent = name;
     col.stripName.textContent = name;
     const count = searching ? `${num(shown)}/${num(c.total)}` : num(c.total);

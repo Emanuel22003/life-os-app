@@ -1297,10 +1297,9 @@
   font-weight: 900;
 }
 
-[data-skin="brutalist"] .tk-blink {
-  border-radius: 0;
-  background: var(--bru-hi);
-  box-shadow: none;
+/* The overdue alert icon is the blinking yellow light */
+[data-skin="brutalist"] .tk-due-tag--overdue .tk-chip-icon {
+  color: var(--bru-hi);
   animation: brutalist-blink 1s steps(1) infinite;
 }
 
@@ -1460,21 +1459,19 @@
   color: var(--bru-hi);
 }
 
+/* The section tag stays quiet beside the title: icon and name, no box */
 [data-skin="brutalist"] .nt-item-tag {
-  border-color: var(--text);
+  font-weight: 700;
+  color: var(--text-2);
+}
+
+[data-skin="brutalist"] .nt-item:hover .nt-item-tag {
   color: var(--text);
 }
 
-[data-skin="brutalist"] .nt-item:hover .nt-item-tag,
-[data-skin="brutalist"] .nt-item[aria-current="true"] .nt-item-tag {
-  border-color: var(--text);
-  color: var(--text);
-}
-
-[data-skin="brutalist"] .nt-item[aria-current="true"] .nt-item-tag {
-  border-color: var(--bru-on-hi);
-  background: var(--bru-on-hi);
-  color: var(--bru-hi);
+[data-skin="brutalist"] .nt-item[aria-current="true"] .nt-item-tag,
+[data-skin="brutalist"] .nt-item[aria-current="true"] .nt-item-tag .nt-sec-icon.icon {
+  color: var(--bru-on-hi);
 }
 
 [data-skin="brutalist"] .nt-hit {
@@ -1708,12 +1705,13 @@
   box-shadow: 3px 3px 0 var(--bru-ink);
 }
 
-[data-skin="brutalist"] .nt-rail-item[aria-current="true"] .nt-rail-icon {
-  color: var(--bru-on-hi);
+/* Icon squares: full ink, and the highlight's ink on the open row */
+[data-skin="brutalist"] .nt-rail-ib:not([data-tone]) {
+  --ib-c: var(--text);
 }
 
-[data-skin="brutalist"] .nt-rail-icon {
-  color: var(--text);
+[data-skin="brutalist"] .nt-rail-item[aria-current="true"] .ib.nt-rail-ib {
+  --ib-c: var(--bru-on-hi);
 }
 
 [data-skin="brutalist"] .nt-rail-count {
@@ -1911,25 +1909,7 @@
   border-color: var(--text);
 }
 
-/* Section editor and delete dialogs */
-[data-skin="brutalist"] .nt-icon-opt {
-  border: 3px solid var(--text);
-  background: var(--bg);
-  color: var(--text);
-}
-
-[data-skin="brutalist"] .nt-icon-opt:hover {
-  border-color: var(--text);
-  background: var(--surface-2);
-}
-
-[data-skin="brutalist"] .nt-icon-opt[aria-checked="true"] {
-  border-color: var(--text);
-  background: var(--bru-hi);
-  color: var(--bru-on-hi);
-  box-shadow: 3px 3px 0 var(--bru-ink);
-}
-
+/* Section editor (its icon picker is the shared one) and delete dialogs */
 [data-skin="brutalist"] .nt-choice {
   border: 3px solid var(--text);
 }
@@ -3250,8 +3230,9 @@
   background: var(--bru-hi);
 }
 
-[data-skin="brutalist"] .nt-col-icon {
-  color: var(--text);
+/* The column's icon square in full ink */
+[data-skin="brutalist"] .nt-col-ib:not([data-tone]) {
+  --ib-c: var(--text);
 }
 
 /* Column names in the condensed display face: as loud as the page title, and a long
@@ -3265,6 +3246,21 @@
   text-transform: uppercase;
   letter-spacing: 0.02em;
   color: var(--text);
+}
+
+/* Phones: beside the icon square a half-width column has no room for two lines of the display
+   face, so the name stays one line and the count drops its box to leave it more room */
+@media (max-width: 640px) {
+  [data-skin="brutalist"] .nt-col-name {
+    display: block;
+    white-space: nowrap;
+  }
+
+  [data-skin="brutalist"] .nt-col-head .nt-col-count {
+    min-width: 0;
+    padding: 0 2px;
+    border: 0;
+  }
 }
 
 [data-skin="brutalist"] .nt-col-count {
@@ -3311,9 +3307,13 @@
   background: var(--bru-hi);
 }
 
-[data-skin="brutalist"] .nt-col-strip:hover :is(.nt-col-stripname, .nt-col-icon, .nt-col-count) {
+[data-skin="brutalist"] .nt-col-strip:hover :is(.nt-col-stripname, .nt-col-count) {
   border-color: var(--bru-on-hi);
   color: var(--bru-on-hi);
+}
+
+[data-skin="brutalist"] .nt-col-strip:hover .ib.nt-col-ib {
+  --ib-c: var(--bru-on-hi);
 }
 
 [data-skin="brutalist"] .nt-col-addsection {
@@ -3494,7 +3494,7 @@
 
 /* Square corners on the small parts the base draws with a hard-coded 1px radius
    (habit dots stay round: round means habit) */
-[data-skin="brutalist"] :is(.cal-glyph--ev, .cal-glyph--task, .cal-glyph--done, .cal-legend-box, .cal-task-check, .cal-more-box, .cal-mark-ev, .cal-mark-task, .cal-hbar, .cal-ed-scope-mark, .nt-hit) {
+[data-skin="brutalist"] :is(.cal-legend-box, .cal-task-check, .cal-more-box, .cal-mark-ev, .cal-mark-task, .cal-hbar, .cal-ed-scope-mark, .nt-hit) {
   border-radius: 0;
 }
 
@@ -3521,27 +3521,6 @@
   background: var(--bru-hi);
   border-color: var(--text);
   color: var(--bru-on-hi);
-}
-
-[data-skin="brutalist"] .cal-glyph--ev {
-  width: 13px;
-  height: 7px;
-}
-
-[data-skin="brutalist"] .cal-glyph--task,
-[data-skin="brutalist"] .cal-glyph--done {
-  width: 10px;
-  height: 10px;
-  border-width: 2px;
-}
-
-[data-skin="brutalist"] .cal-glyph--done {
-  background: linear-gradient(currentColor, currentColor) center / 100% 2px no-repeat;
-}
-
-[data-skin="brutalist"] .cal-glyph--hb {
-  width: 9px;
-  height: 9px;
 }
 
 [data-skin="brutalist"] .cal-legend-ev,
@@ -4884,6 +4863,32 @@
   background: var(--bru-hi);
 }
 
+/* The Today strip: ink rules between the tiles, a tile lights up hazard yellow under the pointer */
+[data-skin="brutalist"] .hm-gl + .hm-gl {
+  border-left: 3px solid var(--text);
+}
+
+[data-skin="brutalist"] .hm-gl:first-child,
+[data-skin="brutalist"] .hm-gl:last-child {
+  border-radius: 0;
+}
+
+[data-skin="brutalist"] .hm-gl:hover {
+  background: var(--bru-hi);
+  color: var(--bru-on-hi);
+}
+
+[data-skin="brutalist"] .hm-gl:hover :is(.hm-gl-label, .hm-gl-sub, .hm-gl-alert) {
+  color: var(--bru-on-hi);
+}
+
+/* A narrow calendar beside its way back ("This month"): the wide capitals take the view icon's room */
+@container hm-week (max-width: 640px) {
+  [data-skin="brutalist"] .hm-week-head:has(> .hm-week-now:not([hidden])) .hm-cal-view > .icon:not(.dd-chev) {
+    display: none;
+  }
+}
+
 /* ==========================================================================
    Pomodoro: giant display digits inside a black band with a yellow arc
    ========================================================================== */
@@ -5139,7 +5144,7 @@
 /* No blinking, flashing or lifting for people who asked for less motion */
 @media (prefers-reduced-motion: reduce) {
   [data-skin="brutalist"] .tk-stat.is-alert::after,
-  [data-skin="brutalist"] .tk-blink,
+  [data-skin="brutalist"] .tk-due-tag--overdue .tk-chip-icon,
   [data-skin="brutalist"] .hbt-status.is-live::before,
   [data-skin="brutalist"] .hbt-ticker.is-live .hbt-tk-dot,
   [data-skin="brutalist"] .hbt-price.is-flash-up,

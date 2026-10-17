@@ -7,7 +7,11 @@
 //
 // Data model (v2)
 //   { id, name, createdAt: key, archivedAt: key | null,
-//     plan: [{ from: key, days: number[] }], schedule: number[], log: { [key]: true }, order }
+//     plan: [{ from: key, days: number[] }], schedule: number[], log: { [key]: true }, order,
+//     icon?: string }
+// - `icon` is optional: the icon picked in the editor. Absent means the icon follows the name
+//   (habitIcon). Normalization keeps whatever is stored, so an icon a newer copy knows survives;
+//   it is checked where it is drawn.
 // - `plan` is the source of truth. Each entry lists the weekdays (0 = Sun … 6 = Sat)
 //   the habit is planned on from `from` until the next entry; the first entry
 //   starts at createdAt. A plan edit made today starts (or replaces) today's entry
@@ -24,6 +28,7 @@
 //   logged on them are kept and shown as "bonus", but are neutral for stats.
 
 import { uid, dateKey, MONTHS_SHORT, WEEKDAYS_SHORT } from '../ui.js';
+import { cleanIcon, iconOf } from '../icons.logic.js';
 
 export const ALL_DAYS = Object.freeze([0, 1, 2, 3, 4, 5, 6]);
 /** Monday-first display order of weekdays (values are still 0 = Sun … 6 = Sat). */
@@ -366,12 +371,13 @@ export function weekPlan(items, today) {
 
 /**
  * New habit planned on `days` (v2, may be empty) or `schedule` (v1 rules: empty/invalid
- * -> every day) from createdAt (defaults to today).
+ * -> every day) from createdAt (defaults to today). `icon`: a picked icon (kept only when it is
+ * one of the choices; otherwise the icon follows the name).
  */
-export function createHabit({ name, schedule, days, createdAt } = {}, order, today) {
+export function createHabit({ name, schedule, days, createdAt, icon } = {}, order, today) {
   const start = isValidKey(createdAt) ? createdAt : today;
   const planDays = Array.isArray(days) ? normalizeDays(days) : normalizeSchedule(schedule);
-  return {
+  const habit = {
     id: uid(),
     name: cleanName(name) || 'Untitled habit',
     createdAt: start,
@@ -381,6 +387,26 @@ export function createHabit({ name, schedule, days, createdAt } = {}, order, tod
     log: {},
     order,
   };
+  return withIcon(habit, icon);
+}
+
+/** The icon a habit is drawn with: the one picked for it, else the one its name suggests (a target). */
+export const HABIT_ICON = 'target';
+
+export function habitIcon(habit) {
+  return iconOf(habit, HABIT_ICON);
+}
+
+/**
+ * Pick an icon for a habit: one of the choices is stored in `icon`; null (or anything else) takes
+ * the field away, so the icon follows the name again. Same habit when nothing changes.
+ */
+export function withIcon(habit, name) {
+  const icon = cleanIcon(name);
+  if (icon) return habit.icon === icon ? habit : { ...habit, icon };
+  if (!Object.hasOwn(habit, 'icon')) return habit;
+  const { icon: _gone, ...rest } = habit;
+  return rest;
 }
 
 /** Same habit when plan and derived schedule are unchanged, else a copy with both. */
@@ -499,15 +525,17 @@ export function setCreatedAt(habit, key, today) {
 }
 
 /**
- * Edit from a form: { name?, createdAt?, days? } (also accepts v1 `schedule` for days).
- * Days go through setPlanDays (history-safe). Same habit when nothing changes.
+ * Edit from a form: { name?, createdAt?, days?, icon? } (also accepts v1 `schedule` for days).
+ * Days go through setPlanDays (history-safe); `icon` through withIcon (null = follow the name;
+ * leave it out to keep the stored one). Same habit when nothing changes.
  */
-export function editHabit(habit, { name, createdAt, days, schedule } = {}, today) {
+export function editHabit(habit, { name, createdAt, days, schedule, icon } = {}, today) {
   let next = habit;
   if (name !== undefined) {
     const clean = cleanName(name);
     if (clean && clean !== next.name) next = { ...next, name: clean };
   }
+  if (icon !== undefined) next = withIcon(next, icon);
   if (createdAt !== undefined) next = setCreatedAt(next, createdAt, today);
   const planDays = days ?? schedule;
   if (Array.isArray(planDays)) next = setPlanDays(next, planDays, today);

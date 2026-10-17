@@ -19,8 +19,10 @@
 //   }
 // A badge that changes without a store change (a running timer) dispatches `lifeos:badge`.
 
-import { h, icon, registerIcon, brandMark, emptyState, isTyping, modalOpen, openModal, closeAllModals, onDayChange, toast, ensureToastRegion, skin, num, term, WEEKDAYS_SHORT, MONTHS_SHORT, useSettings } from './ui.js';
+import { h, icon, iconBadge, registerIcon, brandMark, emptyState, isTyping, modalOpen, openModal, closeAllModals, onDayChange, toast, ensureToastRegion, skin, num, term, WEEKDAYS_SHORT, MONTHS_SHORT, useSettings } from './ui.js';
 import { settings } from './store.js';
+// The shared icon set (habits, sections, the ideas every page uses): before any page draws
+import './icons.js';
 
 // The tips (ui.tip, page explanations) keep their "✓ Got it" in settings.tips
 useSettings(settings);
@@ -35,7 +37,7 @@ import { openSyncPanel, syncLabel } from './sync.panel.js';
 import { provideShell } from './shell.js';
 import { isNewerVersion, startPage } from './features/settings.logic.js';
 
-const VERSION = 'v0.26';
+const VERSION = 'v0.27';
 
 // Read before any feature module can seed data: tells a first-ever run from an upgrade
 const hadSavedData = hasSavedData();
@@ -418,6 +420,11 @@ function render(force = false) {
     console.error(`[life-os] "${id}" failed to render`, err);
     view.replaceChildren(emptyState({ icon: 'zap', title: `${feature.title} crashed`, text: String(err?.message ?? err) }));
   }
+
+  // Every page's title carries its icon, in the page's color: you see at once where you are
+  // (Home's title is a greeting and draws its own)
+  const pageTitle = id !== 'home' ? view.querySelector(':scope > .page-header .page-title') : null;
+  if (pageTitle && !pageTitle.querySelector('.ib')) pageTitle.prepend(iconBadge(feature.icon, { tone: id, size: 18, className: 'page-ib' }));
 
   shownSkin = skin();
   navLinks.forEach((a) => (a.dataset.id === id ? a.setAttribute('aria-current', 'page') : a.removeAttribute('aria-current')));

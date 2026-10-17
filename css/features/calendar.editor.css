@@ -25,8 +25,27 @@
 .cal-ed-form {
   display: flex;
   flex-direction: column;
-  gap: var(--space-5);
+  gap: var(--space-4);
   min-width: 0;
+}
+
+/* Each part's label starts with its icon, so the dialog reads by icons: ✎ Title, ▦ When,
+   ◷ Start / End, ⟳ Repeat, ⌖ Location, ▤ Notes, ◐ Look */
+.cal-ed-lab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.cal-ed-lab > .icon {
+  flex: none;
+  color: var(--text-2);
+}
+
+/* Inside When (date, start, end) the icons step back: the part's own icon leads */
+.cal-ed-when .cal-ed-lab > .icon {
+  color: var(--text-3);
 }
 
 /* ---- Banner (repeating event) + notice (deleted elsewhere) ---- */
@@ -658,6 +677,11 @@
     letter-spacing: 0.04em;
   }
 
+  /* Each option as wide as its word (the spare room shared out): "Monthly" is never cut */
+  .cal-ed-seg {
+    grid-auto-columns: auto;
+  }
+
   .cal-ed-repeat {
     margin-left: 2px;
     padding-left: var(--space-3);
@@ -680,8 +704,18 @@
     width: auto;
   }
 
+  /* The four looks stay one row (a compact dialog): a smaller card each */
   .cal-ed-styles {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .cal-ed-style {
+    gap: 6px;
+    padding: 6px;
+  }
+
+  .cal-ed-style-name {
+    letter-spacing: 0;
   }
 }
 

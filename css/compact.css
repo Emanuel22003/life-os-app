@@ -116,3 +116,9 @@ html[data-skin] .main .view > .page-header {
     -webkit-touch-callout: default;
   }
 }
+
+/* The Calendar fits its day (and week) to the screen: little room under it, so the page doesn't
+   scroll into empty padding. :where keeps the docked timer's own padding (shell.css) stronger. */
+html[data-skin] .main .view:where([data-feature="calendar"]) {
+  padding-bottom: var(--space-4);
+}

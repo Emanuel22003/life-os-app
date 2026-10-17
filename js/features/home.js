@@ -1,6 +1,8 @@
-// LIFE/OS — 01 // Home: the start page, today at a glance. A greeting with what's next, and a
-// board of widgets you arrange yourself (Customize): the week, the Pomodoro timer, today's habits,
-// the to-do list, a quick note, the habit graph, a clock, the agenda, payments and training.
+// LIFE/OS — 01 // Home: the start page, today at a glance. A greeting, the Today strip (a tile
+// each for events, tasks, habits and the timer: the first place to look), and a board of widgets
+// you arrange yourself (Customize): the week, the Pomodoro timer, today's habits, the to-do list,
+// a quick note, the habit graph, a clock, the agenda, payments and training. Every widget wears
+// its page's badge (icon + color), so you can tell them apart without reading.
 // Drag a widget by its handle (or move it with the arrow keys), pick its size, remove it, or add
 // one from the shelf; the layout is per device (store 'home'.layout, rules in home.logic.js).
 //
@@ -12,6 +14,7 @@
 import {
   h,
   icon,
+  iconBadge,
   registerIcon,
   pageHeader,
   checkButton,
@@ -43,7 +46,7 @@ import { createStore } from '../store.js';
 import { registerContextProvider } from '../contextmenu.js';
 import { splitText } from '../contextmenu.logic.js';
 import { tasksApi } from './tasks.js';
-import { parseQuickAdd } from './tasks.logic.js';
+import { parseQuickAdd, computeStats as taskStats } from './tasks.logic.js';
 import { habitsApi } from './habits.js';
 import { habitsForDay } from './habits.logic.js';
 import { dailySeries } from './habits.stats.js';
@@ -52,21 +55,28 @@ import { getEvents, subscribeCalendar, getDayColors } from './calendar.store.js'
 import { paintColor } from '../colors.js';
 import { calendarApi } from './calendar.js';
 import { occurrencesInRange, weekKeys, mondayOf, periodHeading, viewRange, shiftCursor, monthGrid, layoutTimed, tasksByDay, overdueTasks, habitsByDay, daysBetween } from './calendar.logic.js';
-import { eventBar, taskChip, habitMeter, priorityBadge, PRIORITY_TAG } from './calendar.views.js';
+import { eventBar, taskChip, habitMeter, PRIORITY_TAG } from './calendar.views.js';
 import { pomodoroApi, roundText } from './pomodoro.js';
 import { financeApi } from './finance.js';
 import { upcoming as upcomingPayments, totals as paymentTotals } from './finance.logic.js';
 import { trainingApi } from './training.js';
 import { weekStats, lastDone, sessionElapsed, restLeft, formatDuration } from './training.logic.js';
-import { PHASE_LABEL } from './pomodoro.logic.js';
+import { PHASE_LABEL, focusStats } from './pomodoro.logic.js';
+import { iconOf } from '../icons.logic.js';
 import * as HM from './home.logic.js';
 
 const prefs = createStore('home', { quickNoteSection: null });
 
 registerIcon('hm-layout', '<rect x="3.5" y="3.5" width="7.5" height="9" rx="1.5"/><rect x="13" y="3.5" width="7.5" height="5" rx="1.5"/><rect x="13" y="10.5" width="7.5" height="10" rx="1.5"/><rect x="3.5" y="14.5" width="7.5" height="6" rx="1.5"/>');
 
-/** The icon each widget has in its header and on the Add shelf. */
-const WIDGET_ICON = { week: 'calendar', pomodoro: 'timer', todo: 'list', habits: 'target', graph: 'activity', note: 'note', clock: 'clock', agenda: 'calendar', payments: 'wallet', training: 'dumbbell' };
+/**
+ * A widget's badge (header, Customize bar, shelf): its icon in its page's color (HM.WIDGETS).
+ * home.css sizes the square where it sits (a small card makes it smaller).
+ */
+function widgetBadge(id, { size = 14, className = '' } = {}) {
+  const w = HM.WIDGETS.find((x) => x.id === id);
+  return iconBadge(w?.icon ?? 'home', { tone: w?.tone ?? null, size, className: `hm-ib ${className}`.trim() });
+}
 const AGENDA_MAX = 8;
 const PAY_MAX = 5;
 
@@ -100,10 +110,25 @@ function keepFocus(container, paint) {
   if (fid) container.querySelector(`[data-fid="${CSS.escape(fid)}"]`)?.focus({ preventScroll: true });
 }
 
-/** A card's header: its icon and title (`short`: the title a small card shows), then `extra`. */
-function cardHead(id, iconName, title, extra = null, short = null) {
-  const name = short ? [h('span', { class: 'hm-title-long' }, title), h('span', { class: 'hm-title-short' }, short)] : h('span', null, title);
-  return h('header', { class: 'hm-card-head' }, h('h2', { class: 'hm-card-title', id }, icon(iconName, { size: 15 }), name), extra);
+/**
+ * A card's header: the widget's badge (its page's icon and color) and title (`short`: the
+ * title a small card shows), then `extra` (counts and links, muted).
+ */
+function cardHead(id, widget, title, extra = null, short = null) {
+  const name = short ? [h('span', { class: 'hm-card-name hm-title-long' }, title), h('span', { class: 'hm-card-name hm-title-short' }, short)] : h('span', { class: 'hm-card-name' }, title);
+  return h('header', { class: 'hm-card-head' }, h('h2', { class: 'hm-card-title', id }, widgetBadge(widget), name), extra);
+}
+
+/** A habit's icon before its name: the one picked for it, else the one its name suggests. */
+function habitIcon(hb) {
+  return h('span', { class: 'hm-hb-ic', 'aria-hidden': 'true' }, icon(iconOf(hb, 'target'), { size: 15 }));
+}
+
+/** A task's priority as the Tasks page's flag (home.css: high filled, medium outlined, low light), or null. */
+function priorityFlag(priority) {
+  const pri = PRIORITY_TAG[priority];
+  if (!pri) return null;
+  return h('span', { class: ['hm-pri', `is-${priority}`], title: `${pri.text} priority`, 'aria-hidden': 'true' }, icon('flag', { size: 13 }));
 }
 
 /** A card's link ("Open timer ›"). A narrow card shows only the arrow: the words stay its name. */
@@ -212,9 +237,11 @@ function mount(root) {
   let todoHoldUntil = 0;
   let todoTimer = 0;
 
-  /* ---- Header: greeting, then today's date and what's next on one line ----
-     A phone shows the short date ("Sat 17 Oct") and both buttons as icons (css/compact.css,
-     home.css), so the greeting keeps its whole width. */
+  /* ---- Header: the greeting with a sun or a moon, then today's date ----
+     What's next ("Next: 19:00 Dinner") is on the Today strip's Calendar tile where it has room;
+     a phone's tiles are too narrow for it, so there it stays on the date's line ("Sat 17 Oct ·
+     Next: …", home.css shows one or the other). A phone shows both buttons as icons
+     (css/compact.css, home.css), so the greeting keeps its whole width. */
 
   const quickBtn = h(
     'button',
@@ -227,6 +254,10 @@ function mount(root) {
   const customizeBtn = h('button', { type: 'button', class: 'btn hm-customize', 'aria-pressed': 'false', onClick: () => setEditing(!editing) });
   const header = pageHeader({ index: '01', title: HM.greeting(new Date().getHours()), subtitle: ' ', actions: [customizeBtn, quickBtn] });
   const titleEl = header.querySelector('.page-title');
+  // The greeting's words and its badge (Home's title gets no page badge from the shell)
+  const greetText = h('span', { class: 'hm-greet' });
+  titleEl.replaceChildren(greetText);
+  let greetIcon = '';
   const dateLong = h('span', { class: 'hm-date-long' });
   const dateShort = h('span', { class: 'hm-date-short' });
   const nextEl = h('button', { type: 'button', class: 'hm-next' });
@@ -247,15 +278,126 @@ function mount(root) {
   }
 
   function paintHeader() {
-    titleEl.textContent = HM.greeting(new Date().getHours());
+    const hour = new Date().getHours();
+    greetText.textContent = HM.greeting(hour);
+    const greetName = HM.greetingIcon(hour);
+    if (greetName !== greetIcon) {
+      greetIcon = greetName;
+      titleEl.querySelector(':scope > .ib')?.remove();
+      titleEl.prepend(iconBadge(greetName, { tone: 'home', size: 18, className: 'page-ib hm-greet-ib' }));
+    }
     dateLong.textContent = formatDay(state.today, 'long');
     dateShort.textContent = formatDay(state.today);
     const occs = occurrencesInRange(getEvents(), state.today, shiftKey(state.today, AHEAD_DAYS));
     const up = HM.nextUp(occs, state.today, nowMinutes());
     nextDay = up ? (up.occ.start > state.today ? up.occ.start : state.today) : null;
-    nextEl.replaceChildren(icon(up?.kind === 'now' ? 'activity' : 'clock', { size: 14 }), h('span', null, nextText(up)));
+    const text = nextText(up);
+    nextEl.replaceChildren(icon(up?.kind === 'now' ? 'activity' : 'clock', { size: 14 }), h('span', null, text));
     nextEl.classList.toggle('is-empty', !up);
     nextEl.title = up ? 'Open this day in the Calendar' : 'Open today in the Calendar';
+    const events = HM.countOn(occs, state.today);
+    glanceDay = events ? state.today : nextDay ?? state.today;
+    paintGlance({ events, next: up ? text : '', nextKind: up?.kind ?? null });
+  }
+
+  /* ---- Today: the strip under the greeting, the first place to look ----
+     A tile per page with something for today: events (and what's next), tasks to do (and how
+     many are late), habits done of planned, the focus timer. Each is its page's badge, one big
+     number and a few words (HM.glanceTiles); a tap opens the page. The parts are recounted when
+     their page changes (the timer every second while it runs) and painted together. */
+
+  const glanceData = {};
+  let glanceDay = null; // the Calendar tile opens today, or the day of the next event
+  const glanceCells = new Map();
+  const glance = h('section', { class: 'panel hud hm-glance', 'aria-label': 'Today at a glance' });
+  const glanceOpen = {
+    calendar: () => calendarApi.open(glanceDay ?? state.today, 'day'),
+    habits: () => habitsApi.source.openTab('today'),
+  };
+  for (const t of HM.GLANCE) {
+    const value = h('span', { class: 'hm-gl-value tnum' });
+    const label = h('span', { class: 'hm-gl-label' });
+    const alertText = h('span', { class: 'hm-gl-alert-long' });
+    const alertShort = h('span', { class: 'hm-gl-alert-short' });
+    const alert = h('span', { class: 'hm-gl-alert', hidden: true }, icon('alert', { size: 12 }), alertText, alertShort);
+    const sub = h('span', { class: 'hm-gl-sub' });
+    const open = glanceOpen[t.id];
+    const cell = h(
+      'a',
+      {
+        class: 'hm-gl',
+        href: t.href,
+        title: `Open ${t.name === 'Focus timer' ? 'the timer' : t.name}`,
+        dataset: { tile: t.id },
+        onClick: open
+          ? (e) => {
+              if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+              e.preventDefault();
+              open();
+            }
+          : null,
+      },
+      iconBadge(t.icon, { tone: t.tone, size: 18, className: 'hm-gl-ib' }),
+      h('span', { class: 'hm-gl-text' }, h('span', { class: 'hm-gl-main' }, value, label), alert, sub),
+    );
+    glance.append(cell);
+    glanceCells.set(t.id, { cell, value, label, alert, alertText, alertShort, sub, subSig: '' });
+  }
+
+  const setText = (el, text) => {
+    if (el.textContent !== text) el.textContent = text;
+  };
+
+  /** Merge in the parts that changed and paint the four tiles. */
+  function paintGlance(patch = {}) {
+    Object.assign(glanceData, patch);
+    for (const t of HM.glanceTiles(glanceData, { num })) {
+      const c = glanceCells.get(t.id);
+      setText(c.value, t.value);
+      setText(c.label, t.label);
+      setText(c.alertText, t.alert ?? '');
+      setText(c.alertShort, t.alertShort ?? t.alert ?? '');
+      c.alert.hidden = !t.alert;
+      c.cell.classList.toggle('has-alert', !!t.alert);
+      const subSig = `${t.subIcon}|${t.sub}`;
+      if (c.subSig !== subSig) {
+        c.subSig = subSig;
+        c.sub.replaceChildren(...(t.subIcon ? [icon(t.subIcon, { size: 12 })] : []), h('span', null, t.sub));
+      }
+      if ((c.cell.dataset.state ?? '') !== (t.state ?? '')) c.cell.dataset.state = t.state ?? '';
+      if (c.cell.getAttribute('aria-label') !== t.aria) c.cell.setAttribute('aria-label', t.aria);
+    }
+  }
+
+  /** Tasks to do today (overdue ones included, as the To do widget lists them) and done today. */
+  function glanceTasks() {
+    const tasks = tasksApi.getItems();
+    const rows = HM.todoList(overdueTasks(tasks, state.today), tasksByDay(tasks, state.today, state.today).get(state.today) ?? [], state.today, daysBetween);
+    paintGlance({ todo: rows.length, overdue: rows.filter((r) => r.overdueDays).length, doneToday: taskStats(tasks, state.today).doneToday });
+  }
+
+  /** Habits planned today and how many are done (the same count as the Habits today widget). */
+  function glanceHabits() {
+    const items = habitsApi.source.getItems();
+    const planned = habitsForDay(items, state.today);
+    paintGlance({
+      habits: {
+        any: items.some((hb) => !hb.archivedAt || hb.archivedAt > state.today),
+        planned: planned.length,
+        done: planned.filter((hb) => hb.log?.[state.today]).length,
+      },
+    });
+  }
+
+  /** The timer as it is now, and today's focus minutes. */
+  function glanceTimer(v) {
+    const from = parseKey(state.today).getTime();
+    const to = parseKey(shiftKey(state.today, 1)).getTime();
+    paintGlance({
+      timer: { clock: v.clock, status: v.status, phase: v.phase },
+      focusMin: focusStats(v.doc?.history, from, to).minutes,
+      round: roundText(v.round, v.rounds),
+    });
   }
 
   /* ---- Calendar: a day, the week or the month ----
@@ -281,9 +423,10 @@ function mount(root) {
   // The view menu also opens the period in the Calendar (a narrow widget hides the link)
   const viewDD = dropdown({
     className: 'hm-cal-view',
+    icon: HM.CAL_VIEW_ICON[calNow().view],
     title: 'Day, week or month (D, W, M)',
     items: [
-      ...HM.CAL_VIEWS.map((v) => ({ value: v, label: HM.CAL_VIEW_LABEL[v] })),
+      ...HM.CAL_VIEWS.map((v) => ({ value: v, label: HM.CAL_VIEW_LABEL[v], icon: HM.CAL_VIEW_ICON[v] })),
       { separator: true },
       { value: 'open', label: 'Open in the Calendar', icon: 'calendar', action: () => calendarApi.open(state.cursor, calNow().view) },
     ],
@@ -292,6 +435,7 @@ function mount(root) {
   });
   const showDD = dropdown({
     label: 'Show',
+    icon: 'eye',
     multi: true,
     className: 'hm-cal-show',
     title: 'What the calendar shows',
@@ -316,8 +460,8 @@ function mount(root) {
     h(
       'header',
       { class: 'hm-week-head' },
-      weekKicker,
-      weekTitle,
+      // The badge, then the month: on a narrow widget they share the first row with ‹ ›
+      h('div', { class: 'hm-week-name' }, widgetBadge('week'), weekKicker, weekTitle),
       calBar,
       thisWeekBtn,
       h('div', { class: 'hm-week-nav' }, prevBtn, nextBtn),
@@ -434,19 +578,21 @@ function mount(root) {
    * habits on the right. A small one lists everything.
    */
   function dayList(d, ctx, info, layers, color, wide) {
-    const group = (title, rows, kind = null) => h('section', { class: 'hm-dv-group' }, h('h3', { class: 'hm-dv-title label' }, title), h('div', { class: ['hm-dv-rows', kind] }, rows));
+    // A group's title: its icon (the same as in the Show menu) and a short word
+    const title = (iconName, text) => h('h3', { class: 'hm-dv-title label' }, icon(iconName, { size: 13 }), h('span', null, text));
+    const group = (iconName, text, rows, kind = null) => h('section', { class: 'hm-dv-group' }, title(iconName, text), h('div', { class: ['hm-dv-rows', kind] }, rows));
     const groups = [];
     if (layers.events && wide) {
-      groups.push(h('section', { class: 'hm-dv-group' }, h('h3', { class: 'hm-dv-title label' }, 'Schedule'), schedule(d, ctx)));
+      groups.push(h('section', { class: 'hm-dv-group' }, title('clock', 'Schedule'), schedule(d, ctx)));
     } else if (layers.events && d.events.length) {
-      groups.push(group('Events', d.events.map((occ) => {
+      groups.push(group(HM.CAL_LAYER_ICON.events, 'Events', d.events.map((occ) => {
         const bar = eventBar(occ, ctx, { prefix: 'hm', tab: '0', drag: false, glyph: false, extra: occ.location ? h('span', { class: 'hm-dv-where' }, occ.location) : null });
         bar.dataset.open = d.key;
         return bar;
       })));
     }
     if (layers.tasks && d.tasks.length) {
-      groups.push(group('Tasks', d.tasks.map((task) => {
+      groups.push(group(HM.CAL_LAYER_ICON.tasks, 'Tasks', d.tasks.map((task) => {
         const chip = taskChip(task, ctx, { prefix: 'hm', tab: '0' });
         chip.dataset.open = d.key;
         return chip;
@@ -454,13 +600,13 @@ function mount(root) {
     }
     const habits = info ? [...info.scheduled, ...info.bonus] : [];
     if (layers.habits && habits.length) {
-      groups.push(group(info.planned ? `Habits · ${info.done} of ${info.planned}` : 'Habits', habits.map((hb) => {
+      groups.push(group(HM.CAL_LAYER_ICON.habits, info.planned ? `Habits · ${info.done} of ${info.planned}` : 'Habits', habits.map((hb) => {
         const canLog = d.key <= state.today;
         const check = canLog
           ? checkButton({ checked: hb.done, label: `${hb.name}: done ${d.isToday ? 'today' : formatDay(d.key)}`, onToggle: (next) => habitsApi.setLog(hb.id, d.key, next) })
           : h('span', { class: 'hm-dv-planned', 'aria-hidden': 'true' });
         if (canLog) check.dataset.fid = `dv-hb:${hb.id}`;
-        return h('div', { class: ['hm-dv-habit', `is-${hb.status}`] }, check, h('span', { class: 'hm-dv-habit-name' }, hb.name), hb.status === 'bonus' ? h('span', { class: 'hm-dv-tag' }, 'Extra') : !canLog ? h('span', { class: 'hm-dv-tag' }, 'Planned') : null);
+        return h('div', { class: ['hm-dv-habit', `is-${hb.status}`] }, check, habitIcon(hb), h('span', { class: 'hm-dv-habit-name' }, hb.name), hb.status === 'bonus' ? h('span', { class: 'hm-dv-tag' }, 'Extra') : !canLog ? h('span', { class: 'hm-dv-tag' }, 'Planned') : null);
       }), 'is-habits'));
     }
     // The habits went last: on a wide widget they take the right-hand column
@@ -554,6 +700,8 @@ function mount(root) {
     if (viewDD.button.dataset.view !== view) {
       viewDD.button.dataset.view = view;
       updateMenu(viewDD, { value: view });
+      // The button shows the view's icon too (ui.dropdown draws its icon first)
+      viewDD.button.querySelector(':scope > .icon:not(.dd-chev)')?.replaceWith(icon(HM.CAL_VIEW_ICON[view], { size: 14 }));
     }
     viewDD.button.setAttribute('aria-label', `Calendar view: ${HM.CAL_VIEW_LABEL[view]}`);
     // Done tasks only show with the tasks: the menu greys it out while Tasks is off
@@ -631,7 +779,7 @@ function mount(root) {
     const card = h(
       'section',
       { class: 'panel hm-card hm-pomo', 'aria-labelledby': 'hm-pomo-title' },
-      cardHead('hm-pomo-title', 'timer', simple ? 'Focus timer' : 'Pomodoro', moreLink({ href: '#/pomodoro', label: 'Open timer' })),
+      cardHead('hm-pomo-title', 'pomodoro', simple ? 'Focus timer' : 'Pomodoro', moreLink({ href: '#/pomodoro', label: 'Open timer' })),
       h('div', { class: 'hm-pomo-body' }, h('div', { class: 'hm-pomo-meta' }, phaseEl, roundEl), digits, bar, h('div', { class: 'hm-pomo-ctl' }, mainBtn, skipBtn), taskEl),
     );
     let verb = '';
@@ -668,7 +816,7 @@ function mount(root) {
   const habitsCard = h(
     'section',
     { class: 'panel hm-card hm-habits', 'aria-labelledby': 'hm-habits-title' },
-    cardHead('hm-habits-title', 'target', simple ? 'Habits today' : 'Habits · today', h('div', { class: 'hm-card-tools' }, habitsCount, moreLink({ href: '#/habits', label: 'Habits', onClick: () => habitsApi.source.openTab('today') })), 'Habits'),
+    cardHead('hm-habits-title', 'habits', simple ? 'Habits today' : 'Habits · today', h('div', { class: 'hm-card-tools' }, habitsCount, moreLink({ href: '#/habits', label: 'Habits', onClick: () => habitsApi.source.openTab('today') })), 'Habits'),
     habitsBody,
   );
 
@@ -710,7 +858,7 @@ function mount(root) {
       const isDone = !!hb.log?.[today];
       const check = checkButton({ checked: isDone, label: `${hb.name}: done today`, onToggle: (next) => habitsApi.setLog(hb.id, today, next) });
       check.dataset.fid = `hb:${hb.id}`;
-      return h('li', { class: ['hm-habit', isDone && 'is-done'] }, check, h('span', { class: 'hm-habit-name', title: hb.name }, hb.name));
+      return h('li', { class: ['hm-habit', isDone && 'is-done'] }, check, habitIcon(hb), h('span', { class: 'hm-habit-name', title: hb.name }, hb.name));
     });
     // A narrow card drops the ring (the count is in its header) but keeps "All done"
     habitsBody.classList.toggle('is-complete', done === planned.length);
@@ -788,7 +936,7 @@ function mount(root) {
   const todoCard = h(
     'section',
     { class: 'panel hm-card hm-todo', 'aria-labelledby': 'hm-todo-title' },
-    cardHead('hm-todo-title', 'list', 'To do', h('div', { class: 'hm-card-tools' }, todoCount, moreLink({ href: '#/tasks', label: 'All tasks' }))),
+    cardHead('hm-todo-title', 'todo', 'To do', h('div', { class: 'hm-card-tools' }, todoCount, moreLink({ href: '#/tasks', label: 'All tasks' }))),
     addForm,
     todoList,
     todoFoot,
@@ -838,8 +986,8 @@ function mount(root) {
     const parts = [
       check,
       h('button', { type: 'button', class: 'hm-task-title', title: 'Show in Tasks', dataset: { fid: `todo-t:${task.id}` }, onClick: () => tasksApi.reveal(task.id) }, task.title),
-      overdueDays ? h('span', { class: 'tag tag--dashed hm-task-late' }, overdueDays === 1 ? 'Yesterday' : `${overdueDays} days late`) : null,
-      priorityBadge(task.priority),
+      overdueDays ? h('span', { class: 'hm-task-late' }, icon('alert', { size: 12 }), h('span', null, overdueDays === 1 ? 'Yesterday' : `${overdueDays} days late`)) : null,
+      priorityFlag(task.priority),
     ];
     row.append(...parts.filter(Boolean));
     return row;
@@ -912,7 +1060,7 @@ function mount(root) {
   const graphCard = h(
     'section',
     { class: 'panel hm-card hm-graph', 'aria-labelledby': 'hm-graph-title' },
-    cardHead('hm-graph-title', 'activity', simple ? 'Habits, last two weeks' : 'Habit completion · 14D', moreLink({ href: '#/habits', label: 'Insights', onClick: () => habitsApi.source.openTab('insights') })),
+    cardHead('hm-graph-title', 'graph', simple ? 'Habits, last two weeks' : 'Habit completion · 14D', moreLink({ href: '#/habits', label: 'Insights', onClick: () => habitsApi.source.openTab('insights') })),
     graphBody,
   );
   // What a gap means is a tip (its ✓ hides it for good), shown only while the two weeks have one
@@ -951,7 +1099,8 @@ function mount(root) {
 
   const clockTime = h('div', { class: 'hm-clock-time tnum', role: 'timer', 'aria-live': 'off' });
   const clockDate = h('div', { class: 'hm-clock-date' });
-  const clockCard = h('section', { class: 'panel hm-card hm-clock', 'aria-label': 'Clock' }, clockTime, clockDate);
+  // No header (the time is its title): its badge sits before the date
+  const clockCard = h('section', { class: 'panel hm-card hm-clock', 'aria-label': 'Clock' }, clockTime, h('div', { class: 'hm-clock-foot' }, widgetBadge('clock', { size: 12 }), clockDate));
   let clockShown = '';
 
   function paintClock() {
@@ -972,7 +1121,7 @@ function mount(root) {
   const agendaCard = h(
     'section',
     { class: 'panel hm-card hm-agenda', 'aria-labelledby': 'hm-agenda-title' },
-    cardHead('hm-agenda-title', 'calendar', 'Agenda', moreLink({ href: '#/calendar', label: 'Calendar' })),
+    cardHead('hm-agenda-title', 'agenda', 'Agenda', moreLink({ href: '#/calendar', label: 'Calendar' })),
     agendaBody,
   );
 
@@ -999,7 +1148,7 @@ function mount(root) {
           h(
             'div',
             { class: 'hm-agenda-day' },
-            h('h3', { class: 'hm-agenda-when label' }, dayName(g.day)),
+            h('h3', { class: 'hm-agenda-when label' }, icon(g.day === state.today ? 'sun' : g.day === shiftKey(state.today, 1) ? 'sunrise' : 'calendar', { size: 13 }), h('span', null, dayName(g.day))),
             h(
               'ul',
               { class: 'hm-agenda-list' },
@@ -1010,7 +1159,7 @@ function mount(root) {
                   h(
                     'button',
                     { type: 'button', class: 'hm-agenda-item', dataset: { fid: `ag:${o.occId}` }, title: 'Open this day in the Calendar', onClick: () => calendarApi.open(g.day, 'day') },
-                    h('span', { class: 'hm-agenda-time tnum' }, o.allDay ? 'All day' : o.startTime),
+                    h('span', { class: 'hm-agenda-time tnum' }, o.allDay ? null : icon('clock', { size: 11 }), o.allDay ? 'All day' : o.startTime),
                     h('span', { class: 'hm-agenda-title' }, o.title),
                   ),
                 ),
@@ -1028,7 +1177,7 @@ function mount(root) {
   const payCard = h(
     'section',
     { class: 'panel hm-card hm-pay', 'aria-labelledby': 'hm-pay-title' },
-    cardHead('hm-pay-title', 'wallet', 'Payments', moreLink({ href: '#/finance', label: 'Finance' })),
+    cardHead('hm-pay-title', 'payments', 'Payments', moreLink({ href: '#/finance', label: 'Finance' })),
     payBody,
   );
 
@@ -1079,7 +1228,7 @@ function mount(root) {
   const trainCard = h(
     'section',
     { class: 'panel hm-card hm-train', 'aria-labelledby': 'hm-train-title' },
-    cardHead('hm-train-title', 'dumbbell', 'Training', moreLink({ href: '#/training', label: 'Training' })),
+    cardHead('hm-train-title', 'training', 'Training', moreLink({ href: '#/training', label: 'Training' })),
     trainBody,
   );
   let trainSig = '';
@@ -1275,7 +1424,7 @@ function mount(root) {
       },
       icon('x', { size: 14 }),
     );
-    return h('div', { class: 'hm-wbar' }, grip, h('span', { class: 'hm-wname' }, icon(WIDGET_ICON[item.id], { size: 14 }), h('span', null, name)), sizes, remove);
+    return h('div', { class: 'hm-wbar' }, grip, h('span', { class: 'hm-wname' }, widgetBadge(item.id, { size: 13 }), h('span', null, name)), sizes, remove);
   }
 
   function addShelf() {
@@ -1297,7 +1446,7 @@ function mount(root) {
               h(
                 'li',
                 { class: 'hm-shelf-item' },
-                h('span', { class: 'hm-shelf-icon', 'aria-hidden': 'true' }, icon(WIDGET_ICON[w.id], { size: 18 })),
+                widgetBadge(w.id, { size: 18, className: 'hm-shelf-icon' }),
                 h('span', { class: 'hm-shelf-text' }, h('strong', null, w.name), h('span', null, w.text)),
                 h(
                   'button',
@@ -1484,11 +1633,13 @@ function mount(root) {
     window.addEventListener('pointercancel', end);
   }
 
-  root.append(header, editHint, board, below, announce);
+  root.append(header, glance, editHint, board, below, announce);
   setEditing(false);
 
   function paintAll() {
     paintHeader();
+    glanceTasks();
+    glanceHabits();
     paintWeek();
     paintHabits();
     paintTodo();
@@ -1567,11 +1718,13 @@ function mount(root) {
 
   const offs = [
     tasksApi.subscribe(() => {
+      glanceTasks();
       paintTodo();
       paintWeek();
       paintHeader();
     }),
     habitsApi.source.subscribe(() => {
+      glanceHabits();
       paintHabits();
       paintGraph();
       paintWeek();
@@ -1589,15 +1742,21 @@ function mount(root) {
       paintWeek();
     }),
     notesApi.subscribe(() => paintRecent()),
-    pomodoroApi.subscribe((v) => pomo.paint(v)),
+    pomodoroApi.subscribe((v) => {
+      pomo.paint(v);
+      glanceTimer(v);
+    }),
     onDayChange(() => {
       const onCurrent = isCurrent(calNow().view);
       state.today = todayKey();
       if (onCurrent) state.cursor = state.today;
       paintAll();
+      // Today's focus minutes start again from zero
+      glanceTimer(pomodoroApi.snapshot());
     }),
   ];
-  // The greeting and "Now / Next" follow the clock; the week dims what has passed now and then
+  // The greeting, "Now / Next" and the Calendar tile follow the clock; the week dims what has
+  // passed now and then
   let ticks = 0;
   const clock = setInterval(() => {
     paintHeader();

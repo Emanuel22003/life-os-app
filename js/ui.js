@@ -104,6 +104,10 @@ export function registerIcon(name, inner) {
   ICONS[name] = inner;
 }
 
+export function hasIcon(name) {
+  return Object.hasOwn(ICONS, name);
+}
+
 export function icon(name, { size = 16, stroke = 1.5, className = '' } = {}) {
   const tpl = document.createElement('template');
   tpl.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="${stroke}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false" class="icon ${className}">${ICONS[name] ?? ICONS.circle}</svg>`;
@@ -170,6 +174,104 @@ export function pageHeader({ index, title, subtitle, actions = [], tipId = null 
     ),
     actions.length ? h('div', { class: 'page-actions' }, actions) : null,
   );
+}
+
+/* ---- Icon badges and the icon picker ---- */
+
+/**
+ * An icon in a small tinted square. tone: a page id ('tasks', 'habits' …) whose color it takes
+ * (css/icons.css: --mod-<tone>, while Color coding → Pages is on), or none for the plain gray.
+ * size: the icon's px; the square is a bit larger (--ib-box in CSS, or the `box` option).
+ */
+export function iconBadge(name, { tone = null, size = 15, box = null, className = '', label = null } = {}) {
+  return h(
+    'span',
+    {
+      class: ['ib', className],
+      dataset: tone ? { tone } : null,
+      style: box ? { '--ib-box': `${box}px` } : null,
+      role: label ? 'img' : null,
+      'aria-label': label,
+      'aria-hidden': label ? null : 'true',
+    },
+    icon(name, { size }),
+  );
+}
+
+/**
+ * A grid of icons to pick one from (a radio group: arrow keys move, Enter or Space picks).
+ * choices: [{ name, label }]. auto: the icon a name suggests, offered first as "Auto" (picking it
+ * stores null, so the icon keeps following the name). onChange(name | null).
+ * Returns { el, set(value), setAuto(name) }.
+ */
+export function iconPicker({ choices = [], value = null, auto = null, onChange = () => {}, labelledBy = null } = {}) {
+  const el = h('div', { class: 'ip', role: 'radiogroup', 'aria-labelledby': labelledBy });
+  let current = value;
+  let autoName = auto;
+  const autoBtn = auto !== undefined && auto !== false;
+  const buttons = [];
+
+  function make(name, label, isAuto = false) {
+    const b = h(
+      'button',
+      { type: 'button', class: ['ip-btn', isAuto && 'ip-auto'], role: 'radio', title: label, 'aria-label': label, dataset: { name: isAuto ? '' : name } },
+      icon(isAuto ? autoName || 'circle' : name, { size: 18 }),
+      isAuto ? h('span', { class: 'ip-auto-tag' }, 'Auto') : null,
+    );
+    b.addEventListener('click', () => pick(isAuto ? null : name, b));
+    buttons.push(b);
+    return b;
+  }
+
+  function paint() {
+    for (const b of buttons) {
+      const on = (b.dataset.name || null) === current;
+      b.setAttribute('aria-checked', String(on));
+      b.tabIndex = on ? 0 : -1;
+    }
+    if (!buttons.some((b) => b.tabIndex === 0) && buttons[0]) buttons[0].tabIndex = 0;
+  }
+
+  function pick(name, b) {
+    current = name;
+    paint();
+    b?.focus({ preventScroll: true });
+    onChange(name);
+  }
+
+  const autoLabel = () => `Auto (follows the name)${autoName ? `: ${choices.find((c) => c.name === autoName)?.label ?? autoName}` : ''}`;
+  if (autoBtn) el.append(make(null, autoLabel(), true));
+  for (const c of choices) el.append(make(c.name, c.label));
+
+  el.addEventListener('keydown', (e) => {
+    const at = buttons.indexOf(document.activeElement);
+    if (at === -1) return;
+    const cols = Math.max(1, getComputedStyle(el).gridTemplateColumns.split(' ').length);
+    const to = { ArrowRight: at + 1, ArrowLeft: at - 1, ArrowDown: at + cols, ArrowUp: at - cols, Home: 0, End: buttons.length - 1 }[e.key];
+    if (to === undefined) return;
+    e.preventDefault();
+    const b = buttons[Math.max(0, Math.min(buttons.length - 1, to))];
+    pick(b.dataset.name || null, b);
+  });
+
+  paint();
+  return {
+    el,
+    set(next) {
+      current = next ?? null;
+      paint();
+    },
+    /** The name changed: the Auto button shows its new suggestion. */
+    setAuto(name) {
+      autoName = name;
+      const b = buttons.find((x) => x.classList.contains('ip-auto'));
+      b?.querySelector('svg')?.replaceWith(icon(name || 'circle', { size: 18 }));
+      if (b) {
+        b.title = autoLabel();
+        b.setAttribute('aria-label', autoLabel());
+      }
+    },
+  };
 }
 
 /* ---- Tips: short explanations with a ✓ that hides each one for good (settings.tips) ----

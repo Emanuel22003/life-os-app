@@ -30,7 +30,11 @@ import {
   plainSkin,
   tip,
   dropdown,
+  iconBadge,
+  iconPicker,
+  registerIcon,
 } from '../ui.js';
+import { ICON_CHOICES, suggestIcon } from '../icons.logic.js';
 import { createStore } from '../store.js';
 import {
   DEFAULT_STATE,
@@ -72,6 +76,13 @@ import {
   prevAddStep,
   resolveAdd,
   dueChoice,
+  sectionIcon,
+  withSectionIcon,
+  dueKind,
+  VIEW_ICON,
+  SORT_ICON,
+  PRIORITY_ICON,
+  DUE_ICON,
 } from './tasks.logic.js';
 import { paintColor, colorDot, colorPicker, colorButton } from '../colors.js';
 import { registerContextProvider } from '../contextmenu.js';
@@ -87,12 +98,16 @@ const ALT_KEY = IS_MAC ? '⌥' : 'Alt';
 const STEP_LABEL = { priority: 'Priority', due: 'When', section: 'Section' };
 // The filter dropdown names what it shows: "All" alone reads like the sections' "All"
 const VIEW_LABEL = { all: 'All tasks', today: 'Today', upcoming: 'Upcoming', done: 'Done' };
-// More sections than this, or longer names together, and wide screens get the dropdown too
+// More sections than this and wide screens get the dropdown too (fewer: tabs if they fit, fitToolbar)
 const SECTION_TABS_MAX = 4;
-const SECTION_TABS_CHARS = 36;
 // Phones: a tap on a task opens its details (no pencil or trash on the row there)
 const phoneQuery = globalThis.matchMedia?.('(max-width: 640px)') ?? null;
 const isPhone = () => !!phoneQuery?.matches;
+// "All sections": a stack (the same drawing as Notes' "All notes"), so it never reads as one section
+const ALL_ICON = 'tk-all';
+registerIcon(ALL_ICON, '<path d="m12 3 9 4.5-9 4.5-9-4.5Z"/><path d="m3 12 9 4.5 9-4.5"/><path d="m3 16.5 9 4.5 9-4.5"/>');
+// "No section" in the steps and the details: the same "none" mark as No priority and No date
+const NO_SECTION_ICON = 'circle-slash';
 
 /* ==========================================================================
    Store (module singleton: shared by mount() and badge())
@@ -103,15 +118,39 @@ const store = createStore('tasks', DEFAULT_STATE);
 let cacheRaw = null;
 let cacheState = null;
 
-/** Normalized state, memoized on the raw store object (other tabs may write anything). */
-/** Simple's one-line summary of today, in place of the stats strip ("3 to do today"). */
-function friendlySummary(s) {
-  const toDo = s.dueToday + s.overdue;
-  if (toDo) return `${toDo} to do today${s.doneToday ? `, ${s.doneToday} done so far` : ''}.`;
-  if (s.doneToday) return 'All done for today. Nice work!';
-  if (s.open) return 'Nothing due today.';
-  return s.total ? 'Every task is done.' : 'Type a task below and press Enter to add it.';
+/**
+ * The one-line summary of today, in place of the stats strip (Simple's subtitle, a phone's title
+ * row): with something to do, its numbers by icon ("☀ 3 today  ⚠ 2 overdue  ✓ 1 done"), else a
+ * short sentence. -> [{ kind, icon, n?, text, sr? }]
+ */
+function summaryParts(s) {
+  if (s.dueToday + s.overdue) {
+    return [
+      s.dueToday && { kind: 'today', icon: DUE_ICON.today, n: s.dueToday, text: 'today', sr: 'due today' },
+      s.overdue && { kind: 'overdue', icon: DUE_ICON.overdue, n: s.overdue, text: 'overdue' },
+      s.doneToday && { kind: 'done', icon: 'check-circle', n: s.doneToday, text: 'done', sr: 'done today' },
+    ].filter(Boolean);
+  }
+  if (s.doneToday) return [{ kind: 'done', icon: 'check-circle', text: 'All done for today. Nice work!' }];
+  if (s.open) return [{ kind: 'calm', icon: DUE_ICON.today, text: 'Nothing due today.' }];
+  // Short, so a phone's title keeps its row: the empty list below says how to start
+  return [{ kind: 'calm', icon: s.total ? 'check-circle' : null, text: s.total ? 'Every task is done.' : 'No tasks yet.' }];
 }
+
+function summaryNodes(parts) {
+  return parts.map((p) =>
+    h(
+      'span',
+      { class: ['tk-sum', `tk-sum--${p.kind}`, p.n && 'is-count'] },
+      p.icon ? icon(p.icon, { size: 14 }) : null,
+      p.n ? h('strong', { class: 'tk-sum-n tnum' }, String(p.n)) : null,
+      h('span', { class: 'tk-sum-text', 'aria-hidden': p.sr ? 'true' : null }, p.text),
+      p.sr ? h('span', { class: 'sr-only' }, p.sr) : null,
+    ),
+  );
+}
+
+/** Normalized state, memoized on the raw store object (other tabs may write anything). */
 
 function getState() {
   const raw = store.get();
@@ -233,7 +272,27 @@ const isComposing = (e) => e.isComposing || e.keyCode === 229;
 // Row keys that act once per press: holding them must not machine-gun deletes / toggles
 const ONCE_KEYS = new Set(['Enter', 'F2', ' ', 'x', 'X', 'e', 'E', 'Delete', 'Backspace']);
 
-/** .seg toggle group. options: [{ value, label, aria?, count? }] */
+/**
+ * A dropdown's button shows the picked item's icon, so the row of menus reads without its words
+ * (ui.dropdown draws only the icon it was made with).
+ */
+function setButtonIcon(dd, name) {
+  const cur = dd.button.querySelector(':scope > .tk-dd-icon');
+  if (cur?.dataset.icon === name) return;
+  const el = icon(name, { size: 14, className: 'tk-dd-icon' });
+  el.dataset.icon = name;
+  if (cur) cur.replaceWith(el);
+  else dd.button.prepend(el);
+}
+
+/** A form field's name with its icon, the same in every dialog of the page. */
+const fieldLabel = (iconName, text, forId = null) => h(forId ? 'label' : 'span', { class: 'label tk-field-label', for: forId }, icon(iconName, { size: 13 }), text);
+
+/**
+ * .seg toggle group. options: [{ value, label, short?, aria?, count?, icon?, color? }]. A section's
+ * color tints its icon (tasks.css); without an icon it shows as a dot. `short` is the name a phone
+ * shows, so the icons and names still fit one row there.
+ */
 function segGroup({ label, options, value, onChange, className }) {
   const buttons = new Map();
   const counts = new Map();
@@ -246,8 +305,8 @@ function segGroup({ label, options, value, onChange, className }) {
       const btn = h(
         'button',
         { type: 'button', class: 'seg-btn', 'aria-pressed': String(o.value === value), 'aria-label': o.aria, title: o.aria, dataset: { value: o.value }, onClick: () => onChange(o.value) },
-        'color' in o ? colorDot() : null,
-        o.label,
+        o.icon ? icon(o.icon, { size: 14, className: 'tk-seg-icon' }) : 'color' in o ? colorDot() : null,
+        o.short ? [h('span', { class: 'tk-lbl-full' }, o.label), h('span', { class: 'tk-lbl-short' }, o.short)] : o.label,
         count,
       );
       if ('color' in o) paintColor(btn, 'sections', o.color);
@@ -268,7 +327,7 @@ function segGroup({ label, options, value, onChange, className }) {
 }
 
 const PRIORITY_OPTIONS = [
-  { value: 'none', label: '—', aria: 'No priority' },
+  { value: 'none', label: 'None', aria: 'No priority' },
   { value: 'low', label: 'Low', aria: 'Low priority' },
   { value: 'med', label: 'Med', aria: 'Medium priority' },
   { value: 'high', label: 'High', aria: 'High priority' },
@@ -278,7 +337,7 @@ function priorityPicker(initial = 'none') {
   let value = initial;
   const seg = segGroup({
     label: 'Priority',
-    options: PRIORITY_OPTIONS.map((o) => ({ ...o, label: term(`tasks.priority.${o.value}`, o.label) })),
+    options: PRIORITY_OPTIONS.map((o) => ({ ...o, label: term(`tasks.priority.${o.value}`, o.label), short: o.value === 'med' ? 'Med' : null, icon: PRIORITY_ICON[o.value] })),
     value,
     className: 'tk-pri-seg',
     onChange: (v) => set(v),
@@ -294,9 +353,9 @@ function priorityPicker(initial = 'none') {
 function duePicker(initial = null, { extended = false } = {}) {
   let value = initial;
   const chips = [
-    { label: 'Today', key: () => todayKey() },
-    { label: 'Tomorrow', key: () => shiftKey(todayKey(), 1) },
-    extended && { label: '+1 week', aria: 'In one week', key: () => shiftKey(todayKey(), 7) },
+    { label: 'Today', icon: DUE_ICON.today, key: () => todayKey() },
+    { label: 'Tomorrow', icon: DUE_ICON.tomorrow, key: () => shiftKey(todayKey(), 1) },
+    extended && { label: '+1 week', icon: DUE_ICON.date, aria: 'In one week', key: () => shiftKey(todayKey(), 7) },
   ].filter(Boolean);
 
   const chipEls = chips.map((c) =>
@@ -309,6 +368,7 @@ function duePicker(initial = null, { extended = false } = {}) {
         'aria-label': c.aria ? `Due ${c.aria.toLowerCase()}` : `Due ${c.label.toLowerCase()}`,
         onClick: () => set(value === c.key() ? null : c.key()),
       },
+      icon(c.icon, { size: 14, className: 'tk-seg-icon' }),
       c.label,
     ),
   );
@@ -462,22 +522,24 @@ function mount(root) {
   let stepsSig = '';
 
   /* ---- stats strip ---- */
-  function statCell(n, label, onClick) {
+  // Each number under its icon (Terminal keeps its index numbers instead: tasks.css)
+  const statBadge = (name, className = '') => iconBadge(name, { tone: 'tasks', size: 14, box: 24, className: `tk-stat-ib ${className}`.trim() });
+  function statCell(n, iconName, label, onClick) {
     const value = h('span', { class: 'stat-value tk-stat-value' }, '00');
     const sub = h('span', { class: 'tk-stat-sub' });
     const el = h(
       onClick ? 'button' : 'div',
       { class: 'tk-stat panel', type: onClick ? 'button' : null, onClick },
-      h('span', { class: 'label tk-stat-label' }, h('span', { class: 'tk-stat-idx' }, n), label),
+      h('span', { class: 'label tk-stat-label' }, statBadge(iconName, iconName === DUE_ICON.overdue ? 'tk-ib-alert' : ''), h('span', { class: 'tk-stat-idx' }, n), label),
       value,
       sub,
     );
     return { el, value, sub };
   }
 
-  const stOpen = statCell('01', 'Open', () => setFilter('all'));
-  const stDone = statCell('02', 'Done today', () => setFilter('done'));
-  const stOver = statCell('03', 'Overdue', () => setFilter('today'));
+  const stOpen = statCell('01', 'list', 'Open', () => setFilter('all'));
+  const stDone = statCell('02', 'check-circle', 'Done today', () => setFilter('done'));
+  const stOver = statCell('03', DUE_ICON.overdue, 'Overdue', () => setFilter('today'));
 
   const progValue = h('span', { class: 'stat-value tk-stat-value' }, '—');
   const progRatio = h('span', { class: 'tk-prog-ratio mono tnum' });
@@ -488,7 +550,7 @@ function mount(root) {
   const stProg = h(
     'div',
     { class: 'tk-stat tk-stat--progress panel' },
-    h('span', { class: 'label tk-stat-label' }, h('span', { class: 'tk-stat-idx' }, '04'), "Today's progress", h('span', { class: 'spacer' }), progRatio),
+    h('span', { class: 'label tk-stat-label' }, statBadge(DUE_ICON.today), h('span', { class: 'tk-stat-idx' }, '04'), "Today's progress", h('span', { class: 'spacer' }), progRatio),
     progValue,
     progBar,
     h('div', { class: 'tk-overall' }, h('span', { class: 'label' }, 'All'), h('div', { class: 'meter tk-meter', 'aria-hidden': 'true' }, meterTicks), overallPct),
@@ -507,15 +569,15 @@ function mount(root) {
 
   const filterSeg = segGroup({
     label: 'Filter tasks',
-    options: FILTERS.map((f) => ({ value: f, label: FILTER_LABEL[f], count: true })),
+    options: FILTERS.map((f) => ({ value: f, label: FILTER_LABEL[f], count: true, icon: VIEW_ICON[f] })),
     value: getState().view.filter,
     className: 'tk-filters',
     onChange: (f) => setFilter(f),
   });
   const filterDd = dropdown({ title: 'Show', className: 'tk-filter-dd-btn', onSelect: (f) => setFilter(f) });
   filterDd.el.classList.add('tk-filter-dd');
+  // Its icon follows the order picked (paint): the sort lines for My order, else that order's icon
   const sortDd = dropdown({
-    icon: 'sort',
     title: 'Sort tasks',
     align: 'end',
     className: 'tk-sort-dd-btn',
@@ -526,6 +588,30 @@ function mount(root) {
   const clearDoneBtn = h('button', { type: 'button', class: 'btn btn--danger btn--sm tk-clear-done', 'aria-label': 'Clear completed', title: 'Clear completed', onClick: clearCompleted }, icon('trash', { size: 14 }), h('span', null, 'Clear completed'));
   const toolbar = h('div', { class: 'tk-toolbar' }, secTabs, secDd.el, filterSeg.el, filterDd.el, h('span', { class: 'spacer' }), sortDd.el, clearDoneBtn);
   const ddSigs = new WeakMap();
+  let manySections = true; // none, or more than the tabs hold: the dropdown
+  let fitFrame = 0;
+
+  /**
+   * Section tabs only where the toolbar stays one row with them (sections, view, sort); else the
+   * sections are the dropdown. Measured, since names, counts, icons and each template's type all
+   * change the width.
+   */
+  function fitToolbar() {
+    if (manySections) {
+      toolbar.classList.add('tk-secs-dd');
+      return;
+    }
+    toolbar.classList.remove('tk-secs-dd');
+    // A narrow window's CSS shows the dropdown anyway
+    if (!secTabs.offsetParent) return;
+    const row = secTabs.getBoundingClientRect();
+    const wraps = [filterSeg.el, sortDd.el, clearDoneBtn].some((el) => el.offsetParent && el.getBoundingClientRect().top >= row.bottom - 1);
+    if (wraps) toolbar.classList.add('tk-secs-dd');
+  }
+  const onResize = () => {
+    cancelAnimationFrame(fitFrame);
+    fitFrame = requestAnimationFrame(fitToolbar);
+  };
 
   /* ---- lists ---- */
   // Referenced by every row (see createRow), the element that receives focus.
@@ -548,7 +634,8 @@ function mount(root) {
       'aria-controls': 'tk-done-list',
       onClick: () => setView({ completedOpen: !getState().view.completedOpen }),
     },
-    icon('chevron-right', { size: 14 }),
+    icon('chevron-right', { size: 14, className: 'tk-done-chev' }),
+    icon(VIEW_ICON.done, { size: 14, className: 'tk-done-icon' }),
     h('span', { class: 'label' }, 'Completed'),
     doneCount,
   );
@@ -626,9 +713,10 @@ function mount(root) {
     const { main, completed } = viewSections(scoped, view, today, snaps);
     const manual = view.sort === 'manual' && view.filter !== 'done';
     const focus = captureFocus();
-    const sectionName = sections.find((sec) => sec.id === view.section)?.name ?? null;
-    // In All, each row says which section it's in
-    const names = view.section === 'all' && sections.length ? new Map(sections.map((sec) => [sec.id, sec.name])) : null;
+    const openSec = sections.find((sec) => sec.id === view.section) ?? null;
+    const sectionName = openSec?.name ?? null;
+    // In All, each row says which section it's in (its icon and name, the icon in its color)
+    const secInfo = view.section === 'all' && sections.length ? new Map(sections.map((sec) => [sec.id, { name: sec.name, icon: sectionIcon(sec), color: sec.color ?? null }])) : null;
     // Color coding: a task without its own color shows its section's
     const secColors = new Map(sections.map((sec) => [sec.id, sec.color ?? null]));
 
@@ -638,16 +726,18 @@ function mount(root) {
     // toolbar
     filterSeg.set(view.filter);
     FILTERS.forEach((f) => filterSeg.count(f, String(counts[f])));
-    syncDropdown(filterDd, FILTERS.map((f) => ({ value: f, label: VIEW_LABEL[f], hint: String(counts[f]) })), view.filter, '', `Show: ${VIEW_LABEL[view.filter]}`);
-    const sortItems = SORTS.map((s) => ({ value: s, label: term(`tasks.sort.${s}`, SORT_LABEL[s]) }));
+    syncDropdown(filterDd, FILTERS.map((f) => ({ value: f, label: VIEW_LABEL[f], icon: VIEW_ICON[f], hint: String(counts[f]) })), view.filter, '', `Show: ${VIEW_LABEL[view.filter]}`);
+    setButtonIcon(filterDd, VIEW_ICON[view.filter]);
+    const sortItems = SORTS.map((s) => ({ value: s, label: term(`tasks.sort.${s}`, SORT_LABEL[s]), icon: SORT_ICON[s] }));
     syncDropdown(sortDd, sortItems, view.sort, '', `Sort: ${sortItems.find((it) => it.value === view.sort)?.label ?? ''}`);
-    // On a phone the usual order needs no words: just the sort icon (tasks.css)
-    sortDd.el.classList.toggle('is-default', view.sort === 'manual');
+    // My order alone would be a bare grip: the sort lines say what the button is for
+    setButtonIcon(sortDd, view.sort === 'manual' ? 'sort' : SORT_ICON[view.sort]);
     // Completed tasks keep their completion order: no sort there, Clear in its place
     sortDd.el.hidden = view.filter === 'done';
     clearDoneBtn.hidden = view.filter !== 'done' || counts.done === 0;
+    fitToolbar();
     // The open steps follow sections and the view (a section deleted, Today opened meanwhile)
-    const sig = `${sections.map((sec) => `${sec.id}\u241f${sec.name}\u241f${sec.color ?? ''}`).join('\u241e')}|${view.section}|${view.filter}|${today}`;
+    const sig = `${sections.map((sec) => `${sec.id}\u241f${sec.name}\u241f${sec.color ?? ''}\u241f${sectionIcon(sec)}`).join('\u241e')}|${view.section}|${view.filter}|${today}`;
     if (sig !== stepsSig) {
       // The day an empty state's button asked for ("Schedule for tomorrow") was for that view
       if (stepsSig) presetDue = undefined;
@@ -663,10 +753,10 @@ function mount(root) {
 
     // main list
     const used = new Set();
-    reconcile(mainList, main, used, (t, i) => ({ index: i, today, draggable: manual && !t.done, section: names?.get(t.sectionId) ?? null, secColor: secColors.get(t.sectionId) ?? null }));
+    reconcile(mainList, main, used, (t, i) => ({ index: i, today, draggable: manual && !t.done, section: secInfo?.get(t.sectionId) ?? null, secColor: secColors.get(t.sectionId) ?? null }));
     mainIds = main.map((t) => t.id);
     mainPanel.hidden = main.length === 0;
-    paintEmpty(main.length === 0 ? emptyKind(view.filter, counts, sectionName) : '', sectionName ?? '');
+    paintEmpty(main.length === 0 ? emptyKind(view.filter, counts, sectionName) : '', sectionName ?? '', openSec ? sectionIcon(openSec) : null);
 
     // a short staggered fade when the section, filter or sort changes
     const viewKey = `${view.section}:${view.filter}:${view.sort}`;
@@ -688,7 +778,7 @@ function mount(root) {
       doneCount.textContent = doneText;
     }
     lastDoneCount = view.filter === 'all' ? completed.length : -1;
-    reconcile(doneList, showDone && view.completedOpen ? completed : [], used, (t, i) => ({ index: i, today, draggable: false, section: names?.get(t.sectionId) ?? null, secColor: secColors.get(t.sectionId) ?? null }));
+    reconcile(doneList, showDone && view.completedOpen ? completed : [], used, (t, i) => ({ index: i, today, draggable: false, section: secInfo?.get(t.sectionId) ?? null, secColor: secColors.get(t.sectionId) ?? null }));
 
     // The row being renamed left the view (a change from another tab filtered it out
     // or completed it into a collapsed section): keep what was typed rather than drop it.
@@ -708,7 +798,13 @@ function mount(root) {
   }
 
   function paintStats(s) {
-    if (summaryEl) summaryEl.textContent = friendlySummary(s);
+    const parts = summaryParts(s);
+    const sumKey = JSON.stringify(parts);
+    if (summaryEl.dataset.key !== sumKey) {
+      summaryEl.dataset.key = sumKey;
+      // Read as a list: "3 due today, 2 overdue"
+      summaryEl.replaceChildren(...summaryNodes(parts).flatMap((el, i) => (i ? [h('span', { class: 'sr-only' }, ', '), el] : [el])));
+    }
     setStat(stOpen, s.open, `of ${s.total} total`);
     setStat(stDone, s.doneToday, `${s.done} all time`);
     setStat(stOver, s.overdue, s.overdue ? 'Needs attention' : 'All on schedule');
@@ -754,13 +850,13 @@ function mount(root) {
    * dropdown (phones, or too many to fit) kept in step; counts and the open one every paint.
    */
   function paintSections(sections, counts, active) {
-    const sig = sections.map((sec) => `${sec.id}\u241f${sec.name}\u241f${sec.color ?? ''}`).join('\u241e');
+    const sig = sections.map((sec) => `${sec.id}\u241f${sec.name}\u241f${sec.color ?? ''}\u241f${sectionIcon(sec)}`).join('\u241e');
     if (sig !== sectionSig) {
       sectionSig = sig;
       if (sections.length) {
         sectionSeg = segGroup({
           label: 'Sections',
-          options: [{ value: 'all', label: 'All', count: true }, ...sections.map((sec) => ({ value: sec.id, label: sec.name, count: true, color: sec.color ?? null }))],
+          options: [{ value: 'all', label: 'All', count: true, icon: ALL_ICON }, ...sections.map((sec) => ({ value: sec.id, label: sec.name, count: true, color: sec.color ?? null, icon: sectionIcon(sec) }))],
           value: active,
           className: 'tk-sec-seg',
           onChange: (id) => setSection(id),
@@ -774,8 +870,7 @@ function mount(root) {
         sectionSeg = null;
         secTabs.replaceChildren();
       }
-      const chars = sections.reduce((n, sec) => n + sec.name.length, 0);
-      toolbar.classList.toggle('tk-secs-dd', !sections.length || sections.length > SECTION_TABS_MAX || chars > SECTION_TABS_CHARS);
+      manySections = !sections.length || sections.length > SECTION_TABS_MAX;
     }
     if (sectionSeg) {
       sectionSeg.set(active);
@@ -783,12 +878,15 @@ function mount(root) {
       for (const sec of sections) sectionSeg.count(sec.id, String(counts.get(sec.id) ?? 0));
     }
     if (sections.length) {
-      const name = sections.find((sec) => sec.id === active)?.name ?? 'All sections';
+      const open = sections.find((sec) => sec.id === active);
+      const name = open?.name ?? 'All sections';
+      setButtonIcon(secDd, open ? sectionIcon(open) : ALL_ICON);
+      paintColor(secDd.button, 'sections', open?.color ?? null);
       syncDropdown(
         secDd,
         [
-          { value: 'all', label: 'All sections', hint: String(counts.get('all') ?? 0) },
-          ...sections.map((sec) => ({ value: sec.id, label: sec.name, hint: String(counts.get(sec.id) ?? 0) })),
+          { value: 'all', label: 'All sections', icon: ALL_ICON, hint: String(counts.get('all') ?? 0) },
+          ...sections.map((sec) => ({ value: sec.id, label: sec.name, icon: sectionIcon(sec), hint: String(counts.get(sec.id) ?? 0) })),
           { separator: true },
           { label: 'New section…', icon: 'plus', action: () => openSections({ adding: true }) },
           { label: 'Edit sections…', icon: 'edit', action: () => openSections() },
@@ -799,6 +897,8 @@ function mount(root) {
       );
     } else {
       // None yet: one click makes the usual ones, or any other
+      setButtonIcon(secDd, 'folder');
+      paintColor(secDd.button, 'sections', null);
       syncDropdown(
         secDd,
         [
@@ -830,15 +930,16 @@ function mount(root) {
     return sectionName ? 'section' : 'fresh';
   }
 
-  function paintEmpty(kind, detail = '') {
+  function paintEmpty(kind, detail = '', detailIcon = null) {
     emptyHost.hidden = !kind;
-    const key = `${kind}\u241f${detail}`;
+    const key = `${kind}\u241f${detail}\u241f${detailIcon ?? ''}`;
     if (key === emptyKey) return;
     emptyKey = key;
-    emptyHost.replaceChildren(kind ? buildEmpty(kind, detail) : '');
+    emptyHost.replaceChildren(kind ? buildEmpty(kind, detail, detailIcon) : '');
   }
 
-  function buildEmpty(kind, detail = '') {
+  /** detail: the open section's name, detailIcon its icon (an empty section shows it). */
+  function buildEmpty(kind, detail = '', detailIcon = null) {
     // Shared pattern (Notes, Habits): contextual empty states get a small button, primary
     // for "create", secondary for "go elsewhere"; the first-run state gets a full-size one.
     const action = (label, onClick, iconName = 'plus', { large = false, primary = true } = {}) =>
@@ -865,21 +966,21 @@ function mount(root) {
         });
       case 'done':
         return emptyState({
-          icon: 'check',
+          icon: VIEW_ICON.done,
           title: 'Nothing completed yet',
           text: 'Check off a task and it shows up here.',
-          action: action('View all tasks', () => setFilter('all'), 'list', { primary: false }),
+          action: action('View all tasks', () => setFilter('all'), VIEW_ICON.all, { primary: false }),
         });
       case 'clear':
         return emptyState({
-          icon: 'zap',
+          icon: 'check-circle',
           title: 'All clear',
           text: 'Every task is done. Add the next one when you are ready.',
           action: action('Add a task', () => focusAdd()),
         });
       case 'section':
         return emptyState({
-          icon: 'list',
+          icon: detailIcon ?? 'folder',
           title: `Nothing in ${clip(detail, 32)} yet`,
           text: 'Tasks you add while this section is open go here.',
           action: action('Add a task', () => focusAdd()),
@@ -975,7 +1076,7 @@ function mount(root) {
   function updateRow(r, t, { index, today, draggable, section = null, secColor = null }) {
     const overdue = isOverdue(t, today);
     const doneAgo = t.done && t.completedAt ? timeAgo(t.completedAt) : '';
-    const sig = [t.title, t.done, t.priority, t.due, t.time, t.notes, doneAgo, today, index, draggable, editingId === t.id, section, t.color, secColor].join('␟');
+    const sig = [t.title, t.done, t.priority, t.due, t.time, t.notes, doneAgo, today, index, draggable, editingId === t.id, section?.name, section?.icon, section?.color, t.color, secColor].join('␟');
     if (r.sig === sig) return;
     r.sig = sig;
 
@@ -995,35 +1096,54 @@ function mount(root) {
     r.details.setAttribute('aria-label', `Details for “${t.title}”`);
     r.del.setAttribute('aria-label', `Delete “${t.title}”`);
 
-    const meta = metaNodes(t, today, overdue, doneAgo, section);
+    const meta = metaNodes(t, today, doneAgo, section);
     r.meta.replaceChildren(...meta);
     r.meta.hidden = meta.length === 0;
   }
 
-  function metaNodes(t, today, overdue, doneAgo, section) {
+  /**
+   * The row's chips, each led by its icon so a glance is enough: the section (in All), the
+   * priority flag (High solid, Medium outlined, Low quiet), when it is due (sun today, sunrise
+   * tomorrow, calendar later, alert when overdue) and a note. Nothing for a task without a date.
+   */
+  function metaNodes(t, today, doneAgo, section) {
     const out = [];
+    const chipIcon = (name) => icon(name, { size: 12, className: 'tk-chip-icon' });
     // A long name may give way on a phone's one-line meta ("Marketer c…"); a short one never (tasks.css)
-    if (section) out.push(h('span', { class: ['tag', 'tk-sec-tag', section.length > 6 && 'tk-sec-tag--long'], title: `Section: ${section}` }, h('span', { class: 'sr-only' }, 'Section: '), section));
+    if (section) {
+      const tag = h(
+        'span',
+        { class: ['tag', 'tk-sec-tag', section.name.length > 6 && 'tk-sec-tag--long'], title: `Section: ${section.name}` },
+        chipIcon(section.icon),
+        h('span', { class: 'sr-only' }, 'Section: '),
+        h('span', { class: 'tk-chip-text' }, section.name),
+      );
+      // Color coding: the section's icon in its color
+      paintColor(tag, 'sections', section.color);
+      out.push(tag);
+    }
     if (t.priority !== 'none') {
       out.push(
         h(
           'span',
-          { class: ['tag', 'tk-pri', t.priority === 'high' && 'tag--solid', t.priority === 'low' && 'tag--dashed'] },
+          { class: ['tag', 'tk-pri', `tk-pri--${t.priority}`, t.priority === 'high' && 'tag--solid', t.priority === 'low' && 'tag--dashed'] },
+          chipIcon(PRIORITY_ICON[t.priority]),
           h('span', { class: 'sr-only' }, 'Priority: '),
           term(`tasks.priority.${t.priority}`, PRIORITY_LABEL[t.priority]),
         ),
       );
     }
-    if (t.due) {
+    const kind = dueKind(t, today);
+    if (kind) {
       // A timed task says when: 'Today · 17:30'
       const rel = t.time ? `${relativeDay(t.due, today)} · ${t.time}` : relativeDay(t.due, today);
       const long = formatDay(t.due, 'long');
-      if (overdue) {
+      if (kind === 'overdue') {
         out.push(
           h(
             'span',
             { class: 'tag tk-due-tag tk-due-tag--overdue', title: `Was due ${long}` },
-            h('span', { class: 'tk-blink', 'aria-hidden': 'true' }),
+            chipIcon(DUE_ICON.overdue),
             h('strong', null, 'Overdue'),
             h('span', { class: 'tk-sep', 'aria-hidden': 'true' }, '/'),
             h('span', { class: 'tk-due-rel' }, rel),
@@ -1033,15 +1153,15 @@ function mount(root) {
         out.push(
           h(
             'span',
-            { class: ['tag', 'tk-due-tag', !t.done && t.due === today && 'tk-due-tag--today'], title: `Due ${long}` },
-            icon('calendar', { size: 11 }),
+            { class: ['tag', 'tk-due-tag', !t.done && `tk-due-tag--${kind}`], title: `Due ${long}` },
+            chipIcon(DUE_ICON[kind]),
             h('span', { class: 'sr-only' }, 'Due: '),
             h('span', { class: 'tk-due-rel' }, rel),
           ),
         );
       }
     }
-    if (doneAgo) out.push(h('span', { class: 'tk-done-ago label' }, icon('check', { size: 11, stroke: 2 }), `Done ${doneAgo}`));
+    if (doneAgo) out.push(h('span', { class: 'tk-done-ago label' }, icon('check-circle', { size: 12 }), `Done ${doneAgo}`));
     const preview = notePreview(t.notes);
     if (preview) {
       out.push(h('span', { class: 'tk-note', title: preview }, icon('note', { size: 12 }), h('span', { class: 'sr-only' }, 'Note: '), h('span', { class: 'tk-note-text truncate' }, preview)));
@@ -1234,22 +1354,41 @@ function mount(root) {
     const last = nextAddStep(list, at) === 'done';
     const prev = prevAddStep(list, at);
 
-    // What is already settled: picks on earlier steps (tap to change) and tokens in the title
+    // What is already settled: picks on earlier steps (tap to change) and tokens in the title,
+    // each with the icon its choice had
     const picked = [];
+    const pickIcon = (kind, value) => icon(choiceIcon(kind, value, today), { size: 12, className: 'tk-chip-icon' });
     for (const kind of ['priority', 'due', 'section']) {
       const fromToken = kind !== 'section' && parsed[kind];
       if (fromToken) {
         const raw = parsed.tokens[kind]?.raw ?? '';
-        picked.push(h('span', { class: 'tag tk-step-pick', title: `Set by ${raw} in the title` }, h('span', { class: 'sr-only' }, `${STEP_LABEL[kind]}: `), choiceText(kind, parsed[kind], today)));
-      } else if (list.includes(kind) && list.indexOf(kind) < list.indexOf(at)) {
-        const text = choiceText(kind, currentChoice(kind), today);
         picked.push(
           h(
-            'button',
-            { type: 'button', class: 'tag tk-step-pick', 'aria-label': `${STEP_LABEL[kind]}: ${text}. Change`, title: `Change ${STEP_LABEL[kind].toLowerCase()}`, onClick: () => goStep(kind, undefined, { focus: true }) },
-            text,
+            'span',
+            { class: ['tag tk-step-pick', `tk-step-pick--${kind}`], dataset: { value: parsed[kind] }, title: `Set by ${raw} in the title` },
+            pickIcon(kind, parsed[kind]),
+            h('span', { class: 'sr-only' }, `${STEP_LABEL[kind]}: `),
+            h('span', { class: 'tk-chip-text' }, choiceText(kind, parsed[kind], today)),
           ),
         );
+      } else if (list.includes(kind) && list.indexOf(kind) < list.indexOf(at)) {
+        const value = currentChoice(kind);
+        const text = choiceText(kind, value, today);
+        const chip = h(
+          'button',
+          {
+            type: 'button',
+            class: ['tag tk-step-pick', `tk-step-pick--${kind}`],
+            dataset: { value: value ?? '' },
+            'aria-label': `${STEP_LABEL[kind]}: ${text}. Change`,
+            title: `Change ${STEP_LABEL[kind].toLowerCase()}`,
+            onClick: () => goStep(kind, undefined, { focus: true }),
+          },
+          pickIcon(kind, value),
+          h('span', { class: 'tk-chip-text' }, text),
+        );
+        if (kind === 'section') paintColor(chip, 'sections', getState().sections.find((sec) => sec.id === value)?.color ?? null);
+        picked.push(chip);
       }
     }
 
@@ -1282,8 +1421,9 @@ function mount(root) {
           onClick: () => chooseStep(at, o.value),
         },
         h('span', { class: 'tk-step-key lo-hint', 'aria-hidden': 'true' }, String(i + 1)),
-        'color' in o ? colorDot() : null,
-        o.label,
+        icon(o.icon, { size: 14, className: 'tk-seg-icon' }),
+        // Only one of the two shows (tasks.css), so the button's name is the shown one
+        o.short ? [h('span', { class: 'tk-lbl-full' }, o.label), h('span', { class: 'tk-lbl-short' }, o.short)] : o.label,
       );
       if ('color' in o) paintColor(btn, 'sections', o.color);
       return btn;
@@ -1322,26 +1462,38 @@ function mount(root) {
     (chips.find((c) => c.getAttribute('aria-pressed') === 'true') ?? chips[0])?.focus({ preventScroll: true });
   }
 
-  /** A step's choices: [{ value, label, color? }] */
+  /** A step's choices: [{ value, label, short?, icon, color? }] (a section's color tints its icon) */
   function stepOptions(kind, today) {
     if (kind === 'priority') {
       return [
-        { value: 'none', label: term('tasks.priority.none', 'None') },
-        { value: 'low', label: term('tasks.priority.low', 'Low') },
-        { value: 'med', label: term('tasks.priority.med', 'Med') },
-        { value: 'high', label: term('tasks.priority.high', 'High') },
+        { value: 'none', label: term('tasks.priority.none', 'None'), icon: PRIORITY_ICON.none },
+        { value: 'low', label: term('tasks.priority.low', 'Low'), icon: PRIORITY_ICON.low },
+        { value: 'med', label: term('tasks.priority.med', 'Med'), icon: PRIORITY_ICON.med },
+        { value: 'high', label: term('tasks.priority.high', 'High'), icon: PRIORITY_ICON.high },
       ];
     }
     if (kind === 'due') {
       const cur = currentChoice('due');
       return [
-        { value: 'today', label: 'Today' },
-        { value: 'tomorrow', label: 'Tomorrow' },
-        { value: 'date', label: dueChoice(cur, today) === 'date' ? formatDay(cur) : 'Pick a date…' },
-        { value: 'none', label: 'No date' },
+        { value: 'today', label: 'Today', icon: DUE_ICON.today },
+        { value: 'tomorrow', label: 'Tomorrow', icon: DUE_ICON.tomorrow },
+        // A phone says less (tasks.css), so the four choices and their icons stay on one row
+        { value: 'date', label: dueChoice(cur, today) === 'date' ? formatDay(cur) : 'Pick a date…', short: dueChoice(cur, today) === 'date' ? null : 'Date…', icon: DUE_ICON.date },
+        { value: 'none', label: 'No date', short: 'None', icon: DUE_ICON.none },
       ];
     }
-    return [{ value: '', label: 'No section' }, ...getState().sections.map((sec) => ({ value: sec.id, label: sec.name, color: sec.color ?? null }))];
+    return [
+      { value: '', label: 'No section', icon: NO_SECTION_ICON },
+      ...getState().sections.map((sec) => ({ value: sec.id, label: sec.name, icon: sectionIcon(sec), color: sec.color ?? null })),
+    ];
+  }
+
+  /** The icon a step's value shows with: a flag, the day's sun / sunrise / calendar, the section's own. */
+  function choiceIcon(kind, value, today) {
+    if (kind === 'priority') return PRIORITY_ICON[value] ?? PRIORITY_ICON.none;
+    if (kind === 'due') return isDateKey(value) ? DUE_ICON[dueChoice(value, today)] : DUE_ICON.none;
+    const sec = getState().sections.find((x) => x.id === value);
+    return sec ? sectionIcon(sec) : NO_SECTION_ICON;
   }
 
   /** Which choice a step's value shows as picked. */
@@ -1482,7 +1634,7 @@ function mount(root) {
     if (key === readoutKey) return;
     readoutKey = key;
 
-    const chip = (kind, text, raw) =>
+    const chip = (kind, text, raw, iconName) =>
       h(
         'button',
         {
@@ -1498,13 +1650,14 @@ function mount(root) {
             addInput.focus();
           },
         },
+        icon(iconName, { size: 12, className: 'tk-chip-icon' }),
         text,
-        icon('x', { size: 10, stroke: 2 }),
+        icon('x', { size: 10, stroke: 2, className: 'tk-token-x' }),
       );
 
     const chips = [];
-    if (tokens.priority) chips.push(chip('priority', `${term(`tasks.priority.${tokens.priority.value}`, PRIORITY_LABEL[tokens.priority.value])} priority`, tokens.priority.raw));
-    if (tokens.due) chips.push(chip('due', `Due ${relativeDay(tokens.due.value, today)}`, tokens.due.raw));
+    if (tokens.priority) chips.push(chip('priority', `${term(`tasks.priority.${tokens.priority.value}`, PRIORITY_LABEL[tokens.priority.value])} priority`, tokens.priority.raw, PRIORITY_ICON[tokens.priority.value]));
+    if (tokens.due) chips.push(chip('due', `Due ${relativeDay(tokens.due.value, today)}`, tokens.due.raw, DUE_ICON[dueChoice(tokens.due.value, today)]));
     // A second token of the same kind: only the last one applies; say so instead of
     // letting the earlier one land in the title unannounced.
     const kept = [...(tokens.priority?.kept ?? []), ...(tokens.due?.kept ?? [])];
@@ -1599,11 +1752,16 @@ function mount(root) {
     return true;
   }
 
-  /** The Sections dialog: add, rename and delete. `adding` puts the cursor in the new-section field. */
+  /**
+   * The Sections dialog: add, rename, pick an icon and a color, delete. `adding` puts the cursor in
+   * the new-section field. Each section's icon button opens the icon picker under its row (one at
+   * a time); Auto follows the name, so 'Work' keeps its briefcase until another icon is picked.
+   */
   function openSections({ adding = false } = {}) {
     if (editingId) commitEdit();
     const list = h('ul', { class: 'tk-secs' });
     const msg = h('p', { class: 'tk-secs-msg', role: 'status', 'aria-live': 'polite' });
+    const addIcon = h('span', { class: 'tk-secs-add-icon', 'aria-hidden': 'true' });
     const addIn = h('input', {
       class: 'input',
       type: 'text',
@@ -1612,8 +1770,32 @@ function mount(root) {
       'aria-label': 'New section name',
       autocomplete: 'off',
     });
+    // The icon a new section will get shows as you type ('Gym' -> a dumbbell)
+    const paintAddIcon = () => addIcon.replaceChildren(icon(suggestIcon(addIn.value, 'folder'), { size: 16 }));
+    addIn.addEventListener('input', paintAddIcon);
+    paintAddIcon();
     const say = (text) => (msg.textContent = text);
     const problem = (err, name) => (err === 'taken' ? `There is already a section called “${clip(cleanTitle(name), 28)}”.` : 'Give the section a name.');
+    let pickerFor = null; // the section whose icon picker is open
+    let pickerSeq = 0;
+
+    /** Close the open icon picker and put the focus back on its section's icon button. */
+    const closePicker = () => {
+      const id = pickerFor;
+      pickerFor = null;
+      paintList();
+      if (id) list.querySelector(`.tk-secs-icon[data-id="${CSS.escape(id)}"]`)?.focus({ preventScroll: true });
+    };
+    // Esc in the picker closes just the picker, not the whole dialog. The dialog hears Esc on the
+    // document (capture phase), so this listens one step earlier, on the window, and only takes
+    // the keys pressed inside the picker.
+    const onPickerEsc = (e) => {
+      if (e.key !== 'Escape' || !pickerFor || !(e.target instanceof Element) || !list.contains(e.target) || !e.target.closest('.tk-secs-picker')) return;
+      e.preventDefault();
+      e.stopPropagation();
+      closePicker();
+    };
+    window.addEventListener('keydown', onPickerEsc, true);
 
     const add = () => {
       const err = createSection(addIn.value);
@@ -1623,6 +1805,7 @@ function mount(root) {
         return;
       }
       addIn.value = '';
+      paintAddIcon();
       say('');
       paintList();
       addIn.focus();
@@ -1634,18 +1817,55 @@ function mount(root) {
       }
     });
 
+    /** A section's icon button: its icon (Auto shows what the name suggests), in its color. */
+    function paintIconButton(btn, sec, name = sec.name) {
+      const picked = sectionIcon(sec) === sec.icon;
+      const shown = picked ? sec.icon : suggestIcon(name, 'folder');
+      btn.replaceChildren(icon(shown, { size: 16 }));
+      paintColor(btn, 'sections', sec.color ?? null);
+      const label = ICON_CHOICES.find((c) => c.name === shown)?.label ?? 'Folder';
+      btn.setAttribute('aria-label', `Icon of ${name}: ${label}${picked ? '' : ' (Auto)'}. Change`);
+    }
+
     function paintList() {
       const { items, sections } = getState();
+      if (!sections.some((sec) => sec.id === pickerFor)) pickerFor = null;
       list.hidden = sections.length === 0;
       list.replaceChildren(
-        ...sections.map((sec) => {
+        ...sections.flatMap((sec) => {
           const nameIn = h('input', { class: 'input tk-secs-name', type: 'text', value: sec.name, maxlength: String(SECTION_NAME_MAX), 'aria-label': `Name of section ${sec.name}`, autocomplete: 'off' });
+          const pickerId = `tk-secs-ip-${(pickerSeq += 1)}`;
+          const open = pickerFor === sec.id;
+          const iconBtn = h('button', {
+            type: 'button',
+            class: ['btn btn--icon btn--sm tk-secs-icon', open && 'is-open'],
+            title: 'Icon',
+            'aria-expanded': String(open),
+            'aria-controls': open ? pickerId : null,
+            onClick: () => {
+              pickerFor = open ? null : sec.id;
+              paintList();
+              const again = list.querySelector(`.tk-secs-icon[data-id="${CSS.escape(sec.id)}"]`);
+              // Opened: straight onto the picked icon (or Auto); closed: back on the button
+              ((pickerFor && list.querySelector('.tk-secs-picker .ip-btn[tabindex="0"]')) || again)?.focus({ preventScroll: true });
+            },
+          });
+          iconBtn.dataset.id = sec.id;
+          paintIconButton(iconBtn, sec);
+          // Typing a new name: an Auto icon follows it at once
+          let picker = null;
+          nameIn.addEventListener('input', () => {
+            const cur = getState().sections.find((x) => x.id === sec.id) ?? sec;
+            paintIconButton(iconBtn, cur, cleanTitle(nameIn.value) || cur.name);
+            picker?.setAuto(suggestIcon(nameIn.value, 'folder'));
+          });
           nameIn.addEventListener('change', () => {
             const cur = getState();
             const res = renameSection(cur.sections, sec.id, nameIn.value);
             if (res.error) {
               say(problem(res.error, nameIn.value));
               nameIn.value = cur.sections.find((x) => x.id === sec.id)?.name ?? sec.name;
+              paintIconButton(iconBtn, cur.sections.find((x) => x.id === sec.id) ?? sec);
               return;
             }
             say('');
@@ -1670,9 +1890,10 @@ function mount(root) {
             },
           });
           colorBtn.el.dataset.ccFor = 'sections';
-          return h(
+          const row = h(
             'li',
             { class: 'tk-secs-row' },
+            iconBtn,
             colorBtn.el,
             nameIn,
             h('span', { class: 'tk-secs-count label' }, plural(n, 'task')),
@@ -1690,6 +1911,30 @@ function mount(root) {
               icon('trash', { size: 14 }),
             ),
           );
+          if (!open) return [row];
+          // The picker: a pick is saved at once (arrow keys pick too); Esc or the icon button
+          // closes just the picker
+          const labelId = `${pickerId}-label`;
+          picker = iconPicker({
+            choices: ICON_CHOICES,
+            value: sectionIcon(sec) === sec.icon ? sec.icon : null,
+            auto: suggestIcon(sec.name, 'folder'),
+            labelledBy: labelId,
+            onChange: (name) => {
+              const cur = getState();
+              const next = withSectionIcon(cur.sections, sec.id, name);
+              if (next !== cur.sections) commit({ ...cur, sections: next });
+              const now = getState().sections.find((x) => x.id === sec.id);
+              if (now) paintIconButton(iconBtn, now, cleanTitle(nameIn.value) || now.name);
+            },
+          });
+          const pickerRow = h(
+            'li',
+            { class: 'tk-secs-picker', id: pickerId },
+            h('span', { class: 'label tk-secs-picker-label', id: labelId }, `Icon for ${sec.name}`),
+            picker.el,
+          );
+          return [row, pickerRow];
         }),
       );
     }
@@ -1698,13 +1943,14 @@ function mount(root) {
       title: 'Sections',
       className: 'tk-secs-modal',
       body: [
-        tip({ id: 'tasks.sections', className: 'tk-secs-lead', text: 'Split your tasks, like Work and Life. Open a section to see only its tasks; new tasks go into the open one.' }),
+        tip({ id: 'tasks.sections', className: 'tk-secs-lead', text: 'Split your tasks, like Work and Life. Open a section to see only its tasks; new tasks go into the open one. Tap an icon to pick another.' }),
         list,
-        h('div', { class: 'tk-secs-add' }, addIn, h('button', { type: 'button', class: 'btn btn--sm', onClick: add }, icon('plus', { size: 14 }), 'Add')),
+        h('div', { class: 'tk-secs-add' }, addIcon, addIn, h('button', { type: 'button', class: 'btn btn--sm', onClick: add }, icon('plus', { size: 14 }), 'Add')),
         msg,
       ],
       footer: [h('button', { type: 'button', class: 'btn btn--primary', onClick: () => m.close() }, 'Done')],
       initialFocus: adding || !getState().sections.length ? addIn : undefined,
+      onClose: () => window.removeEventListener('keydown', onPickerEsc, true),
     });
     paintList();
   }
@@ -2017,7 +2263,18 @@ function mount(root) {
     const secSel = sections.length
       ? h('select', { class: 'select tk-field-section', id: 'tk-d-section' }, h('option', { value: '' }, 'No section'), sections.map((sec) => h('option', { value: sec.id }, sec.name)))
       : null;
-    if (secSel) secSel.value = task.sectionId ?? '';
+    // A select can't draw icons in its options: the picked section's icon sits in front of it
+    const secIcon = h('span', { class: 'tk-field-section-icon', 'aria-hidden': 'true' });
+    const paintSecIcon = () => {
+      const sec = sections.find((x) => x.id === secSel.value);
+      secIcon.replaceChildren(icon(sec ? sectionIcon(sec) : NO_SECTION_ICON, { size: 16 }));
+      paintColor(secIcon, 'sections', sec?.color ?? null);
+    };
+    if (secSel) {
+      secSel.value = task.sectionId ?? '';
+      secSel.addEventListener('change', paintSecIcon);
+      paintSecIcon();
+    }
     const err = h('p', { class: 'tk-field-error label', id: 'tk-d-err', hidden: true }, 'A task needs a title');
     const colorIn = colorPicker({ value: task.color ?? null, label: 'Color' });
 
@@ -2057,16 +2314,16 @@ function mount(root) {
     });
 
     const body = [
-      h('div', { class: 'field' }, h('label', { class: 'label', for: 'tk-d-title' }, 'Title'), titleIn, err),
-      h('div', { class: 'field' }, h('label', { class: 'label', for: 'tk-d-notes' }, 'Notes'), notesIn),
+      h('div', { class: 'field' }, fieldLabel('check-square', 'Title', 'tk-d-title'), titleIn, err),
+      h('div', { class: 'field' }, fieldLabel('note', 'Notes', 'tk-d-notes'), notesIn),
       h(
         'div',
         { class: 'tk-detail-grid' },
-        h('div', { class: 'field' }, h('span', { class: 'label' }, 'Priority'), pri.el),
-        h('div', { class: 'field' }, h('span', { class: 'label' }, 'Due'), due.el),
-        h('div', { class: 'field' }, h('label', { class: 'label', for: 'tk-d-time' }, 'Time'), h('div', { class: 'tk-time-row' }, timeIn, lengthSel), timeHint),
-        secSel ? h('div', { class: 'field' }, h('label', { class: 'label', for: 'tk-d-section' }, 'Section'), secSel) : null,
-        h('div', { class: 'field cc-field', dataset: { ccFor: 'tasks' } }, h('span', { class: 'label' }, 'Color'), colorIn.el),
+        h('div', { class: 'field' }, fieldLabel('flag', 'Priority'), pri.el),
+        h('div', { class: 'field' }, fieldLabel('calendar', 'Due'), due.el),
+        h('div', { class: 'field' }, fieldLabel('clock', 'Time', 'tk-d-time'), h('div', { class: 'tk-time-row' }, timeIn, lengthSel), timeHint),
+        secSel ? h('div', { class: 'field' }, fieldLabel('folder', 'Section', 'tk-d-section'), h('div', { class: 'tk-field-section-row' }, secIcon, secSel)) : null,
+        h('div', { class: 'field cc-field', dataset: { ccFor: 'tasks' } }, fieldLabel('palette', 'Color'), colorIn.el),
       ),
       h('div', { class: 'tk-detail-foot' }, meta, h('span', { class: 'tk-detail-keys label lo-hint' }, kbd(MOD_KEY), kbd('⏎'), 'Save')),
     ];
@@ -2342,6 +2599,9 @@ function mount(root) {
      ========================================================================== */
 
   document.addEventListener('keydown', onDocKeydown);
+  window.addEventListener('resize', onResize);
+  // The template's fonts may arrive after the first paint and widen the tabs
+  document.fonts?.ready.then(() => toolbar.isConnected && fitToolbar());
   const offMenu = registerContextProvider('tasks', contextTarget);
   const unsubscribe = store.subscribe(() => render());
   const offDay = onDayChange(() => {
@@ -2377,6 +2637,8 @@ function mount(root) {
     offDay();
     clearInterval(minuteTimer);
     clearTimeout(swapTimer);
+    cancelAnimationFrame(fitFrame);
+    window.removeEventListener('resize', onResize);
     document.removeEventListener('keydown', onDocKeydown);
     root.removeEventListener('keydown', onRowKeydown);
     detailsModal?.close();
@@ -2515,6 +2777,11 @@ function apiSectionColors() {
   return new Map(getState().sections.map((sec) => [sec.id, sec.color ?? null]));
 }
 
+/** sectionId -> the icon it shows (picked, or what its name suggests), so other pages can show it too. */
+function apiSectionIcons() {
+  return new Map(getState().sections.map((sec) => [sec.id, sectionIcon(sec)]));
+}
+
 function takePendingReveal() {
   const p = pendingReveal;
   pendingReveal = null;
@@ -2536,6 +2803,7 @@ export const tasksApi = Object.freeze({
   setColor: apiSetColor,
   rename: apiRename,
   sectionColors: apiSectionColors,
+  sectionIcons: apiSectionIcons,
 });
 
 export default {

@@ -4,16 +4,17 @@
 // workspace), the move menu and the section dialogs. Every change is reported
 // through callbacks; notes.js owns the store, the selection and the autosave.
 
-import { h, icon, registerIcon, openModal, num, plural, clamp, reducedMotion, tip } from '../ui.js';
+import { h, icon, iconBadge, iconPicker, registerIcon, openModal, num, plural, clamp, reducedMotion, tip } from '../ui.js';
 import { paintColor, colorPicker } from '../colors.js';
+import { ICON_CHOICES } from '../icons.logic.js';
 import {
   VIEW_ALL,
   VIEW_UNSORTED,
   SECTION_NAME_MAX,
-  SECTION_ICONS,
-  SECTION_ICON_LABELS,
   cleanSectionName,
   validateSectionName,
+  cleanSectionIcon,
+  autoSectionIcon,
   sectionIcon,
   availableSuggestions,
   findSection,
@@ -31,35 +32,36 @@ const EDGE_SPEED = 12;
 const SHEET_QUERY = '(max-width: 640px)';
 
 /* ==========================================================================
-   Icons (24px grid, 1.5 stroke, same drawing style as ui.js)
-   Registered under an nt- prefix so they never replace an app-wide icon of the
-   same name; stored section icons stay unprefixed ('video') and map via sectionGlyph().
+   Icons: sections draw from the app's shared set (js/icons.js), the same icons a habit
+   can have. Only "All notes" (a stack) has a glyph of its own: it is no section.
    ========================================================================== */
 
-const SECTION_SVGS = {
-  folder: '<path d="M3 6.5A1.5 1.5 0 0 1 4.5 5H9l2 2.5h8.5A1.5 1.5 0 0 1 21 9v9.5a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18.5Z"/>',
-  video: '<rect x="2.5" y="6" width="13" height="12" rx="2"/><path d="m15.5 10.5 6-3.5v10l-6-3.5"/>',
-  play: '<rect x="2.5" y="4.5" width="19" height="15" rx="3"/><path d="m10 9 5 3-5 3Z"/>',
-  bulb: '<path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-3.6 10.8c.7.6 1.1 1.3 1.1 2.2h5c0-.9.4-1.6 1.1-2.2A6 6 0 0 0 12 3Z"/>',
-  star: '<path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2L12 17.3 6.4 20.2l1.1-6.2L3 9.6l6.2-.9Z"/>',
-  camera: '<path d="M4 8h3l2-3h6l2 3h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1Z"/><circle cx="12" cy="13.5" r="3.5"/>',
-  music: '<path d="M9 18V5l11-2v13"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="17.5" cy="16" r="2.5"/>',
-  hash: '<path d="M4 9h16M4 15h16M10 3 8 21M16 3l-2 18"/>',
-};
-
-for (const [name, svg] of Object.entries(SECTION_SVGS)) registerIcon(`nt-${name}`, svg);
-// Module glyphs: "All notes" (a stack) and "Manage sections" (sliders)
 registerIcon('nt-all', '<path d="m12 3 9 4.5-9 4.5-9-4.5Z"/><path d="m3 12 9 4.5 9-4.5"/><path d="m3 16.5 9 4.5 9-4.5"/>');
-registerIcon('nt-sliders', '<path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/>');
 
-/** The icon to draw for a stored section icon value: 'video' -> 'nt-video'; ui.js names ('note', 'flag') pass through. */
-export function sectionGlyph(name) {
-  return Object.hasOwn(SECTION_SVGS, name) ? `nt-${name}` : name;
+/** The icon to draw for a section: the one picked, else the one its name suggests, else the folder. */
+export function glyphOf(section) {
+  return sectionIcon(section);
 }
 
-/** The icon to draw for a section (its own icon, or the default folder). */
-export function glyphOf(section) {
-  return sectionGlyph(sectionIcon(section));
+/**
+ * A section's icon in a small tinted square (ui.iconBadge): the Notes page's tone, or the
+ * section's own color while color coding shows it (css/features/notes.css). All notes and
+ * Unsorted are no sections: their squares stay neutral gray. The size is set in CSS per place.
+ */
+export function sectionBadge(name, { section = true, size = 14, className = '' } = {}) {
+  return iconBadge(name, { tone: section ? 'notes' : null, size, className: `nt-sec-ib ${className}`.trim() });
+}
+
+/** Swap the icon in a badge from sectionBadge() (tone: a section's square or a built-in view's). */
+export function paintBadge(badge, name, { section = true, size = 14 } = {}) {
+  if (section) badge.dataset.tone = 'notes';
+  else delete badge.dataset.tone;
+  badge.replaceChildren(icon(name, { size }));
+}
+
+/** A section's plain icon (chips, menus): tinted like its badge. */
+export function sectionIconEl(name, size = 14) {
+  return icon(name, { size, className: 'nt-sec-icon' });
 }
 
 /* ==========================================================================
@@ -73,7 +75,7 @@ export function hint(keys, label) {
   return h('span', { class: 'nt-hint lo-hint' }, keys.map((k) => h('span', { class: 'kbd' }, k)), h('span', null, label));
 }
 
-/** The glyph for a view: a stack for All notes, an inbox for Unsorted, else the section's icon. */
+/** The icon for a view: a stack for All notes, an inbox for Unsorted, else the section's icon. */
 export function viewIconName(sections, view) {
   if (view === VIEW_ALL) return 'nt-all';
   if (view === VIEW_UNSORTED) return 'inbox';
@@ -139,7 +141,7 @@ function suggestionChips(list, onPick, { verb, stack = false, custom = null } = 
       h(
         'button',
         { type: 'button', class: 'nt-suggest-chip', 'aria-label': `${verb} “${s.name}”`, onClick: () => onPick(s) },
-        icon(sectionGlyph(s.icon), { size: 14 }),
+        sectionIconEl(s.icon),
         h('span', { class: 'nt-suggest-name' }, s.name),
         stack ? icon('plus', { size: 12, className: 'nt-suggest-plus' }) : null,
       ),
@@ -191,7 +193,7 @@ export function createSectionNav(ctx) {
       h('span', { class: 'label' }, 'Sections'),
       totalEl,
       h('span', { class: 'spacer' }),
-      iconButton('nt-sliders', 'Manage sections', () => ctx.onManage()),
+      iconButton('sliders', 'Manage sections', () => ctx.onManage()),
       iconButton('plus', 'New section', () => ctx.onCreate()),
     ),
     railBody,
@@ -201,7 +203,8 @@ export function createSectionNav(ctx) {
 
   function createRow(view, fixed = false) {
     const row = { view, sig: '' };
-    row.iconEl = h('span', { class: 'nt-rail-icon', 'aria-hidden': 'true' });
+    // A tinted square: the section's icon is what you spot first in the list
+    row.iconEl = sectionBadge(view === VIEW_ALL ? 'nt-all' : 'inbox', { section: !fixed, className: 'nt-rail-ib' });
     row.nameEl = h('span', { class: 'nt-rail-name' });
     row.srEl = h('span', { class: 'sr-only' });
     row.countEl = h('span', { class: 'nt-rail-count', 'aria-hidden': 'true' });
@@ -241,7 +244,7 @@ export function createSectionNav(ctx) {
     const sig = [name, iconName, count, selected].join('\u0001');
     if (row.sig === sig) return;
     row.sig = sig;
-    row.iconEl.replaceChildren(icon(iconName));
+    paintBadge(row.iconEl, iconName, { section: !!row.edit });
     row.nameEl.textContent = name;
     row.srEl.textContent = `, ${plural(count, 'note')}`;
     row.countEl.textContent = num(count);
@@ -540,19 +543,21 @@ export function createSectionNav(ctx) {
     { class: 'nt-strip' },
     chipsWrap,
     h('span', { class: 'nt-strip-hint label' }, hint(['[', ']'], 'Switch')),
-    iconButton('nt-sliders', 'Manage sections', () => ctx.onManage(), 'nt-strip-manage'),
+    iconButton('sliders', 'Manage sections', () => ctx.onManage(), 'nt-strip-manage'),
   );
   // The edge fades depend on the strip's width, which changes with the layout.
   const resizeWatch = typeof ResizeObserver === 'function' ? new ResizeObserver(() => updateFades()) : null;
   resizeWatch?.observe(chips);
 
   // Only the open view's chip is a Tab stop; arrow keys reach the others.
+  // A section's chip shows its icon tinted (Notes tone or its own color); All and Unsorted stay gray.
   function chip(view, name, iconName, count, color = null) {
     const current = view === model.view;
+    const isSection = view !== VIEW_ALL && view !== VIEW_UNSORTED;
     const el = h(
       'button',
       { type: 'button', class: 'nt-chip', dataset: { view }, tabindex: current ? '0' : '-1', 'aria-current': current ? 'true' : null, title: name, onClick: () => ctx.onView(view) },
-      icon(iconName, { size: 12 }),
+      isSection ? sectionIconEl(iconName) : icon(iconName, { size: 14 }),
       h('span', { class: 'nt-chip-name' }, name),
       h('span', { class: 'nt-chip-count', 'aria-hidden': 'true' }, num(count)),
       h('span', { class: 'sr-only' }, `, ${plural(count, 'note')}`),
@@ -565,7 +570,7 @@ export function createSectionNav(ctx) {
     return h(
       'button',
       { type: 'button', class: 'nt-chip nt-chip--suggest', dataset: { view: `+${s.name}` }, tabindex: '-1', 'aria-label': `Create section “${s.name}”`, title: `Create “${s.name}”`, onClick: () => ctx.onSuggest(s) },
-      icon(sectionGlyph(s.icon), { size: 12 }),
+      sectionIconEl(s.icon),
       h('span', { class: 'nt-chip-name' }, s.name),
       icon('plus', { size: 12, className: 'nt-chip-plus' }),
     );
@@ -904,12 +909,13 @@ export function createNoteDrag({ nav, host, titleOf, homeOf, labelOf, onDrop }) 
  */
 export function openSectionMenu({ anchor, sections, current, onPick, onCreate, onClose }) {
   const sheet = window.matchMedia(SHEET_QUERY).matches;
-  const entries = [{ id: null, name: 'Unsorted', icon: 'inbox' }, ...sections.map((s) => ({ id: s.id, name: s.name, icon: glyphOf(s) }))];
+  const entries = [{ id: null, name: 'Unsorted', icon: 'inbox' }, ...sections.map((s) => ({ id: s.id, name: s.name, icon: glyphOf(s), color: s.color ?? null }))];
   let closed = false;
   let modal = null;
 
-  const items = entries.map((entry) =>
-    h(
+  // Each section's icon is tinted as in the rail and on the board (its color, else the Notes tone)
+  const items = entries.map((entry) => {
+    const item = h(
       'button',
       {
         type: 'button',
@@ -920,11 +926,12 @@ export function openSectionMenu({ anchor, sections, current, onPick, onCreate, o
         title: entry.name,
         onClick: () => finish(() => onPick(entry.id)),
       },
-      h('span', { class: 'nt-menu-icon' }, icon(entry.icon, { size: 14 })),
+      h('span', { class: 'nt-menu-icon' }, entry.id ? sectionIconEl(entry.icon, 16) : icon(entry.icon, { size: 16 })),
       h('span', { class: 'nt-menu-name' }, entry.name),
       h('span', { class: 'nt-menu-check' }, icon('check', { size: 14, stroke: 2 })),
-    ),
-  );
+    );
+    return paintColor(item, 'sections', entry.color ?? null);
+  });
   const createItem = h(
     'button',
     { type: 'button', class: 'nt-menu-item nt-menu-new', role: 'menuitem', tabindex: sheet ? null : '-1', onClick: () => finish(onCreate) },
@@ -1026,58 +1033,10 @@ export function openSectionMenu({ anchor, sections, current, onPick, onCreate, o
 }
 
 /* ==========================================================================
-   Section editor dialog (new / edit): name + icon
+   Section editor dialog (new / edit): name + icon + color
+   The icon is the app's shared picker: Auto (first) follows the name as you type it, any other
+   icon is kept whatever the name.
    ========================================================================== */
-
-function iconPicker({ value, labelledBy, onChange }) {
-  let current = value;
-  const buttons = SECTION_ICONS.map((name) =>
-    h(
-      'button',
-      {
-        type: 'button',
-        role: 'radio',
-        class: 'nt-icon-opt',
-        dataset: { icon: name },
-        'aria-checked': String(name === current),
-        'aria-label': SECTION_ICON_LABELS[name],
-        title: SECTION_ICON_LABELS[name],
-        tabindex: name === current ? '0' : '-1',
-        onClick: () => select(name),
-      },
-      icon(sectionGlyph(name), { size: 18 }),
-    ),
-  );
-
-  function select(name, { focus = false } = {}) {
-    current = name;
-    buttons.forEach((b) => {
-      const on = b.dataset.icon === name;
-      b.setAttribute('aria-checked', String(on));
-      b.tabIndex = on ? 0 : -1;
-      if (on && focus) b.focus();
-    });
-    onChange(name);
-  }
-
-  // Radio group: arrow keys move the selection (from the focused option), Home / End jump to the ends.
-  function onKeydown(e) {
-    const focused = buttons.indexOf(document.activeElement);
-    const i = focused !== -1 ? focused : SECTION_ICONS.indexOf(current);
-    const last = SECTION_ICONS.length - 1;
-    let to = null;
-    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') to = i === last ? 0 : i + 1;
-    else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') to = i === 0 ? last : i - 1;
-    else if (e.key === 'Home') to = 0;
-    else if (e.key === 'End') to = last;
-    if (to === null) return;
-    e.preventDefault();
-    select(SECTION_ICONS[to], { focus: true });
-  }
-
-  const el = h('div', { class: 'nt-icon-grid', role: 'radiogroup', 'aria-labelledby': labelledBy, onKeydown }, buttons);
-  return { el, select };
-}
 
 /**
  * openSectionEditor({ section, getSections, onSubmit({ name, icon }) -> { error? }, onClose(stranded) })
@@ -1087,7 +1046,10 @@ function iconPicker({ value, labelledBy, onChange }) {
  */
 export function openSectionEditor({ section = null, getSections, onSubmit, onClose = null }) {
   const editing = !!section;
-  let iconName = editing ? sectionIcon(section) : 'folder';
+  // null = Auto: the icon follows the name. An edit sends it only once the user picks one, so an
+  // icon this copy can't draw (stored by a newer one) stays stored until something else is picked.
+  let iconName = editing ? cleanSectionIcon(section.icon) : null;
+  let iconTouched = false;
   const nameId = nextId('nt-sx-name');
   const msgId = nextId('nt-sx-msg');
   const iconLabelId = nextId('nt-sx-icon');
@@ -1105,7 +1067,10 @@ export function openSectionEditor({ section = null, getSections, onSubmit, onClo
     spellcheck: 'false',
     enterkeyhint: 'done',
     'aria-describedby': msgId,
-    onInput: () => check(false),
+    onInput: () => {
+      picker.setAuto(autoSectionIcon(input.value));
+      check(false);
+    },
     onKeydown: (e) => {
       if (e.key === 'Enter' && !e.isComposing && e.keyCode !== 229) {
         e.preventDefault();
@@ -1113,13 +1078,24 @@ export function openSectionEditor({ section = null, getSections, onSubmit, onClo
       }
     },
   });
-  const picker = iconPicker({ value: iconName, labelledBy: iconLabelId, onChange: (name) => (iconName = name) });
+  const picker = iconPicker({
+    choices: ICON_CHOICES,
+    value: iconName,
+    auto: autoSectionIcon(section?.name ?? ''),
+    labelledBy: iconLabelId,
+    onChange: (name) => {
+      iconName = name;
+      iconTouched = true;
+    },
+  });
   const colorIn = colorPicker({ value: section?.color ?? null, label: 'Color' });
 
   const suggestions = editing ? [] : availableSuggestions(getSections());
   const useSuggestion = (s) => {
     input.value = s.name;
-    picker.select(s.icon);
+    iconName = cleanSectionIcon(s.icon);
+    picker.set(iconName);
+    picker.setAuto(autoSectionIcon(s.name));
     check(false);
     input.focus();
   };
@@ -1167,7 +1143,7 @@ export function openSectionEditor({ section = null, getSections, onSubmit, onClo
       fail(v.error);
       return;
     }
-    const result = onSubmit({ name: v.name, icon: iconName, color: colorIn.get() });
+    const result = onSubmit({ name: v.name, icon: editing && !iconTouched ? undefined : iconName, color: colorIn.get() });
     if (result?.error) {
       fail(result.error);
       return;
@@ -1281,7 +1257,7 @@ export function openManageSections({ getState, subscribe, counts, onCreate, onSu
 
   function createRow(id) {
     const row = { id, sig: '' };
-    row.iconEl = h('span', { class: 'nt-mg-icon', 'aria-hidden': 'true' });
+    row.iconEl = sectionBadge('folder', { className: 'nt-mg-icon' });
     row.nameEl = h('span', { class: 'nt-mg-name' });
     row.subEl = h('span', { class: 'label nt-mg-sub' });
     row.up = actionBtn('up', 'arrow-up', () => onMoveBy(id, -1));
@@ -1299,11 +1275,12 @@ export function openManageSections({ getState, subscribe, counts, onCreate, onSu
   }
 
   function paintRow(row, section, count, first, last) {
+    paintColor(row.li, 'sections', section.color ?? null);
     const sig = [section.name, section.icon, count, first, last].join('\u0001');
     if (row.sig === sig) return;
     row.sig = sig;
     const name = section.name;
-    row.iconEl.replaceChildren(icon(glyphOf(section)));
+    paintBadge(row.iconEl, glyphOf(section));
     row.nameEl.textContent = name;
     row.nameEl.title = name;
     row.subEl.textContent = plural(count, 'note');

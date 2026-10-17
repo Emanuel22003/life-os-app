@@ -90,7 +90,8 @@ function segControl(labelledBy, options, onChange) {
   };
 }
 
-const card = (title, rows) => h('section', { class: 'st-card panel hud', 'aria-label': title }, h('h2', { class: 'st-card-title label' }, title), rows.map((r) => r.el));
+const card = (title, rows, iconName = null) =>
+  h('section', { class: 'st-card panel hud', 'aria-label': title }, h('h2', { class: 'st-card-title label' }, iconName ? icon(iconName, { size: 14 }) : null, h('span', null, title)), rows.map((r) => r.el));
 
 const button = (label, onClick, { iconName, primary = false } = {}) =>
   h('button', { type: 'button', class: ['btn', 'btn--sm', primary && 'btn--primary'], onClick }, iconName ? icon(iconName, { size: 14 }) : null, label);
@@ -422,12 +423,12 @@ function mount(root) {
     h(
       'div',
       { class: 'st-cards' },
-      card('Sound & notifications', [soundRow, notifyRow, miniRow]),
-      card('Appearance', [templateRow, themeRow, paletteRow, motionRow, tipsRow]),
-      card('Color coding', [colorsRow, ...colorKindRows]),
-      card('Start-up', [startRow]),
-      card('Sync & backup', [syncRow, backupRow, restoreRow, storageRow]),
-      card('About', [versionRow, elsewhereRow, projectRow]),
+      card('Sound & notifications', [soundRow, notifyRow, miniRow], 'bell'),
+      card('Appearance', [templateRow, themeRow, paletteRow, motionRow, tipsRow], 'palette'),
+      card('Color coding', [colorsRow, ...colorKindRows], 'tag'),
+      card('Start-up', [startRow], 'home'),
+      card('Sync & backup', [syncRow, backupRow, restoreRow, storageRow], 'sync'),
+      card('About', [versionRow, elsewhereRow, projectRow], 'tip'),
     ),
   );
 

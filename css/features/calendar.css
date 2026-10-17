@@ -24,6 +24,26 @@
   flex-direction: column;
   gap: var(--space-3);
   --cal-slot: 20px;
+  /* Overdue: the shared late color (css/icons.css): red where the template has colors and color
+     coding is on, the strongest gray elsewhere */
+  --cal-alert: var(--alert);
+}
+
+/* The Schedule… sheet sits outside .cal (a dialog): it says "overdue" in the same color */
+.cal-sheet {
+  --cal-alert: var(--alert);
+}
+
+/* A label with its icon in front (Schedule…, Add task): the icon says what goes in the field */
+.cal-lab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cal-lab > .icon {
+  flex: none;
+  color: var(--text-3);
 }
 
 .cal-kbd {
@@ -111,6 +131,16 @@
   color: var(--text-2);
 }
 
+/* Month / Week / Day: each with its icon (grid, columns, rows) */
+.cal-zoom-btn > .icon {
+  flex: none;
+  opacity: 0.7;
+}
+
+.cal-zoom-btn[aria-pressed="true"] > .icon {
+  opacity: 1;
+}
+
 .cal-controls {
   display: flex;
   align-items: center;
@@ -121,42 +151,6 @@
 /* The view menu stands in for the Month / Week / Day buttons on a narrow calendar only */
 .cal-view-dd {
   display: none;
-}
-
-/* Glyphs double as the legend: bar = event, square = task, dot = habit (the Show menu draws
-   the same marks as icons) */
-.cal-glyph {
-  flex: none;
-  display: inline-block;
-}
-
-.cal-glyph--ev {
-  width: 12px;
-  height: 6px;
-  border-radius: 1px;
-  background: currentColor;
-}
-
-.cal-glyph--task {
-  width: 8px;
-  height: 8px;
-  border: 1px solid currentColor;
-  border-radius: 1px;
-}
-
-.cal-glyph--hb {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: currentColor;
-}
-
-.cal-glyph--done {
-  width: 8px;
-  height: 8px;
-  border: 1px solid currentColor;
-  border-radius: 1px;
-  background: linear-gradient(currentColor, currentColor) center / 100% 1px no-repeat;
 }
 
 .cal-tray-toggle {
@@ -206,6 +200,12 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
+}
+
+.cal-legend-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
 }
 
 .cal-legend-ev {
@@ -625,6 +625,37 @@
   color: var(--text);
 }
 
+/* Many habits: the habits icon stands in for the dots. It still tells the days apart without its
+   "9/12" (Home's Simple week leaves the number out): none done yet is gray, some done is solid
+   (in the Habits page's color), all done glows, days ahead step back */
+.cal-hb-ic {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  color: var(--text-3);
+}
+
+.cal-hb-ic.is-future {
+  color: var(--text-4);
+}
+
+.cal-hb-ic.is-done {
+  color: var(--text-2);
+}
+
+.cc-on.cc-pages .cal-hb-ic.is-done {
+  color: var(--mod-habits);
+}
+
+.cal-hb.is-perfect .cal-hb-ic {
+  color: var(--text);
+}
+
+.cc-on.cc-pages .cal-hb.is-perfect .cal-hb-ic {
+  color: var(--mod-habits);
+  filter: drop-shadow(0 0 4px var(--glow-c-soft));
+}
+
 /* ==========================================================================
    Month
    ========================================================================== */
@@ -837,6 +868,20 @@ button.cal-date:hover {
 
 .cal-cell .cal-hb {
   margin-left: auto;
+}
+
+/* Month cells stay quiet: the habits icon is gray there (a whole grid of colored icons is noise),
+   in color only on a day with every habit done; days ahead (planned only) step back */
+.cc-on.cc-pages .cal-cell .cal-hb-ic {
+  color: var(--text-3);
+}
+
+.cc-on.cc-pages .cal-cell .cal-hb.is-perfect .cal-hb-ic {
+  color: var(--mod-habits);
+}
+
+.cal-cell .cal-hb.is-future {
+  opacity: 0.6;
 }
 
 /* Narrow cells keep the dots and drop the readout (unless the dots were folded into a count) */
@@ -1539,6 +1584,26 @@ button.cal-dh-btn:hover {
   color: var(--text-4);
 }
 
+/* The day and its numbers, each with an icon: ☀ Today // ▦ 4 timed events  ◷ 12h booked */
+.cal-day-head-day,
+.cal-day-head-stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.cal-day-head-day {
+  color: var(--text-2);
+}
+
+.cal-day-head-day.is-today {
+  color: var(--text);
+}
+
+.cal-day-head-stat + .cal-day-head-stat {
+  margin-left: var(--space-2);
+}
+
 /* ---- The day's all-day lane: "All day +" adds one, the empty lane does too ---- */
 
 .cal-day-allday {
@@ -1574,6 +1639,9 @@ button.cal-dh-btn:hover {
 
 .cal-ad-note {
   position: relative;
+  display: flex;
+  align-items: center;
+  gap: 5px;
   align-self: stretch;
   margin: -4px 0;
   padding-left: var(--space-2);
@@ -1642,20 +1710,45 @@ button.cal-dh-btn:hover {
   outline-offset: -2px;
 }
 
-.cal-plan-toggle .cal-glyph {
-  color: var(--text-3);
-}
-
+/* A heading: the layer's icon in its page color, its name, then the number that matters, big */
 .cal-plan-title {
-  color: var(--text-2);
-  font-weight: 500;
+  flex: 1 1 auto;
+  min-width: 0;
+  color: var(--text);
+  font-weight: 600;
 }
 
 .cal-plan-count {
-  margin-left: auto;
   font-family: var(--font-mono);
-  font-size: var(--fs-xs);
+  font-size: var(--fs-md);
+  font-weight: 700;
+  line-height: 1;
   color: var(--text);
+}
+
+/* "Hidden" (the layer is off): a word, not a number */
+.cal-plan-count.is-word {
+  font-family: var(--label-font);
+  font-size: var(--label-size);
+  font-weight: var(--label-weight);
+  letter-spacing: calc(0.14em * var(--label-tracking));
+  text-transform: var(--label-case);
+  color: var(--text-3);
+}
+
+/* Overdue on the Tasks row: ⚠ and how many, in the alert color */
+.cal-plan-alert {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  height: 20px;
+  padding: 0 6px;
+  border: 1px solid color-mix(in srgb, var(--cal-alert) 45%, transparent);
+  border-radius: var(--radius-pill);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  color: var(--cal-alert);
 }
 
 .cal-plan-chev {
@@ -1679,9 +1772,26 @@ button.cal-dh-btn:hover {
   padding: 0 var(--space-4) var(--space-4);
 }
 
+/* Sub-headings inside a list: icon, word, count (⚠ Overdue 3 · ☀ Due today 3 · ✓ Done 2) */
 .cal-plan-sub {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   margin-top: var(--space-1);
   color: var(--text-3);
+}
+
+.cal-plan-sub > .icon {
+  flex: none;
+}
+
+.cal-plan-sub-n {
+  color: var(--text-2);
+}
+
+.cal-plan-sub.is-alert,
+.cal-plan-sub.is-alert .cal-plan-sub-n {
+  color: var(--cal-alert);
 }
 
 .cal-plan-list {
@@ -1691,8 +1801,18 @@ button.cal-dh-btn:hover {
 }
 
 .cal-plan-note {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
   font-size: var(--fs-xs);
+  line-height: 1.45;
   color: var(--text-3);
+}
+
+.cal-note-ic {
+  flex: none;
+  margin-top: 1px;
+  color: var(--text-4);
 }
 
 .cal-link {
@@ -1759,8 +1879,22 @@ button.cal-dh-btn:hover {
   font-weight: 600;
 }
 
+/* Meta beside a task: ◷ its time, ⚠ its late due date (the alert color) */
 .cal-trow-due {
   flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.cal-trow-due.is-alert {
+  color: var(--cal-alert);
+}
+
+/* The priority letter with a flag in front, in the day's lists */
+.cal-pri.has-flag {
+  gap: 2px;
+  padding: 0 4px 0 3px;
 }
 
 .cal-trow.is-done {
@@ -1838,6 +1972,12 @@ button.cal-dh-btn:hover {
 .cal-hrow.is-miss .cal-hcheck {
   border-style: dashed;
   border-color: var(--text-3);
+}
+
+/* Not today's to do (planned, missed): the habit's icon steps back with its name */
+.cal-hrow.is-future .cal-hrow-ib,
+.cal-hrow.is-miss .cal-hrow-ib {
+  opacity: 0.6;
 }
 
 .cal-hrow-name {
@@ -1948,8 +2088,16 @@ button.cal-dh-btn:hover {
   height: 14px;
 }
 
+/* A day with nothing planned is one quiet row: its date and "Nothing planned" */
+.cal-ag-day.is-empty {
+  padding-block: var(--space-1);
+}
+
 .cal-ag-empty {
-  padding: 2px 0 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   color: var(--text-4);
 }
 
@@ -1974,7 +2122,8 @@ button.cal-dh-btn:hover {
 }
 
 .cal-tray-title {
-  color: var(--text-2);
+  color: var(--text);
+  font-weight: 600;
 }
 
 .cal-tray-count {
@@ -2023,12 +2172,32 @@ button.cal-dh-btn:hover {
 }
 
 .cal-tray-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
   padding: var(--space-4) var(--space-2);
   border: 1px dashed var(--line-strong);
   border-radius: var(--radius-sm);
   font-size: var(--fs-xs);
   color: var(--text-3);
   text-align: center;
+}
+
+.cal-tray-empty-ic {
+  flex: none;
+  color: var(--text-4);
+}
+
+/* A phone: the tray opens above the calendar, so its empty note is one row (the icon beside the
+   words), not a tall box that pushes the days down */
+@container cal (max-width: 600px) {
+  .cal-tray-empty {
+    flex-direction: row;
+    justify-content: center;
+    padding: var(--space-3);
+    text-align: left;
+  }
 }
 
 /* ==========================================================================
@@ -2095,14 +2264,44 @@ html.cal-dragging * {
   font-weight: 500;
 }
 
+/* "⚠ Overdue: was due …": late, in the alert color (its icon too) */
+.cal-sheet-due.is-alert,
+.cal-sheet-due.is-alert > .icon {
+  color: var(--cal-alert);
+}
+
 .cal-sheet-quick {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(128px, 1fr));
   gap: var(--space-2);
 }
 
+/* Icon and day on the left, its date on the right */
 .cal-sheet-quick .btn {
-  justify-content: space-between;
+  justify-content: flex-start;
+  min-width: 0;
+}
+
+.cal-sheet-quick .btn > .icon {
+  flex: none;
+}
+
+.cal-sheet-word {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cal-sheet-quick .cal-sheet-date {
+  flex: none;
+  margin-left: auto;
+}
+
+/* A phone: the day's word and icon only (the date is in the field below and the tooltip) */
+@media (max-width: 420px) {
+  .cal-sheet-quick .cal-sheet-date {
+    display: none;
+  }
 }
 
 .cal-sheet-quick .btn.is-current {
@@ -2132,6 +2331,13 @@ html.cal-dragging * {
   grid-template-columns: minmax(0, 1fr) auto;
   gap: var(--space-3);
   align-items: end;
+}
+
+/* A phone: the due date gets the whole width (it was squeezed beside the priority buttons) */
+@media (max-width: 420px) {
+  .cal-form-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .cal-field-error {

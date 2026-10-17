@@ -69,6 +69,8 @@ const CORE = [
   'icons/apple-touch-icon.png',
   'js/app.js',
   'js/ui.js',
+  'js/icons.js',
+  'js/icons.logic.js',
   'js/store.js',
   'js/skins.js',
   'js/appearance.js',
@@ -100,6 +102,7 @@ const CORE = [
   'css/skins/y2k-butterflies.webp',
   'css/palette.css',
   'css/colors.css',
+  'css/icons.css',
   'css/compact.css',
 ].map(keyFor);
 
