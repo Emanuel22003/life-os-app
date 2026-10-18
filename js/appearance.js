@@ -16,7 +16,11 @@ registerIcon('monitor', '<rect x="3" y="4" width="18" height="12.5" rx="2"/><pat
 
 const PREVIEW_W = 400; // design width of a preview page; cards scale it to fit
 
-/** Add a skin's Google Fonts stylesheet once (offline, the system fallbacks in its tokens apply). */
+/**
+ * Add a skin's fonts stylesheet once: fonts/<id>.css, the app's own copy of the typefaces (never
+ * Google's servers, so a preview sends nothing anywhere). Its font files download only when text
+ * needs them; without them (offline, not cached yet) the system fallbacks in its tokens apply.
+ */
 export function loadSkinFonts(id) {
   const href = SKIN_BOOT[id]?.font;
   if (!href || document.head.querySelector(`link[data-skin-font="${id}"]`)) return;
@@ -25,8 +29,10 @@ export function loadSkinFonts(id) {
 
 // The page's own app stylesheets minus the feature ones: tokens, base, shell, components, the
 // picker's and every skin file. Read from index.html so a new skin file is picked up by itself.
+// The fonts stylesheets stay out: @font-face only counts in the document (a shadow root ignores
+// it), and the document's faces already reach every preview.
 function previewSheets() {
-  return [...document.querySelectorAll('link[rel="stylesheet"]')]
+  return [...document.querySelectorAll('link[rel="stylesheet"]:not([data-skin-font])')]
     .map((link) => link.href)
     .filter((href) => {
       try {

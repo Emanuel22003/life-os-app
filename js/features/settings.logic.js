@@ -86,3 +86,85 @@ export function isNewerVersion(a, b) {
   }
   return false;
 }
+
+/* ---- Your data on this device: backups kept, and deleting all of it ---- */
+
+/** Everything LIFE/OS keeps in the browser's storage starts with this (lifeos:v1:…, lifeos:sync:…,
+ *  lifeos:backup:…, lifeos:pomodoro-alert:…; in sessionStorage lifeos:clipboard and test switches). */
+export const STORAGE_PREFIX = 'lifeos:';
+/** …and its offline caches (sw.js) with this. */
+export const CACHE_PREFIX = 'lifeos-';
+export const BACKUP_PREFIX = 'lifeos:backup:';
+/** Safety copies kept in the browser (before a restore, before the first sync): the newest few. */
+export const KEEP_BACKUPS = 3;
+
+/**
+ * The storage keys "Delete all my data" removes: every LIFE/OS key, and nothing else. On the
+ * website the browser's storage belongs to the whole <name>.github.io address, which other
+ * GitHub Pages sites of that account share, so their keys must survive.
+ */
+export function keysToDelete(keys) {
+  return [...new Set(keys)].filter((k) => typeof k === 'string' && k.startsWith(STORAGE_PREFIX));
+}
+
+/** The offline caches to delete with it (LIFE/OS's own, for the same reason). */
+export function cachesToDelete(names) {
+  return [...new Set(names)].filter((n) => typeof n === 'string' && n.startsWith(CACHE_PREFIX));
+}
+
+// 'lifeos:backup:before-restore:2026-10-07T12:00:00.000Z' -> its time in ms (the time holds colons)
+function backupTime(key) {
+  const rest = key.slice(BACKUP_PREFIX.length);
+  const at = rest.indexOf(':');
+  return at > 0 ? Date.parse(rest.slice(at + 1)) : Number.NaN;
+}
+
+/**
+ * The backup keys to remove so only the newest `keep` stay. A backup is a whole copy of the data,
+ * so a pile of them would fill the browser's storage (about 5 MB) and stop LIFE/OS saving.
+ * A key whose time can't be read (a format from another version) is never removed here.
+ */
+export function backupsToPrune(keys, keep = KEEP_BACKUPS) {
+  const dated = [...new Set(keys)]
+    .filter((k) => typeof k === 'string' && k.startsWith(BACKUP_PREFIX))
+    .map((key) => ({ key, at: backupTime(key) }))
+    .filter((b) => Number.isFinite(b.at))
+    .sort((a, b) => b.at - a.at || (a.key < b.key ? 1 : -1));
+  return dated.slice(Math.max(0, keep)).map((b) => b.key);
+}
+
+/**
+ * Settings → Legal: the documents next to the app (legal/, written for the release), opened in
+ * a new tab. Relative, so the Mac's copy and the website (a sub-folder) both find them.
+ */
+export const LEGAL_LINKS = Object.freeze(
+  [
+    { id: 'privacy', label: 'Privacy policy', href: 'legal/privacy.html', hint: 'What LIFE/OS stores, where, and your rights.' },
+    { id: 'terms', label: 'Terms', href: 'legal/terms.html', hint: 'The rules for using LIFE/OS.' },
+    { id: 'cookies', label: 'Cookies and storage', href: 'legal/cookies.html', hint: 'No cookies: what it keeps in your browser instead, and why.' },
+    { id: 'refunds', label: 'Refunds', href: 'legal/refunds.html', hint: 'LIFE/OS is free today; how refunds would work for a paid plan.' },
+    { id: 'business', label: 'Business details', href: 'legal/business.html', hint: 'Who makes LIFE/OS and how to reach them.' },
+    { id: 'credits', label: 'Credits', href: 'legal/credits.html', hint: 'The typefaces, images and their licenses.' },
+  ].map((link) => Object.freeze(link)),
+);
+
+/** Every key a Storage (localStorage, sessionStorage, or a test stand-in) holds. */
+export function storageKeys(storage) {
+  const keys = [];
+  for (let i = 0; i < storage.length; i++) {
+    const key = storage.key(i);
+    if (key != null) keys.push(key);
+  }
+  return keys;
+}
+
+/** Keep only the newest backups in `storage` (called after writing one). Returns the removed keys. */
+export function pruneBackups(storage, keep = KEEP_BACKUPS) {
+  const gone = backupsToPrune(storageKeys(storage), keep);
+  for (const key of gone) {
+    try {
+      storage.removeItem(key);
+    } catch {}
+  }
+  return gone;
+}

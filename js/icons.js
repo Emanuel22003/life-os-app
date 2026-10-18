@@ -5,6 +5,8 @@
 
 import { registerIcon, hasIcon } from './ui.js';
 
+// Many basic shapes match Feather (MIT, (c) 2013-2023 Cole Bemis) and Lucide (ISC, (c) Lucide Icons
+// and Contributors); their notices are in legal/credits.html.
 const SET = {
   // Body and health
   droplet: '<path d="M12 3.2s6 6.4 6 10.8a6 6 0 0 1-12 0c0-4.4 6-10.8 6-10.8Z"/><path d="M9 14.5a3 3 0 0 0 3 3"/>',

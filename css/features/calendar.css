@@ -50,7 +50,8 @@
   margin-left: var(--space-1);
   border-color: currentColor;
   color: inherit;
-  opacity: 0.5;
+  /* faded just enough to step back: at 0.5 the key's letter fell under 4.5:1 (WCAG 1.4.3) */
+  opacity: 0.8;
 }
 
 /* ==========================================================================
@@ -372,11 +373,12 @@
   }
 }
 
+/* The time is set apart by its smaller (mono) type, not by fading: faded small text on a
+   colored event dropped under 4.5:1 (WCAG 1.4.3) */
 .cal-ev-time {
   flex: none;
   font-family: var(--font-mono);
   font-size: var(--fs-2xs);
-  opacity: 0.75;
 }
 
 .cal-ev-title {
@@ -404,9 +406,21 @@
   margin-left: 0;
 }
 
+/* Past events step back, but their words stay readable: at 0.62 a past event's text fell under
+   4.5:1 in the light templates (WCAG 1.4.3) */
 .cal-ev.is-past,
 .cal-tlev.is-past {
-  opacity: 0.62;
+  opacity: 0.7;
+}
+
+/* A past solid event can't fade at all without losing its words (faded ink on a faded fill;
+   Y2K's pink fell to 2.7:1), so it softens instead: a tint of its color, the page's text.
+   (Minimal draws events as lines of text and grays the past ones itself.) */
+:is(.cal-ev, .cal-tlev).cal-ev--solid.is-past:not(:where([data-skin="minimal"] *)) {
+  opacity: 1;
+  background: color-mix(in srgb, var(--accent) 22%, var(--surface-solid));
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+  color: var(--text);
 }
 
 /* Spans that run past the week row end in a chevron notch */
@@ -830,8 +844,10 @@ button.cal-date:hover {
   color: var(--text);
 }
 
+/* Days of the months around: fainter than this month's, still readable (--text-3 is the
+   faintest text color, 4.5:1; --text-4 is for lines and dots only) */
 .cal-cell.is-out .cal-date {
-  color: var(--text-4);
+  color: var(--text-3);
 }
 
 .cal-cell.is-today .cal-date {
@@ -880,8 +896,9 @@ button.cal-date:hover {
   color: var(--mod-habits);
 }
 
+/* Days ahead: the dotted dots say it; the count stays readable (faded it was 2.5–3:1) */
 .cal-cell .cal-hb.is-future {
-  opacity: 0.6;
+  opacity: 1;
 }
 
 /* Narrow cells keep the dots and drop the readout (unless the dots were folded into a count) */
@@ -1310,6 +1327,9 @@ button.cal-dh-btn:hover {
 .cal-tlev:focus-visible {
   z-index: 3;
   box-shadow: var(--glow-strong);
+  /* Hugging the block: a block in the last column sits 2px from the timeline's edge, which cuts
+     off a ring drawn further out (WCAG 2.4.7) */
+  outline-offset: 0;
 }
 
 /* Fixed line boxes: timedBlock() clamps the title (--cal-lines) to the lines that fit, and no
@@ -1322,7 +1342,6 @@ button.cal-dh-btn:hover {
   font-family: var(--font-mono);
   font-size: var(--fs-2xs);
   line-height: 12px;
-  opacity: 0.8;
   white-space: nowrap;
 }
 
@@ -1672,6 +1691,8 @@ button.cal-dh-btn:hover {
   flex-direction: column;
   overflow-y: auto;
   overscroll-behavior: contain;
+  /* Tabbing scrolls the next row in with room for its focus ring (WCAG 2.4.7) */
+  scroll-padding-block: var(--space-2);
 }
 
 .cal-plan-sec {
@@ -2098,7 +2119,7 @@ button.cal-dh-btn:hover {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: var(--text-4);
+  color: var(--text-3);
 }
 
 /* ==========================================================================

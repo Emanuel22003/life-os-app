@@ -56,6 +56,8 @@ function append(parent, children) {
 
 /* ==========================================================================
    Icons — 24px grid, 1.5 stroke, currentColor. Trusted static markup only.
+   Many basic shapes match Feather (MIT, (c) 2013-2023 Cole Bemis) and Lucide (ISC, (c) Lucide
+   Icons and Contributors); their notices are in legal/credits.html.
    ========================================================================== */
 
 const ICONS = {
@@ -484,7 +486,7 @@ export function dropdown({ label = '', icon: iconName = null, items = [], value 
       else if (e.key === 'Escape') {
         e.preventDefault();
         close(true);
-      } else if (e.key === 'Tab') close(false);
+      } else if (e.key === 'Tab') close(true); // back on its button, so Tab goes on from there
       if (to) {
         e.preventDefault();
         to.focus();
@@ -661,15 +663,66 @@ export function toast(message, { action, duration = action ? 6000 : 3800 } = {})
   toastStack.append(el);
   // keep at most 4 visible
   while (toastStack.children.length > 4) toastStack.firstElementChild.remove();
+  // The clock stops while the pointer is over it or the keyboard is on it (Tab reaches Undo), and
+  // runs on after with what was left, at least 1.6s (WCAG 2.2.1)
+  let left = duration;
+  let started = Date.now();
+  const holds = new Set();
+  const hold = (why) => {
+    if (!holds.size) {
+      clearTimeout(timer);
+      left = Math.max(0, left - (Date.now() - started));
+    }
+    holds.add(why);
+  };
+  const release = (why) => {
+    if (!holds.delete(why) || holds.size) return;
+    left = Math.max(left, 1600);
+    started = Date.now();
+    timer = setTimeout(dismiss, left);
+  };
   timer = setTimeout(dismiss, duration);
-  el.addEventListener('mouseenter', () => clearTimeout(timer));
-  el.addEventListener('mouseleave', () => (timer = setTimeout(dismiss, 1600)));
+  el.addEventListener('pointerenter', () => hold('pointer'));
+  el.addEventListener('pointerleave', () => release('pointer'));
+  el.addEventListener('focusin', () => hold('focus'));
+  el.addEventListener('focusout', (e) => {
+    if (!el.contains(e.relatedTarget)) release('focus');
+  });
   return { dismiss, el };
 }
 
 /* ---- Modal ---- */
 
 const modalStack = [];
+
+// While a dialog is open, everything behind it is inert (no clicks, no Tab, out of the screen
+// reader's way): the app (#app) and any dialog under the top one (an editor under its confirm).
+// Menus, toasts and the right-click menu live outside #app, at the end of <body>, so they keep
+// working. #app gets its own state back when the last dialog closes.
+let appHeld = false;
+let appWasInert = false;
+
+function syncInert() {
+  const top = modalStack[modalStack.length - 1];
+  for (const r of modalStack) r.inert = r !== top;
+  const app = document.getElementById('app');
+  if (!app) return;
+  if (top && !appHeld) {
+    appHeld = true;
+    appWasInert = app.inert;
+    app.inert = true;
+  } else if (!top && appHeld) {
+    appHeld = false;
+    app.inert = appWasInert;
+  }
+}
+
+/** What Tab can reach inside `box`, in order. */
+function tabbables(box) {
+  return [...box.querySelectorAll(`${FOCUSABLE}, [contenteditable]:not([contenteditable="false"])`)].filter(
+    (n) => n.tabIndex >= 0 && !n.disabled && n.getClientRects().length && getComputedStyle(n).visibility !== 'hidden',
+  );
+}
 
 /**
  * openModal({ title, body, footer, size: 'lg', className, onClose, initialFocus })
@@ -687,7 +740,10 @@ export function openModal({ title, body, footer, size, className, onClose, initi
     const at = modalStack.indexOf(root);
     if (at !== -1) modalStack.splice(at, 1);
     root.classList.add('is-leaving');
+    root.inert = true;
     setTimeout(() => root.remove(), 140);
+    // What was behind it wakes up first, so the focus can go back there
+    syncInert();
     if (previous && typeof previous.focus === 'function') previous.focus();
     onClose?.(result);
   };
@@ -725,16 +781,25 @@ export function openModal({ title, body, footer, size, className, onClose, initi
       e.stopPropagation();
       close();
     } else if (e.key === 'Tab') {
-      const focusables = [...modal.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')].filter(
-        (n) => !n.disabled && n.offsetParent !== null,
-      );
-      if (!focusables.length) return;
+      const active = document.activeElement;
+      // A menu this dialog opened (a dropdown's list, added to <body> after it) handles its own Tab
+      if (active && !root.contains(active) && root.compareDocumentPosition(active) & Node.DOCUMENT_POSITION_FOLLOWING && !active.closest('.modal-root, .toast-stack')) return;
+      const focusables = tabbables(modal);
       const first = focusables[0];
       const last = focusables[focusables.length - 1];
-      if (e.shiftKey && document.activeElement === first) {
+      if (!first) {
+        e.preventDefault();
+        return;
+      }
+      // The focus got out (a click on the page's edge, a toast, an element that went away):
+      // Tab brings it back in, at the start (Shift + Tab: the end)
+      if (!modal.contains(active)) {
+        e.preventDefault();
+        (e.shiftKey ? last : first).focus();
+      } else if (e.shiftKey && active === first) {
         e.preventDefault();
         last.focus();
-      } else if (!e.shiftKey && document.activeElement === last) {
+      } else if (!e.shiftKey && active === last) {
         e.preventDefault();
         first.focus();
       }
@@ -745,13 +810,21 @@ export function openModal({ title, body, footer, size, className, onClose, initi
   root.closeModal = close;
   modalStack.push(root);
   document.body.append(root);
-  requestAnimationFrame(() => {
+  syncInert();
+  // The first field (or the main button) gets the focus once the dialog is drawn. A tab that
+  // paints no frames (in the background) never runs requestAnimationFrame: the timer backs it up.
+  let focused = false;
+  const focusInitial = () => {
+    if (focused || !root.isConnected || root.inert) return;
+    focused = true;
     const target =
       initialFocus ??
       modal.querySelector('input:not(:disabled), textarea:not(:disabled), select:not(:disabled), .btn--primary:not(:disabled)') ??
       modal.querySelector('button:not(:disabled)');
     target?.focus();
-  });
+  };
+  requestAnimationFrame(focusInitial);
+  setTimeout(focusInitial, 100);
 
   return { el: modal, close };
 }
@@ -777,11 +850,13 @@ export function confirmDialog({ title = 'Are you sure?', message, confirmLabel =
       },
       confirmLabel,
     );
+    const cancelBtn = h('button', { type: 'button', class: 'btn btn--ghost', onClick: () => m.close() }, cancelLabel);
     const m = openModal({
       title,
       body: message ? h('p', { class: 'muted' }, message) : null,
-      footer: [h('button', { type: 'button', class: 'btn btn--ghost', onClick: () => m.close() }, cancelLabel), confirmBtn],
-      initialFocus: confirmBtn,
+      footer: [cancelBtn, confirmBtn],
+      // Deleting takes a deliberate move: Enter right away keeps everything (Cancel has the focus)
+      initialFocus: danger ? cancelBtn : confirmBtn,
       onClose: () => resolve(result),
     });
   });

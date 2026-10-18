@@ -425,24 +425,28 @@ export function entrySummary(entry, exercise) {
   }
 }
 
-/** The nudge for next time (progressive overload), from the last entry. */
+/**
+ * The nudge for next time (progressive overload), from the last entry. An idea, not advice: each
+ * one starts "Next time, if it feels right:" (the terms say LIFE/OS gives no training advice).
+ */
 export function nextTarget(entry, exercise) {
   if (!entry || !exercise) return '';
+  const next = 'Next time, if it feels right:';
   switch (exercise.kind) {
     case 'strength': {
       const sets = setsWithReps(entry);
       if (!sets.length) return '';
       const top = Math.max(...sets.map((s) => s.weight));
-      if (top > 0) return `Next: try ${formatKg(top + 2.5)}, or one more rep per set.`;
-      return `Next: try ${Math.max(...sets.map((s) => s.reps)) + 1} reps.`;
+      if (top > 0) return `${next} ${formatKg(top + 2.5)}, or one more rep per set.`;
+      return `${next} ${Math.max(...sets.map((s) => s.reps)) + 1} reps.`;
     }
     case 'distance':
-      if (entry.distanceKm > 0 && entry.durationSec > 0) return `Next: beat ${formatPace(entry.durationSec / entry.distanceKm)}, or go a bit further.`;
-      return entry.distanceKm > 0 ? `Next: try ${formatKm(round(entry.distanceKm * 1.1, 0.1))}.` : '';
+      if (entry.distanceKm > 0 && entry.durationSec > 0) return `${next} ${formatPace(entry.durationSec / entry.distanceKm)} or a bit further.`;
+      return entry.distanceKm > 0 ? `${next} ${formatKm(round(entry.distanceKm * 1.1, 0.1))}.` : '';
     case 'duration':
-      return entry.durationSec > 0 ? `Next: try ${formatDuration(entry.durationSec + 60)}.` : '';
+      return entry.durationSec > 0 ? `${next} ${formatDuration(entry.durationSec + 60)}.` : '';
     case 'sprint':
-      return entry.times.length ? `Next: beat ${formatSprint(Math.min(...entry.times))}.` : '';
+      return entry.times.length ? `${next} faster than ${formatSprint(Math.min(...entry.times))}.` : '';
     default:
       return '';
   }

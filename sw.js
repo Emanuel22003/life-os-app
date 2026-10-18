@@ -6,10 +6,16 @@
 //   offline copy is served; a navigation falls back to the copy's index.html. So edits apply
 //   on the next load, and the installed app still opens offline. Responses reach the page
 //   marked `no-cache`, so Chrome's in-memory cache can't skip this worker on a reload.
-// - Google Fonts (stylesheet + font files): cache first, so the typefaces work offline. The
-//   stylesheet is refreshed in the background; font files are immutable.
-// - Everything else (other origins, non-GET, other schemes) is left to the browser.
+// - The typefaces (fonts/: one stylesheet per template + the woff2 files, the app's own copies):
+//   cache first in a cache of their own, so every template a window has shown keeps its fonts
+//   offline, the active one at least. A stylesheet is refreshed in the background; a font file
+//   never changes under its name (an updated one gets a new name). They stay out of the
+//   snapshots, which would otherwise copy 1.4 MB of mostly unused files on every load.
+// - Everything else (other origins, non-GET, other schemes) is left to the browser. The app
+//   itself asks other hosts for nothing but GitHub's API, and only with Sync on (js/sync.js).
 // - This worker never reads or writes localStorage: app data is not its business.
+// - The timer's notifications are shown through it (js/features/pomodoro.js; phone browsers only
+//   allow that kind), so a click on one lands here: see notificationclick at the end.
 //
 // The offline copy is a snapshot: one cache holding one matching set of the app's files.
 // - A snapshot is written whole or not at all. Every file is fetched from the server into a
@@ -20,7 +26,8 @@
 //   if that fails the install fails and the old worker keeps serving, and (b) after each page
 //   load that came from the server with every module loaded: the page posts the URLs it loaded
 //   (performance entries, incl. the lazily imported feature modules). (b) also covers the first
-//   visit, which isn't controlled yet, so no precache list has to be maintained by hand.
+//   visit, which isn't controlled yet, so no precache list has to be maintained by hand. The one
+//   short list is LEGAL: the pages Settings → Legal opens, which the app itself never loads.
 // - The page is stored once, under the scope URL (never per query string), and only when it is
 //   LIFE/OS: index.html's application-name meta tag (APP_PAGE_MARK). Another server on this
 //   port can neither replace it nor be shown instead of it while a copy exists.
@@ -37,7 +44,9 @@
 // - CACHE_VERSION is only for a change to this cache layout. App edits never need it.
 
 const CACHE_VERSION = 2;
-const FONT_CACHE_VERSION = 1; // separate, so an app cache bump keeps the offline typefaces
+// Separate, so an app cache bump keeps the offline typefaces. v1 held Google Fonts' files (before
+// the app served its own); activate deletes it like any cache that isn't current.
+const FONT_CACHE_VERSION = 2;
 const PREFIX = 'lifeos-';
 const APP_PREFIX = `${PREFIX}app-`;
 const SNAPSHOT_PREFIX = `${APP_PREFIX}v${CACHE_VERSION}-`; // + creation time: one cache per snapshot
@@ -46,10 +55,8 @@ const FONT_CACHE = `${PREFIX}fonts-v${FONT_CACHE_VERSION}`;
 const NETWORK_TIMEOUT_MS = 3000;
 const SNAPSHOT_FILE_TIMEOUT_MS = 15000;
 const SNAPSHOT_FILL_GRACE_MS = 60000; // a younger snapshot cache may still be filling: never prune it
-const FONT_CSS_ORIGIN = 'https://fonts.googleapis.com';
-const FONT_FILE_ORIGIN = 'https://fonts.gstatic.com';
-const FONT_ORIGINS = [FONT_CSS_ORIGIN, FONT_FILE_ORIGIN];
 const SCOPE = self.registration.scope;
+const FONT_PATH = new URL('fonts/', SCOPE).pathname;
 const PAGE_KEY = SCOPE;
 const PAGE_PATHS = [new URL(SCOPE).pathname, new URL('index.html', SCOPE).pathname];
 const APP_PAGE_MARK = 'name="application-name" content="LIFE/OS"';
@@ -107,6 +114,20 @@ const CORE = [
   'css/compact.css',
 ].map(keyFor);
 
+// The legal pages (legal/, opened from Settings → Legal; about 90 KB in all) go in every snapshot
+// too, so they open offline. Unlike CORE, one the server no longer has is simply left out.
+const LEGAL = [
+  'legal/privacy.html',
+  'legal/terms.html',
+  'legal/cookies.html',
+  'legal/refunds.html',
+  'legal/business.html',
+  'legal/credits.html',
+  'legal/legal.css',
+  'legal/legal.js',
+  'legal/business.js',
+].map(keyFor);
+
 // Where each open page's document came from: 'network', or the snapshot cache that served it.
 // In memory only: after a worker restart a page is unknown again (network first + fallback).
 const pageSources = new Map();
@@ -144,12 +165,9 @@ self.addEventListener('fetch', (event) => {
   // DevTools quirk: this combination throws when re-fetched
   if (request.cache === 'only-if-cached' && request.mode !== 'same-origin') return;
 
-  if (url.origin === self.location.origin) {
-    if (!keyFor(request.url) || request.headers.has('range')) return;
-    event.respondWith(fromApp(event));
-  } else if (FONT_ORIGINS.includes(url.origin)) {
-    event.respondWith(fromFonts(event));
-  }
+  if (url.origin !== self.location.origin || request.headers.has('range')) return;
+  if (isFont(url)) event.respondWith(fromFonts(event));
+  else if (keyFor(request.url)) event.respondWith(fromApp(event));
 });
 
 async function fromApp(event) {
@@ -218,9 +236,15 @@ async function respondApp(event) {
 
 async function matchSnapshot(name, key, isPage) {
   const hit = await caches.match(key, { cacheName: name });
-  // Offline, any navigation in scope opens the app
-  if (hit || !isPage) return hit;
+  // Offline, any navigation in the app's own folder opens the app. A page in a sub-folder that
+  // isn't in the snapshot (legal/… is, see LEGAL) doesn't: index.html's relative links would
+  // point into that folder and the app would load broken, so it fails like the browser instead.
+  if (hit || !isPage || !inScopeFolder(key)) return hit;
   return caches.match(PAGE_KEY, { cacheName: name });
+}
+
+function inScopeFolder(key) {
+  return !new URL(key).pathname.slice(new URL(SCOPE).pathname.length).includes('/');
 }
 
 function rememberSource(clientId, source) {
@@ -246,6 +270,8 @@ function keyFor(raw) {
   if (url.origin !== self.location.origin || !url.href.startsWith(SCOPE)) return null;
   // The deploy marker must come from the server or not at all: a cached one would hide updates
   if (url.pathname === VERSION_PATH) return null;
+  // The typefaces have a cache of their own (below)
+  if (isFont(url)) return null;
   return PAGE_PATHS.includes(url.pathname) ? PAGE_KEY : url.href;
 }
 
@@ -261,7 +287,7 @@ function queueSnapshot(task) {
 // Fetch every file from the server, then switch to the new set in one step.
 // Resolves 'saved' or 'unchanged'; rejects (nothing written) if any file didn't arrive.
 async function takeSnapshot(urls) {
-  const keys = [...new Set([...CORE, ...urls.map(keyFor).filter(Boolean)])];
+  const keys = [...new Set([...CORE, ...LEGAL, ...urls.map(keyFor).filter(Boolean)])];
   const results = await Promise.all(keys.map(fetchForSnapshot));
   const missing = results.filter((r) => r.status === 'failed' || (r.status === 'gone' && CORE.includes(r.key)));
   if (missing.length) throw new Error(`[sw] offline copy not updated, ${missing.length} file(s) unavailable: ${missing.map((r) => r.key).join(', ')}`);
@@ -387,67 +413,81 @@ async function snapshotFromPage(urls) {
   return result;
 }
 
-/* ---- Fonts ---- */
+/* ---- Fonts (fonts/: the app's own typefaces) ---- */
 
-async function fromFonts(event) {
-  const { request } = event;
-  const cache = await caches.open(FONT_CACHE);
-  const later = (work) => event.waitUntil(work.catch(() => {}));
-  const hit = await cache.match(request.url, { ignoreVary: true });
-  if (hit) {
-    // Font files are immutable; the stylesheet may move on to newer ones
-    if (new URL(request.url).origin === FONT_CSS_ORIGIN) later(fetchFont(request, cache, later));
-    return hit;
-  }
-  return fetchFont(request, cache, later);
+function isFont(url) {
+  return url.origin === self.location.origin && url.pathname.startsWith(FONT_PATH);
 }
 
-// CORS (the Fonts origins allow it) so the status is readable and errors are never cached.
-// `defer` decides whether the stylesheet's font files are awaited or finished in the background.
-async function fetchFont(request, cache, defer = (work) => work) {
-  let response;
-  try {
-    response = await fetch(request.url, { mode: 'cors', credentials: 'omit' });
-  } catch {
-    return fetch(request);
+// One entry per file, whatever query or fragment asked for it
+function fontKey(url) {
+  const key = new URL(url);
+  key.search = '';
+  key.hash = '';
+  return key.href;
+}
+
+async function fromFonts(event) {
+  const key = fontKey(event.request.url);
+  const cache = await caches.open(FONT_CACHE);
+  const hit = await cache.match(key);
+  if (hit) {
+    // A template's stylesheet may move on to new files; the files themselves never change
+    if (key.endsWith('.css')) event.waitUntil(fetchFont(key, cache).catch(() => {}));
+    return hit;
   }
-  if (response.ok) {
-    await cache.put(request.url, response.clone());
-    // The page never lists Google's font files (cross-origin stylesheet), so take them from the CSS
-    if (new URL(request.url).origin === FONT_CSS_ORIGIN) await defer(response.clone().text().then((css) => cacheFontFiles(css, cache)));
-  }
+  // Not cached yet: from the server (offline, it fails like the browser and the system's
+  // fonts stand in until the next online load)
+  return fetchFont(key, cache);
+}
+
+async function fetchFont(key, cache) {
+  const response = await fetch(key, { cache: 'no-cache', credentials: 'same-origin' });
+  if (isCacheable(response)) await cache.put(key, response.clone());
   return response;
 }
 
-async function cacheFontFiles(css, cache) {
-  const urls = new Set([...css.matchAll(/url\((https:\/\/fonts\.gstatic\.com\/[^)'"\s]+)\)/g)].map((m) => m[1]));
+// The first visit loads its fonts before this worker controls the page: cache them from its list
+async function cacheFonts(urls) {
+  const cache = await caches.open(FONT_CACHE);
+  const keys = new Set();
+  for (const raw of urls) {
+    try {
+      const url = new URL(raw);
+      if (isFont(url)) keys.add(fontKey(url));
+    } catch {}
+  }
   await Promise.all(
-    [...urls].map(async (url) => {
-      if (await cache.match(url, { ignoreVary: true })) return;
-      try {
-        const response = await fetch(url, { mode: 'cors', credentials: 'omit' });
-        if (response.ok) await cache.put(url, response);
-      } catch {
-        // offline: the next online load tries again
-      }
+    [...keys].map(async (key) => {
+      if (await cache.match(key)) return;
+      await fetchFont(key, cache).catch(() => {}); // offline: the next online load tries again
     }),
   );
 }
 
-// The first visit loads the fonts before this worker controls the page: cache them from its list
-async function cacheFonts(urls) {
-  const fonts = await caches.open(FONT_CACHE);
-  await Promise.all(
-    urls.map(async (raw) => {
-      let url;
-      try {
-        url = new URL(raw);
-      } catch {
-        return;
+/* ---- A click on a notification (the timer's, js/features/pomodoro.js) ---- */
+
+// Brings LIFE/OS's window to the front on the page the notification names (the timer), or opens
+// the app there when no window is open. Only the app's own page counts: on the website other
+// GitHub Pages sites of the account share this origin, and a legal page isn't the app.
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const asked = event.notification.data?.route;
+  const route = typeof asked === 'string' && /^#\/[a-z-]+$/.test(asked) ? asked : '';
+  event.waitUntil(
+    (async () => {
+      const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+      const app = windows.find((client) => PAGE_PATHS.includes(new URL(client.url).pathname));
+      if (app) {
+        if (route) app.postMessage({ type: 'lifeos:notification-click', route });
+        try {
+          await app.focus();
+          return;
+        } catch {
+          // Not allowed to focus it (rare): a new window instead
+        }
       }
-      url.hash = '';
-      if (!FONT_ORIGINS.includes(url.origin) || (await fonts.match(url.href, { ignoreVary: true }))) return;
-      await fetchFont(new Request(url.href), fonts).catch(() => {});
-    }),
+      await self.clients.openWindow(new URL(route, SCOPE).href);
+    })(),
   );
-}
+});

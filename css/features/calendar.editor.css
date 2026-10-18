@@ -480,7 +480,8 @@
   font-size: var(--fs-2xs);
   letter-spacing: 0.06em;
   font-variant-numeric: tabular-nums;
-  opacity: 0.75;
+  /* Full strength, as in the views (css/features/calendar.css): faded, small words on a colored
+     fill fell under 4.5:1 (WCAG 1.4.3) */
 }
 
 .cal-ed-preview-title {
@@ -490,8 +491,8 @@
   white-space: nowrap;
 }
 
+/* No title yet: the stand-in title is set in italics (faded to 0.55 it was 2–3:1, WCAG 1.4.3) */
 .cal-ed-preview-title.is-placeholder {
-  opacity: 0.55;
   font-style: italic;
 }
 

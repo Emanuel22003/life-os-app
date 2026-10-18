@@ -5,7 +5,7 @@
 //   { settings: { focusMin, shortMin, longMin,          // minutes, 1..180
 //                 roundsBeforeLong,                     // focus rounds before a long break, 1..12
 //                 autoStartBreaks, autoStartFocus,      // start the next phase by itself
-//                 sound, notify,                        // chime · desktop notification at a phase end
+//                 sound, notify,                        // chime · notification at a phase end
 //                 showMini: 'active' | 'always' },      // the top-bar mini timer: while a session runs, or always
 //     state: { phase: 'focus' | 'short' | 'long',
 //              status: 'idle' | 'running' | 'paused',

@@ -184,7 +184,10 @@
   letter-spacing: -0.015em;
 }
 
-[data-plain] :focus-visible {
+/* The default focus ring. :where keeps it as weak as base.css's (as in Brutalist), so a feature's
+   own focus treatment still wins: an inset ring in a scrolling strip, an ink ring on a filled
+   chip. At full strength this rule replaced those, and the ring came out cut off or invisible. */
+[data-plain] :where(:focus-visible) {
   outline: 2px solid var(--line-focus);
   outline-offset: 2px;
 }
@@ -457,17 +460,20 @@
   color: var(--text-2);
 }
 
+/* The raised one is the picked one. Its pill alone is 1.2:1 against the track, too faint to say
+   which is picked (WCAG 1.4.11 asks 3:1 of what shows a state, and color alone may not, 1.4.1):
+   a fine edge in the text color, 60% (3.7:1 on the track, 4.5:1 on the pill), draws its shape */
 .seg-btn:where([data-plain] *)[aria-pressed="true"],
 .seg-btn:where([data-plain] *)[aria-selected="true"] {
   background: var(--surface);
   color: var(--text);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text) 60%, transparent), 0 1px 3px rgba(0, 0, 0, 0.3);
 }
 
 .seg-btn:where([data-plain][data-theme="light"] *)[aria-pressed="true"],
 .seg-btn:where([data-plain][data-theme="light"] *)[aria-selected="true"] {
   background: #ffffff;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.14);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text) 60%, transparent), 0 1px 3px rgba(0, 0, 0, 0.14);
 }
 
 .seg-count:where([data-plain] *) {
@@ -605,6 +611,13 @@
   box-shadow: none;
 }
 
+/* From the keyboard, a ring as well (as the menus' items have, css/components.css): the soft fill
+   alone is about 1.1:1 against the menu, too faint to show which item the arrows are on
+   (WCAG 2.4.7 / 1.4.11) */
+[data-plain] .ctx-item:not([aria-disabled="true"]):focus-visible {
+  box-shadow: inset 0 0 0 1.5px var(--line-focus);
+}
+
 [data-plain] .ctx-item[aria-disabled="true"],
 [data-plain] .ctx-item[aria-disabled="true"] .ctx-icon {
   color: var(--text-4);
@@ -647,8 +660,10 @@
   background: var(--surface);
 }
 
+/* Typing in the bar: its edge turns to the focus color (the field's own ring is left out, so this
+   is what shows where you are: 3:1, WCAG 2.4.7; a hairline was fainter than the bar at rest) */
 [data-plain] .tk-command:focus-within {
-  border-color: var(--line-strong);
+  border-color: var(--line-focus);
   box-shadow: var(--simple-card-shadow), var(--simple-ring);
 }
 
@@ -1083,7 +1098,8 @@
 [data-plain] .nt-chip[aria-current="true"] .nt-chip-count {
   background: none;
   color: inherit;
-  opacity: 0.75;
+  /* 0.75 left the count under 4.5:1 on Coquette's and Y2K's pink chip (WCAG 1.4.3) */
+  opacity: 0.88;
 }
 
 [data-plain] .nt-chip--add,

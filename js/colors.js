@@ -143,7 +143,8 @@ export function openColorMenu({ anchor, value = null, onPick, title = 'Color' } 
       e.stopPropagation();
       closeColorMenu({ restore: true });
     } else if (e.key === 'Tab') {
-      closeColorMenu();
+      // Back to the color button first, so Tab carries on from there (inside a dialog too)
+      closeColorMenu({ restore: true });
     }
   };
   const onDown = (e) => {

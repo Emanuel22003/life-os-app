@@ -731,6 +731,12 @@
   text-decoration: none;
 }
 
+/* On white paper the yellow cell alone is 1.3:1, too faint to say which is picked (WCAG 1.4.11 /
+   1.4.1): it stands on a thick ink bar (at night the yellow on black says it, 15:1) */
+[data-skin="brutalist"][data-theme="light"] :is(.seg-btn[aria-pressed="true"], .seg-btn[aria-selected="true"], .cal-ed-seg-opt.is-on) {
+  box-shadow: inset 0 -4px 0 var(--text);
+}
+
 /* A segmented control in a form field keeps its own width (stretched, its slab shows an empty tail) */
 [data-skin="brutalist"] .field > .seg {
   align-self: flex-start;
@@ -932,7 +938,9 @@
   color: var(--bru-on-hi);
 }
 
-[data-skin="brutalist"] .ctx-item:focus-visible {
+/* (as strong as the lit rule above: weaker, its "no shadow" won, and on white paper the yellow
+   cell alone was 1.3:1, WCAG 2.4.7 / 1.4.11) */
+[data-skin="brutalist"] .ctx-item:not([aria-disabled="true"]):focus-visible {
   box-shadow: inset 0 0 0 3px var(--bru-on-hi);
 }
 
@@ -1249,6 +1257,11 @@
 [data-skin="brutalist"] .tk-row.is-overdue .tk-grip {
   background: repeating-linear-gradient(-45deg, var(--bru-hi) 0 5px, var(--bru-on-hi) 5px 10px);
   color: var(--bru-on-hi);
+}
+
+/* The grip itself on a yellow label: black on the black stripes was invisible (WCAG 1.4.11) */
+[data-skin="brutalist"] .tk-row.is-overdue .tk-grip-icon {
+  background: var(--bru-hi);
 }
 
 [data-skin="brutalist"] .tk-row.is-overdue .tk-idx {
@@ -3658,6 +3671,27 @@
   outline-offset: 0;
 }
 
+/* On white paper the yellow ring disappears (1.1:1): there it is ink (WCAG 2.4.7) */
+[data-skin="brutalist"][data-theme="light"] :is(.cal-ev, .cal-tlev):focus-visible {
+  outline-color: var(--text);
+}
+
+/* The thick ring fits inside where a scrolling or framed box would cut off its outer edge: the
+   choice bars, the week's day heads, the habit grid's names and days, the notes list */
+[data-skin="brutalist"] :is(.seg .seg-btn, .hm-day-head, .hb-mx-name, .hb-mx-colbtn, .nt-item, .nt-card):focus-visible {
+  outline-offset: -3px;
+}
+
+/* The open note is a yellow block: its ring inside it is ink */
+[data-skin="brutalist"] .nt-item[aria-current="true"]:focus-visible {
+  outline-color: var(--bru-on-hi);
+}
+
+/* A block in the timeline's last column sits 2px from its edge: one pixel of the ring goes inside */
+[data-skin="brutalist"] .cal-tlev:focus-visible {
+  outline-offset: -1px;
+}
+
 [data-skin="brutalist"] .cal-tlev-resize::after {
   width: 18px;
   margin-left: -9px;
@@ -3875,8 +3909,11 @@
   color: var(--text);
 }
 
+/* The months around: gray words on a paper label over the hatching (--text-4 on the stripes
+   was 3.5:1, WCAG 1.4.3) */
 [data-skin="brutalist"] .cal-cell.is-out .cal-date {
-  color: var(--text-4);
+  color: var(--text-3);
+  background: var(--bg);
 }
 
 [data-skin="brutalist"] .cal-cell.is-today .cal-date {
@@ -4713,9 +4750,23 @@
   background: repeating-linear-gradient(-45deg, var(--hatch) 0 2px, transparent 2px 10px), var(--bg);
 }
 
+/* Words on the weekend's hatching sit on paper labels, like a hatched event's (small gray text
+   across the stripes fell to 3.5:1, WCAG 1.4.3) */
+[data-skin="brutalist"] .hm-day.is-weekend :is(.hm-day-wd, .hm-day-num, .hm-day-free, .hm-day-more, .cal-hb) {
+  background: var(--bg);
+}
+
 [data-skin="brutalist"] .hm-day.is-today {
   background: var(--bg);
   box-shadow: none;
+}
+
+/* On the yellow (a dialog's head bar, today's head, the open tab): the ring in ink, not in the
+   light ring color, which nearly matches the yellow at night (1.3:1, WCAG 2.4.7) */
+[data-skin="brutalist"] .modal-head :focus-visible,
+[data-skin="brutalist"] .hm-day.is-today .hm-day-head:focus-visible,
+[data-skin="brutalist"] .tab[aria-current="page"]:focus-visible {
+  outline-color: var(--bru-on-hi);
 }
 
 [data-skin="brutalist"] .hm-day.is-today .hm-day-head {

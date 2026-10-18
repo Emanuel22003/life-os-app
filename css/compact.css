@@ -19,7 +19,7 @@ html[data-skin] .main .view :is(.view > .page-header, .tr-normal > .page-header)
 
 @media (max-width: 640px) {
   /* Less room under the last item too: a page that fits the screen doesn't scroll for nothing
-     (the docked timer's own, taller padding in shell.css still wins) */
+     (the room for the floating timer sits under the legal links, in shell.css) */
   html[data-skin] .main .view {
     padding-top: var(--space-3);
     padding-bottom: var(--space-5);

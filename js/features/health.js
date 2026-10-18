@@ -1,19 +1,19 @@
-// LIFE/OS — Health: on stand-by. A grayed "Soon" entry in the menu keeps the idea in sight; this
-// page says what it will be. Nothing is tracked or stored yet.
+// LIFE/OS — Health: not available. A grayed entry in the menu keeps the idea in sight; this page
+// says so plainly, with no date and no promise. Nothing is tracked or stored.
 
 import { h, pageHeader, emptyState } from '../ui.js';
 
-const PLANNED = ['Sleep', 'Body weight', 'Water', 'Steps', 'Mood', 'Resting heart rate'];
+const IDEAS = ['Sleep', 'Body weight', 'Water', 'Steps', 'Mood', 'Resting heart rate'];
 
 function mount(root) {
   root.append(
-    pageHeader({ index: '08', title: 'Health', subtitle: 'On stand-by: planned for a later version of LIFE/OS.' }),
+    pageHeader({ index: '08', title: 'Health', subtitle: 'Not available: an idea for a later version, with no date and no promise.' }),
     emptyState({
       icon: 'heart',
-      title: 'Health tracking is coming',
-      text: 'This page is a reminder that it’s planned. Nothing is tracked here yet.',
+      title: 'Nothing here yet',
+      text: 'Nothing is tracked or stored on this page.',
     }),
-    h('section', { class: 'hl-planned panel', 'aria-label': 'Planned' }, h('div', { class: 'label' }, 'Ideas for it'), h('ul', { class: 'hl-list' }, PLANNED.map((x) => h('li', null, x))), h('p', { class: 'hl-note' }, 'Each with a daily log and a graph over time, like Training’s progress graphs.')),
+    h('section', { class: 'hl-planned panel', 'aria-label': 'Ideas' }, h('div', { class: 'label' }, 'Ideas (not a promise)'), h('ul', { class: 'hl-list' }, IDEAS.map((x) => h('li', null, x)))),
   );
 }
 

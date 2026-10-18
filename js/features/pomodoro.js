@@ -7,7 +7,7 @@
 // a route change, sleep or a throttled background tab never drifts it. Each window keeps a 1 s
 // clock only for its own display. When a phase ends, the windows record it under a Web Lock with
 // a fresh read of the store (so it lands once), and exactly one window plays the chime and shows
-// the desktop notification: the first to claim that session's id under the same lock.
+// the notification: the first to claim that session's id under the same lock.
 
 import { h, icon, registerIcon, pageHeader, toast, isTyping, modalOpen, uid, num, term, skin, onSkinChange, onDayChange, plural, plainSkin } from '../ui.js';
 import { createStore } from '../store.js';
@@ -330,7 +330,7 @@ async function claim(what, id, wait) {
 }
 
 /**
- * Chime + desktop notification for one ended session, each in exactly one window. Only a window
+ * Chime + notification for one ended session, each in exactly one window. Only a window
  * that can play sound competes for the chime (so a window without it never takes it from one
  * with it); a visible window goes first, a hidden one gives it a moment.
  */
@@ -355,20 +355,51 @@ function notificationState() {
   return Notification.permission; // 'granted' | 'denied' | 'default'
 }
 
-function showNotification({ title, body }, { silent }) {
+const NOTICE_ROUTE = '#/pomodoro';
+
+/**
+ * Shown through the service worker when there is one: phone browsers only show notifications that
+ * way (new Notification throws there, says MDN), and computers take it too. A click on it is
+ * sw.js's (notificationclick): it brings the app's window to the front, or opens one, on the
+ * timer. Without a worker, the page's own notification, which handles its click itself.
+ */
+async function showNotification({ title, body }, { silent }) {
   if (notificationState() !== 'granted') return;
   // Someone is looking at LIFE/OS: the toast and the chime already said it
   if (document.hasFocus()) return;
+  const options = { body, tag: 'lifeos-pomodoro', icon: new URL('icons/icon-192.png', document.baseURI).href, silent, data: { route: NOTICE_ROUTE } };
   try {
-    const n = new Notification(title, { body, tag: 'lifeos-pomodoro', icon: 'icons/icon-192.png', silent });
+    const registration = await navigator.serviceWorker?.getRegistration();
+    if (registration?.active) {
+      await registration.showNotification(title, options);
+      return;
+    }
+  } catch (err) {
+    console.warn('[pomodoro] notification through the service worker failed', err);
+  }
+  try {
+    const n = new Notification(title, options);
     n.onclick = () => {
       window.focus();
-      if (!ROUTE.test(location.hash)) location.hash = '#/pomodoro';
+      openTimer();
       n.close();
     };
   } catch (err) {
     console.warn('[pomodoro] notification failed', err);
   }
+}
+
+function openTimer() {
+  if (!ROUTE.test(location.hash)) location.hash = NOTICE_ROUTE;
+}
+
+// sw.js says a notification was clicked and this window is the one it brought to the front
+try {
+  globalThis.navigator?.serviceWorker?.addEventListener('message', (e) => {
+    if (e.data?.type === 'lifeos:notification-click' && e.data.route === NOTICE_ROUTE) openTimer();
+  });
+} catch {
+  // No service workers here (some browsers throw when site data is blocked): page notifications only
 }
 
 /* ---- Sound: a soft bell made with Web Audio on the spot (no audio files) ---- */
@@ -496,7 +527,7 @@ function changeSettings(patch) {
 }
 
 /**
- * Desktop notifications on, asking the browser first (call it from a click: browsers only ask
+ * Notifications on, asking the browser first (call it from a click: browsers only ask
  * then). -> the permission afterwards: 'granted' (and notify is on) | 'denied' | 'default' | 'unsupported'
  */
 function enableNotifications() {
@@ -787,7 +818,7 @@ function mount(root) {
     h('div', { class: 'pm-steps' }, steppers.map((s) => s.row)),
     h('div', { class: 'pm-switches' }, autoBreaks.el, autoFocus.el),
     h('div', { class: 'pm-sound' }, soundSw.el, testBtn),
-    h('div', { class: 'pm-notify' }, h('div', { class: 'pm-notify-head' }, icon('bell', { size: 16 }), h('span', { class: 'pm-switch-label' }, 'Desktop notifications')), notifyText, notifyBtn),
+    h('div', { class: 'pm-notify' }, h('div', { class: 'pm-notify-head' }, icon('bell', { size: 16 }), h('span', { class: 'pm-switch-label' }, 'Notifications')), notifyText, notifyBtn),
     h('div', { class: 'pm-mini-pref' }, h('span', { class: 'pm-switch-label', id: 'pm-mini-label' }, 'Mini timer in the top bar'), h('div', { class: 'seg', role: 'group', 'aria-labelledby': 'pm-mini-label' }, miniBtns)),
   );
 
@@ -850,14 +881,18 @@ function mount(root) {
     const state = notificationState();
     let text;
     let btn = null;
-    if (state === 'unsupported') text = 'This browser can’t show desktop notifications.';
+    // Said before the browser asks: a notice only comes while LIFE/OS is open somewhere (there is no
+    // push server) and only when it isn't the window in front. Phones show it too (through the
+    // service worker, see showNotification), but a phone may pause an app in the background, and a
+    // phase noticed over 90 s late gets no notice (P.endedWhileAway): promise no more than that
+    if (state === 'unsupported') text = 'This browser can’t show notifications.';
     else if (state === 'denied') text = 'Blocked in the browser. Allow notifications for this site in the browser’s settings, then come back.';
     else if (s.notify && state === 'granted') {
-      text = 'On: a notification when a phase ends while you’re in another app.';
+      text = 'On: a notification when a phase ends while LIFE/OS is open but you’re in another app or tab. A phone can pause LIFE/OS in the background, and then it may not come.';
       btn = 'Turn off';
     } else {
-      text = 'Get a notification when a phase ends while you’re in another app.';
-      btn = 'Enable desktop notifications';
+      text = 'Get a notification when a phase ends while LIFE/OS is open but you’re in another app or tab. A phone can pause LIFE/OS in the background, and then it may not come.';
+      btn = 'Turn on notifications';
     }
     notifyText.textContent = text;
     notifyBtn.hidden = !btn;
@@ -878,7 +913,7 @@ function mount(root) {
       .then((perm) => {
         if (perm === 'granted') {
           changeSettings({ notify: true }).then(() => paintNotify());
-          toast('Desktop notifications are on.');
+          toast('Notifications are on.');
         } else {
           if (perm === 'denied') toast('Notifications are blocked for LIFE/OS. Allow them in the browser’s site settings.', { duration: 7000 });
           paintNotify();

@@ -50,11 +50,39 @@
   background-image: linear-gradient(90deg, var(--cc) 0 var(--cc-bar, 0), transparent var(--cc-bar, 0)), linear-gradient(var(--cc-wash), var(--cc-wash));
 }
 
+/* The wash shades the box under a colored row's words. On a picked or hovered row it took the
+   quiet ones ("3h ago", a late task's red) just under 4.5:1 (4.2–4.5:1; WCAG 1.4.3): on a row
+   that shows a color, the faintest words are one step stronger and the red takes some text color */
+.cc-tasks [data-cc-kind="tasks"][data-cc],
+.cc-notes [data-cc-kind="notes"][data-cc],
+.cc-sections [data-cc-kind]:is([data-cc-kind="tasks"], [data-cc-kind="notes"])[data-cc-sec] {
+  --text-3: var(--text-2);
+  --tk-alert: color-mix(in srgb, var(--alert) 82%, var(--text));
+}
+
 /* ---- Events: a solid event fills with the color, the other looks take it on their spine ---- */
 .cc-events .cal-ev--solid[data-cc] {
   background: var(--cc);
   border-color: var(--cc);
   color: var(--cc-ink);
+}
+/* The light palettes are mid-tones, where the templates' white ink fell under 4.5:1 on most colors
+   (yellow 3.2:1, Coquette's 2.5:1, Y2K's 2.3:1; WCAG 1.4.3). So in light mode each color takes
+   white while white reads on it and black where it doesn't, worked out from the color's own
+   luminance: white keeps 4.5:1 up to 0.183, and above that black has 4.6:1 or more. The fill stays
+   exactly the color picked. A browser without relative colors keeps the template's ink; Minimal
+   draws events as ink words beside a colored line. (The past rule below is stronger and wins.) */
+[data-theme="light"].cc-events .cal-ev--solid[data-cc]:not(:where([data-skin="minimal"] *)) {
+  color: color(from var(--cc) srgb-linear
+    clamp(0, (0.183 - (0.2126 * r + 0.7152 * g + 0.0722 * b)) * 1000000, 1)
+    clamp(0, (0.183 - (0.2126 * r + 0.7152 * g + 0.0722 * b)) * 1000000, 1)
+    clamp(0, (0.183 - (0.2126 * r + 0.7152 * g + 0.0722 * b)) * 1000000, 1));
+}
+/* Past: the color's tint and the page's text (css/features/calendar.css says why) */
+.cc-events :is(.cal-ev, .cal-tlev).cal-ev--solid[data-cc].is-past:not(:where([data-skin="minimal"] *)) {
+  background: color-mix(in srgb, var(--cc) 22%, var(--surface-solid));
+  border-color: color-mix(in srgb, var(--cc) 45%, transparent);
+  color: var(--text);
 }
 .cc-events .cal-ev--outline[data-cc] {
   background: linear-gradient(color-mix(in srgb, var(--cc) 8%, transparent), color-mix(in srgb, var(--cc) 8%, transparent)), var(--surface-solid);
@@ -68,6 +96,12 @@
   background: color-mix(in srgb, var(--cc) 18%, var(--surface-solid));
   border-color: color-mix(in srgb, var(--cc) 40%, transparent);
 }
+/* Past, in the other looks: fading the group to 0.7 (calendar.css) is fine on the plain card, but
+   the color's tint under the words took them just under 4.5:1 (4.3:1 in the ink look; WCAG 1.4.3):
+   a colored one fades a little less */
+.cc-events :is(.cal-ev, .cal-tlev)[data-cc].is-past:not(.cal-ev--solid):not(:where([data-skin="minimal"] *)) {
+  opacity: 0.8;
+}
 .cc-events :is(.cal-ev--outline, .cal-ev--hatched, .cal-ev--ink)[data-cc]::before {
   width: 3px;
   background: var(--cc);
@@ -76,6 +110,10 @@
 /* ---- Days (month cells, week / day headers): a band on top and a wash ---- */
 .cc-days :is(.cal-cell, .cal-dh, .hm-day, .hm-mcell, .hm-dayview)[data-cc] {
   background-image: linear-gradient(var(--cc) 0 3px, transparent 3px), linear-gradient(color-mix(in srgb, var(--cc) 13%, transparent), color-mix(in srgb, var(--cc) 13%, transparent));
+  /* The wash shades the box under the day's quiet words (weekday, "+3 more", the habit count),
+     which took --text-3 under 4.5:1 (to 3.9:1; WCAG 1.4.3): inside a colored day the faintest
+     words are one step stronger */
+  --text-3: var(--text-2);
 }
 
 /* ---- Sections: a dot on tabs, a colored icon in the notes rail, chips and board columns ---- */
@@ -155,6 +193,12 @@
 .cc-swatch[data-swatch="pink"] { background: var(--cc-pink); }
 .cc-swatch:not(.cc-swatch--none) {
   border-color: transparent;
+}
+/* On light paper the light swatches (yellow, orange, teal, green) were 2.3–2.9:1 against the
+   dialog, under the 3:1 a button's shape needs (WCAG 1.4.11): a rim of the same color with some
+   ink in it (the border lies over the swatch's own fill), the fill itself unchanged */
+[data-theme="light"] .cc-swatch:not(.cc-swatch--none) {
+  border-color: color-mix(in srgb, var(--text) 30%, transparent);
 }
 
 /* The pop-up (and the row inside the right-click menu) */

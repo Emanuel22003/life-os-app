@@ -1045,6 +1045,8 @@ export function mountTradingChart(container, source) {
         'div',
         { class: 'hbt-info' },
         h('p', { class: 'muted' }, 'A 0–100 momentum score for your habits, drawn like a stock. It starts at 50 on the first day you plan a habit.'),
+        // The name and the stock look could read as a score of your life or a real price: say what it is not
+        h('p', { class: 'muted' }, 'It only counts the habits you plan and tick off here. It isn’t a measure of your health or of how your life is going, and its “price” has nothing to do with money.'),
         h(
           'dl',
           { class: 'hbt-info-list' },

@@ -91,7 +91,8 @@
 
   --text: #8dffb1;
   --text-2: #4fe07f;
-  --text-3: #279a50;
+  /* Dimmest phosphor for words: 4.5:1 on the lit panels too (WCAG 1.4.3; #279a50 was 4.2:1) */
+  --text-3: #2ead5b;
   --text-4: #17532c;
 
   --accent: #4dff88;
@@ -143,7 +144,8 @@
 
   --text: #08341a;
   --text-2: #1d5a31;
-  --text-3: #3b6b47;
+  /* 4.5:1 on the darker panels too (WCAG 1.4.3; #3b6b47 was 4.4:1 on a shaded day) */
+  --text-3: #396845;
   --text-4: #a3bf9f;
 
   --accent: #0b4d22;
@@ -939,6 +941,14 @@
   --terminal-icon-glow: none;
   color: var(--terminal-inv-ink);
   text-shadow: none;
+}
+
+/* A phosphor block takes its focus ring inside, in its ink: drawn outside, the flipped ink ring
+   sat on the dark screen and vanished (1:1, WCAG 2.4.7) */
+[data-skin="terminal"] .nt-item[aria-current="true"]:focus-visible,
+[data-skin="terminal"] .hm-day.is-today .hm-day-head:focus-visible,
+[data-skin="terminal"] .pm-preset[aria-pressed="true"]:focus-visible {
+  outline-offset: -3px;
 }
 
 /* ==========================================================================

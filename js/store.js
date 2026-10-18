@@ -5,6 +5,16 @@
 
 const PREFIX = 'lifeos:v1:';
 const registry = new Map();
+let saving = true;
+
+/**
+ * Settings → Delete all my data: from now on nothing is written, so a page's last save (a note
+ * flushed when the window hides, a running timer) can't bring deleted data back before the
+ * reload that follows. Every open window of LIFE/OS calls it (js/features/settings.js).
+ */
+export function stopSaving() {
+  saving = false;
+}
 
 function read(key, fallback) {
   try {
@@ -20,6 +30,7 @@ function read(key, fallback) {
 }
 
 function write(key, value) {
+  if (!saving) return false;
   try {
     localStorage.setItem(PREFIX + key, JSON.stringify(value));
     return true;

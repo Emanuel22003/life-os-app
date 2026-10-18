@@ -146,7 +146,8 @@
 .nt-kbd-inv {
   border-color: currentColor;
   color: inherit;
-  opacity: 0.5;
+  /* faded just enough to step back: at 0.5 the key's letter fell under 4.5:1 (WCAG 1.4.3) */
+  opacity: 0.8;
 }
 
 /* New note: the page header's main button, in both layouts */
@@ -291,6 +292,8 @@
   overflow-y: auto;
   overscroll-behavior: contain;
   padding: var(--space-1) var(--space-2) var(--space-3);
+  /* Arrowing through notes scrolls the next one in with room for its focus ring (WCAG 2.4.7) */
+  scroll-padding-block: var(--space-2);
 }
 
 .nt-group {
@@ -1592,7 +1595,8 @@
 }
 
 .nt-chip[aria-current="true"] .nt-chip-count {
-  opacity: 0.7;
+  /* 0.7 left the count under 4.5:1 on the lighter chips (Coquette's and Y2K's pink, WCAG 1.4.3) */
+  opacity: 0.85;
 }
 
 .nt-chip--add,
@@ -2247,8 +2251,7 @@
 
   .nt-view[data-pane="list"] .nt-editor,
   .nt-view[data-pane="editor"] .nt-list,
-  .nt-view[data-pane="editor"] .nt-strip,
-  .nt-view[data-pane="editor"] .page-header {
+  .nt-view[data-pane="editor"] .nt-strip {
     display: none;
   }
 
@@ -2389,16 +2392,73 @@
 
 /* The open note fills the screen without the page header (Back returns). Spelled out like the
    compact header rules (css/compact.css), which would otherwise show it again. Tablets keep
-   the header beside the board's note panel. */
+   the header beside the board's note panel.
+   Out of sight, not gone: the page's h1 stays for screen readers (the usual visually-hidden
+   box, out of the flow, so nothing moves), while its buttons can't be reached with Tab. */
 @media (max-width: 900px) {
   html[data-skin] .main .view.nt-view[data-pane="editor"]:not([data-layout="board"]) > .page-header {
-    display: none;
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  html[data-skin] .main .view.nt-view[data-pane="editor"]:not([data-layout="board"]) > .page-header :is(a, button, input, select, textarea, [tabindex]) {
+    visibility: hidden;
   }
 }
 
 @media (max-width: 640px) {
   html[data-skin] .main .view.nt-view[data-pane="editor"] > .page-header {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  html[data-skin] .main .view.nt-view[data-pane="editor"] > .page-header :is(a, button, input, select, textarea, [tabindex]) {
+    visibility: hidden;
+  }
+}
+
+/* The legal links end every page (css/shell.css) and the panes make room for them. The open
+   note fills the screen without them, as without the header (Back brings both back); under the
+   docked timer it keeps the timer's room itself. */
+@media (max-width: 900px) {
+  .view.nt-view {
+    height: calc(100% - var(--legal-room, 0px));
+  }
+
+  html[data-skin] .main:has(> .view.nt-view[data-pane="editor"]:not([data-layout="board"])) {
+    --legal-room: 0px;
+  }
+
+  html[data-skin] .main:has(> .view.nt-view[data-pane="editor"]:not([data-layout="board"])) > .page-legal {
     display: none;
+  }
+}
+
+@media (max-width: 640px) {
+  html[data-skin] .main:has(> .view.nt-view[data-pane="editor"]) {
+    --legal-room: 0px;
+  }
+
+  html[data-skin] .main:has(> .view.nt-view[data-pane="editor"]) > .page-legal {
+    display: none;
+  }
+
+  .shell:has(> .topbar-center > :not([hidden])) .main > .view.nt-view[data-pane="editor"] {
+    padding-bottom: calc(var(--space-8) + 56px);
   }
 }
 

@@ -60,7 +60,8 @@
 
   --text: #f2f2f2;
   --text-2: #9b9b9b;
-  --text-3: #6c6c6c;
+  /* The faintest text: 4.5:1 on the page and on a hovered row (WCAG 1.4.3; was #6c6c6c, 3.7:1) */
+  --text-3: #8a8a8a;
   --text-4: #3c3c3c;
 
   --accent: #f2f2f2;
@@ -90,8 +91,11 @@
   --line-focus: rgba(0, 0, 0, 0.55);
 
   --text: #111111;
-  --text-2: #707070;
-  --text-3: #a3a3a3;
+  /* The one gray, for every quiet word: 4.5:1 on white and on a hovered or filled row
+     (WCAG 1.4.3). It was #707070 with a fainter #a3a3a3 (2.5:1 on white) for the quietest
+     text; no lighter gray reads well enough, so both levels are this one gray. */
+  --text-2: #696969;
+  --text-3: #696969;
   --text-4: #d6d6d6;
 
   --accent: #111111;
@@ -186,15 +190,28 @@
   background: var(--bg);
 }
 
+/* Out of sight, not gone: the word is still each tab's name for a screen reader */
 [data-skin="minimal"] .tab .tab-label {
-  display: none;
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 [data-skin="minimal"] .tab > .icon {
   color: var(--text-3);
 }
 
-[data-skin="minimal"] .tab[aria-current="page"] > .icon {
+/* The open page's icon in ink, also while Color coding → Pages is on: icons.css colors each
+   page's icon with a stronger rule, and here every page tone is the gray, so the open page's icon
+   went gray too and nothing showed which page is open (its word is out of sight) */
+[data-skin="minimal"] .tab[aria-current="page"] > .icon,
+[data-skin="minimal"].cc-on.cc-pages :is(.tab, .nav-item)[aria-current="page"] > .icon {
   color: var(--text);
 }
 
@@ -269,8 +286,16 @@
 }
 
 /* ---- Fields: a quiet line ---- */
+/* In use: the one 2px ring (the base field rule switches outlines off on focus, and this
+   template's resting border would otherwise hide the darker focus border too) */
+[data-skin="minimal"] :is(.input, .textarea, .select):focus {
+  outline: 2px solid var(--line-focus);
+  outline-offset: 2px;
+}
+
 [data-skin="minimal"] :is(.input, .textarea, .select) {
-  border-color: var(--line);
+  /* Quiet, but still 3:1: the line is the only sign a box takes typing (WCAG 1.4.11) */
+  border-color: var(--field-line);
   /* The color only: a select draws its arrow as a background image */
   background-color: transparent;
 }
@@ -760,9 +785,11 @@
   font-weight: 400;
 }
 
+/* Past events step back to gray instead of fading: a faded gray falls under 4.5:1 */
 [data-skin="minimal"] .hm-page .hm-week .cal-ev.is-past,
 [data-skin="minimal"] .hm-page .hm-week .cal-tlev.is-past {
-  opacity: 0.5;
+  opacity: 1;
+  color: var(--text-2);
 }
 
 /* A task: a thin box and its title; late, the box is red. No H / M / L letters */
@@ -984,7 +1011,7 @@
 }
 
 [data-skin="minimal"] .hm-page .hm-mcell.is-out .hm-mnum {
-  color: var(--text-4);
+  color: var(--text-3);
 }
 
 [data-skin="minimal"] .hm-page .hm-mcell.is-today .hm-mnum {
@@ -1128,7 +1155,8 @@
   height: 38px;
   padding-left: 26px;
   border-width: 0 0 1px;
-  border-color: var(--line);
+  /* The line is the field: 3:1 (WCAG 1.4.11) */
+  border-color: var(--field-line);
   border-radius: 0;
   background: none;
 }
@@ -1493,7 +1521,8 @@
 
 /* ---- Add: one quiet line; the + turns ink once there is something to add ---- */
 [data-skin="minimal"] .tk-root .tk-command {
-  border-color: transparent transparent var(--line);
+  /* The line under it is the field's edge: 3:1, like every field's (WCAG 1.4.11) */
+  border-color: transparent transparent var(--field-line);
   border-radius: 0;
   background: none;
   box-shadow: none;
@@ -1674,9 +1703,16 @@
   background-size: 100% calc(100% - var(--radius-sm) * 2);
 }
 
-/* The grip: faint until the row is under the pointer (always there, faint, on touch) */
+/* The grip: out of sight until the row is under the pointer; on touch, where nothing hovers,
+   always there in the gray (a faint grip that can be seen has to reach 3:1, WCAG 1.4.11) */
 [data-skin="minimal"] .tk-list .tk-row .tk-grip {
-  color: var(--text-4);
+  color: transparent;
+}
+
+@media (hover: none) {
+  [data-skin="minimal"] .tk-list .tk-row .tk-grip {
+    color: var(--text-3);
+  }
 }
 
 [data-skin="minimal"] .tk-list .tk-row.is-draggable:is(:hover, :focus-visible) .tk-grip {
@@ -2186,6 +2222,12 @@
   font-weight: 600;
 }
 
+/* The open section is a word here, not a filled chip: its ring takes the focus color, not the
+   ink-on-fill one (which matched the paper and vanished) */
+[data-skin="minimal"] .nt-strip .nt-chip[aria-current="true"]:focus-visible {
+  outline-color: var(--line-focus);
+}
+
 [data-skin="minimal"] .nt-strip .nt-chip-count {
   display: none;
 }
@@ -2486,6 +2528,11 @@
   margin-left: calc(2px - var(--btn-h, 28px) / 2);
 }
 
+/* …which puts the ‹ at the very edge of the page: its focus ring sits inside it */
+[data-skin="minimal"] .hb-bar > .hb-bar-step:first-child:focus-visible {
+  outline-offset: -2px;
+}
+
 [data-skin="minimal"] .hb-bar > .dd:last-child {
   margin-right: -6px;
 }
@@ -2612,7 +2659,8 @@
 
 [data-skin="minimal"] .hb-mx-cell[data-state="miss"] {
   border-width: 1px;
-  border-color: var(--text-4);
+  /* A ring you can still tick: 3:1 against the page (WCAG 1.4.11; --text-4 was 1.5:1) */
+  border-color: var(--field-line);
 }
 
 [data-skin="minimal"] .hb-mx-cell[data-state]:not([aria-disabled="true"]):hover {
@@ -3356,6 +3404,13 @@
   opacity: 1;
 }
 
+/* Past events: gray words, not a faded block (the times are gray already, and a faded gray
+   falls under 4.5:1, WCAG 1.4.3) */
+[data-skin="minimal"] :is(.cal-ev, .cal-tlev).is-past {
+  opacity: 1;
+  color: var(--text-2);
+}
+
 [data-skin="minimal"] .cal-tlev-loc {
   color: var(--text-2);
   opacity: 1;
@@ -3497,6 +3552,8 @@
 /* One clear ring (the app's 2px focus outline), drawn inside the day */
 [data-skin="minimal"] .cal-cell:focus-visible {
   box-shadow: none;
+  /* The ring itself (the base rule's outline is transparent, its ring a box-shadow) */
+  outline: 2px solid var(--line-focus);
   outline-offset: -2px;
 }
 
@@ -3524,7 +3581,7 @@
 }
 
 [data-skin="minimal"] .cal-cell.is-out .cal-date {
-  color: var(--text-4);
+  color: var(--text-3);
 }
 
 /* Phone month: the number, then up to three tiny dots (the day view has the rest) */
@@ -4222,7 +4279,9 @@
 
 [data-skin="minimal"] .pm-page .pm-step-input {
   width: 44px;
-  border-color: transparent;
+  /* One quiet line under the number: the sign that it can be typed in (3:1, WCAG 1.4.11) */
+  border-color: transparent transparent var(--field-line);
+  border-radius: 0;
   background: none;
   font-family: var(--font-sans);
   font-size: var(--fs-md);
@@ -4805,6 +4864,8 @@
 /* From the keyboard: just the one focus ring */
 [data-skin="minimal"] .st-select:focus-visible {
   border-color: transparent;
+  outline: 2px solid var(--line-focus);
+  outline-offset: 2px;
 }
 
 /* Words carry the buttons; their icons go (GitHub keeps its "opens elsewhere" arrow) */

@@ -47,6 +47,8 @@
   --y2k-b: oklch(from var(--accent) l c calc(h - 50));
   --y2k-c: oklch(from var(--accent) l c calc(h - 100));
   --y2k-holo: linear-gradient(115deg, var(--y2k-a), var(--y2k-b) 52%, var(--y2k-c));
+  /* The shimmer the titles' letters are cut from: the same here; deeper on the light paper */
+  --y2k-holo-ink: var(--y2k-holo);
   --y2k-rim: rgba(230, 200, 255, 0.16);
   --y2k-art-alpha: 0.5;
   --y2k-sparkle: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 1.5c.9 6.1 3.4 8.6 9.5 10.5-6.1 1.9-8.6 4.4-9.5 10.5-.9-6.1-3.4-8.6-9.5-10.5C8.6 10.1 11.1 7.6 12 1.5Z'/%3E%3C/svg%3E");
@@ -78,7 +80,8 @@
 
   --text: #f7ecff;
   --text-2: #dcc6f5;
-  --text-3: #ad93cf;
+  /* 4.5:1 also on a tag's violet chip (WCAG 1.4.3; #ad93cf was 4.4:1 there) */
+  --text-3: #b39ad3;
   --text-4: #5e4683;
 
   --accent: #ff8ad1;
@@ -114,6 +117,9 @@
 
 /* ---- Pastel (light) ---- */
 [data-skin="y2k"][data-theme="light"] {
+  /* The titles' shimmer with some ink in it: the pastel stops alone were 1.8:1 on the pale
+     paper, under the 3:1 big text needs (WCAG 1.4.3) */
+  --y2k-holo-ink: linear-gradient(115deg, color-mix(in srgb, var(--y2k-a) 65%, var(--text)), color-mix(in srgb, var(--y2k-b) 65%, var(--text)) 52%, color-mix(in srgb, var(--y2k-c) 65%, var(--text)));
   --y2k-rim: rgba(255, 255, 255, 0.95);
   --y2k-art-alpha: 0.62;
   --page-bg-image:
@@ -136,11 +142,19 @@
 
   --line: rgba(120, 60, 160, 0.14);
   --line-strong: rgba(120, 60, 160, 0.26);
-  --line-focus: #b36bff;
+  /* The focus ring: a deeper lilac, 3:1 on the pink paper and the pink cards (WCAG 1.4.11;
+     #b36bff was 2.9:1 on the page) */
+  --line-focus: #9559d5;
+  /* A field's edge with a little more ink than the other templates': it lies over the glassy
+     card's white, and where the page's sky-blue glow is strongest the usual 56% was 2.8:1
+     (WCAG 1.4.11) */
+  --field-line: color-mix(in srgb, var(--text) 66%, transparent);
 
   --text: #3b1d5c;
   --text-2: #5f3f84;
-  --text-3: #7a5a9c;
+  /* 4.5:1 also where the page's sky-blue glow sits behind the words (WCAG 1.4.3; #7a5a9c fell
+     to 4.1:1 there) */
+  --text-3: #715390;
   --text-4: #cdb6e3;
 
   --accent: #ff6ec4;
@@ -189,7 +203,8 @@
   color: var(--text-3);
 }
 
-[data-skin="y2k"] :focus-visible {
+/* :where: as weak as base.css's ring, so a feature's own focus treatment still wins */
+[data-skin="y2k"] :where(:focus-visible) {
   outline: 2px solid var(--line-focus);
   outline-offset: 2px;
 }
@@ -316,6 +331,14 @@
   color: var(--accent-ink);
 }
 
+/* A short window: smaller butterflies, so the whole sidebar (down to the Privacy · Business
+   details line) fits without scrolling */
+@media (min-width: 901px) and (max-height: 860px) {
+  [data-skin="y2k"] .brand::before {
+    width: 88px;
+  }
+}
+
 @media (max-width: 900px) {
   [data-skin="y2k"] .brand::before {
     width: 50px;
@@ -332,6 +355,18 @@
 
 [data-skin="y2k"] .tab[aria-current="page"] {
   color: var(--accent);
+}
+
+/* On the light pink paper the bubblegum pink is too pale for a small word (2.3:1): the open
+   tab takes it deeper, mixed with the ink, so its label keeps 4.5:1 (WCAG 1.4.3) */
+[data-skin="y2k"][data-theme="light"] .tab[aria-current="page"] {
+  color: color-mix(in srgb, var(--accent) 55%, var(--text));
+}
+
+/* …and its bar above it takes the same deeper pink: the bubblegum bar was 2.3:1 on the bar's
+   paper, too faint to mark the open page (WCAG 1.4.11) */
+[data-skin="y2k"][data-theme="light"] .tab[aria-current="page"]::before {
+  background: currentColor;
 }
 
 /* ---- Page header: bubble letters in the shimmer over a shimmering line ---- */
@@ -362,7 +397,7 @@
   font-weight: 400;
   line-height: 1.12;
   letter-spacing: 0.01em;
-  background: var(--y2k-holo);
+  background: var(--y2k-holo-ink);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -415,10 +450,17 @@
   border-radius: var(--radius-pill);
 }
 
+/* The picked pill's lilac rim takes some ink: see-through it was 1.4–2.9:1 against the track, too
+   faint to say which is picked (WCAG 1.4.11 / 1.4.1) */
 [data-skin="y2k"] .seg .seg-btn:is([aria-pressed="true"], [aria-selected="true"]) {
   background: var(--surface-solid);
   color: var(--text);
-  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--y2k-b) 55%, transparent), 0 2px 10px color-mix(in srgb, var(--y2k-b) 25%, transparent);
+  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--y2k-b) 55%, var(--text)), 0 2px 10px color-mix(in srgb, var(--y2k-b) 25%, transparent);
+}
+
+/* The same rim on a dialog's picked option (a pink cell, 2.2:1 on its track alone) */
+[data-skin="y2k"] .cal-ed-seg-opt.is-on {
+  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--y2k-b) 55%, var(--text));
 }
 
 .tag:where([data-skin="y2k"] *) {
@@ -447,6 +489,12 @@
   border-color: color-mix(in srgb, var(--y2k-b) 70%, var(--text-3));
 }
 
+/* Light: a little more ink in the ring, so an empty box keeps 3:1 on the pale cards (WCAG
+   1.4.11; it was 2.9:1) */
+.check:where([data-skin="y2k"][data-theme="light"] *) {
+  border-color: color-mix(in srgb, var(--y2k-b) 50%, var(--text-3));
+}
+
 .check:where([data-skin="y2k"] *)::after {
   content: "";
   position: absolute;
@@ -461,7 +509,9 @@
 
 .check:where([data-skin="y2k"] *):is([aria-checked="true"], .is-checked) {
   border-color: transparent;
-  background: var(--y2k-holo);
+  /* The deeper shimmer on light paper: the white sparkle and the filled box keep 3:1 (WCAG
+     1.4.11; on the pastel one they were 2.4:1). The same shimmer at night. */
+  background: var(--y2k-holo-ink);
 }
 
 .check:where([data-skin="y2k"] *):is([aria-checked="true"], .is-checked) svg {
@@ -486,7 +536,7 @@
   font-size: 30px;
   font-weight: 400;
   letter-spacing: 0.01em;
-  background: var(--y2k-holo);
+  background: var(--y2k-holo-ink);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -502,6 +552,11 @@
 
 .toast-action:where([data-skin="y2k"] *) {
   color: var(--accent);
+}
+
+/* Light: the Undo chip is dark gray, where the pink needs a touch of white to reach 4.5:1 */
+.toast-action:where([data-skin="y2k"][data-theme="light"] *) {
+  color: color-mix(in srgb, var(--accent) 85%, #fff);
 }
 
 [data-skin="y2k"] .ctx-menu {

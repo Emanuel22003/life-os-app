@@ -355,7 +355,7 @@ function mount(root) {
       { class: 'panel hud fn-empty' },
       h('div', { class: 'empty-icon' }, icon('wallet', { size: 20 })),
       h('h2', { class: 'empty-title' }, 'Track your subscriptions'),
-      h('p', { class: 'empty-text' }, 'Add what you pay for every month or year. LIFE/OS adds it up, shows what renews next and warns you before a free trial turns into a payment.'),
+      h('p', { class: 'empty-text' }, 'Add what you pay for every month or year. LIFE/OS adds it up and lists what’s due next, including the day a free trial turns into a payment. It only uses what you type in: it isn’t connected to your bank or to the services.'),
       h('div', { class: 'fn-starters' }, F.SUGGESTIONS.slice(0, 8).map((s) => h('button', { type: 'button', class: 'btn btn--sm', onClick: () => openEditor(null, { name: s.name, category: s.category }) }, icon('plus', { size: 13 }), s.name))),
       btn('Add subscription', () => openEditor(), { iconName: 'plus', primary: true, small: false }),
     );
@@ -501,7 +501,8 @@ function openEditor(id = null, preset = {}) {
   });
 
   const dateField = h('div', { class: 'field' }, h('label', { class: 'label', for: dateIn.id }, 'Next payment'), dateIn);
-  const trialField = h('div', { class: 'field' }, h('label', { class: 'label', for: trialIn.id }, 'Free trial ends'), trialIn, h('p', { class: 'fn-ed-hint' }, 'The first payment is that day. You’ll see it coming.'));
+  // How LIFE/OS counts, not a fact about the service: it only knows the date typed in here
+  const trialField = h('div', { class: 'field' }, h('label', { class: 'label', for: trialIn.id }, 'Free trial ends'), trialIn, h('p', { class: 'fn-ed-hint' }, 'LIFE/OS counts the first payment on that day. It shows under Next 30 days once it’s that close.'));
   function paintStatus() {
     dateField.hidden = status === 'trial' || status === 'cancelled';
     trialField.hidden = status !== 'trial';

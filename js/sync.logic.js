@@ -1,7 +1,7 @@
 // LIFE/OS — sync: the pure parts. No DOM, network or storage, so tools/tests/sync.test.js runs
 // them in JavaScriptCore. js/sync.js talks to GitHub and saves; js/sync.panel.js is the dialog.
 
-import { WELCOME_NOTE } from './features/notes.logic.js';
+import { WELCOME_NOTE, WELCOME_NOTE_EARLIER_BODIES } from './features/notes.logic.js';
 
 /**
  * The stores that sync, each with the fields that stay on this device: what's on screen (the open
@@ -145,10 +145,14 @@ export function mergeStore(entry, local, remote, mode = 'combine') {
 const list = (v) => (Array.isArray(v) ? v : []);
 
 /** docs: { tasks, notes, … } (synced parts) -> what they hold. The untouched welcome note doesn't count. */
+// The welcome note as LIFE/OS wrote it (this version's text or an earlier one) isn't the user's data
+const isUntouchedWelcome = (n) =>
+  isObject(n) && n.title === WELCOME_NOTE.title && (n.body === WELCOME_NOTE.body || WELCOME_NOTE_EARLIER_BODIES.includes(n.body));
+
 export function countData(docs = {}) {
   return {
     tasks: list(docs.tasks?.items).length,
-    notes: list(docs.notes?.items).filter((n) => !(isObject(n) && n.title === WELCOME_NOTE.title && n.body === WELCOME_NOTE.body)).length,
+    notes: list(docs.notes?.items).filter((n) => !isUntouchedWelcome(n)).length,
     sections: list(docs.notes?.sections).length,
     habits: list(docs.habits?.items).length,
     events: list(docs.calendar?.events).length,

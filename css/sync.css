@@ -63,19 +63,36 @@
 }
 
 .sync-lead code,
-.sync-hint code {
+.sync-hint code,
+.sync-step-title code {
   padding: 1px 5px;
   border: 1px solid var(--line-strong);
   border-radius: var(--radius-xs);
   font-family: var(--font-code);
   font-size: 0.92em;
   color: var(--text);
+  /* life-os-data stays in one piece (a line would break it at the hyphen) */
+  white-space: nowrap;
 }
 
 .sync-hint b,
 .sync-lead b {
   color: var(--text-2);
   font-weight: 600;
+}
+
+/* Before Connect: what is sent where, with GitHub's terms and the privacy policy (js/sync.panel.js) */
+.sync-consent {
+  margin: 0;
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+}
+
+.sync-consent a {
+  color: var(--text);
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 .sync-steps {
@@ -284,5 +301,14 @@
 @media (max-width: 480px) {
   .sync-compare {
     grid-template-columns: 1fr;
+  }
+
+  /* Three steps on a phone: a little tighter, so Connect stays near */
+  .sync-steps {
+    gap: var(--space-4);
+  }
+
+  .sync-steps > li {
+    padding-left: 32px;
   }
 }

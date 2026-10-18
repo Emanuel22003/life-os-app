@@ -45,7 +45,8 @@
   margin-left: var(--space-1);
   border-color: currentColor;
   color: inherit;
-  opacity: 0.5;
+  /* faded just enough to step back: at 0.5 the key's letter fell under 4.5:1 (WCAG 1.4.3) */
+  opacity: 0.8;
 }
 
 /* ---- Pinned LIFE-index chart slot (content owned by habits.ticker.js) ---- */
@@ -139,7 +140,9 @@
 .hb-day[data-state="miss"],
 .hb-swatch[data-s="miss"] {
   background: var(--heat-0);
-  border-color: var(--line);
+  /* A missed day is a button you can still tick: its square keeps 3:1, like a field's edge
+     (WCAG 1.4.11); a hairline left it nearly invisible on the card */
+  border-color: var(--field-line);
   color: var(--text-3);
 }
 
@@ -490,6 +493,13 @@
 .hb-mx-colbtn:hover {
   background: var(--surface-3);
   color: var(--text);
+}
+
+/* The matrix scrolls sideways, which cuts off a ring drawn outside the day heads and the names
+   along its edges: theirs sits just inside (WCAG 2.4.7) */
+.hb-mx-colbtn:focus-visible,
+.hb-mx-name:focus-visible {
+  outline-offset: -2px;
 }
 
 .hb-mx-wd,

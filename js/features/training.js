@@ -489,14 +489,18 @@ function openEditor(existing = null, { routine = null } = {}) {
         'div',
         { class: 'tr-entry-head' },
         h('div', { class: 'tr-entry-name' }, exercise.name, h('span', { class: 'tr-kind label' }, kindText(exercise))),
-        repeatBtn,
-        btn('', () => {
-          editors.splice(editors.indexOf(ed), 1);
-          el.remove();
-          picker.refresh();
-          syncHint();
-          picker.focus();
-        }, { iconName: 'x', ghost: true, aria: `Remove ${exercise.name}`, title: 'Remove from this workout' }),
+        h(
+          'div',
+          { class: 'tr-entry-acts' },
+          repeatBtn,
+          btn('', () => {
+            editors.splice(editors.indexOf(ed), 1);
+            el.remove();
+            picker.refresh();
+            syncHint();
+            picker.focus();
+          }, { iconName: 'x', ghost: true, aria: `Remove ${exercise.name}`, title: 'Remove from this workout' }),
+        ),
       ),
       lastText ? h('p', { class: 'tr-last' }, lastText) : null,
       body,
@@ -1118,8 +1122,12 @@ function sessionPage(host) {
         'div',
         { class: 'tr-entry-head' },
         h('div', { class: 'tr-entry-name' }, x.name, h('span', { class: 'tr-kind label' }, kindText(x))),
-        sameAsLast,
-        btn('', () => structural(() => live.items.splice(live.items.indexOf(it), 1)), { iconName: 'x', ghost: true, aria: `Remove ${x.name}`, title: 'Remove from this workout' }),
+        h(
+          'div',
+          { class: 'tr-entry-acts' },
+          sameAsLast,
+          btn('', () => structural(() => live.items.splice(live.items.indexOf(it), 1)), { iconName: 'x', ghost: true, aria: `Remove ${x.name}`, title: 'Remove from this workout' }),
+        ),
       ),
       h('p', { class: 'tr-last' }, last ? `Last time (${formatDay(last.date)}): ${entrySummary(last.entry, x)}. ${nextTarget(last.entry, x)}` : 'First time: whatever you log becomes the baseline.'),
       body,
@@ -1311,7 +1319,8 @@ function mount(root) {
   const header = pageHeader({
     index: '07',
     title: 'Training',
-    subtitle: 'Log every workout. Watch each lift, run and sprint get better.',
+    // What the page shows, not a promised result: whether you get better is up to the training
+    subtitle: 'Log every workout. See how each lift, run and sprint changes over time.',
     actions: [
       btn('Log past workout', () => openEditor(), { iconName: 'edit', ghost: true, small: false, title: 'Log a workout you already did, on any date' }),
       btn('Start workout', () => startSession(), { iconName: 'play', primary: true, small: false }),
@@ -1627,7 +1636,7 @@ function mount(root) {
     const emptied = s.workouts.filter((w) => w.entries.length && w.entries.every((e) => e.exerciseId === x.id)).length;
     const ok = await confirmDialog({
       title: `Delete “${x.name}”?`,
-      message: `This deletes its ${plural(sessions, 'logged session')} and its graph${emptied ? `, and ${plural(emptied, 'workout')} with nothing else in it` : ''}, and takes it out of your routines. It can’t be undone (a backup in Settings keeps a copy).`,
+      message: `This deletes its ${plural(sessions, 'logged session')} and its graph${emptied ? `, and ${plural(emptied, 'workout')} with nothing else in it` : ''}, and takes it out of your routines. It can’t be undone. To keep a copy, first use Download a backup in Settings.`,
       confirmLabel: 'Delete exercise',
     });
     if (!ok) return;

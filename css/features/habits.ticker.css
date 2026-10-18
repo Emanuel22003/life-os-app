@@ -152,8 +152,9 @@
   color: var(--text-3);
 }
 
+/* (The percentage used to be faded too; on the gray of a flat day that fell under 4.5:1.) */
 .hbt-chg-pct {
-  opacity: 0.8;
+  opacity: 1;
 }
 
 .hbt-status {

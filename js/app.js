@@ -35,9 +35,9 @@ import { LOCAL_ORIGIN, isRealCopy } from './origin.js';
 import { startSync, syncStatus, onSyncStatus } from './sync.js';
 import { openSyncPanel, syncLabel } from './sync.panel.js';
 import { provideShell } from './shell.js';
-import { isNewerVersion, startPage } from './features/settings.logic.js';
+import { isNewerVersion, startPage, LEGAL_LINKS } from './features/settings.logic.js';
 
-const VERSION = 'v0.28';
+const VERSION = 'v0.29';
 
 // Read before any feature module can seed data: tells a first-ever run from an upgrade
 const hadSavedData = hasSavedData();
@@ -54,7 +54,7 @@ registerIcon('timer', '<circle cx="12" cy="13.5" r="7.5"/><path d="M12 9.5v4l2.5
 
 // Order = nav order and number keys (1 Home … 8 Finance). `short`: the phone tab bar's label.
 // `hidden`: a page outside the module nav (Settings opens from the gear in the sidebar foot).
-// `soon`: on stand-by: grayed out at the end of the sidebar ("Soon"), no number key or phone tab.
+// `soon`: not available: grayed out at the end of the sidebar ("Idea"), no number key or phone tab.
 const MANIFEST = [
   { id: 'home', title: 'Home', icon: 'home' },
   { id: 'tasks', title: 'Tasks', icon: 'list' },
@@ -192,6 +192,20 @@ const badge = (id) => {
 
 const navHeading = h('div', { class: 'nav-heading label' });
 
+// Privacy and Business details, one click away on every page (the law asks for both to be easy
+// to find): small print at the end of the sidebar, and at the end of every page where the
+// sidebar is an icon rail or gone (css/shell.css shows one or the other). Each opens in a new
+// tab, so the app stays where it was. The same documents are listed in Settings → Legal.
+function legalLinks(className) {
+  const link = (id, text) => {
+    const doc = LEGAL_LINKS.find((d) => d.id === id);
+    return h('a', { href: doc.href, target: '_blank', rel: 'noopener', title: doc.hint, 'aria-label': `${doc.label} (new tab)` }, text);
+  };
+  return h('nav', { class: ['legal-links', className], 'aria-label': 'Legal' }, link('privacy', 'Privacy'), h('span', { 'aria-hidden': 'true' }, '·'), link('business', 'Business details'));
+}
+// The page's own copy: render() puts it after each page
+const pageLegal = legalLinks('page-legal');
+
 // Wording that depends on the template (Simple speaks plainly)
 function syncShellCopy() {
   navHeading.textContent = term('shell.nav', 'Modules');
@@ -223,11 +237,11 @@ const sidebar = h(
     SOON.map((f) => {
       const a = h(
         'a',
-        { class: 'nav-item is-soon', href: `#/${f.id}`, dataset: { id: f.id }, title: `${f.title}: on stand-by, coming later` },
+        { class: 'nav-item is-soon', href: `#/${f.id}`, dataset: { id: f.id }, title: `${f.title}: not available (an idea, no promise)` },
         h('span', { class: 'nav-index lo-deco' }, '··'),
         icon(f.icon),
         h('span', { class: 'nav-label' }, f.title),
-        h('span', { class: 'nav-soon label' }, 'Soon'),
+        h('span', { class: 'nav-soon label' }, 'Idea'),
       );
       navLinks.push(a);
       return a;
@@ -265,6 +279,7 @@ const sidebar = h(
         onClick: toggleTheme,
       }),
     ),
+    legalLinks('sidebar-legal'),
   ),
 );
 
@@ -315,6 +330,26 @@ const topbar = h(
 
 const main = h('main', { class: 'main', id: 'main' });
 
+// "Skip to content": the first Tab stop on every page, so a keyboard user can jump past the menu
+// and the top bar (WCAG 2.4.1). Shown only while it has focus (css/shell.css). A plain #main link
+// would change the address's #/page part, which is the router's, so it moves the focus itself.
+// The page only takes focus for that moment: a page that can always be focused would also take it
+// on every click on an empty spot, and the pages read "nothing focused" as the body.
+const skipLink = h(
+  'a',
+  {
+    class: 'skip-link',
+    href: '#main',
+    onClick: (e) => {
+      e.preventDefault();
+      main.setAttribute('tabindex', '-1');
+      main.addEventListener('blur', () => main.removeAttribute('tabindex'), { once: true });
+      main.focus({ preventScroll: true });
+    },
+  },
+  'Skip to content',
+);
+
 const tabbar = h(
   'nav',
   { class: 'tabbar', 'aria-label': 'Modules' },
@@ -331,7 +366,7 @@ const tabbar = h(
   }),
 );
 
-const shell = h('div', { class: 'shell' }, sidebar, topbar, main, tabbar);
+const shell = h('div', { class: 'shell' }, skipLink, sidebar, topbar, main, tabbar);
 document.getElementById('app').replaceChildren(shell);
 // Right-click menu (Copy · Paste · Delete · Duplicate) over every module's items and blank areas
 installContextMenu(main);
@@ -410,7 +445,7 @@ function render(force = false) {
 
   const feature = FEATURES.find((f) => f.id === id);
   const view = h('div', { class: 'view is-entering', dataset: { feature: id } });
-  main.replaceChildren(view);
+  main.replaceChildren(view, pageLegal);
   main.scrollTop = 0;
 
   try {
@@ -517,6 +552,9 @@ const isStandalone = () => standaloneQuery.matches || navigator.standalone === t
 
 let installPrompt = null; // Chrome's beforeinstallprompt event, usable once
 let helpReady = false; // offer help only after Chrome had a moment to offer its prompt
+// The Mac's own copy (start.command's background service) may speak of the Dock and Launchpad;
+// the website can be open on any computer or phone, so its words stay general
+const onMac = location.origin === LOCAL_ORIGIN;
 
 // Remembered (settings.appInstalled), so a browser tab knows the app exists: Chrome never offers
 // to install an installed app, and only offers it again once the app is removed
@@ -535,13 +573,16 @@ window.addEventListener('appinstalled', () => {
   installPrompt = null;
   markInstalled(true);
   syncInstallUi();
-  toast('LIFE/OS is installed. Open it from the Dock, Launchpad or Spotlight.', { duration: 6000 });
+  toast(onMac ? 'LIFE/OS is installed. Open it from the Dock, Launchpad or Spotlight.' : 'LIFE/OS is installed. Open it like your other apps.', { duration: 6000 });
   // Chrome usually grants installed apps persistent storage
-  requestPersistence();
+  requestPersistence({ ask: true });
 });
 
 standaloneQuery.addEventListener?.('change', () => {
-  if (isStandalone()) markInstalled(true);
+  if (isStandalone()) {
+    markInstalled(true);
+    requestPersistence({ ask: true });
+  }
   syncInstallUi();
   syncStorageNote();
 });
@@ -551,9 +592,9 @@ settings.subscribe(() => syncInstallUi());
 
 const INSTALL_MODES = {
   real: { text: 'Open real app', icon: 'open-app', title: `This is a test copy with its own storage. Your LIFE/OS is at ${LOCAL_ORIGIN}` },
-  prompt: { text: 'Install app', icon: 'install', title: 'Install LIFE/OS as a Mac app: its own window and Dock icon, works offline' },
-  help: { text: 'How to install', icon: 'install', title: 'How to install LIFE/OS as a Mac app' },
-  open: { text: 'Open in app', icon: 'open-app', title: 'LIFE/OS is installed on this Mac: open the app instead of this tab' },
+  prompt: { text: 'Install app', icon: 'install', title: 'Install LIFE/OS as an app: its own window, and it opens without internet after the first visit' },
+  help: { text: 'How to install', icon: 'install', title: 'How to install LIFE/OS as an app' },
+  open: { text: 'Open in app', icon: 'open-app', title: 'LIFE/OS is installed on this computer: open the app instead of this tab' },
 };
 
 function installMode() {
@@ -607,12 +648,15 @@ async function promptInstall() {
 function browserKind() {
   const brands = navigator.userAgentData?.brands?.map((b) => b.brand).join(' ') ?? '';
   const ua = navigator.userAgent;
+  // iPhone and iPad (an iPad's Safari calls itself a Mac, one with a touch screen)
+  if (/iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1)) return 'ios';
   if (/Chrom|Edge|Opera|Brave/.test(brands) || /Chrome\/|Edg\//.test(ua)) return 'chromium';
   if (/Safari\//.test(ua) && !/Android/.test(ua)) return 'safari';
   return 'other';
 }
 
-const helpSteps = (...items) => h('ol', { class: 'install-steps' }, items.map((item) => h('li', null, h('span', null, item))));
+// A step may be null (one that doesn't apply on this copy)
+const helpSteps = (...items) => h('ol', { class: 'install-steps' }, items.filter(Boolean).map((item) => h('li', null, h('span', null, item))));
 const helpStrong = (text) => h('strong', null, text);
 const helpNote = (...content) => h('p', { class: 'install-note' }, content);
 const chromeMenuPath = () => [h('span', { class: 'kbd' }, '⋮'), ' → ', helpStrong('Cast, save, and share'), ' → ', helpStrong('Install LIFE/OS…'), ' (or ', helpStrong('Install page as app…'), ')'];
@@ -625,15 +669,19 @@ function openInstallHelp() {
   const chrome = [
     helpSteps(
       ['Click the ', helpStrong('Install'), ' icon at the right end of the address bar, or open ', ...chromeMenuPath(), '.'],
-      ['Confirm. LIFE/OS opens in its own window, with a Dock icon, a place in Launchpad and in ⌘ Tab.'],
-      ['To keep it in the Dock: right-click its icon → Options → Keep in Dock.'],
+      onMac ? ['Confirm. LIFE/OS opens in its own window, with a Dock icon, a place in Launchpad and in ⌘ Tab.'] : ['Confirm. LIFE/OS opens in its own window, like your other apps.'],
+      onMac ? ['To keep it in the Dock: right-click its icon → Options → Keep in Dock.'] : null,
     ),
-    helpNote('Same data as this tab: the app reads the same storage, nothing is copied or reset. It also opens when start.command isn’t running.'),
+    helpNote('Same data as this tab: the app reads the same storage, nothing is copied or reset.', onMac ? ' It also opens when start.command isn’t running.' : null),
     uninstallNote(),
   ];
   const safari = [
     helpSteps([helpStrong('File → Add to Dock…'), ' (macOS Sonoma or later).'], ['Confirm the name, then click ', helpStrong('Add'), '. LIFE/OS appears in the Dock and Launchpad.']),
-    helpNote(helpStrong('Your data won’t come along: '), 'a Safari web app keeps its own website data, separate from every browser. Install from the browser that holds your data, or back it up first (README → Where your data lives).'),
+    helpNote(helpStrong('Your data won’t come along: '), 'a Safari web app keeps its own website data, separate from every browser. Install from the browser that holds your data, or back it up first (Settings → Download a backup).'),
+  ];
+  const ios = [
+    helpSteps(['Tap ', helpStrong('Share'), ', then ', helpStrong('Add to Home Screen'), '.'], ['Tap ', helpStrong('Add'), '. LIFE/OS opens from its icon on the Home Screen.']),
+    helpNote(helpStrong('Your data won’t come along: '), 'the Home Screen app keeps its own website data, separate from the browser. Back it up first (Settings → Download a backup), then restore it in the app.'),
   ];
   const other = [
     h('p', { class: 'muted' }, 'This browser can’t install web apps. Open ', h('span', { class: 'mono' }, location.origin), ' in Chrome and install it there.'),
@@ -657,8 +705,8 @@ function openInstallHelp() {
     title: 'Install LIFE/OS as an app',
     className: 'install-modal',
     body: [
-      h('p', { class: 'muted' }, 'Run LIFE/OS like a Mac app: its own window and Dock icon, no browser tabs.'),
-      ...(kind === 'chromium' ? chrome : kind === 'safari' ? safari : other),
+      h('p', { class: 'muted' }, 'Run LIFE/OS in its own window, like your other apps, without a browser tab.'),
+      ...(kind === 'chromium' ? chrome : kind === 'safari' ? safari : kind === 'ios' ? ios : other),
     ],
     footer,
   });
@@ -672,7 +720,7 @@ function openAppHelp() {
     body: [
       h('p', { class: 'muted' }, 'You’re in a browser tab. The app is the same LIFE/OS with the same data, in its own window.'),
       helpSteps(
-        ['Open it from the Dock, Launchpad or Spotlight (type ', helpStrong('LIFE/OS'), ').'],
+        onMac ? ['Open it from the Dock, Launchpad or Spotlight (type ', helpStrong('LIFE/OS'), ').'] : ['Open it like your other apps (search for ', helpStrong('LIFE/OS'), ').'],
         ['Or click the ', helpStrong('Open in LIFE/OS'), ' icon at the right end of Chrome’s address bar.'],
       ),
       helpNote('Removed the app? Chrome offers to install it again here, or use ', ...chromeMenuPath(), '.'),
@@ -702,12 +750,20 @@ function syncStorageNote() {
   storageNotes.forEach((el) => (el.textContent = text));
 }
 
-async function requestPersistence() {
+// Asking (persist()) is silent in Chromium (Chrome, Edge: they have navigator.userAgentData) and
+// in Safari and every other WebKit browser (Apple's vendor string): they decide by themselves.
+// Firefox and the rest may show a permission popup every time, so a boot there only reads the
+// state; they are asked once the app is installed or runs in its own window (`ask`), where
+// keeping the data is clearly wanted. The Mac's Chrome is asked on every boot, as before.
+const asksSilently = Boolean(navigator.userAgentData) || navigator.vendor === 'Apple Computer, Inc.';
+
+async function requestPersistence({ ask = asksSilently || isStandalone() } = {}) {
   const storage = navigator.storage;
   try {
     if (!storage?.persist || !storage.persisted) storageState = 'unsupported';
     else if (await storage.persisted()) storageState = 'persistent';
-    else storageState = (await storage.persist()) ? 'persistent' : 'best-effort';
+    else if (ask) storageState = (await storage.persist()) ? 'persistent' : 'best-effort';
+    else storageState = 'best-effort';
   } catch (err) {
     console.warn('[life-os] persistent storage request failed', err);
     storageState = 'unsupported';
@@ -756,8 +812,8 @@ function noteNewLook() {
 const UPDATE_CHECK_MS = 10 * 60 * 1000;
 let offered = null; // { version, toast } of the notice last shown
 
-// periodic: the 10-minute poll may bring back a notice that was dismissed; coming back to the
-// window only shows one for a version not offered yet (no nagging on every focus)
+// Each version is offered once per window: once its notice has gone, it doesn't come back (no
+// nagging every 10 minutes). A newer version, or a restart (the page loads again), shows one.
 /** The newest deployed version, or null (offline, no version file: a test copy). */
 async function fetchLatestVersion() {
   try {
@@ -771,12 +827,15 @@ async function fetchLatestVersion() {
   }
 }
 
-async function checkForUpdate({ periodic = false } = {}) {
+async function checkForUpdate() {
   if (!isRealCopy || document.hidden) return;
   try {
     const version = await fetchLatestVersion();
     if (!version || !isNewerVersion(version, VERSION)) return;
-    if (offered?.version === version && (offered.toast.el.isConnected || !periodic)) return;
+    // Still showing, or gone by its own clock or Reload (is-leaving): not again. One that newer
+    // messages pushed out early (at most 4 show) wasn't really seen, so it comes back.
+    const notice = offered?.toast.el;
+    if (offered && !isNewerVersion(version, offered.version) && (notice.isConnected || notice.classList.contains('is-leaving'))) return;
     offered?.toast.dismiss();
     offered = {
       version,
@@ -846,7 +905,7 @@ setTimeout(() => {
 }, 1500);
 
 setTimeout(() => checkForUpdate(), 3000);
-setInterval(() => checkForUpdate({ periodic: true }), UPDATE_CHECK_MS);
+setInterval(() => checkForUpdate(), UPDATE_CHECK_MS);
 document.addEventListener('visibilitychange', () => {
   if (!document.hidden) checkForUpdate();
 });

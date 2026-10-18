@@ -15,7 +15,7 @@ export const SKINS = Object.freeze(
     { id: 'hud', name: 'Mission Control', description: 'The grayscale HUD: blueprint grid, readouts, zero-padded counters.' },
     { id: 'brutalist', name: 'Brutalist', description: 'Loud black-and-white blocks, hard shadows, hazard-yellow accent.' },
     { id: 'terminal', name: 'Terminal', description: 'A retro computer terminal in phosphor green, all monospace.' },
-    { id: 'oldmoney', name: 'Old Money', description: 'Ivory paper, black ink and brass, Bodoni titles, an engraved horse.', plain: true },
+    { id: 'oldmoney', name: 'Old Money', description: 'Ivory paper, black ink and brass, Bodoni titles, an engraving-style horse.', plain: true },
     { id: 'coquette', name: 'Coquette', description: 'Blush pink and cream, a satin bow, pearls, hearts and a script hand.', plain: true },
     { id: 'y2k', name: 'Y2K', description: 'Baby pink, lilac and blue, holographic shine, chrome butterflies, sparkles.', plain: true },
   ].map((skin) => Object.freeze(skin)),
@@ -53,55 +53,59 @@ export function skinInfo(id) {
 }
 
 /**
- * What the page needs before its first paint, per skin: the Google Fonts stylesheet (only the
- * active skin's loads; the picker loads the others for its previews) and the title-bar color
- * for dark and light, and `plain` for the plain templates (data-plain goes on <html> with
- * data-skin). index.html's head script holds the same object as SKIN_BOOT:
+ * What the page needs before its first paint, per skin: its fonts stylesheet (only the active
+ * skin's loads; the picker loads the others for its previews) and the title-bar color for dark
+ * and light, and `plain` for the plain templates (data-plain goes on <html> with data-skin).
+ * The fonts are the app's own files (fonts/<id>.css next to index.html, a relative URL so the
+ * website's sub-folder works too): loading a template contacts only the server the app came
+ * from, never Google or another third party, so no one else learns a visitor's address (see
+ * README → Where your data lives).
+ * index.html's head script holds the same object as SKIN_BOOT:
  * change both together (tools/tests/skins.test.js fails when they differ). After boot the shell
  * takes the title-bar color from the skin's computed --bg, so these colors only cover first paint.
  */
 export const SKIN_BOOT = Object.freeze({
   simple: Object.freeze({
-    font: 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap',
+    font: 'fonts/simple.css',
     dark: '#111111',
     light: '#f7f7f5',
     plain: true,
   }),
   minimal: Object.freeze({
-    font: 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap',
+    font: 'fonts/minimal.css',
     dark: '#0d0d0d',
     light: '#ffffff',
     plain: true,
   }),
   hud: Object.freeze({
-    font: 'https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap',
+    font: 'fonts/hud.css',
     dark: '#060606',
     light: '#f4f4f4',
   }),
   brutalist: Object.freeze({
-    font: 'https://fonts.googleapis.com/css2?family=Anton&family=Archivo:wght@400;500;600;700;800;900&family=Space+Mono:wght@400;700&display=swap',
+    font: 'fonts/brutalist.css',
     dark: '#000000',
     light: '#ffffff',
   }),
   terminal: Object.freeze({
-    font: 'https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=VT323&display=swap',
+    font: 'fonts/terminal.css',
     dark: '#050a05',
     light: '#e9f2e1',
   }),
   oldmoney: Object.freeze({
-    font: 'https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400..700;1,6..96,400..700&family=EB+Garamond:ital,wght@0,400..700;1,400..700&family=Montserrat:wght@400;500;600&display=swap',
+    font: 'fonts/oldmoney.css',
     dark: '#141311',
     light: '#f2eee5',
     plain: true,
   }),
   coquette: Object.freeze({
-    font: 'https://fonts.googleapis.com/css2?family=Pinyon+Script&family=Playfair+Display:ital,wght@0,400..700;1,400..700&family=Lora:ital,wght@0,400..700;1,400..700&display=swap',
+    font: 'fonts/coquette.css',
     dark: '#26141c',
     light: '#fdf3f3',
     plain: true,
   }),
   y2k: Object.freeze({
-    font: 'https://fonts.googleapis.com/css2?family=Fredoka:wght@400..700&family=Rubik+Bubbles&family=Silkscreen&display=swap',
+    font: 'fonts/y2k.css',
     dark: '#140a26',
     light: '#fff0fa',
     plain: true,
@@ -164,7 +168,8 @@ export const TERMS = Object.freeze({
     'habits.starter': 'Or start with one of these',
     'habits.step2': 'Tick off',
     'habits.step3': 'Keep going',
-    'habits.step3.text': 'Each day you tick a habit off, its streak grows by one.',
+    // Streaks count planned days only (habits.logic currentStreak): an unplanned tick is a bonus
+    'habits.step3.text': 'Each planned day you tick a habit off, its streak grows by one. A missed one starts it over.',
     'habits.empty.title': 'No habits yet',
     'habits.empty.archived': 'All habits are archived',
     'habits.empty.text': 'A habit is something small you do on chosen days, like a walk or reading. Tick it off when it is done and LIFE/OS keeps your streak.',

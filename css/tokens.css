@@ -110,10 +110,17 @@
   --line: rgba(255, 255, 255, 0.075);
   --line-strong: rgba(255, 255, 255, 0.16);
   --line-focus: rgba(255, 255, 255, 0.7);
+  /* A field's edge (inputs, selects, text areas): it is the only sign that a box takes typing, so
+     it keeps 3:1 against the card behind it (WCAG 1.4.11). Worked out from the text color, so
+     every template and your own colors follow; a template can still restate it. */
+  --field-line: color-mix(in srgb, var(--text) 40%, transparent);
 
+  /* Text levels. --text-3 is the faintest color text may use (4.5:1 on the cards it sits on,
+     WCAG 1.4.3; it was #6e6e6e, 3.4:1 on a card). --text-4 is for lines, dots and empty
+     squares, never for words you need to read (a disabled item or a "/" may use it). */
   --text: #f2f2f2;
   --text-2: #a8a8a8;
-  --text-3: #6e6e6e;
+  --text-3: #8c8c8c;
   --text-4: #3e3e3e;
 
   --accent: #ffffff;
@@ -162,10 +169,13 @@
   --line: rgba(0, 0, 0, 0.085);
   --line-strong: rgba(0, 0, 0, 0.18);
   --line-focus: rgba(0, 0, 0, 0.75);
+  /* A field's edge: 3:1 on paper (light paper needs more ink for the same contrast) */
+  --field-line: color-mix(in srgb, var(--text) 56%, transparent);
 
+  /* --text-3: 4.5:1 on the cards and on a selected row (it was #8a8a8a, 3:1 on a card) */
   --text: #0b0b0b;
   --text-2: #4f4f4f;
-  --text-3: #8a8a8a;
+  --text-3: #5f5f5f;
   --text-4: #c2c2c2;
 
   --accent: #000000;

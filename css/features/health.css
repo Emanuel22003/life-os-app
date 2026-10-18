@@ -1,14 +1,16 @@
 /* ==========================================================================
-   LIFE/OS — Health (on stand-by): the grayed "Soon" item in the sidebar and its placeholder page.
+   LIFE/OS — Health (not available): the grayed "Idea" item in the sidebar and its placeholder page.
    ========================================================================== */
 
+/* On stand-by, but still a link that opens its page: gray words, not a faded item (at 0.45 its
+   name fell to 2–3:1, WCAG 1.4.3) */
 .nav-item.is-soon {
-  opacity: 0.45;
+  color: var(--text-3);
 }
 
 .nav-item.is-soon:hover,
 .nav-item.is-soon[aria-current="page"] {
-  opacity: 0.75;
+  color: var(--text-2);
 }
 
 .nav-soon {
@@ -41,12 +43,6 @@
   border: 1px dashed var(--line-strong);
   border-radius: var(--radius-pill);
   color: var(--text-2);
-  font-size: var(--fs-sm);
-}
-
-.hl-note {
-  margin: 0;
-  color: var(--text-3);
   font-size: var(--fs-sm);
 }
 

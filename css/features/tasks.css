@@ -33,8 +33,14 @@
   transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
 }
 
+/* The bar is the add field: its edge is a field's edge, 3:1 against the page (WCAG 1.4.11).
+   (.panel's hairline is too faint for that; .panel twice outweighs a template's .panel rule.) */
+.tk-command.panel {
+  border-color: var(--field-line);
+}
+
 .tk-command:focus-within {
-  border-color: var(--line-strong);
+  border-color: var(--line-focus);
   box-shadow: var(--glow);
 }
 
@@ -386,6 +392,11 @@ button.tk-stat:active {
 .tk-stat.is-alert {
   border-color: var(--text-2);
   background: repeating-linear-gradient(-45deg, var(--hatch) 0 2px, transparent 2px 7px), var(--surface);
+}
+
+/* Its small label crosses the hatching: one step darker than a quiet label (WCAG 1.4.3) */
+.tk-stat.is-alert .tk-stat-label {
+  color: var(--text-2);
 }
 
 .tk-stat.is-alert::after {
@@ -1017,8 +1028,14 @@ button.tk-stat:active {
 }
 
 /* ---- Completed rows ---- */
+/* A done task's tags step back to the faintest text color, not by fading: at 0.55 they fell
+   to 2.3–3.4:1 in every template (WCAG 1.4.3) */
 .tk-row.is-done .tk-meta {
-  opacity: 0.55;
+  opacity: 1;
+}
+
+.tk-row.is-done .tk-meta :is(.tag, .label) {
+  color: var(--text-3);
 }
 
 .tk-row.is-done .tk-pri.tag--solid {

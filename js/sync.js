@@ -5,7 +5,7 @@
 // How
 // - The repo holds one file per synced store, stores/<key>.json (SYNCED in sync.logic.js says
 //   what syncs; what's on screen, like the open note or a running timer, stays per device).
-// - A sync lists stores/ (one request, answered from the browser's cache when nothing changed),
+// - A sync lists stores/ (one request; never kept in the browser's web cache, see api()),
 //   downloads only files that changed since the last sync, merges three ways (merge3 in
 //   sync.logic.js, with the last synced version as the base, so additions, edits and deletions
 //   from both sides survive), saves the result here and uploads what GitHub doesn't have yet.
@@ -16,14 +16,16 @@
 // - When: 10 s after the last change (at most 60 s), when the window is hidden (right away) or
 //   shown again, every minute while it's visible, and when the connection comes back. One sync
 //   at a time across every open window of this copy (Web Locks).
-// - The sync key (a fine-grained GitHub token limited to that one repo) stays on this device:
+// - The sync key (a fine-grained GitHub token, limited to that one repo when it's made with Only
+//   select repositories) is saved on this device and sent only to GitHub, with every request:
 //   it's never synced, exported or shown again.
 
 import { readSaved, replaceSaved } from './store.js';
 import { isRealAddress } from './origin.js';
 import { SYNCED_KEYS, STORE_LABELS, syncedPart, withDevicePart, deepEqual, mergeStore, countData, hasData, deviceKind } from './sync.logic.js';
+import { pruneBackups } from './features/settings.logic.js';
 
-const CONFIG_KEY = 'lifeos:sync:config'; // { token, repo, login, connectedAt }
+const CONFIG_KEY = 'lifeos:sync:config'; // { token, repo, login }: only what syncing needs
 const STATE_KEY = 'lifeos:sync:state'; // { base: { key: { sha, data } }, lastSync, mode?, recent: [{ key, sha, at }] }
 const BACKUP_PREFIX = 'lifeos:backup:';
 const QUIET_MS = 10_000;
@@ -32,7 +34,9 @@ const POLL_MS = 60_000;
 const REFOCUS_MS = 15_000;
 const ECHO_MS = 120_000;
 const MAX_PASSES = 4;
-const STOP_KINDS = new Set(['auth', 'access', 'not-found']); // wait for the person, don't retry by itself
+// How often an open window checks again that the repository is still private (see ensurePrivate)
+const VISIBILITY_MS = 60 * 60_000;
+const STOP_KINDS = new Set(['auth', 'access', 'not-found', 'public']); // wait for the person, don't retry by itself
 
 // A test copy may point sync at a local mock of the GitHub API (?sync-api=http://127.0.0.1:PORT),
 // never at GitHub itself: test data must not reach the real repo.
@@ -85,7 +89,15 @@ function readState() {
   return { base: {}, recent: [], ...(s && typeof s === 'object' ? s : {}) };
 }
 
+// Turned off (or "Delete all my data") while a sync was waiting on GitHub: it stops there, so
+// nothing more is sent or applied after the person said stop, and the sync state (a copy of the
+// synced data) doesn't come back
+function assertStillOn() {
+  if (readJson(CONFIG_KEY) === null) throw syncError('off');
+}
+
 function writeState(state) {
+  assertStillOn();
   if (!writeJson(STATE_KEY, state)) throw syncError('storage');
 }
 
@@ -133,8 +145,10 @@ async function api(token, path, { method = 'GET', body } = {}) {
   try {
     res = await fetch(`${API}${path}`, {
       method,
-      // Revalidate with GitHub every time: an unchanged answer costs a 304, never a stale read
-      cache: 'no-cache',
+      // Never from or into the browser's own web cache: GitHub's answers hold your data, your
+      // account name and short-lived download links, and that cache is out of reach of "Delete
+      // all my data". Always fresh, too. (A listing a minute is far inside GitHub's rate limit.)
+      cache: 'no-store',
       headers: { Accept: 'application/vnd.github+json', Authorization: `Bearer ${token}`, ...(body ? { 'Content-Type': 'application/json' } : {}) },
       body: body ? JSON.stringify(body) : undefined,
     });
@@ -171,6 +185,26 @@ function fromBase64(b64) {
   return new TextDecoder().decode(bytes);
 }
 
+/**
+ * Only a private repository: the data is personal, and the Sync dialog promises "your own private
+ * GitHub repository" before Connect. A public one (an easy slip when creating it) would publish
+ * it, so it is refused at Connect (always asked afresh there) and, should it be made public later,
+ * at the first sync of each window and once an hour after that. Nothing is uploaded to a
+ * repository that isn't private.
+ */
+let checkedPrivate = { repo: null, at: 0 };
+
+async function ensurePrivate(token, repo, { fresh = false } = {}) {
+  if (!fresh && checkedPrivate.repo === repo && Date.now() - checkedPrivate.at < VISIBILITY_MS) return;
+  const info = await api(token, repoPath(repo));
+  // `visibility` also tells an enterprise's "internal" repository (private, yet open to all its members)
+  if (info?.private !== true || (info.visibility !== undefined && info.visibility !== 'private')) {
+    checkedPrivate = { repo: null, at: 0 };
+    throw syncError('public', repo);
+  }
+  checkedPrivate = { repo, at: Date.now() };
+}
+
 /** stores/ on GitHub -> Map(key -> blob sha); empty when nothing was synced yet. */
 async function listRemote(token, repo) {
   let entries;
@@ -190,6 +224,7 @@ async function listRemote(token, repo) {
 }
 
 async function download(token, repo, key, sha) {
+  // Only when it changed: the sync state keeps it as the base for the next merge
   const blob = await api(token, `${repoPath(repo)}/git/blobs/${encodeURIComponent(sha)}`);
   try {
     return JSON.parse(fromBase64(blob.content));
@@ -231,7 +266,10 @@ function backupLocal() {
     const k = localStorage.key(i);
     if (k?.startsWith('lifeos:v1:')) data[k] = localStorage.getItem(k);
   }
-  return writeJson(`${BACKUP_PREFIX}before-sync:${new Date().toISOString()}`, { reason: 'before the first sync on this device', createdAt: Date.now(), data });
+  const saved = writeJson(`${BACKUP_PREFIX}before-sync:${new Date().toISOString()}`, { reason: 'before the first sync on this device', createdAt: Date.now(), data });
+  // Only the newest few backups stay (each is a whole copy of the data)
+  if (saved) pruneBackups(localStorage);
+  return saved;
 }
 
 /* ---- One sync ---- */
@@ -245,13 +283,16 @@ async function pass(config) {
   const { token, repo } = config;
   const state = readState();
   state.recent = state.recent.filter((r) => Date.now() - r.at < ECHO_MS);
+  await ensurePrivate(token, repo);
   const files = await listRemote(token, repo);
   for (const key of SYNCED_KEYS) {
+    assertStillOn();
     const entry = state.base[key];
     const sha = files.get(key) ?? null;
     if (sha && isEcho(state, key, sha)) continue;
     const local = localDoc(key);
     const remote = !sha ? undefined : entry?.sha === sha ? entry.data : await download(token, repo, key, sha);
+    assertStillOn();
     const merged = mergeStore(entry, local, remote, state.mode);
     if (merged === undefined) continue;
 
@@ -413,6 +454,7 @@ export async function checkKey(token) {
 
 /** What the repo and this device hold, to choose the first sync: { remote, local } counts. */
 export async function inspect({ token, repo }) {
+  await ensurePrivate(token, repo, { fresh: true });
   const files = await listRemote(token, repo);
   const docs = {};
   for (const [key, sha] of files) docs[key] = await download(token, repo, key, sha);
@@ -428,7 +470,7 @@ export async function connect({ token, repo, login, mode }) {
   if (mode !== 'upload' && hasData(localCounts()) && !backupLocal()) {
     throw syncError('storage', 'no room for a backup of this computer’s data');
   }
-  if (!writeJson(CONFIG_KEY, { token, repo, login, connectedAt: Date.now() })) throw syncError('storage');
+  if (!writeJson(CONFIG_KEY, { token, repo, login })) throw syncError('storage');
   writeJson(STATE_KEY, { base: {}, recent: [], mode });
   status = initialStatus();
   setStatus({});
@@ -454,7 +496,8 @@ export async function replaceKey(token) {
   if (!config) return status;
   const { login } = await checkKey(token);
   if (config.login && login.toLowerCase() !== config.login.toLowerCase()) throw syncError('other-account', login);
-  if (!writeJson(CONFIG_KEY, { ...config, token, login })) throw syncError('storage');
+  // Only the fields sync uses (an older version's connectedAt goes)
+  if (!writeJson(CONFIG_KEY, { token, repo: config.repo, login })) throw syncError('storage');
   setStatus({ state: 'idle', error: null });
   return syncNow();
 }

@@ -554,14 +554,28 @@
   background: var(--surface);
 }
 
+.tr-entry {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+/* Too narrow for the name and both buttons (Brutalist's and Old Money's capitals on a phone): the
+   buttons wrap together to a line of their own, on the right, instead of pushing × off the card */
 .tr-entry-head {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2);
 }
 
+.tr-entry-acts {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-left: auto;
+}
+
 .tr-entry-name {
-  flex: 1;
+  flex: 1 1 6em;
   min-width: 0;
   color: var(--text);
   font-weight: 600;
@@ -670,14 +684,15 @@
 }
 
 /* Last time's numbers, faint where you type. Once you type in an exercise they count (a little
-   less faint); what you type is full strength. */
+   less faint); what you type is full strength. Faint by color, not by opacity: a placeholder is
+   text to read, 4.5:1 like any other (WCAG 1.4.3; --text-2 at 0.4 was about 2:1). */
 .tr-entry .input::placeholder {
-  color: var(--text-2);
-  opacity: 0.4;
+  color: var(--text-3);
+  opacity: 1;
 }
 
 .tr-entry.is-touched .input::placeholder {
-  opacity: 0.7;
+  color: var(--text-2);
 }
 
 .tr-ghost-hint {

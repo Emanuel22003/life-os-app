@@ -242,12 +242,14 @@ function confirmDelete({ title, message, confirmLabel }) {
       },
       confirmLabel,
     );
+    // Starts on Cancel, like ui.confirmDialog: Enter never deletes by accident
+    const cancelBtn = h('button', { type: 'button', class: 'btn btn--ghost', onClick: () => m.close() }, 'Cancel');
     const m = openModal({
       title,
       className: 'cal-ed-scope',
       body: h('p', { class: 'muted cal-ed-wrap', id: msgId }, message),
-      footer: [h('button', { type: 'button', class: 'btn btn--ghost', onClick: () => m.close() }, 'Cancel'), confirmBtn],
-      initialFocus: confirmBtn,
+      footer: [cancelBtn, confirmBtn],
+      initialFocus: cancelBtn,
       onClose: () => resolve(ok),
     });
     m.el.setAttribute('aria-describedby', msgId);

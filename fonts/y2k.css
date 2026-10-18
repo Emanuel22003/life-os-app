@@ -1,0 +1,66 @@
+/* LIFE/OS — the Y2K template's typefaces, served by the app itself, so loading them
+   sends nothing to Google or anyone else. Only the active template's file loads (index.html's
+   head script, js/appearance.js); a font file downloads when text first needs it.
+   The woff2 files are Google Fonts' own, unmodified (latin + latin-ext); other scripts fall back
+   to the system's fonts. Each family's license is next to its files:
+   - Fredoka v17: SIL Open Font License 1.1, fredoka/OFL.txt
+   - Rubik Bubbles v3: SIL Open Font License 1.1, rubik-bubbles/OFL.txt
+   - Silkscreen v6: SIL Open Font License 1.1, silkscreen/OFL.txt
+   To update or add a family: see README.md → Appearance (fonts). */
+
+/* Fredoka normal 400 700, latin-ext */
+@font-face {
+  font-family: 'Fredoka';
+  font-style: normal;
+  font-weight: 400 700;
+  font-stretch: 100%;
+  font-display: swap;
+  src: url('fredoka/fredoka-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* Fredoka normal 400 700, latin */
+@font-face {
+  font-family: 'Fredoka';
+  font-style: normal;
+  font-weight: 400 700;
+  font-stretch: 100%;
+  font-display: swap;
+  src: url('fredoka/fredoka-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* Rubik Bubbles normal 400, latin-ext */
+@font-face {
+  font-family: 'Rubik Bubbles';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('rubik-bubbles/rubik-bubbles-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* Rubik Bubbles normal 400, latin */
+@font-face {
+  font-family: 'Rubik Bubbles';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('rubik-bubbles/rubik-bubbles-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* Silkscreen normal 400, latin-ext */
+@font-face {
+  font-family: 'Silkscreen';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('silkscreen/silkscreen-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* Silkscreen normal 400, latin */
+@font-face {
+  font-family: 'Silkscreen';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('silkscreen/silkscreen-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}

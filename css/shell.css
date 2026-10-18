@@ -24,6 +24,10 @@
   background: linear-gradient(180deg, var(--surface-2), transparent 40%), var(--bg-elev);
   position: relative;
   z-index: var(--z-nav);
+  /* A window too short for the menu, the crest and the foot scrolls the sidebar, so its last
+     line (the legal links) can always be reached */
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .brand {
@@ -214,6 +218,46 @@
   flex: 1 1 auto;
   min-width: 0;
   justify-content: flex-start;
+}
+
+/* ---- Legal: Privacy · Business details, one click away on every page ----
+   Small print under the sidebar's buttons; where the sidebar is an icon rail or gone (900px and
+   narrower) the same two links end every page instead (.page-legal, after the page in .main).
+   --text-3 is the faintest color allowed for words (4.5:1 in every template). */
+.legal-links {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 6px;
+  color: var(--text-3);
+  font-family: var(--font-sans);
+  font-size: var(--fs-xs);
+  font-weight: 400;
+  line-height: 1.5;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.legal-links a {
+  color: var(--text-3);
+  text-decoration: none;
+  border-radius: var(--radius-xs);
+}
+
+.legal-links a:hover,
+.legal-links a:focus-visible {
+  color: var(--text);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* In line with the status line above it (the plain templates indent that one) */
+[data-plain] .sidebar-legal {
+  padding: 0 var(--space-3);
+}
+
+.page-legal {
+  display: none;
 }
 
 /* ---- Install as an app: help dialog ---- */
@@ -416,6 +460,44 @@
   overflow-x: hidden;
   position: relative;
   scroll-behavior: smooth;
+  /* Tabbing scrolls the next control into view with room around it, so its focus ring is never
+     cut off by the edge of the page (WCAG 2.4.7) */
+  scroll-padding-block: var(--space-4) var(--space-6);
+}
+
+/* The page takes focus only from "Skip to content" (js/app.js), for a moment: the next Tab goes
+   on into the page, so a ring around the whole page would only flash */
+.shell > .main:focus,
+.shell > .main:focus-visible {
+  outline: none;
+}
+
+/* ---- Skip to content (WCAG 2.4.1): the first Tab stop, out of sight until it has focus ----
+   Fixed above everything (the menu, the top bar, an open toast); the template's own main-button
+   colors, which every template keeps readable. */
+.skip-link {
+  position: fixed;
+  top: calc(env(safe-area-inset-top, 0px) + var(--space-2));
+  left: calc(env(safe-area-inset-left, 0px) + var(--space-2));
+  z-index: calc(var(--z-toast) + 10);
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-sm);
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-family: var(--font-sans);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  line-height: 1.4;
+  text-decoration: none;
+  /* Parked above the window, so it is never seen or clicked by accident */
+  transform: translateY(calc(-100% - var(--space-6)));
+}
+
+.skip-link:focus {
+  transform: none;
+  outline: 2px solid var(--accent-ink);
+  outline-offset: -4px;
+  box-shadow: 0 0 0 2px var(--accent), var(--shadow-sm);
 }
 
 .view {
@@ -559,6 +641,30 @@
   .view {
     padding: var(--space-6) var(--space-5) var(--space-9);
   }
+
+  /* The icon rail has no room for the legal links: they end the page instead. The page gives
+     them their room (--legal-room), so a page that fits the screen still doesn't scroll and the
+     links sit at the bottom; a longer page ends with them. */
+  .sidebar-legal {
+    display: none;
+  }
+
+  .main {
+    --legal-h: 40px;
+    --legal-room: var(--legal-h);
+  }
+
+  .main > .view {
+    min-height: calc(100% - var(--legal-room));
+  }
+
+  .page-legal {
+    display: flex;
+    justify-content: center;
+    height: var(--legal-h);
+    padding: 0 var(--space-4);
+    overflow: hidden;
+  }
 }
 
 @media (max-width: 640px) {
@@ -606,9 +712,15 @@
     pointer-events: auto;
   }
 
-  /* Room for the docked timer (44px tall) under the last content and under the toasts */
-  .shell:has(> .topbar-center > :not([hidden])) .view {
-    padding-bottom: calc(var(--space-8) + 56px);
+  /* Room for the docked timer (44px tall) under the last content and under the toasts. The
+     legal links end every page, so the room goes under them (an open note, which hides them,
+     keeps it itself: css/features/notes.css). */
+  .shell:has(> .topbar-center > :not([hidden])) .main {
+    --legal-room: calc(var(--legal-h) + 56px);
+  }
+
+  .shell:has(> .topbar-center > :not([hidden])) .page-legal {
+    margin-bottom: 56px;
   }
 
   body:has(.shell > .topbar-center > :not([hidden])) .toast-stack {
@@ -696,6 +808,11 @@
     font-size: var(--fs-2xs);
     letter-spacing: calc(0.12em * var(--label-tracking));
     text-transform: var(--label-case);
+  }
+
+  /* The tab bar runs to the screen's edges: a tab's ring sits just inside it (WCAG 2.4.7) */
+  .tab:focus-visible {
+    outline-offset: -3px;
   }
 
   .tab-label {

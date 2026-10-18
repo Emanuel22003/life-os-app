@@ -151,7 +151,9 @@
   width: 100%;
 }
 
-/* ---- Form fields ---- */
+/* ---- Form fields ----
+   The edge is --field-line (tokens.css): a field's box is the only sign it takes typing, so it
+   keeps 3:1 against the card (WCAG 1.4.11); hover and focus go darker from there. */
 .input,
 .textarea,
 .select {
@@ -159,7 +161,7 @@
   height: 40px;
   padding: 0 var(--space-3);
   border-radius: var(--radius-sm);
-  border: var(--border-w) solid var(--line-strong);
+  border: var(--border-w) solid var(--field-line);
   background: var(--surface);
   color: var(--text);
   font-size: var(--fs-sm);
@@ -175,7 +177,7 @@
 .input:hover,
 .textarea:hover,
 .select:hover {
-  border-color: var(--text-3);
+  border-color: var(--text-2);
 }
 
 .input:focus,
@@ -330,14 +332,23 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   color: var(--text);
 }
 
+/* The ring sits just inside the button: the bar scrolls sideways on narrow screens, which cuts
+   off anything drawn outside it (several templates give it no padding at all). A thin frame of
+   the page color around the ring keeps it visible on a picked, filled button too (WCAG 2.4.7). */
+.seg .seg-btn:focus-visible {
+  outline-offset: -2px;
+  box-shadow: inset 0 0 0 2px var(--bg);
+}
+
 .seg-btn[aria-pressed="true"],
 .seg-btn[aria-selected="true"] {
   background: var(--accent);
   color: var(--accent-ink);
 }
 
+/* A count beside a choice's name: the name's own color (faded to 0.7 it fell under 4.5:1) */
 .seg-count {
-  opacity: 0.7;
+  opacity: 1;
 }
 
 /* ---- Tag / chip ---- */
@@ -590,6 +601,13 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   border: 1px solid var(--line-strong);
 }
 
+/* Its ring inside it, in its own word's color: the focus color is drawn for the page, and a
+   toast is a card of the opposite shade, where it all but vanished (1.2–1.9:1, WCAG 2.4.7) */
+.toast-action:focus-visible {
+  outline-color: currentColor;
+  outline-offset: -3px;
+}
+
 .toast-action:hover {
   background: var(--accent);
   color: var(--accent-ink);
@@ -664,6 +682,8 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   overflow-wrap: anywhere;
   padding: var(--space-5);
   overflow-y: auto;
+  /* Tabbing scrolls the next field in with room for its focus ring (WCAG 2.4.7) */
+  scroll-padding-block: var(--space-3);
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
@@ -790,7 +810,9 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   color: var(--text);
 }
 
-.ctx-item:focus-visible {
+/* (as strong as the lit rule above, and after it: weaker, the lit item's hairline replaced this
+   ring, 1.5:1 against the menu, WCAG 2.4.7 / 1.4.11) */
+.ctx-item:not([aria-disabled="true"]):focus-visible {
   box-shadow: inset 0 0 0 1px var(--line-focus), 0 0 14px var(--glow-c-soft);
 }
 
@@ -931,6 +953,12 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 .dd-item:focus-visible {
   background: var(--surface-2);
   outline: none;
+}
+
+/* From the keyboard, a ring as well: the faint fill alone is about 1.1:1 against the menu, too
+   faint to show where you are (WCAG 2.4.7 / 1.4.11). The right-click menu does the same. */
+.dd-item:focus-visible {
+  box-shadow: inset 0 0 0 1px var(--line-focus);
 }
 
 .dd-item:disabled {

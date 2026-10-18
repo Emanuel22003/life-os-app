@@ -70,7 +70,8 @@
 
   --text: #f9e4ea;
   --text-2: #e5c3ce;
-  --text-3: #c09aa8;
+  /* 4.5:1 also on a tag's rosé chip (WCAG 1.4.3; #c09aa8 was 4.4:1 there) */
+  --text-3: #c5a2af;
   --text-4: #6e4a58;
 
   --accent: #f2a5bd;
@@ -131,7 +132,8 @@
 
   --text: #4a2731;
   --text-2: #6e4652;
-  --text-3: #8a6470;
+  /* 4.5:1 also on the blush of a picked row (WCAG 1.4.3; #8a6470 was 3.8:1 there) */
+  --text-3: #7b5964;
   --text-4: #d4b4bf;
 
   --accent: #e58fab;
@@ -180,7 +182,8 @@
   color: var(--text-3);
 }
 
-[data-skin="coquette"] :focus-visible {
+/* :where: as weak as base.css's ring, so a feature's own focus treatment still wins */
+[data-skin="coquette"] :where(:focus-visible) {
   outline: 2px solid var(--line-focus);
   outline-offset: 2px;
 }
@@ -311,6 +314,14 @@
   color: var(--accent-ink);
 }
 
+/* A short window: a smaller bow, so the whole sidebar (down to the Privacy · Business details
+   line) fits without scrolling */
+@media (min-width: 901px) and (max-height: 860px) {
+  [data-skin="coquette"] .brand::before {
+    width: 42px;
+  }
+}
+
 @media (max-width: 900px) {
   [data-skin="coquette"] .brand::before {
     width: 34px;
@@ -410,10 +421,23 @@
   border-radius: var(--radius-pill);
 }
 
+/* The picked pill wears a rosé edge: the cream pill alone was 1.1–1.4:1 against the blush track,
+   too faint to say which is picked (WCAG 1.4.11 / 1.4.1). Ribbon and ink mixed, 4:1 or more. */
 [data-skin="coquette"] .seg .seg-btn:is([aria-pressed="true"], [aria-selected="true"]) {
   background: var(--surface-solid);
   color: var(--text);
-  box-shadow: 0 1px 6px color-mix(in srgb, var(--accent) 30%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 50%, var(--text)), 0 1px 6px color-mix(in srgb, var(--accent) 30%, transparent);
+}
+
+/* The same edge on a dialog's picked option (a ribbon-pink cell, 2.1:1 on its track alone) */
+[data-skin="coquette"] .cal-ed-seg-opt.is-on {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 50%, var(--text));
+}
+
+/* The phone tab bar's mark over the open page, in that deeper rosé on the light paper: the ribbon
+   pink was 2.2:1 there, too faint to mark it (WCAG 1.4.11) */
+[data-skin="coquette"][data-theme="light"] .tab[aria-current="page"]::before {
+  background: color-mix(in srgb, var(--accent) 50%, var(--text));
 }
 
 .tag:where([data-skin="coquette"] *) {

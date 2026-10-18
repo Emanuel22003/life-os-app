@@ -56,6 +56,10 @@
   --page-bg-size: 240px 240px;
 
   --om-brass: #c9a96b;
+  /* Brass for words: light enough on the dark paper as it is, and on a toast's Undo, which sits
+     on its own dark chip */
+  --om-brass-ink: var(--om-brass);
+  --om-brass-on-card: var(--om-brass);
   --om-rule: rgba(201, 169, 107, 0.42);
   --om-claret: #d27a80;
   --om-horse-alpha: 0.075;
@@ -118,6 +122,10 @@
   --page-bg-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .35 0 0 0 0 .28 0 0 0 0 .18 0 0 0 .05 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 
   --om-brass: #9a7a3d;
+  /* Words in brass: a little ink in it, so small words keep 4.5:1 on the paper (WCAG 1.4.3; the
+     brass alone is 3.5:1); on a toast's dark Undo chip, a paler brass */
+  --om-brass-ink: color-mix(in srgb, var(--om-brass) 72%, var(--text));
+  --om-brass-on-card: color-mix(in srgb, var(--om-brass) 60%, var(--bg));
   --om-rule: rgba(154, 122, 61, 0.5);
   --om-claret: #8a2a35;
   --om-horse-alpha: 0.11;
@@ -138,7 +146,9 @@
 
   --text: #1a1814;
   --text-2: #4a463e;
-  --text-3: #6b665c;
+  /* The faintest words: 4.5:1 even where they cross the engraved horse's darkest lines
+     (WCAG 1.4.3; #6b665c fell to 3.9:1 there) */
+  --text-3: #625d54;
   --text-4: #b8b1a1;
 
   --accent: #1a1814;
@@ -199,7 +209,8 @@
   text-transform: uppercase;
 }
 
-[data-skin="oldmoney"] :focus-visible {
+/* :where: as weak as base.css's ring, so a feature's own focus treatment still wins */
+[data-skin="oldmoney"] :where(:focus-visible) {
   outline: 1px solid var(--om-brass);
   outline-offset: 3px;
 }
@@ -379,11 +390,11 @@
 
 [data-skin="oldmoney"] .nav-item[aria-current="page"] .nav-badge {
   background: transparent;
-  color: var(--om-brass);
+  color: var(--om-brass-ink);
 }
 
 [data-skin="oldmoney"] .nav-item.is-soon {
-  opacity: 0.55;
+  color: var(--text-3);
 }
 
 [data-skin="oldmoney"] .nav-soon {
@@ -623,7 +634,9 @@
   color: var(--text);
 }
 
-[data-skin="oldmoney"] .seg .seg-btn:is([aria-pressed="true"], [aria-selected="true"]) {
+/* (.is-on: a dialog's picked option, a radio's label, e.g. the event editor's Repeat. The rule
+   above took its fill away, and with no underline the picked one looked like the rest) */
+[data-skin="oldmoney"] .seg .seg-btn:is([aria-pressed="true"], [aria-selected="true"], .is-on) {
   border-bottom-color: var(--text);
   background: transparent;
   box-shadow: none;
@@ -667,12 +680,14 @@
   font-weight: 600;
 }
 
-/* ---- Fields: a single underline ---- */
+/* ---- Fields: a single underline ----
+   In --field-line (tokens.css), not the hairline: the underline is the only sign a line takes
+   typing, so it keeps 3:1 on the paper (WCAG 1.4.11) */
 .input:where([data-skin="oldmoney"] *),
 .select:where([data-skin="oldmoney"] *) {
   padding-inline: 2px;
   border: 0;
-  border-bottom: 1px solid var(--line-strong);
+  border-bottom: 1px solid var(--field-line);
   border-radius: 0;
   background-color: transparent;
   box-shadow: none;
@@ -681,7 +696,7 @@
 }
 
 .textarea:where([data-skin="oldmoney"] *) {
-  border: 1px solid var(--line-strong);
+  border: 1px solid var(--field-line);
   border-radius: 0;
   background-color: transparent;
   box-shadow: none;
@@ -719,6 +734,11 @@
   border-radius: 50%;
 }
 
+/* On the light paper the fine circle takes a little more ink: 3:1 (WCAG 1.4.11; it was 2.9:1) */
+.check:where([data-skin="oldmoney"][data-theme="light"] *) {
+  border-color: color-mix(in srgb, var(--text) 56%, transparent);
+}
+
 /* ---- Dialogs: a card with an inner brass frame ---- */
 .modal:where([data-skin="oldmoney"] *) {
   border: 1px solid var(--line-strong);
@@ -754,7 +774,7 @@
 
 .toast-action:where([data-skin="oldmoney"] *) {
   border-radius: 0;
-  color: var(--om-brass);
+  color: var(--om-brass-on-card);
   font-family: var(--om-caps);
   font-size: 10px;
   letter-spacing: 0.2em;
@@ -834,8 +854,14 @@
   border-radius: 0;
   background: transparent;
   box-shadow: inset 0 -1px 0 var(--om-brass);
-  color: var(--om-brass);
+  color: var(--om-brass-ink);
   font-weight: 600;
+}
+
+/* On a colored day (Color coding's wash) the brass words take more ink: on the light paper the
+   wash took today's brass date to 4.0:1 (WCAG 1.4.3) */
+[data-skin="oldmoney"][data-theme="light"].cc-days :is(.cal-cell, .cal-dh, .hm-day, .hm-mcell, .hm-dayview)[data-cc] {
+  --om-brass-ink: color-mix(in srgb, var(--om-brass) 55%, var(--text));
 }
 
 /* Events and task chips: square cut, like cards */
@@ -897,12 +923,12 @@
   border-radius: 0;
   background: transparent;
   box-shadow: inset 0 -1px 0 var(--om-brass);
-  color: var(--om-brass);
+  color: var(--om-brass-ink);
 }
 
 [data-skin="oldmoney"] .hm-day-tag {
   font-style: italic;
-  color: var(--om-brass);
+  color: var(--om-brass-ink);
 }
 
 /* Big numbers (timer, statistics) in Bodoni */

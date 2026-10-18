@@ -599,7 +599,8 @@ function mount(root) {
   const header = pageHeader({
     index: '04',
     title: 'Habits',
-    subtitle: term('habits.subtitle', 'Plan each weekday. Check in daily. Watch your LIFE index compound.'),
+    // Says what the page does, not what it does for you: no promised outcome (markedsføringsloven §§ 3, 7)
+    subtitle: term('habits.subtitle', 'Plan each weekday. Check in daily. Track your streaks and LIFE index.'),
     tipId: 'habits.intro',
     actions: [addBtn],
   });
@@ -1617,7 +1618,7 @@ function buildFirstRun(ctx, archivedCount) {
   const steps = [
     [idx(1), 'Plan', 'Give every weekday its own lineup — Monday can differ from Tuesday.'],
     [idx(2), term('habits.step2', 'Execute'), 'Check habits off each day. Fix past days in the week view.'],
-    [idx(3), term('habits.step3', 'Compound'), term('habits.step3.text', 'Streaks, insights and your LIFE index move with every check-in.')],
+    [idx(3), term('habits.step3', 'Measure'), term('habits.step3.text', 'Streaks, insights and your LIFE index update with every check-in.')],
   ];
   return [
     emptyState({

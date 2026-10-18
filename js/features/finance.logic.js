@@ -76,7 +76,11 @@ export function categoryName(id) {
 /** Common currencies first in the picker; any ISO code (3 capital letters) is accepted. */
 export const CURRENCIES = Object.freeze(['NOK', 'SEK', 'DKK', 'EUR', 'USD', 'GBP', 'CHF', 'PLN', 'CAD', 'AUD', 'JPY']);
 
-/** Well-known services: the name field suggests them and picks their category. */
+/**
+ * Well-known services: the name field suggests them and picks their category. Typing help only:
+ * no one pays to be listed, and nothing here links to or advertises a service. A paid or sponsored
+ * entry would have to be marked as an ad (markedsføringsloven § 8, first paragraph).
+ */
 export const SUGGESTIONS = Object.freeze(
   [
     { name: 'Netflix', category: 'streaming' },

@@ -56,6 +56,31 @@
   --alert: var(--cc-red);
 }
 
+/* Late text is small: in light mode it takes the red a shade darker than the color-coding
+   palette, so it keeps 4.5:1 on paper and on its own wash (WCAG 1.4.3; #d64545 on white was
+   4.4:1, Coquette's 3.8:1, Y2K's 3.4:1; Y2K's goes deeper still for its sky-blue glow). The
+   other dark modes' reds and Old Money's daytime claret pass as they are. */
+:root.cc-on[data-plain][data-theme="light"] {
+  --alert: color-mix(in srgb, var(--cc-red) 86%, #000);
+}
+
+:root.cc-on[data-skin="coquette"][data-theme="light"] {
+  --alert: color-mix(in srgb, var(--cc-red) 80%, #000);
+}
+
+:root.cc-on[data-skin="y2k"][data-theme="light"] {
+  --alert: color-mix(in srgb, var(--cc-red) 70%, #000);
+}
+
+:root.cc-on[data-skin="oldmoney"][data-theme="light"] {
+  --alert: var(--cc-red);
+}
+
+/* Old Money at night: its rose a shade lighter, for the hatched "late" tag (4.3:1 there) */
+:root.cc-on[data-skin="oldmoney"][data-theme="dark"] {
+  --alert: color-mix(in srgb, var(--cc-red) 88%, #fff);
+}
+
 /* ---- Icon badge ---- */
 
 .ib {

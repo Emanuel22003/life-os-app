@@ -125,3 +125,58 @@
   opacity: 0.4;
   cursor: not-allowed;
 }
+
+/* ---- Delete all my data: the dialog (what goes, what stays) ---- */
+.st-delete-modal .modal-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.st-delete-lead {
+  margin: 0 0 var(--space-2);
+  color: var(--text);
+  line-height: 1.55;
+}
+
+.st-delete-head {
+  margin: var(--space-2) 0 0;
+  color: var(--text);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+
+.st-delete-list {
+  margin: 0;
+  padding-left: 1.2em;
+  list-style: disc;
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+}
+
+.st-delete-list li + li {
+  margin-top: var(--space-1);
+}
+
+.st-delete-list a {
+  color: var(--text);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  overflow-wrap: anywhere;
+}
+
+.st-delete-list code {
+  font-family: var(--font-code);
+  font-size: 0.92em;
+  color: var(--text);
+}
+
+/* The backup button sits apart, on the left; on a phone the three buttons wrap */
+.st-delete-modal .modal-foot {
+  flex-wrap: wrap;
+}
+
+.st-delete-backup {
+  margin-right: auto;
+}

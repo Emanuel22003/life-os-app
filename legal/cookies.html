@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="referrer" content="no-referrer" />
+    <title>Cookies and storage · LIFE/OS</title>
+    <meta name="description" content="LIFE/OS sets no cookies. What it stores on your device, why each item is needed, and how to remove it." />
+    <link rel="icon" href="../icons/icon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="legal.css" />
+    <script src="business.js" defer></script>
+    <script src="legal.js" defer></script>
+  </head>
+  <body>
+    <a class="skip" href="#main">Skip to the text</a>
+    <header class="site-header">
+      <a class="brand" href="../">LIFE/OS</a>
+      <a class="back" href="../">Open LIFE/OS</a>
+    </header>
+
+    <main id="main">
+      <h1>Cookies and storage</h1>
+      <p class="meta">Last updated: <time data-legal="updated" datetime="2026-10-18">18 October 2026</time></p>
+      <p class="draft" data-legal-draft role="note">Draft: the parts marked [FILL IN] are not filled in yet, so this page is not final.</p>
+
+      <section class="summary" aria-labelledby="summary">
+        <h2 id="summary">In short</h2>
+        <ul>
+          <li>LIFE/OS sets <strong>no cookies</strong>, and uses no analytics, advertising or tracking of any kind.</li>
+          <li>It does store things in your browser, on your device: <strong>what you write in the app</strong> (that is where it is saved) and an <strong>offline copy of the app's own files</strong>.</li>
+          <li>We consider each of these strictly necessary for the app you chose to use. Storage like that needs no consent under the law, so LIFE/OS shows no consent banner.</li>
+          <li>Nothing here is ever sent to us. You can remove all of it at any time.</li>
+        </ul>
+      </section>
+
+      <h2 id="rule">The rule we follow</h2>
+      <p>
+        In Norway, storing or reading information on a user's device (cookies, local storage and similar technologies) needs the
+        user's informed consent, unless it is <strong>strictly necessary to deliver a service the user has explicitly asked
+        for</strong> (ekomloven, the Electronic Communications Act of 2024, § 3-15; the same rule as article 5(3) of the EU ePrivacy
+        Directive). In our assessment, everything LIFE/OS stores falls under that exception: it is there only so the app you opened
+        can save your work and open again. The table below gives our reason for each entry.
+      </p>
+
+      <h2 id="cookies">Cookies</h2>
+      <p>
+        LIFE/OS sets no cookies at all, and the app loads nothing from other websites that could set them: its typefaces, pictures
+        and code come from its own website (see the <a href="privacy.html#third-parties">privacy policy</a>).
+      </p>
+
+      <h2 id="local">What the app stores in your browser</h2>
+      <p>
+        These entries are kept in your browser's storage for the website's address (local storage, unless the table says otherwise).
+        They stay on your device: the app never sends them to us. Only with Sync on are some of them sent, by you, to your own GitHub
+        repository (see the <a href="privacy.html#sync">privacy policy</a>). Sync only works with a private repository: it checks,
+        and sends nothing to one that isn't private. Each version there is named after the part of the app and the kind of device
+        (for example "Notes · Mac").
+      </p>
+      <table class="stack">
+        <thead>
+          <tr>
+            <th scope="col">Name</th>
+            <th scope="col">What it holds</th>
+            <th scope="col">Why it is needed</th>
+            <th scope="col">How long</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td data-label="Name"><code>lifeos:v1:tasks</code>, <code>notes</code>, <code>habits</code>, <code>calendar</code>, <code>pomodoro</code>, <code>training</code>, <code>finance</code></td>
+            <td data-label="What it holds">Everything you enter: tasks, notes, habits and ticks, events, focus sessions, workouts, tracked subscriptions</td>
+            <td data-label="Why it is needed">Saving your work is the service itself: LIFE/OS has no server of its own, so your browser is where it is kept (and, only if you turn Sync on, your own GitHub repository).</td>
+            <td data-label="How long">Until you delete it</td>
+          </tr>
+          <tr>
+            <td data-label="Name"><code>lifeos:v1:settings</code>, <code>home</code>, <code>calendar-prefs</code>, <code>habits-insights</code>, <code>habits-ticker</code></td>
+            <td data-label="What it holds">Your choices: template, light or dark, start page, the Home layout, which views and panels are open</td>
+            <td data-label="Why it is needed">Remembers settings you chose yourself, so the app looks and opens the way you set it.</td>
+            <td data-label="How long">Until you delete it</td>
+          </tr>
+          <tr>
+            <td data-label="Name"><code>lifeos:sync:config</code>, <code>lifeos:sync:state</code></td>
+            <td data-label="What it holds">Only once you turn Sync on: your sync key, your GitHub user name and the repository's name; a copy of your data as it was last synced, used to merge changes</td>
+            <td data-label="Why it is needed">Sync, which you turned on, can't work without them. The key never leaves the device except to sign requests to GitHub.</td>
+            <td data-label="How long">Until you click <em>Turn off sync</em>. A sync running at that moment stops and doesn't save them again.</td>
+          </tr>
+          <tr>
+            <td data-label="Name"><code>lifeos:backup:before-sync:…</code>, <code>lifeos:backup:before-restore:…</code></td>
+            <td data-label="What it holds">A safety copy of your data, made before Sync replaces this device's data or before you restore a backup file</td>
+            <td data-label="Why it is needed">Protects your own data from being lost by an action you started.</td>
+            <td data-label="How long">The newest three are kept; older ones are removed by themselves</td>
+          </tr>
+          <tr>
+            <td data-label="Name"><code>lifeos:pomodoro-alert:chime</code>, <code>lifeos:pomodoro-alert:notice</code></td>
+            <td data-label="What it holds">Which focus session's end was already announced</td>
+            <td data-label="Why it is needed">With several windows open, only one rings the bell or shows the notice.</td>
+            <td data-label="How long">Replaced by the next session</td>
+          </tr>
+          <tr>
+            <td data-label="Name"><code>lifeos:clipboard</code> (session storage)</td>
+            <td data-label="What it holds">Items you copied with the app's own right-click <em>Copy</em></td>
+            <td data-label="Why it is needed">Makes the app's <em>Paste</em> work.</td>
+            <td data-label="How long">Until the tab or window closes</td>
+          </tr>
+          <tr>
+            <td data-label="Name">Offline copy (cache storage, names starting with <code>lifeos-</code>)</td>
+            <td data-label="What it holds">The app's own files: its pages, styles, code, typefaces, pictures and icons. None of your data.</td>
+            <td data-label="Why it is needed">Lets the app open and work without an internet connection, as an installed app does, and load quickly.</td>
+            <td data-label="How long">Replaced with each new version; removed by <em>Delete all my data</em> or by clearing the site's data</td>
+          </tr>
+        </tbody>
+      </table>
+      <p>
+        Two more entries exist only on test copies that developers run on their own computer (<code>lifeos:treat-as-real</code> and
+        <code>lifeos:sync-api</code>, in session storage); the LIFE/OS website never sets them.
+      </p>
+      <p>
+        Your browser itself also remembers some answers you give it for the site, such as whether notifications are allowed and
+        whether its storage may be kept when the disk runs low. Those are the browser's records, not the app's.
+      </p>
+
+      <h2 id="host">The website's host</h2>
+      <p>
+        The website is hosted by GitHub (GitHub Pages). LIFE/OS asks GitHub to set nothing in your browser, and the pages contain no
+        GitHub code. GitHub's servers do see your IP address when they deliver the files; the
+        <a href="privacy.html#hosting">privacy policy</a> explains that.
+      </p>
+
+      <h2 id="remove">How to remove it</h2>
+      <p>
+        In LIFE/OS, <em>Settings → Sync &amp; backup → Delete all my data</em> removes every entry above, and the offline copy, from
+        that browser. You can also clear the website's data in your browser, or uninstall the installed app with <em>Also delete data
+        from Chrome</em> ticked: the steps are in the <a href="privacy.html#delete">privacy policy</a>. Either way your data on that
+        device is gone for good, so download a backup first if you want to keep it.
+      </p>
+
+      <h2 id="future">If this ever changes</h2>
+      <div class="note">
+        <p>
+          We will not add analytics, advertising, social media buttons, embedded videos, third-party typefaces or anything else that
+          stores or reads information on your device for a purpose that isn't strictly necessary, unless we first ask for your
+          consent. Such a request would explain each purpose and who is behind it, offer <strong>Reject</strong> as plainly as
+          <strong>Accept</strong>, have nothing ticked in advance, keep the app usable if you say no, and let you change your mind
+          later as easily. This page and the privacy policy would be updated before any such change.
+        </p>
+      </div>
+
+      <h2 id="contact">Questions</h2>
+      <p>
+        Write to <a data-legal="email" class="legal-missing">[FILL IN: contact email]</a>.
+      </p>
+    </main>
+
+    <footer class="site-footer">
+      <nav aria-label="Legal pages">
+        <ul>
+          <li><a href="privacy.html">Privacy policy</a></li>
+          <li><a href="terms.html">Terms of service</a></li>
+          <li><a href="refunds.html">Refunds and cancellation</a></li>
+          <li><a href="cookies.html" aria-current="page">Cookies and storage</a></li>
+          <li><a href="business.html">Business details</a></li>
+          <li><a href="credits.html">Credits and licenses</a></li>
+        </ul>
+      </nav>
+      <p><a href="../">Back to LIFE/OS</a></p>
+    </footer>
+  </body>
+</html>

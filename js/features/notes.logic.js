@@ -1009,7 +1009,7 @@ export const WELCOME_NOTE = {
   body: [
     '# Welcome to LIFE/OS',
     '',
-    'Your personal mission control for **tasks**, **notes** and **daily habits**. Everything stays on this device, stored locally in your browser.',
+    'Your personal mission control for **tasks**, **notes** and **daily habits**. Everything is saved in this browser on this device, and only leaves it if you turn on **Sync**.',
     '',
     '## How notes work',
     '- Notes save automatically while you type',
@@ -1043,3 +1043,10 @@ export const WELCOME_NOTE = {
     'Delete this note whenever you like. It will not come back.',
   ].join('\n'),
 };
+
+// The welcome note as earlier versions wrote it (only its first sentence about storage differed).
+// Notes made before keep their text; an untouched one should still count as "nothing yet" when
+// Sync is first connected (countData in js/sync.logic.js).
+export const WELCOME_NOTE_EARLIER_BODIES = [
+  WELCOME_NOTE.body.replace('Everything is saved in this browser on this device, and only leaves it if you turn on **Sync**.', 'Everything stays on this device, stored locally in your browser.'),
+];

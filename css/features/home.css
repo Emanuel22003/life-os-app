@@ -91,7 +91,8 @@
   margin-left: var(--space-1);
   border-color: currentColor;
   color: inherit;
-  opacity: 0.55;
+  /* faded just enough to step back: at 0.5 the key's letter fell under 4.5:1 (WCAG 1.4.3) */
+  opacity: 0.8;
 }
 
 /* What's next is on the Today strip's Calendar tile; only a phone, whose tiles have no room
@@ -1155,6 +1156,11 @@
   border-radius: var(--radius-xs);
   color: var(--text-2);
   text-align: left;
+}
+
+/* The week's frame clips what is drawn outside it: the day's ring sits just inside (WCAG 2.4.7) */
+.hm-day-head:focus-visible {
+  outline-offset: -2px;
 }
 
 .hm-day-wd {

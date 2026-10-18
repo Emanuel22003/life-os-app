@@ -1625,7 +1625,7 @@ function mount(root) {
       const confirmed = await confirmDialog({
         title: 'Delete note?',
         // A node rather than a string so an unbroken title can wrap inside the dialog.
-        message: h('span', { class: 'nt-confirm-msg' }, `“${clip(note.title, 48) || 'Untitled'}” will be removed from this device. You can undo right after.`),
+        message: h('span', { class: 'nt-confirm-msg' }, `“${clip(note.title, 48) || 'Untitled'}” will be deleted, also on your other computers if Sync is on. You can undo right after.`),
         confirmLabel: 'Delete note',
       });
       note = findNote(id);

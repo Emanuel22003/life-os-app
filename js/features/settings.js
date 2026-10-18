@@ -1,23 +1,22 @@
 // LIFE/OS — Settings (#/settings, the gear at the bottom of the sidebar): sound and notifications,
-// appearance, the start page, sync and backups, version. Every control writes where its setting
+// appearance, the start page, sync and backups (and deleting all your data), version, the legal
+// documents. Every control writes where its setting
 // already lives: the timer's sound, notifications and mini timer in the Pomodoro store (they
 // sync with your other computers); appearance, motion and the start page in `settings` (this
 // computer only). Changes made elsewhere (the Pomodoro page, another window) show here at once.
 
-import { h, icon, pageHeader, toast, confirmDialog, formatDay, dateKey, uid, hiddenTipCount, resetTips } from '../ui.js';
-import { settings } from '../store.js';
+import { h, icon, pageHeader, toast, confirmDialog, openModal, formatDay, dateKey, uid, hiddenTipCount, resetTips } from '../ui.js';
+import { settings, stopSaving } from '../store.js';
 import { SKINS, normalizeSkin, THEMES } from '../skins.js';
 import { COLOR_KINDS, normalizeColorPrefs } from '../colors.logic.js';
 import { paletteEditor } from '../palette.js';
 import { shell } from '../shell.js';
 import { SITE_URL } from '../origin.js';
-import { syncConfig, syncStatus, onSyncStatus } from '../sync.js';
+import { syncConfig, syncStatus, onSyncStatus, disconnect } from '../sync.js';
 import { openSyncPanel, syncLabel } from '../sync.panel.js';
 import { describeCounts } from '../sync.logic.js';
 import { pomodoroApi } from './pomodoro.js';
-import { buildBackup, parseBackup, backupFileName, startPage, isNewerVersion, isDataKey } from './settings.logic.js';
-
-const PROJECT_URL = 'https://github.com/Emanuel22003/life-os';
+import { buildBackup, parseBackup, backupFileName, startPage, isNewerVersion, isDataKey, keysToDelete, cachesToDelete, storageKeys, pruneBackups, LEGAL_LINKS } from './settings.logic.js';
 
 const STORAGE_TEXT = {
   checking: 'Checking how the browser keeps your data…',
@@ -46,12 +45,14 @@ function row({ title, hint, control, state = false, key = null }) {
   const id = `st-${uid()}`;
   const hintEl = h('p', { class: ['st-row-hint', state && 'st-row-hint--state'] }, hint ?? '');
   hintEl.hidden = !hint;
+  const controlEl = h('div', { class: 'st-row-control' }, typeof control === 'function' ? control(id) : control);
   const el = h(
     'div',
     { class: 'st-row', dataset: key ? { row: key } : null },
     h('div', { class: 'st-row-text' }, h('div', { class: 'st-row-title', id }, title), hintEl),
-    h('div', { class: 'st-row-control' }, typeof control === 'function' ? control(id) : control),
+    controlEl,
   );
+  describeByTitle(controlEl, id);
   return {
     el,
     id,
@@ -61,6 +62,19 @@ function row({ title, hint, control, state = false, key = null }) {
       if (isState !== undefined) hintEl.classList.toggle('st-row-hint--state', isState);
     },
   };
+}
+
+/**
+ * A row's buttons and links are named by their own words ("Delete…"); the row's title describes
+ * them, so a screen reader says "Delete…, Delete all my data". Not one that already names itself
+ * from the title (a switch, a choice group), sits in a group of its own (the color editor), has its
+ * own full name (aria-label) or its own description (title).
+ */
+function describeByTitle(container, titleId) {
+  for (const el of container.querySelectorAll('button, a[href]')) {
+    if (el.closest('[aria-labelledby], [role="group"]') || el.hasAttribute('aria-label') || el.hasAttribute('aria-describedby') || el.title) continue;
+    el.setAttribute('aria-describedby', titleId);
+  }
 }
 
 /** On/off switch (the Pomodoro page's, so every template styles it the same). */
@@ -156,6 +170,8 @@ async function restoreBackup(file) {
   const current = Object.fromEntries(dataPairs());
   try {
     localStorage.setItem(`lifeos:backup:before-restore:${new Date().toISOString()}`, JSON.stringify({ reason: 'before restoring a backup file', createdAt: Date.now(), data: current }));
+    // Only the newest few backups stay (each is a whole copy of the data)
+    pruneBackups(localStorage);
   } catch {
     toast('Not restored: there’s no room to keep a copy of your current data first.', { duration: 7000 });
     return;
@@ -179,6 +195,114 @@ async function restoreBackup(file) {
   }
   // Every page re-reads it from scratch
   location.reload();
+}
+
+/* ---- Delete all my data (this device) ---- */
+
+// Every open window of LIFE/OS (tabs, the installed app) hears a deletion, stops saving and starts
+// again empty, so none of them writes its copy back. Same address only, nothing leaves the device.
+const wipeChannel = typeof BroadcastChannel === 'function' ? new BroadcastChannel('lifeos:delete-all') : null;
+wipeChannel?.addEventListener('message', (e) => {
+  if (e.data?.type !== 'deleted') return;
+  stopSaving();
+  // This tab's own sessionStorage (the in-app clipboard): each tab has its own, out of the deleting
+  // window's reach. Never localStorage here: a tab that hears this late (one the browser had
+  // frozen) would delete what was saved after the deletion
+  removeLifeosKeys(['sessionStorage']);
+  restartEmpty();
+});
+
+// The app's front page, as on a first visit (a reload alone would keep #/settings)
+function restartEmpty() {
+  history.replaceState(null, '', location.pathname + location.search);
+  location.reload();
+}
+
+// Every lifeos:* key in these storages (by name: reading a blocked one throws, and is skipped)
+function removeLifeosKeys(names = ['localStorage', 'sessionStorage']) {
+  for (const name of names) {
+    try {
+      const storage = globalThis[name];
+      for (const key of keysToDelete(storageKeys(storage))) storage.removeItem(key);
+    } catch {}
+  }
+}
+
+/**
+ * Everything LIFE/OS keeps in this browser: every lifeos:* key (data, settings, the safety
+ * backups, the sync key and state, the timer's announcements; the session's clipboard) and its
+ * offline caches. Then a fresh start. A copy in the person's own GitHub repository is theirs to
+ * delete there (the dialog says how); the app can't and shouldn't reach it from here.
+ */
+async function deleteAllData() {
+  stopSaving();
+  wipeChannel?.postMessage({ type: 'deleted' });
+  disconnect();
+  removeLifeosKeys();
+  try {
+    if (globalThis.caches) await Promise.all(cachesToDelete(await caches.keys()).map((name) => caches.delete(name)));
+  } catch {}
+  // A write already under way (a sync answer, a timer's announcement) may land after the first
+  // pass: a second one catches it
+  await new Promise((resolve) => setTimeout(resolve, 300));
+  removeLifeosKeys();
+  restartEmpty();
+}
+
+function openDeleteAll() {
+  const config = syncConfig();
+  const link = (href, text) => h('a', { href, target: '_blank', rel: 'noopener noreferrer' }, text);
+  const repo = config ? link(`https://github.com/${config.repo}/settings`, config.repo) : h('code', null, 'life-os-data');
+  let busy = false;
+  const cancelBtn = h('button', { type: 'button', class: 'btn btn--ghost', onClick: () => m.close() }, 'Cancel');
+  const deleteBtn = h(
+    'button',
+    {
+      type: 'button',
+      class: 'btn btn--danger',
+      onClick: async () => {
+        if (busy) return;
+        busy = true;
+        deleteBtn.disabled = true;
+        cancelBtn.disabled = true;
+        deleteBtn.textContent = 'Deleting…';
+        await deleteAllData();
+      },
+    },
+    'Delete everything',
+  );
+  const m = openModal({
+    title: 'Delete all your LIFE/OS data?',
+    className: 'st-delete-modal',
+    body: [
+      h('p', { class: 'st-delete-lead' }, 'This removes everything LIFE/OS keeps in this browser on this device, then opens it again empty. It can’t be undone.'),
+      h('h3', { class: 'st-delete-head' }, 'Deleted from this device'),
+      h(
+        'ul',
+        { class: 'st-delete-list' },
+        h('li', null, 'Your tasks, notes, habits, calendar events, focus sessions, workouts, subscriptions and settings.'),
+        h('li', null, 'The safety backups LIFE/OS keeps here (made before a restore or a first sync).'),
+        h('li', null, config ? 'Your sync key and sync state: Sync turns off on this device.' : 'Sync’s key and state, if this device was ever connected.'),
+        h('li', null, 'The offline copy of the app. It downloads again the next time LIFE/OS opens online.'),
+      ),
+      h('h3', { class: 'st-delete-head' }, 'Not deleted'),
+      h(
+        'ul',
+        { class: 'st-delete-list' },
+        h('li', null, 'The copy in your own GitHub repository, if you used Sync. To delete it, on GitHub open ', repo, ' → Settings → Danger Zone → Delete this repository. (GitHub may be able to restore it for up to 90 days.)'),
+        h('li', null, 'Your LIFE/OS sync key on GitHub: delete it at ', link('https://github.com/settings/personal-access-tokens', 'github.com/settings/personal-access-tokens'), '.'),
+        h('li', null, 'LIFE/OS on your other computers and browsers: delete it there with this same button.'),
+        h('li', null, 'Backup files you downloaded.'),
+        h('li', null, 'What you allowed the browser, like notifications: change it in the browser’s site settings.'),
+      ),
+    ],
+    footer: [
+      h('button', { type: 'button', class: 'btn st-delete-backup', onClick: downloadBackup }, icon('arrow-down', { size: 14 }), 'Download a backup first'),
+      cancelBtn,
+      deleteBtn,
+    ],
+    initialFocus: cancelBtn,
+  });
 }
 
 /* ---- The page ---- */
@@ -234,12 +358,14 @@ function mount(root) {
     sound.set(s.sound);
     mini.set(s.showMini);
     notify.set(s.notify && perm === 'granted', { disabled: perm === 'unsupported' });
+    // No way to show one in this browser: no switch, just the line that says so
+    notify.el.hidden = perm === 'unsupported';
     notifyRow.hint(
       perm === 'unsupported'
         ? 'This browser can’t show notifications.'
         : perm === 'denied'
           ? 'Blocked by the browser. Allow notifications for this site in its site settings, then switch them on here.'
-          : 'A notification when a timer ends while you’re in another app.',
+          : 'A notification when a timer ends while LIFE/OS is open but you’re in another app or tab.',
       { state: perm === 'unsupported' || perm === 'denied' },
     );
   }
@@ -353,7 +479,7 @@ function mount(root) {
 
   const backupRow = row({
     title: 'Download a backup',
-    hint: 'One file with all your tasks, notes, habits, events, workouts and timer history. Keep it somewhere safe.',
+    hint: 'One file with all your tasks, notes, habits, events, workouts, subscriptions, timer history and settings. Keep it somewhere safe.',
     control: button('Download', downloadBackup, { iconName: 'arrow-down' }),
   });
 
@@ -374,6 +500,13 @@ function mount(root) {
   });
 
   const storageRow = row({ title: 'Storage', hint: STORAGE_TEXT.checking, state: true, control: [] });
+
+  const deleteRow = row({
+    key: 'delete-all',
+    title: 'Delete all my data',
+    hint: 'Removes everything LIFE/OS keeps on this device. It asks first and offers a backup.',
+    control: h('button', { type: 'button', class: 'btn btn--sm btn--danger', onClick: openDeleteAll }, icon('trash', { size: 14 }), 'Delete…'),
+  });
   async function paintStorage() {
     // The browser answers the persistence question shortly after start-up
     for (let i = 0; i < 20 && shell.storageState() === 'checking'; i++) await new Promise((r) => setTimeout(r, 250));
@@ -390,6 +523,7 @@ function mount(root) {
   const versionControl = versionRow.el.querySelector('.st-row-control');
   const checkBtn = button('Check for updates', checkUpdates, { iconName: 'sync' });
   versionControl.append(checkBtn);
+  describeByTitle(versionControl, versionRow.id);
   async function checkUpdates() {
     checkBtn.disabled = true;
     versionRow.hint(`LIFE/OS ${shell.version} · Checking…`);
@@ -401,6 +535,7 @@ function mount(root) {
     } else if (isNewerVersion(latest, shell.version)) {
       versionRow.hint(`LIFE/OS ${shell.version} · ${latest} is ready.`);
       versionControl.replaceChildren(button(`Reload to ${latest}`, () => location.reload(), { iconName: 'sync', primary: true }));
+      describeByTitle(versionControl, versionRow.id);
     } else {
       versionRow.hint(`LIFE/OS ${shell.version} · You have the latest version.`);
     }
@@ -421,11 +556,15 @@ function mount(root) {
     ],
   });
 
-  const projectRow = row({
-    title: 'Project',
-    hint: 'The source and every version, on GitHub (private).',
-    control: h('a', { class: 'btn btn--sm', href: PROJECT_URL, target: '_blank', rel: 'noopener noreferrer' }, 'GitHub', icon('external', { size: 14 })),
-  });
+  /* Legal: the documents next to the app (legal/), each in a new tab */
+  const legalRows = LEGAL_LINKS.map((doc) =>
+    row({
+      key: `legal-${doc.id}`,
+      title: doc.label,
+      hint: doc.hint,
+      control: h('a', { class: 'btn btn--sm', href: doc.href, target: '_blank', rel: 'noopener', 'aria-label': `Open ${doc.label} (new tab)` }, 'Open', icon('external', { size: 14 })),
+    }),
+  );
 
   root.append(
     header,
@@ -436,8 +575,9 @@ function mount(root) {
       card('Appearance', [templateRow, themeRow, paletteRow, motionRow, tipsRow], 'palette'),
       card('Color coding', [colorsRow, ...colorKindRows], 'tag'),
       card('Start-up', [startRow], 'home'),
-      card('Sync & backup', [syncRow, backupRow, restoreRow, storageRow], 'sync'),
-      card('About', [versionRow, elsewhereRow, projectRow], 'tip'),
+      card('Sync & backup', [syncRow, backupRow, restoreRow, storageRow, deleteRow], 'sync'),
+      card('About', [versionRow, elsewhereRow], 'tip'),
+      card('Legal', legalRows, 'note'),
     ),
   );
 

@@ -1212,7 +1212,7 @@ export function openDeleteSection({ section, count, onConfirm }) {
           { class: 'nt-dx-choices' },
           h('legend', { class: 'sr-only' }, 'What happens to its notes'),
           choice('move', `Move its ${notes} to Unsorted`, 'The notes stay. Only the section goes.'),
-          choice('delete', `Delete the section and its ${notes}`, 'Removed from this device. You can undo right after.', true),
+          choice('delete', `Delete the section and its ${notes}`, 'Deleted, also on your other computers if Sync is on. You can undo right after.', true),
         ),
       ]
     : h('p', { class: 'muted' }, '“', h('bdi', null, name), '” is empty, so no notes are affected. You can undo right after.');
