@@ -1027,6 +1027,23 @@ button.tk-stat:active {
   max-width: 52ch;
 }
 
+/* Links in notes open in the browser. Underlined (text color, not a hue) so they read as
+   links in every template */
+.tk-link {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+  text-decoration-color: color-mix(in srgb, currentColor 45%, transparent);
+  cursor: pointer;
+}
+
+.tk-link:hover,
+.tk-link:focus-visible {
+  color: var(--text);
+  text-decoration-color: currentColor;
+}
+
 /* ---- Completed rows ---- */
 /* A done task's tags step back to the faintest text color, not by fading: at 0.55 they fell
    to 2.3–3.4:1 in every template (WCAG 1.4.3) */
@@ -1236,6 +1253,30 @@ button.tk-stat:active {
 
 .tk-field-notes {
   min-height: 132px;
+}
+
+.tk-links {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  margin-top: 8px;
+  /* A long link is cut to fit; it never widens the dialog (it pushed a phone's past the screen) */
+  contain: inline-size;
+}
+
+.tk-link-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  min-width: 0;
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+}
+
+.tk-link-item > .icon {
+  flex: none;
 }
 
 .tk-field-title[aria-invalid="true"] {

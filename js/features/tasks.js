@@ -61,6 +61,9 @@ import {
   insertTaskAfter,
   parseQuickAdd,
   notePreview,
+  linkParts,
+  noteLinks,
+  linkLabel,
   cleanTitle,
   inSection,
   sectionCounts,
@@ -106,6 +109,20 @@ const isPhone = () => !!phoneQuery?.matches;
 // "All sections": a stack (the same drawing as Notes' "All notes"), so it never reads as one section
 const ALL_ICON = 'tk-all';
 registerIcon(ALL_ICON, '<path d="m12 3 9 4.5-9 4.5-9-4.5Z"/><path d="m3 12 9 4.5 9-4.5"/><path d="m3 16.5 9 4.5 9-4.5"/>');
+// Links in a task's notes (they open in the browser, a new tab)
+registerIcon('tk-link', '<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>');
+registerIcon('tk-external', '<path d="M14 4h6v6M20 4l-9 9"/><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/>');
+
+/** A link from a task's notes: http(s) only (linkParts), opened in a new browser tab, never inside LIFE/OS. */
+function noteLink(url, { className = 'tk-link', tabindex = null } = {}, ...children) {
+  return h(
+    'a',
+    { class: className, href: url, target: '_blank', rel: 'noopener noreferrer', title: url, draggable: 'false', tabindex },
+    children.length ? children : linkLabel(url),
+    h('span', { class: 'sr-only' }, ' (opens in a new tab)'),
+  );
+}
+
 // "No section" in the steps and the details: the same "none" mark as No priority and No date
 const NO_SECTION_ICON = 'circle-slash';
 
@@ -1060,7 +1077,7 @@ function mount(root) {
     // A click on the title renames it in place. A phone has no pencil or trash on the row (no
     // room), so a tap anywhere on the task opens its details there: title, dates, Delete.
     row.addEventListener('click', (e) => {
-      if (e.target.closest('.tk-check, .tk-grip, .tk-actions, .tk-edit-input')) return;
+      if (e.target.closest('.tk-check, .tk-grip, .tk-actions, .tk-edit-input, .tk-link')) return;
       if (isPhone()) openDetails(id);
       else if (e.target.closest('.tk-title')) startEdit(id);
     });
@@ -1168,7 +1185,12 @@ function mount(root) {
     if (doneAgo) out.push(h('span', { class: 'tk-done-ago label' }, icon('check-circle', { size: 12 }), `Done ${doneAgo}`));
     const preview = notePreview(t.notes);
     if (preview) {
-      out.push(h('span', { class: 'tk-note', title: preview }, icon('note', { size: 12 }), h('span', { class: 'sr-only' }, 'Note: '), h('span', { class: 'tk-note-text truncate' }, preview)));
+      // The whole first line (the row cuts it to fit), so a link in it is never cut in half.
+      // Its links open on a click; Tab skips them (one stop per row): the details list them
+      const parts = linkParts(notePreview(t.notes, Infinity));
+      const onlyLink = parts.length === 1 && !!parts[0].url;
+      const text = parts.map((p) => (p.url ? noteLink(p.url, { tabindex: '-1' }) : p.text));
+      out.push(h('span', { class: 'tk-note', title: preview }, icon(onlyLink ? 'tk-link' : 'note', { size: 12 }), h('span', { class: 'sr-only' }, 'Note: '), h('span', { class: 'tk-note-text truncate' }, text)));
     }
     return out;
   }
@@ -2238,6 +2260,17 @@ function mount(root) {
     const titleIn = h('input', { class: 'input tk-field-title', id: 'tk-d-title', type: 'text', value: task.title, maxlength: '500', autocomplete: 'off', 'aria-describedby': 'tk-d-err' });
     const notesIn = h('textarea', { class: 'textarea tk-field-notes', id: 'tk-d-notes', rows: '6', placeholder: 'Context, links, sub-steps…' });
     notesIn.value = task.notes;
+    // The notes' links, clickable (a textarea can't open them); follows the text as it's typed
+    const linksEl = h('div', { class: 'tk-links' });
+    const paintLinks = () => {
+      const urls = noteLinks(notesIn.value);
+      linksEl.hidden = !urls.length;
+      linksEl.replaceChildren(
+        ...urls.map((url) => noteLink(url, { className: 'tk-link tk-link-item' }, icon('tk-link', { size: 14 }), h('span', { class: 'truncate' }, linkLabel(url, 80)), icon('tk-external', { size: 12 }))),
+      );
+    };
+    notesIn.addEventListener('input', paintLinks);
+    paintLinks();
     const pri = priorityPicker(task.priority);
     const due = duePicker(task.due, { extended: true });
     // Optional time of day: the calendar then shows the task on its timeline
@@ -2319,7 +2352,7 @@ function mount(root) {
 
     const body = [
       h('div', { class: 'field' }, fieldLabel('check-square', 'Title', 'tk-d-title'), titleIn, err),
-      h('div', { class: 'field' }, fieldLabel('note', 'Notes', 'tk-d-notes'), notesIn),
+      h('div', { class: 'field' }, fieldLabel('note', 'Notes', 'tk-d-notes'), notesIn, linksEl),
       h(
         'div',
         { class: 'tk-detail-grid' },

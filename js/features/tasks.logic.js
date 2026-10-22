@@ -645,6 +645,58 @@ export function notePreview(notes, max = 90) {
   return line.length > max ? `${line.slice(0, max - 1)}…` : line;
 }
 
+/* ---- Links in a task's notes ---- */
+
+// http(s) only: anything else (javascript:, file:, mailto:) stays plain text
+const LINK_RE = /https?:\/\/[^\s<>"'`]+/gi;
+// What ends the sentence around a link rather than the link: the dot in 'see <link>.', the bracket in '(<link>)'
+const LINK_TRAIL = /[.,;:!?'"*_~]$/;
+const LINK_PAIRS = { ')': '(', ']': '[', '}': '{' };
+const countOf = (s, ch) => s.split(ch).length - 1;
+
+function trimLink(raw) {
+  let url = raw;
+  for (;;) {
+    const last = url.slice(-1);
+    if (LINK_TRAIL.test(last)) url = url.slice(0, -1);
+    else if (LINK_PAIRS[last] && countOf(url, last) > countOf(url, LINK_PAIRS[last])) url = url.slice(0, -1);
+    else return url;
+  }
+}
+
+/** Text as plain parts and http(s) links, in order: [{ text } | { url }]. Joined back, they are the text. */
+export function linkParts(text) {
+  const s = String(text ?? '');
+  const parts = [];
+  let at = 0;
+  for (const m of s.matchAll(LINK_RE)) {
+    const url = trimLink(m[0]);
+    // 'https://' with no site after it is not a link
+    if (!/^https?:\/\/[^/?#]+/i.test(url)) continue;
+    if (m.index > at) parts.push({ text: s.slice(at, m.index) });
+    parts.push({ url });
+    at = m.index + url.length;
+  }
+  if (at < s.length) parts.push({ text: s.slice(at) });
+  return parts;
+}
+
+/** Every http(s) link in a task's notes, each once, in the order written (at most `max`). */
+export function noteLinks(notes, max = 20) {
+  const out = [];
+  for (const p of linkParts(notes)) {
+    if (out.length >= max) break;
+    if (p.url && !out.includes(p.url)) out.push(p.url);
+  }
+  return out;
+}
+
+/** A link as people read it: no https://, no www., no trailing slash; cut to `max` characters with '…'. */
+export function linkLabel(url, max = 60) {
+  const s = String(url ?? '').replace(/^https?:\/\//i, '').replace(/^www\./i, '').replace(/\/$/, '');
+  return s.length > max ? `${s.slice(0, max - 1)}…` : s;
+}
+
 /** The icon a section shows: the one picked, else what its name suggests, else a folder. */
 export function sectionIcon(section) {
   return iconOf(section, 'folder');
