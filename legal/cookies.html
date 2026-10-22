@@ -21,7 +21,7 @@
 
     <main id="main">
       <h1>Cookies and storage</h1>
-      <p class="meta">Last updated: <time data-legal="updated" datetime="2026-10-18">18 October 2026</time></p>
+      <p class="meta">Last updated: <time data-legal="updated" datetime="2026-10-22">22 October 2026</time></p>
       <p class="draft" data-legal-draft role="note">Draft: the parts marked [FILL IN] are not filled in yet, so this page is not final.</p>
 
       <section class="summary" aria-labelledby="summary">
@@ -78,6 +78,12 @@
             <td data-label="What it holds">Your choices: template, light or dark, start page, the Home layout, which views and panels are open</td>
             <td data-label="Why it is needed">Remembers settings you chose yourself, so the app looks and opens the way you set it.</td>
             <td data-label="How long">Until you delete it</td>
+          </tr>
+          <tr>
+            <td data-label="Name"><code>lifeos-files</code> (an IndexedDB database)</td>
+            <td data-label="What it holds">Pictures you added to a task's page, made smaller (at most 1600 pixels on the longest side)</td>
+            <td data-label="Why it is needed">Shows them in the task. Pictures are kept apart from the rest because local storage is too small for them. Sync never sends them.</td>
+            <td data-label="How long">Until you use <em>Delete all my data</em> or clear the site's data. Taking a picture out of a page doesn't free its space yet.</td>
           </tr>
           <tr>
             <td data-label="Name"><code>lifeos:sync:config</code>, <code>lifeos:sync:state</code></td>

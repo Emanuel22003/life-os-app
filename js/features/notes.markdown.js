@@ -9,7 +9,9 @@
 // **bold**, *italic*, ***both***, ~~strike~~, `code`, ``` / ~~~ fenced blocks,
 // - * + bullet lists, 1. ordered lists, nesting by indentation, task items
 // "- [ ]" / "- [x]", > blockquotes (nestable), --- rules, [text](url) links,
-// bare https:// autolinks and backslash escapes.
+// bare https:// autolinks and backslash escapes. With { images: true } (a task's page) a line that
+// is only ![caption](lifeos-img:<id>) becomes a picture block: a <figure data-img> the page fills
+// in from this device (js/files.js). Pictures from other websites are never loaded.
 
 import { escapeHtml } from '../ui.js';
 
@@ -32,17 +34,18 @@ const LINK = /\[([^\][\n]+)\]\(\s*((?:[^()\s]|\([^()\s]*\))+)\s*\)/g;
 const AUTOLINK = /\bhttps?:\/\/(?:[^\s\u0000&]|&(?!lt;|gt;|quot;|#39;))+/gi;
 const SAFE_URL = /^(?:https?:\/\/|mailto:)\S+$/i;
 const TOKEN = /\u0000(\d+)\u0000/g;
+const IMAGE_LINE = /^ {0,3}!\[([^\]\n]*)\]\(lifeos-img:([A-Za-z0-9_-]{1,64})\)[ \t]*$/;
 
 /**
- * renderMarkdown(src, { tasks = true }) -> HTML string.
+ * renderMarkdown(src, { tasks = true, images = false }) -> HTML string.
  * Task items render as real checkboxes carrying data-line (the 0-based source
  * line) so a click can be written back with toggleTask().
  */
-export function renderMarkdown(src, { tasks = true } = {}) {
+export function renderMarkdown(src, { tasks = true, images = false } = {}) {
   // NUL is reserved for the inline placeholder tokens below.
   const text = String(src ?? '').replace(/\r\n?/g, '\n').replace(/\u0000/g, '�');
   if (!text.trim()) return '';
-  return renderBlocks(text.split('\n'), 0, 0, { tasks });
+  return renderBlocks(text.split('\n'), 0, 0, { tasks, images });
 }
 
 /**
@@ -119,6 +122,14 @@ function renderBlocks(lines, offset, depth, opts) {
       flushPara();
       closeLists();
       out.push('<hr>');
+      continue;
+    }
+
+    const picture = opts.images ? IMAGE_LINE.exec(line) : null;
+    if (picture) {
+      flushPara();
+      closeLists();
+      out.push(figure(picture[2], picture[1].trim()));
       continue;
     }
 
@@ -207,6 +218,12 @@ function listItem(content, lineNo, opts) {
     `<span class="nt-task-text">${inline(text)}</span>` +
     `</label>`
   );
+}
+
+// The id is [A-Za-z0-9_-] only (IMAGE_LINE), so it needs no escaping; the caption is text
+function figure(id, caption) {
+  const text = escapeHtml(caption);
+  return `<figure class="nt-img" data-img="${id}"${text ? ` data-caption="${text}"` : ''}><span class="nt-img-wait">${text || 'Picture'}</span></figure>`;
 }
 
 /** "# Title ##" -> "Title" (an optional closing run of #s after a space is dropped). */

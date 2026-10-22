@@ -60,7 +60,6 @@ import {
   restoreTasks,
   insertTaskAfter,
   parseQuickAdd,
-  notePreview,
   linkParts,
   noteLinks,
   linkLabel,
@@ -90,6 +89,8 @@ import {
 import { paintColor, colorDot, colorPicker, colorButton } from '../colors.js';
 import { registerContextProvider } from '../contextmenu.js';
 import { splitText } from '../contextmenu.logic.js';
+import { createTaskPanel } from './tasks.panel.js';
+import { pagePreview } from './tasks.panel.logic.js';
 
 const LINGER_MS = 900; // how long a just-toggled row holds its place
 const DRAG_THRESHOLD = 4;
@@ -103,9 +104,6 @@ const STEP_LABEL = { priority: 'Priority', due: 'When', section: 'Section' };
 const VIEW_LABEL = { all: 'All tasks', today: 'Today', upcoming: 'Upcoming', done: 'Done' };
 // More sections than this and wide screens get the dropdown too (fewer: tabs if they fit, fitToolbar)
 const SECTION_TABS_MAX = 4;
-// Phones: a tap on a task opens its details (no pencil or trash on the row there)
-const phoneQuery = globalThis.matchMedia?.('(max-width: 640px)') ?? null;
-const isPhone = () => !!phoneQuery?.matches;
 // "All sections": a stack (the same drawing as Notes' "All notes"), so it never reads as one section
 const ALL_ICON = 'tk-all';
 registerIcon(ALL_ICON, '<path d="m12 3 9 4.5-9 4.5-9-4.5Z"/><path d="m3 12 9 4.5 9-4.5"/><path d="m3 16.5 9 4.5 9-4.5"/>');
@@ -635,7 +633,7 @@ function mount(root) {
   const kbdHelp = h(
     'p',
     { class: 'sr-only', id: 'tk-kbd-help' },
-    'Arrow keys move between tasks. Enter renames, Space toggles done, E opens details, Alt plus Up or Down reorders, Delete removes.',
+    'Arrow keys move between tasks. O opens the task’s page, Enter renames, Space toggles done, E opens details, Alt plus Up or Down reorders, Delete removes.',
   );
   const mainList = h('ol', { class: 'tk-list', 'aria-label': 'Tasks' });
   const mainPanel = h('div', { class: 'tk-panel panel' }, mainList);
@@ -683,6 +681,7 @@ function mount(root) {
       hint(['N'], 'New'),
       hint([MOD_KEY, '⏎'], 'Add now'),
       hint(['↑', '↓'], 'Select'),
+      hint(['O'], 'Open'),
       hint(['⏎'], 'Rename'),
       hint(['Space'], 'Done'),
       hint(['E'], 'Details'),
@@ -811,6 +810,9 @@ function mount(root) {
         rows.delete(id);
       }
     }
+    // The open page follows the task (or closes when it is gone); its row stays marked
+    page.refresh();
+    for (const [id, r] of rows) r.row.classList.toggle('is-open', id === page.id);
     restoreFocus(focus);
   }
 
@@ -1074,12 +1076,12 @@ function mount(root) {
       icon('trash', { size: 15 }),
     );
     row.append(grip, check, h('div', { class: 'tk-body' }, titleWrap, meta), h('div', { class: 'row-actions tk-actions' }, details, del));
-    // A click on the title renames it in place. A phone has no pencil or trash on the row (no
-    // room), so a tap anywhere on the task opens its details there: title, dates, Delete.
+    // A click on the task opens its page from the right (tasks.panel.js): the title, the details
+    // and room for anything the task needs. The checkbox, the grip, the row's buttons and a link
+    // in its note keep their own job; Enter (or F2) still renames in place.
     row.addEventListener('click', (e) => {
       if (e.target.closest('.tk-check, .tk-grip, .tk-actions, .tk-edit-input, .tk-link')) return;
-      if (isPhone()) openDetails(id);
-      else if (e.target.closest('.tk-title')) startEdit(id);
+      page.open(id);
     });
     // One-shot animation classes must go once played, or re-inserting the row
     // (e.g. into the Completed list) would replay them.
@@ -1183,11 +1185,12 @@ function mount(root) {
       }
     }
     if (doneAgo) out.push(h('span', { class: 'tk-done-ago label' }, icon('check-circle', { size: 12 }), `Done ${doneAgo}`));
-    const preview = notePreview(t.notes);
+    // The page's first words, without its markup (a heading's #, a checklist's box, a picture)
+    const preview = pagePreview(t.notes);
     if (preview) {
       // The whole first line (the row cuts it to fit), so a link in it is never cut in half.
       // Its links open on a click; Tab skips them (one stop per row): the details list them
-      const parts = linkParts(notePreview(t.notes, Infinity));
+      const parts = linkParts(pagePreview(t.notes, Infinity));
       const onlyLink = parts.length === 1 && !!parts[0].url;
       const text = parts.map((p) => (p.url ? noteLink(p.url, { tabindex: '-1' }) : p.text));
       out.push(h('span', { class: 'tk-note', title: preview }, icon(onlyLink ? 'tk-link' : 'note', { size: 12 }), h('span', { class: 'sr-only' }, 'Note: '), h('span', { class: 'tk-note-text truncate' }, text)));
@@ -2582,6 +2585,11 @@ function mount(root) {
         e.preventDefault();
         openDetails(id);
         break;
+      case 'o':
+      case 'O':
+        e.preventDefault();
+        page.open(id);
+        break;
       case 'Delete':
       case 'Backspace':
         e.preventDefault();
@@ -2632,6 +2640,36 @@ function mount(root) {
   }
 
   /* ==========================================================================
+     A task's page (tasks.panel.js)
+     ========================================================================== */
+
+  /** Set one field, writing nothing when it already holds that value. */
+  const setField = (id, field, value) => {
+    const task = findTask(id);
+    if (!task || task[field] === value) return;
+    setItems((items) => updateTask(items, id, { [field]: value }));
+  };
+  const page = createTaskPanel({
+    getTask: (id) => findTask(id) ?? null,
+    // The row's own chips (the section always: the page has room), less its note line
+    chipsFor: (t) => {
+      const sec = getState().sections.find((x) => x.id === t.sectionId);
+      const info = sec ? { name: sec.name, icon: sectionIcon(sec), color: sec.color ?? null } : null;
+      return metaNodes(t, todayKey(), '', info).filter((n) => !n.classList?.contains('tk-note'));
+    },
+    onTitle: (id, title) => setField(id, 'title', title),
+    onNotes: (id, notes) => setField(id, 'notes', notes),
+    onDone: (id, done) => toggleDone(id, done),
+    onDetails: (id) => openDetails(id),
+    onDelete: (id) => deleteTask(id),
+    onChange: (id, was) => {
+      for (const [rid, r] of rows) r.row.classList.toggle('is-open', rid === id);
+      // Closed from inside: the keyboard goes back to the task it showed
+      if (was) rows.get(was)?.row.focus({ preventScroll: true });
+    },
+  });
+
+  /* ==========================================================================
      Wiring
      ========================================================================== */
 
@@ -2679,6 +2717,7 @@ function mount(root) {
     document.removeEventListener('keydown', onDocKeydown);
     root.removeEventListener('keydown', onRowKeydown);
     detailsModal?.close();
+    page.destroy();
   };
 }
 

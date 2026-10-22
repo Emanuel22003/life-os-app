@@ -1891,3 +1891,273 @@ button.tk-stat:active {
 .tk-field-hint {
   margin: 0;
 }
+
+/* ==========================================================================
+   A task's page: the panel from the right (js/features/tasks.panel.js)
+   ========================================================================== */
+
+:root {
+  --tk-page-w: clamp(360px, 38vw, 580px);
+}
+
+/* The task whose page is open */
+.tk-row.is-open {
+  background: var(--surface-2);
+  box-shadow: inset 2px 0 0 var(--text);
+}
+
+.tk-page {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: calc(var(--z-overlay) - 5);
+  width: min(var(--tk-page-w), 100vw);
+  display: flex;
+  flex-direction: column;
+  background: var(--surface-solid);
+  border-left: var(--border-w) solid var(--line-strong);
+  box-shadow: var(--shadow);
+  transform: translateX(104%);
+  transition: transform var(--dur) var(--ease-out);
+  outline: none;
+}
+
+.tk-page.is-open {
+  transform: none;
+}
+
+.tk-page.is-drop .tk-page-scroll {
+  outline: 2px dashed var(--line-strong);
+  outline-offset: -10px;
+}
+
+.tk-page-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--line);
+}
+
+.tk-page-head .spacer {
+  flex: 1;
+}
+
+.tk-page-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-5) var(--space-6) var(--space-6);
+}
+
+/* A long page scrolls; nothing in it is squeezed to fit (the title shrank to 5px without this) */
+.tk-page-scroll > * {
+  flex: none;
+}
+
+.tk-page-title {
+  width: 100%;
+  padding: 2px 0;
+  border: 0;
+  border-bottom: 1px dashed transparent;
+  background: transparent;
+  color: var(--text);
+  font-family: var(--font-display);
+  font-size: var(--fs-2xl);
+  font-weight: 600;
+  line-height: 1.25;
+  resize: none;
+  overflow: hidden;
+  field-sizing: content;
+  outline: none;
+}
+
+.tk-page-title:focus {
+  border-bottom-color: var(--line-strong);
+}
+
+.tk-page.is-done .tk-page-title {
+  color: var(--text-3);
+  text-decoration: line-through;
+}
+
+/* The date / priority / section chips: one button that opens the Details dialog */
+.tk-page-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  align-self: flex-start;
+  gap: 6px;
+  margin: -4px -6px;
+  padding: 4px 6px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.tk-page-meta:hover {
+  background: var(--surface-2);
+}
+
+.tk-page-meta:focus-visible {
+  box-shadow: inset 0 0 0 1px var(--line-focus);
+}
+
+.tk-page-meta-empty {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+}
+
+.tk-page-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.tk-page-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--line);
+}
+
+.tk-page-view {
+  min-height: 180px;
+  border-radius: var(--radius-sm);
+  cursor: text;
+  outline: none;
+}
+
+.tk-page-view:focus-visible {
+  box-shadow: 0 0 0 1px var(--line-focus);
+}
+
+.tk-page-text {
+  width: 100%;
+  min-height: 240px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: var(--fs-md);
+  line-height: 1.75;
+  resize: none;
+  overflow: hidden;
+  field-sizing: content;
+  outline: none;
+}
+
+.tk-page-text::placeholder {
+  color: var(--text-3);
+}
+
+.tk-page-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: auto;
+  color: var(--text-3);
+}
+
+.tk-page-status:not(:empty) {
+  color: var(--text-2);
+}
+
+.tk-page-status:not(:empty)::before {
+  content: "·";
+  margin-right: 6px;
+}
+
+/* Under the panel on screens too narrow to keep the list beside it; a click on it closes the page */
+.tk-page-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: calc(var(--z-overlay) - 6);
+  background: rgb(0 0 0 / 0.36);
+  opacity: 0;
+  transition: opacity var(--dur) var(--ease);
+}
+
+.tk-page-scrim.is-open {
+  opacity: 1;
+}
+
+/* Wide screens make room: the list moves over and stays usable beside the page */
+@media (min-width: 1100px) {
+  .tk-page-scrim {
+    display: none;
+  }
+
+  html.tk-page-open .main {
+    padding-right: var(--tk-page-w);
+    transition: padding-right var(--dur) var(--ease-out);
+  }
+}
+
+@media (max-width: 640px) {
+  /* A phone: the page takes the whole screen */
+  .tk-page {
+    width: 100vw;
+    border-left: 0;
+  }
+
+  .tk-page-scroll {
+    padding: var(--space-4) var(--space-4) var(--space-6);
+  }
+
+  .tk-page-head .btn > span {
+    display: none;
+  }
+}
+
+/* Pictures in the page (notes.markdown.js draws a <figure data-img> for each one) */
+.nt-img {
+  margin: 0;
+}
+
+.nt-img img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  cursor: zoom-in;
+}
+
+.nt-img figcaption {
+  margin-top: 4px;
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+}
+
+.nt-img-wait,
+.nt-img.is-missing {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: var(--space-3);
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius-sm);
+  color: var(--text-3);
+  font-size: var(--fs-sm);
+}
+
+.nt-img.is-missing .icon {
+  flex: none;
+}

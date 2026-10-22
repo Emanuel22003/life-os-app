@@ -7,6 +7,7 @@
 
 import { h, icon, pageHeader, toast, confirmDialog, openModal, formatDay, dateKey, uid, hiddenTipCount, resetTips } from '../ui.js';
 import { settings, stopSaving } from '../store.js';
+import { deleteAllFiles } from '../files.js';
 import { SKINS, normalizeSkin, THEMES } from '../skins.js';
 import { COLOR_KINDS, normalizeColorPrefs } from '../colors.logic.js';
 import { paletteEditor } from '../palette.js';
@@ -230,8 +231,8 @@ function removeLifeosKeys(names = ['localStorage', 'sessionStorage']) {
 
 /**
  * Everything LIFE/OS keeps in this browser: every lifeos:* key (data, settings, the safety
- * backups, the sync key and state, the timer's announcements; the session's clipboard) and its
- * offline caches. Then a fresh start. A copy in the person's own GitHub repository is theirs to
+ * backups, the sync key and state, the timer's announcements; the session's clipboard), the
+ * pictures in task pages and its offline caches. Then a fresh start. A copy in the person's own GitHub repository is theirs to
  * delete there (the dialog says how); the app can't and shouldn't reach it from here.
  */
 async function deleteAllData() {
@@ -239,6 +240,8 @@ async function deleteAllData() {
   wipeChannel?.postMessage({ type: 'deleted' });
   disconnect();
   removeLifeosKeys();
+  // Pictures in task pages live in their own database (js/files.js)
+  await deleteAllFiles();
   try {
     if (globalThis.caches) await Promise.all(cachesToDelete(await caches.keys()).map((name) => caches.delete(name)));
   } catch {}
