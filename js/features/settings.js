@@ -294,7 +294,7 @@ function openDeleteAll() {
       h(
         'ul',
         { class: 'st-delete-list' },
-        h('li', null, 'Your tasks, notes, habits, calendar events, focus sessions, workouts, subscriptions and settings.'),
+        h('li', null, 'Your tasks, notes, habits, calendar events, focus sessions, workouts, subscriptions, recovery trackers and settings.'),
         h('li', null, 'The safety backups LIFE/OS keeps here (made before a restore or a first sync).'),
         h('li', null, config ? 'Your sync key and sync state: Sync turns off on this device.' : 'Sync’s key and state, if this device was ever connected.'),
         h('li', null, 'The offline copy of the app. It downloads again the next time LIFE/OS opens online.'),
@@ -501,7 +501,7 @@ function mount(root) {
 
   const backupRow = row({
     title: 'Download a backup',
-    hint: 'One file with all your tasks, notes, habits, events, workouts, subscriptions, timer history and settings. Keep it somewhere safe.',
+    hint: 'One file with all your tasks, notes, habits, events, workouts, subscriptions, recovery trackers, timer history and settings. Keep it somewhere safe.',
     control: button('Download', downloadBackup, { iconName: 'arrow-down' }),
   });
 

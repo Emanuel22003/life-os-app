@@ -162,4 +162,4 @@ export function iconOf(item, fallback) {
  * Each page's own icon and color tone, used in the menu, page tops and Home's widgets:
  * the color comes from css/icons.css (--mod-<tone>), the icon from the app's page list.
  */
-export const PAGE_TONES = Object.freeze(['home', 'tasks', 'notes', 'habits', 'calendar', 'pomodoro', 'training', 'finance', 'health', 'settings']);
+export const PAGE_TONES = Object.freeze(['home', 'tasks', 'notes', 'habits', 'calendar', 'pomodoro', 'training', 'finance', 'recovery', 'health', 'settings']);

@@ -58,6 +58,8 @@ const MODULES = {
   financeLogic: () => import('./features/finance.logic.js'),
   pomodoro: () => import('./features/pomodoro.js'),
   training: () => import('./features/training.js'),
+  recovery: () => import('./features/recovery.js'),
+  recoveryLogic: () => import('./features/recovery.logic.js'),
   settingsLogic: () => import('./features/settings.logic.js'),
   syncPanel: () => import('./sync.panel.js'),
 };
@@ -177,7 +179,7 @@ const byId = (attr, id) => `[data-${attr}="${CSS.escape(String(id))}"]`;
 // Group order: with nothing typed, then for equal matches (a page before the action: 'money' is
 // more likely Finance than New subscription). And their headings
 const IDLE_ORDER = ['actions', 'pages'];
-const ORDER = ['pages', 'actions', 'tasks', 'notes', 'events', 'habits', 'subscriptions', 'training', 'create'];
+const ORDER = ['pages', 'actions', 'tasks', 'notes', 'events', 'habits', 'subscriptions', 'training', 'recovery', 'create'];
 const GROUP_LABEL = {
   actions: 'Actions',
   pages: 'Go to',
@@ -187,10 +189,11 @@ const GROUP_LABEL = {
   habits: 'Habits',
   subscriptions: 'Subscriptions',
   training: 'Training',
+  recovery: 'Recovery',
   create: 'Create',
 };
 // "Show all 12 …"
-const GROUP_NOUN = { actions: 'actions', pages: 'pages', tasks: 'tasks', notes: 'notes', events: 'events', habits: 'habits', subscriptions: 'subscriptions', training: 'workouts and routines' };
+const GROUP_NOUN = { actions: 'actions', pages: 'pages', tasks: 'tasks', notes: 'notes', events: 'events', habits: 'habits', subscriptions: 'subscriptions', training: 'workouts and routines', recovery: 'trackers' };
 
 // The pages' icons (the nav's) and the other words that find them
 const PAGE_INFO = {
@@ -202,6 +205,7 @@ const PAGE_INFO = {
   pomodoro: { icon: 'timer', keywords: 'focus timer break' },
   training: { icon: 'dumbbell', keywords: 'workout gym exercise lifting running' },
   finance: { icon: 'wallet', keywords: 'money subscriptions payments bills' },
+  recovery: { icon: 'leaf', keywords: 'addiction quit stop sober clean days relapse smoking alcohol' },
   health: { icon: 'heart', keywords: 'idea' },
   settings: { icon: 'gear', keywords: 'preferences options backup export import data delete' },
 };
@@ -239,7 +243,7 @@ function timerAction() {
 // The Create rows (something typed): a task, a note, an event, a habit, and first what the page
 // you are on makes ("New note “…”" on Notes, "New subscription “…”" on Finance)
 const CREATE = ['task', 'note', 'event', 'habit'];
-const CREATE_HERE = { notes: 'note', calendar: 'event', habits: 'habit', finance: 'subscription' };
+const CREATE_HERE = { notes: 'note', calendar: 'event', habits: 'habit', finance: 'subscription', recovery: 'tracker' };
 
 /** The "New …" actions; with `text`, as the Create rows ("New task “text”"). */
 function newActions(text = '') {
@@ -256,6 +260,7 @@ function newActions(text = '') {
     { id: 'event', page: 'calendar', title: 'New event', keywords: 'add calendar appointment meeting', icon: 'calendar', idle: true },
     { id: 'habit', page: 'habits', title: 'New habit', keywords: 'add routine', icon: 'target', idle: true },
     { id: 'subscription', page: 'finance', title: 'New subscription', keywords: 'add payment money finance', icon: 'wallet', add: () => mods.finance?.financeApi?.add },
+    { id: 'tracker', page: 'recovery', title: 'New tracker', keywords: 'add recovery addiction quit stop sober', icon: 'leaf', add: () => mods.recovery?.recoveryApi?.add },
     // (N on Training starts one; while one is going, it is there to open)
     { id: 'workout', page: 'training', title: live ? 'Open the workout' : 'Start a workout', keywords: 'training gym log exercise new', icon: 'dumbbell', noText: true, add: () => (live ? null : mods.training?.trainingApi?.startSession) },
   ];
@@ -585,6 +590,28 @@ function trainingEntries(today) {
   return out;
 }
 
+function recoveryEntries(today) {
+  const api = mods.recovery?.recoveryApi;
+  const R = mods.recoveryLogic;
+  if (!api || !R) return [];
+  return R.orderedTrackers(api.trackers()).map((t) => ({
+    id: `tracker:${t.id}`,
+    group: 'recovery',
+    title: clean(t.name) || 'Tracker',
+    meta: [R.statusText(t, today), t.archived ? 'Archived' : ''].filter(Boolean).join(' · '),
+    icon: safeIcon(R.trackerIcon(t), 'leaf'),
+    tone: 'recovery',
+    later: t.archived,
+    run: async () => {
+      // Shown on its page (this device's choice), its card in focus
+      api.select(t.id);
+      if (!(await go('recovery'))) return;
+      await waitFor(() => document.querySelector('#main > .view[data-feature="recovery"] .rc-hero'), 800);
+      api.reveal(t.id);
+    },
+  }));
+}
+
 /** Everything searchable right now. Each source on its own: one that throws only drops its part. */
 function buildEntries() {
   const today = todayKey();
@@ -604,6 +631,7 @@ function buildEntries() {
   take('habits', () => habitEntries(today));
   take('subscriptions', () => subscriptionEntries(today));
   take('training', () => trainingEntries(today));
+  take('recovery', () => recoveryEntries(today));
   return out;
 }
 
@@ -923,6 +951,12 @@ const pageKeys = () => ({
   ],
   training: [[['N'], 'Start a workout']],
   finance: [[['N'], 'New subscription']],
+  recovery: [
+    [['N'], 'New tracker'],
+    [['T'], 'The calendar: back to this month'],
+    [['←', '→', '↑', '↓'], 'The calendar: move between days (PageUp / PageDown: a month)'],
+    [['Enter', 'Space'], 'The calendar: mark or remove a relapse on that day'],
+  ],
 });
 
 function keyList(rows) {

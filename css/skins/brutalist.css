@@ -3848,6 +3848,7 @@
   --mod-pomodoro: #000000;
   --mod-training: #000000;
   --mod-finance: #000000;
+  --mod-recovery: #000000;
   --mod-health: #000000;
   --mod-settings: #000000;
   color: #000000;
@@ -3876,6 +3877,7 @@
     --mod-pomodoro: #000000;
     --mod-training: #000000;
     --mod-finance: #000000;
+    --mod-recovery: #000000;
     --mod-health: #000000;
     --mod-settings: #000000;
     color: #000000;
@@ -6799,6 +6801,86 @@
   background: var(--text);
 }
 
+/* Daily results: the graph like Training's (a fat ink line with square joints, a quiet dashed
+   grid, the tip a slab), the rows ruled in ink like the subscriptions */
+[data-skin="brutalist"] .fn-ch {
+  border-radius: 0;
+}
+
+[data-skin="brutalist"] .fn-ch-grid line:not(.fn-ch-zero) {
+  stroke: var(--heat-1);
+  stroke-dasharray: 2 4;
+}
+
+[data-skin="brutalist"] .fn-ch-grid line.fn-ch-zero {
+  stroke: var(--text);
+  stroke-width: 2;
+}
+
+[data-skin="brutalist"] .fn-ch-axis {
+  font-family: var(--font-sans);
+  font-weight: 700;
+  fill: var(--text-2);
+}
+
+[data-skin="brutalist"] .fn-ch-line {
+  stroke: var(--text);
+  stroke-width: 3;
+  stroke-linejoin: miter;
+  stroke-linecap: square;
+}
+
+[data-skin="brutalist"] :is(.fn-ch-end, .fn-ch-dot) {
+  fill: var(--bru-hi);
+  stroke: var(--text);
+  stroke-width: 2;
+  paint-order: normal;
+}
+
+[data-skin="brutalist"] .fn-ch-bar.is-up,
+[data-skin="brutalist"] .fn-key--up {
+  fill: var(--text);
+  background: var(--text);
+}
+
+[data-skin="brutalist"] .fn-ch-bar.is-down {
+  stroke: var(--text);
+  stroke-width: 2;
+}
+
+[data-skin="brutalist"] .fn-key--down {
+  border: 2px solid var(--text);
+}
+
+[data-skin="brutalist"] .fn-key--line {
+  height: 3px;
+  background: var(--text);
+}
+
+[data-skin="brutalist"] .fn-ch-cross {
+  stroke: var(--text);
+  stroke-width: 2;
+}
+
+[data-skin="brutalist"] .fn-ch-tip {
+  border: 3px solid var(--text);
+  border-radius: 0;
+  background: var(--bg);
+  box-shadow: 6px 6px 0 var(--text);
+}
+
+[data-skin="brutalist"] :is(.fn-entry, .fn-acct, .fn-day.is-multi) {
+  border-top: 2px solid var(--text);
+}
+
+[data-skin="brutalist"] .fn-entry-list > .fn-entry {
+  border-top: 0;
+}
+
+[data-skin="brutalist"] .fn-amt {
+  font-weight: 800;
+}
+
 /* ==========================================================================
    Settings: the section index's place is a picked choice (ink frame, fat bar
    under it); the phone's jump bar is solid paper on a 3px rule; rows ruled in ink
@@ -6967,4 +7049,29 @@
     border-color: CanvasText;
     color: HighlightText;
   }
+}
+
+/* ==========================================================================
+   Recovery: today on the calendar and the run going on in the chart are the one current thing,
+   in hazard yellow; inside the yellow the ink is black, light and dark alike (as in the blocks
+   above), so a relapse today is a black circle on it
+   ========================================================================== */
+
+[data-skin="brutalist"] .rc-day.is-today {
+  --text: #000000;
+  --bg: #ffe600;
+  background: var(--bru-hi);
+  color: #000000;
+  box-shadow: inset 0 0 0 3px #000000;
+}
+
+[data-skin="brutalist"] .rc-swatch.is-today {
+  background: var(--bru-hi);
+  box-shadow: inset 0 0 0 2px var(--text);
+}
+
+[data-skin="brutalist"] .rc-bar.is-ongoing {
+  fill: var(--bru-hi);
+  stroke: var(--text);
+  stroke-width: 2;
 }

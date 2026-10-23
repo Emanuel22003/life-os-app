@@ -136,6 +136,7 @@
   --mod-pomodoro: var(--text-3);
   --mod-training: var(--text-3);
   --mod-finance: var(--text-3);
+  --mod-recovery: var(--text-3);
   --mod-health: var(--text-3);
   --mod-settings: var(--text-3);
 }
@@ -5574,6 +5575,46 @@
 @media (max-width: 640px) {
   [data-skin="minimal"] .fn-root .fn-row {
     grid-template-columns: minmax(0, 1fr) auto;
+  }
+}
+
+/* ---- Daily results: the same quiet lists. Everything starts on the titles' edge (the panels'
+   inner padding goes); rows reach 8px past the words for their hover, like a subscription ---- */
+[data-skin="minimal"] .fn-root :is(.fn-qa, .fn-ch-sum, .fn-ch-key, .fn-kpis, .fn-stat, .fn-month-head, .fn-acct-cap) {
+  padding-inline: 0;
+}
+
+[data-skin="minimal"] .fn-root .fn-ch {
+  --fn-ch-bg: var(--bg);
+  margin-inline: 0;
+}
+
+[data-skin="minimal"] .fn-root .fn-kpis {
+  padding-block: var(--space-2) 0;
+}
+
+[data-skin="minimal"] .fn-root .fn-stat-list {
+  padding: 0;
+}
+
+[data-skin="minimal"] .fn-root .fn-month + .fn-month {
+  margin-top: var(--space-4);
+  border-top: 0;
+}
+
+[data-skin="minimal"] .fn-root :is(.fn-entry, .fn-day-head, .fn-acct) {
+  margin-inline: -8px;
+  padding-inline: 8px;
+  border-radius: var(--radius-sm);
+}
+
+[data-skin="minimal"] .fn-root .fn-entry-list > .fn-entry {
+  padding-left: calc(8px + 82px + var(--space-3));
+}
+
+@media (max-width: 640px) {
+  [data-skin="minimal"] .fn-root .fn-entry-list > .fn-entry {
+    padding-left: calc(8px + 64px + var(--space-3));
   }
 }
 

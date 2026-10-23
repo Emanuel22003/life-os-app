@@ -2585,3 +2585,13 @@
     outline-offset: -2px;
   }
 }
+
+/* ---- Recovery: as the other charts, bars of ink with the one going on in brass, and today on the
+   calendar framed in brass ---- */
+[data-skin="oldmoney"] .rc-bar.is-ongoing {
+  fill: var(--om-brass);
+}
+
+[data-skin="oldmoney"] :is(.rc-day.is-today, .rc-swatch.is-today) {
+  box-shadow: inset 0 0 0 1.5px var(--om-brass);
+}

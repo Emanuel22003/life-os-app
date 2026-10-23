@@ -21,7 +21,7 @@
 
     <main id="main">
       <h1>Privacy policy</h1>
-      <p class="meta">Last updated: <time data-legal="updated" datetime="2026-10-22">22 October 2026</time></p>
+      <p class="meta">Last updated: <time data-legal="updated" datetime="2026-10-23">23 October 2026</time></p>
       <p class="draft" data-legal-draft role="note">Draft: the parts marked [FILL IN] are not filled in yet, so this page is not final.</p>
 
       <section class="summary" aria-labelledby="summary">
@@ -29,6 +29,7 @@
         <ul>
           <li>What you write in LIFE/OS is saved <strong>on your own device</strong>, in your browser. We never receive it, so we can't read it, sell it or share it.</li>
           <li>There is <strong>no account, no analytics, no ads, no tracking and no cookies</strong>.</li>
+          <li>Some of what you can keep is <strong>sensitive</strong>, such as the days you relapsed on the Recovery page, which can say something about your health. It is kept the same way: on your device, and only with Sync in your own repository.</li>
           <li><strong>Sync is optional.</strong> It copies your data to a private repository in <em>your own</em> GitHub account (Sync only works with a private one), with a key you create. It goes straight from your browser to GitHub; we don't see it.</li>
           <li>The website is hosted by <strong>GitHub</strong>. Like any web host, GitHub's servers see your IP address when your browser loads the app, and GitHub logs it for security.</li>
           <li>You can <strong>download all your data</strong> or <strong>delete it</strong> at any time: <a href="#delete">how to delete your data</a>.</li>
@@ -75,8 +76,8 @@
       <p>
         LIFE/OS is a web app. Your browser downloads the app's files (its pages, styles, code, typefaces and pictures) from the
         website and runs them on your device. Everything you enter is then saved <strong>by your browser, on your device</strong>:
-        your tasks, notes, habits and ticks, calendar events, focus timer sessions, workouts, the subscriptions you track under
-        Finance, and your settings.
+        your tasks, notes, habits and ticks, calendar events, focus timer sessions, workouts, the subscriptions and daily results
+        you track under Finance, what you track under Recovery, and your settings.
       </p>
       <p>
         LIFE/OS has no server and no database of its own, and no account. We have no way to see what is stored in your browser,
@@ -105,7 +106,7 @@
             <td data-label="Who can see it">You, and anyone who can open them where you keep them. Not us.</td>
           </tr>
           <tr>
-            <td data-label="What">With Sync on: your tasks, notes, habits, calendar, focus timer, training and finance data</td>
+            <td data-label="What">With Sync on: your tasks, notes, habits, calendar, focus timer, training, finance and recovery data</td>
             <td data-label="Where it is">The repository <code>life-os-data</code> in your own GitHub account</td>
             <td data-label="Who can see it">You, GitHub as your provider, and anyone you give access to the repository. Not us.</td>
           </tr>
@@ -135,6 +136,18 @@
         your data never reaches us, we cannot read, change, lose, recover or hand it over.
       </p>
       <p>
+        <strong>Finance</strong> keeps the subscriptions you add (name, price, when you pay) and, only if you turn on
+        <em>Daily results</em>, the profit or loss you note for each day on each account you keep there (a business or trading,
+        for example). LIFE/OS doesn't connect to any bank, shop or broker: it only knows the numbers you type in.
+      </p>
+      <p>
+        <strong>Recovery</strong> keeps what you choose to stay away from (smoking or alcohol, for example), the day you started
+        and the days you marked as a relapse. That can say something about your health, which the GDPR treats as a special
+        category of personal data (article 9). It is kept exactly like the rest: in this browser on your device, and only if you
+        turn on Sync, in your own private GitHub repository (3.2). We never receive it, nothing about it is worked out anywhere
+        but on your device, and we don't use it for anything. Keep your device locked and your repository private.
+      </p>
+      <p>
         <strong>Pictures</strong> you add to a task's page are kept in the same browser, in its database for the website's address
         (IndexedDB), made smaller first (at most 1600 pixels on the longest side). They stay on the device you added them on: Sync
         never sends them, so on your other devices the page only says a picture is there, and backup files don't include them.
@@ -149,7 +162,7 @@
         Sync is off until you connect it. To connect, you make a repository called <code>life-os-data</code> in your GitHub account
         (it must be <strong>private</strong>: anyone can read a public one), create a key on GitHub's website, set to read and
         write only that repository, and paste the key into LIFE/OS. From then on, the app on your device sends your
-        tasks, notes, habits, calendar, focus timer, training and finance data to that repository through GitHub's API
+        tasks, notes, habits, calendar, focus timer, training, finance and recovery data to that repository through GitHub's API
         (<code>api.github.com</code>), and fetches changes made on your other computers. Appearance, what is on screen and the key itself
         are not synced. GitHub keeps every sync as a version, named after the part of the app and the kind of device it came from (for
         example "Notes · Mac").
@@ -341,7 +354,8 @@
       <h2 id="automated">10. No automated decisions or profiling</h2>
       <p>
         We make no automated decisions about you and build no profiles (GDPR article 22). What the app works out, such as streaks,
-        the LIFE index or the next payment of a subscription you track, is calculated on your device, for you, and goes nowhere.
+        the LIFE index, the next payment of a subscription you track or your days clean, is calculated on your device, for you,
+        and goes nowhere.
       </p>
 
       <h2 id="security">11. Security</h2>

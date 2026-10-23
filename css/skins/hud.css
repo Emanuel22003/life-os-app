@@ -262,8 +262,8 @@
 }
 
 /* Money is a readout too: prices, the next 30 days and the category totals in mono, the
-   figures lined up in their column */
-[data-skin="hud"] :is(.fn-price, .fn-up-amount, .fn-up-when, .fn-cat-amount, .fn-due) {
+   figures lined up in their column (and every daily result, its tiles and the graph's sum) */
+[data-skin="hud"] :is(.fn-price, .fn-up-amount, .fn-up-when, .fn-cat-amount, .fn-due, .fn-amt, .fn-day-date) {
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.01em;

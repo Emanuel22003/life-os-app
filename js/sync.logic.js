@@ -17,11 +17,13 @@ export const SYNCED = Object.freeze({
   pomodoro: Object.freeze(['state']),
   training: Object.freeze(['view', 'session']),
   finance: Object.freeze(['view']),
+  // (the tracker shown and its calendar's month are this window's choice)
+  recovery: Object.freeze(['view']),
 });
 export const SYNCED_KEYS = Object.freeze(Object.keys(SYNCED));
 
 /** How each store is named in the repo's history ("Notes · Mac"). */
-export const STORE_LABELS = Object.freeze({ tasks: 'Tasks', notes: 'Notes', habits: 'Habits', calendar: 'Calendar', pomodoro: 'Pomodoro', training: 'Training', finance: 'Finance' });
+export const STORE_LABELS = Object.freeze({ tasks: 'Tasks', notes: 'Notes', habits: 'Habits', calendar: 'Calendar', pomodoro: 'Pomodoro', training: 'Training', finance: 'Finance', recovery: 'Recovery' });
 
 const isObject = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 const hasOwn = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
@@ -62,6 +64,8 @@ export function deepEqual(a, b) {
 /* ---- Three-way merge ---- */
 
 const isRecord = (v) => isObject(v) && (typeof v.id === 'string' || typeof v.id === 'number');
+// A list of days ('YYYY-MM-DD', each once): a recovery tracker's relapses, a series' removed dates
+const isDayList = (v) => Array.isArray(v) && v.every((d) => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d)) && new Set(v).size === v.length;
 const uniqueIds = (list) => new Set(list.map((r) => r.id)).size === list.length;
 const recordList = (v) => Array.isArray(v) && v.every(isRecord) && uniqueIds(v);
 
@@ -82,6 +86,8 @@ function preferFor(local, remote, prefer) {
  *   changed it: an edit beats a delete, so nothing anyone wrote is lost.
  * - Lists of records with ids (tasks, notes, events, habits, sessions) merge record by record by
  *   the same rules. Order follows `local`; records new from `remote` follow, in remote's order.
+ * - Lists of days (a recovery tracker's relapses) merge day by day, like habit ticks: a day one
+ *   side added or removed is added or removed, so two devices marking days between syncs keep both.
  * - A value both changed differently (a title, a plain list): the record with the later updatedAt
  *   wins when both have one, otherwise `prefer` ('local' or 'remote').
  */
@@ -92,6 +98,7 @@ export function merge3(base, local, remote, prefer = 'local') {
   if (local === undefined) return remote;
   if (remote === undefined) return local;
   if (isObject(local) && isObject(remote)) return mergeObjects(isObject(base) ? base : undefined, local, remote, preferFor(local, remote, prefer));
+  if (isDayList(local) && isDayList(remote) && (base === undefined || isDayList(base))) return mergeDays(base ?? [], local, remote);
   const records = [base, local, remote].filter(Array.isArray);
   if (records.length >= 2 && Array.isArray(local) && Array.isArray(remote) && records.every(recordList) && records.some((l) => l.length)) {
     return mergeRecords(Array.isArray(base) ? base : [], local, remote, prefer);
@@ -107,6 +114,14 @@ function mergeObjects(base, local, remote, prefer) {
     if (v !== undefined) out[k] = v;
   }
   return out;
+}
+
+/** Day by day: each day as the side that changed it left it (sorted, each once). */
+function mergeDays(base, local, remote) {
+  const b = new Set(base);
+  const l = new Set(local);
+  const r = new Set(remote);
+  return [...new Set([...base, ...local, ...remote])].filter((d) => (l.has(d) === b.has(d) ? r.has(d) : l.has(d))).sort();
 }
 
 function mergeRecords(base, local, remote, prefer) {
@@ -160,6 +175,10 @@ export function countData(docs = {}) {
     sessions: list(docs.pomodoro?.history).length,
     workouts: list(docs.training?.workouts).length,
     subscriptions: list(docs.finance?.subscriptions).length,
+    // Finance's daily results count as data too: a device with only those never takes GitHub's
+    // copy over them as if it were empty (firstSyncPlan)
+    results: list(docs.finance?.entries).length,
+    trackers: list(docs.recovery?.items).length,
   };
 }
 
@@ -173,6 +192,8 @@ const COUNT_WORDS = [
   ['sessions', 'focus session'],
   ['workouts', 'workout'],
   ['subscriptions', 'subscription'],
+  ['results', 'daily result'],
+  ['trackers', 'recovery tracker'],
 ];
 
 /** '88 tasks · 61 notes · 9 habits' (what there is; sections go with notes) or 'nothing yet' */

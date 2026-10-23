@@ -1,0 +1,832 @@
+/* ==========================================================================
+   LIFE/OS — Recovery (js/features/recovery.js): days clean, the relapse calendar, the runs
+   between relapses and the numbers. Built from the shared kit (.panel, .panel-head, .tag, .btn,
+   .dd, .progress, .stat-value, .empty) and the tokens only, so every template restyles it without
+   rules of its own. Layout: the tracker's count and its calendar on the left, the numbers and the
+   runs on the right (stacked on narrow windows). Also Home's Recovery widget (.rc-w-*).
+   ========================================================================== */
+
+.rc-root {
+  /* A clean day's soft wash and a past run's bar: worked out from the template's own colors */
+  --rc-clean: color-mix(in srgb, var(--accent) 10%, transparent);
+  --rc-clean-hover: color-mix(in srgb, var(--accent) 20%, transparent);
+  --rc-bar: color-mix(in srgb, var(--text) 38%, var(--surface-solid));
+}
+
+[data-theme="light"] .rc-root {
+  --rc-clean: color-mix(in srgb, var(--accent) 8%, transparent);
+  --rc-clean-hover: color-mix(in srgb, var(--accent) 17%, transparent);
+  --rc-bar: color-mix(in srgb, var(--text) 46%, var(--surface-solid));
+}
+
+.rc-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+/* ---- The page-top status ('17 days clean'): on a phone the title and New tracker fill the title
+   row and cut it short, so it takes its own line under them (as Finance's totals do; :not([hidden])
+   outranks css/compact.css, which comes later) ---- */
+@media (max-width: 640px) {
+  html[data-skin] .main .view.rc-root > .page-header .page-heading > .page-stat:not([hidden]) {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+}
+
+/* ---- The tracker picker and its menu ---- */
+.rc-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+/* The picker names the tracker: never cut so short that it can't be read */
+.rc-bar .rc-pick-btn {
+  max-width: min(100%, 360px);
+}
+
+.rc-bar .rc-pick-btn .dd-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---- Two columns ---- */
+.rc-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(300px, 1fr);
+  gap: var(--space-5);
+  align-items: start;
+}
+
+.rc-main,
+.rc-side {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  min-width: 0;
+}
+
+.rc-panel-head {
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
+/* Titled like the template's captions (mono capitals in Mission Control, plain in Simple) */
+.rc-root .rc-panel-title {
+  margin: 0;
+  font-family: var(--label-font);
+  font-size: max(var(--label-size), var(--fs-xs));
+  font-weight: 600;
+  letter-spacing: calc(0.14em * var(--label-tracking));
+  text-transform: var(--label-case);
+  color: var(--text);
+}
+
+.rc-due {
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+}
+
+.rc-none {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+}
+
+/* ---- Days clean, now ---- */
+.rc-hero {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-5);
+}
+
+.rc-hero:focus-visible {
+  outline: 2px solid var(--line-focus);
+  outline-offset: 2px;
+}
+
+.rc-hero-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.rc-hero-name {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  font-size: var(--fs-lg);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rc-count {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-3);
+  margin: var(--space-1) 0 0;
+}
+
+/* The template's own figures (.stat-value), at this page's size (some templates size every
+   .stat-value: html[data-skin] keeps these) */
+html[data-skin] .rc-root .rc-count-num {
+  font-size: clamp(52px, 7vw, 80px);
+  line-height: 0.95;
+}
+
+.rc-count-unit {
+  font-size: var(--fs-md);
+  color: var(--text-2);
+}
+
+.rc-since {
+  margin: 0;
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+}
+
+.rc-ms {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  max-width: 440px;
+  margin-top: var(--space-1);
+}
+
+.rc-ms-text {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 2px var(--space-3);
+  margin: 0;
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+}
+
+.rc-ms-text strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.rc-ms-left {
+  color: var(--text-3);
+}
+
+.rc-root .rc-ms-bar {
+  height: 6px;
+}
+
+.rc-hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
+}
+
+/* The tracker's menu (⋯): an icon button, no caret */
+.rc-root .rc-more-btn {
+  flex: none;
+  width: var(--btn-h);
+  padding: 0;
+}
+
+.rc-root .rc-more-btn .dd-chev {
+  display: none;
+}
+
+/* ---- The calendar ---- */
+.rc-cal-head {
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.rc-cal-nav {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.rc-cal-nav .btn:disabled {
+  opacity: 1;
+  color: var(--text-4);
+  cursor: default;
+}
+
+.rc-week,
+.rc-days {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 4px;
+  padding: 0 var(--space-4);
+}
+
+.rc-week {
+  padding-top: var(--space-3);
+  padding-bottom: var(--space-1);
+}
+
+.rc-week-day {
+  font-family: var(--label-font);
+  font-size: max(var(--label-size), var(--fs-2xs));
+  letter-spacing: calc(0.08em * var(--label-tracking));
+  text-align: center;
+  text-transform: var(--label-case);
+  color: var(--text-3);
+}
+
+.rc-wd-short {
+  display: none;
+}
+
+.rc-days {
+  padding-bottom: var(--space-3);
+}
+
+/* A day: 44px to a finger and to a mouse alike. Clean days softly shaded, a relapse a filled
+   circle, today outlined; before the start and after today, plain and quiet */
+.rc-day {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-width: 0;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease);
+}
+
+.rc-day.is-out {
+  pointer-events: none;
+}
+
+.rc-day.is-clean {
+  background: var(--rc-clean);
+}
+
+.rc-day-num {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+}
+
+.rc-day.is-relapse .rc-day-num {
+  background: var(--text);
+  color: var(--bg);
+  font-weight: 600;
+}
+
+/* A later day saved as a relapse (a device ahead in time): a ring until that day comes */
+.rc-day.is-future.has-mark .rc-day-num {
+  box-shadow: inset 0 0 0 1.5px var(--text-3);
+}
+
+.rc-day.is-today {
+  box-shadow: inset 0 0 0 2px var(--text);
+}
+
+.rc-day:is(.is-before, .is-future) {
+  color: var(--text-3);
+  cursor: default;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .rc-day.is-clean:hover {
+    background: var(--rc-clean-hover);
+  }
+
+  .rc-day.is-relapse:hover {
+    background: var(--surface-3);
+  }
+}
+
+.rc-day:focus-visible {
+  outline: 2px solid var(--line-focus);
+  outline-offset: 1px;
+  z-index: 1;
+}
+
+.rc-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  border-top: 1px solid var(--line);
+  font-size: var(--fs-xs);
+  color: var(--text-2);
+}
+
+.rc-key {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.rc-swatch {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border-radius: var(--radius-xs);
+}
+
+.rc-swatch.is-relapse {
+  border-radius: 50%;
+  background: var(--text);
+}
+
+.rc-swatch.is-clean {
+  background: var(--rc-clean);
+  box-shadow: inset 0 0 0 1px var(--line-strong);
+}
+
+.rc-swatch.is-today {
+  box-shadow: inset 0 0 0 2px var(--text);
+}
+
+/* ---- The numbers ---- */
+.rc-stat-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 0;
+}
+
+.rc-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  padding: var(--space-3) var(--space-4);
+  border-top: 1px solid var(--line);
+}
+
+.rc-stat:nth-child(-n + 2) {
+  border-top: 0;
+}
+
+.rc-stat:nth-child(even) {
+  border-left: 1px solid var(--line);
+}
+
+.rc-stat-label {
+  font-size: var(--fs-xs);
+  color: var(--text-2);
+}
+
+.rc-stat-value,
+.rc-stat-sub {
+  margin: 0;
+}
+
+html[data-skin] .rc-root .rc-stat-value {
+  font-size: var(--fs-xl);
+  line-height: 1.15;
+  color: var(--text);
+}
+
+.rc-stat-sub {
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+}
+
+/* ---- Between relapses: the chart ---- */
+.rc-figure {
+  margin: 0;
+  padding: var(--space-3) var(--space-4) var(--space-2);
+}
+
+.rc-plot {
+  position: relative;
+  border-radius: var(--radius-sm);
+  /* Opaque, so a template's backdrop never runs through the bars */
+  background: var(--surface-solid);
+}
+
+.rc-plot:focus-visible {
+  outline: 1px solid var(--line-focus);
+  outline-offset: 4px;
+}
+
+.rc-svg {
+  display: block;
+  max-width: 100%;
+  overflow: visible;
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.rc-grid-lines line {
+  stroke: var(--line);
+  stroke-width: 1;
+  shape-rendering: crispEdges;
+}
+
+.rc-axis,
+.rc-bar-val {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  fill: var(--text-3);
+}
+
+.rc-bar-val.is-ongoing {
+  fill: var(--text);
+  font-weight: 600;
+}
+
+.rc-bar {
+  fill: var(--rc-bar);
+  transition: fill var(--dur-fast) var(--ease);
+}
+
+/* The run going on: the template's accent, so it is the bright one */
+.rc-bar.is-ongoing {
+  fill: var(--accent);
+}
+
+.rc-bar.is-active {
+  fill: var(--text);
+}
+
+.rc-bar.is-ongoing.is-active {
+  fill: color-mix(in srgb, var(--accent) 80%, var(--text));
+}
+
+.rc-tip {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 2;
+  display: grid;
+  gap: 2px;
+  max-width: 220px;
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-w) solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface-solid);
+  box-shadow: var(--shadow-sm);
+  font-size: var(--fs-xs);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--dur-fast) var(--ease);
+}
+
+.rc-tip.is-on {
+  opacity: 1;
+}
+
+.rc-tip-main {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.rc-tip-sub {
+  color: var(--text-2);
+}
+
+/* ---- Between relapses: the list, newest first ---- */
+.rc-runs {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rc-run {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: var(--space-3);
+  padding: 9px var(--space-4);
+  border-top: 1px solid var(--line);
+  font-size: var(--fs-sm);
+}
+
+.rc-run-days {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.rc-run-range {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-2);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rc-run-tag {
+  align-self: center;
+}
+
+.rc-more-runs {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  min-height: 44px;
+  padding: var(--space-2) var(--space-4);
+  border: 0;
+  border-top: 1px solid var(--line);
+  background: transparent;
+  color: var(--text-2);
+  font: inherit;
+  font-size: var(--fs-sm);
+  text-align: left;
+  cursor: pointer;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .rc-more-runs:hover {
+    color: var(--text);
+  }
+}
+
+.rc-more-runs:focus-visible {
+  outline: 2px solid var(--line-focus);
+  outline-offset: -2px;
+}
+
+.rc-caret {
+  transition: transform var(--dur-fast) var(--ease);
+}
+
+.rc-more-runs[aria-expanded="true"] .rc-caret {
+  transform: rotate(180deg);
+}
+
+/* ---- Nothing yet: the shared .empty, with quick starters, the page's full width ---- */
+.rc-empty .empty-text {
+  max-width: 52ch;
+}
+
+.rc-starters {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-2);
+  max-width: 560px;
+  margin-top: var(--space-1);
+}
+
+/* ---- The dialog ---- */
+.rc-ed {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.rc-ed-namerow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.rc-ed-namerow > .rc-ed-name {
+  flex: 1;
+  min-width: 0;
+}
+
+/* The icon beside the name: a button that opens the grid of icons (as in the habit dialog) */
+.rc-ed-iconbtn {
+  position: relative;
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  cursor: pointer;
+}
+
+.rc-ed-ib {
+  --ib-box: 44px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .rc-ed-iconbtn:hover .rc-ed-ib {
+    box-shadow: inset 0 0 0 1.5px var(--ib-c);
+  }
+}
+
+.rc-ed-iconbtn[aria-expanded="true"] .rc-ed-ib {
+  box-shadow: inset 0 0 0 1.5px var(--ib-c);
+}
+
+.rc-ed-iconbtn-chev {
+  position: absolute;
+  right: -3px;
+  bottom: -3px;
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  border: 1px solid var(--line-strong);
+  border-radius: 50%;
+  background: var(--surface-solid);
+  color: var(--text-2);
+  transition: transform var(--dur) var(--ease);
+}
+
+.rc-ed-iconbtn[aria-expanded="true"] .rc-ed-iconbtn-chev {
+  transform: rotate(180deg);
+}
+
+.rc-ed-icons {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+  padding: var(--space-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+
+.rc-ed-icons[hidden] {
+  display: none;
+}
+
+.rc-ed-start {
+  max-width: 220px;
+}
+
+.rc-ed-hint {
+  margin: 0;
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+}
+
+.rc-ed-error {
+  margin: 0;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--text);
+}
+
+/* ---- Home's Recovery widget: each tracker's days clean ---- */
+.rc-w-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.rc-w-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rc-w-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  min-height: 40px;
+  padding: 4px 0;
+  border: 0;
+  border-top: 1px solid var(--line);
+  background: none;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.rc-w-list > li:first-child > .rc-w-row {
+  border-top: 0;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .rc-w-row:hover .rc-w-name {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+}
+
+.rc-w-row:focus-visible {
+  outline: 2px solid var(--line-focus);
+  outline-offset: -2px;
+}
+
+.rc-w-ic {
+  display: grid;
+  place-items: center;
+  color: var(--text-3);
+}
+
+.rc-w-name {
+  min-width: 0;
+  overflow: hidden;
+  font-size: var(--fs-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rc-w-days {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+html[data-skin] .rc-w-days .stat-value {
+  font-size: var(--fs-lg);
+  line-height: 1.1;
+}
+
+.rc-w-unit {
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+}
+
+.rc-w-more {
+  margin: 0;
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+}
+
+@media (pointer: coarse) {
+  .rc-w-row {
+    min-height: 44px;
+  }
+}
+
+/* ---- Narrower windows ---- */
+@media (max-width: 1100px) {
+  .rc-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .rc-hero {
+    padding: var(--space-4);
+  }
+
+  .rc-week,
+  .rc-days {
+    gap: 3px;
+    padding-inline: var(--space-3);
+  }
+
+  .rc-wd-long {
+    display: none;
+  }
+
+  .rc-wd-short {
+    display: inline;
+  }
+
+  .rc-day-num {
+    width: 30px;
+    height: 30px;
+  }
+
+  .rc-figure {
+    padding-inline: var(--space-3);
+  }
+
+  .rc-run {
+    grid-template-columns: 64px minmax(0, 1fr) auto;
+    gap: var(--space-2);
+    padding-inline: var(--space-3);
+  }
+
+  .rc-stat {
+    padding-inline: var(--space-3);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rc-day,
+  .rc-bar,
+  .rc-tip,
+  .rc-caret,
+  .rc-ed-iconbtn-chev {
+    transition: none;
+  }
+}

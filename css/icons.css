@@ -16,6 +16,7 @@
   --mod-pomodoro: var(--text-2);
   --mod-training: var(--text-2);
   --mod-finance: var(--text-2);
+  --mod-recovery: var(--text-2);
   --mod-health: var(--text-2);
   --mod-settings: var(--text-2);
 }
@@ -29,13 +30,15 @@
   --mod-pomodoro: var(--cc-orange);
   --mod-training: var(--cc-pink);
   --mod-finance: var(--cc-teal);
+  /* Recovery: the eight colors are taken, so a calm indigo between blue and purple */
+  --mod-recovery: color-mix(in srgb, var(--cc-blue) 50%, var(--cc-purple));
   /* Health is an idea, not a page yet: a quiet gray, not the Calendar's red */
   --mod-health: var(--text-3);
 }
 
 /* Atelier (id coquette): muted editorial tones, Home in the house's own accent (rosewood by day,
-   rose gold by night), then slate, ochre, sage, rust, plum, teal and a bronze taupe. Each is 5:1
-   or more on the paper and 4.4:1 or more on its own tint (icons need 3:1, WCAG 1.4.11). */
+   rose gold by night), then slate, ochre, sage, rust, plum, teal, a bronze taupe and a lilac. Each
+   is 5:1 or more on the paper and 4.4:1 or more on its own tint (icons need 3:1, WCAG 1.4.11). */
 :root[data-skin="coquette"] {
   --mod-home: var(--accent);
   --mod-tasks: #a3b6d0;
@@ -45,6 +48,7 @@
   --mod-pomodoro: #c2a8cf;
   --mod-training: #92c0b9;
   --mod-finance: #c9b296;
+  --mod-recovery: #b0acd9;
   --mod-health: var(--text-3);
 }
 
@@ -56,11 +60,12 @@
   --mod-pomodoro: #6b4d78;
   --mod-training: #386663;
   --mod-finance: #6f5b47;
+  --mod-recovery: #55508a;
 }
 
 /* Pearl (id y2k): cool, muted tones around its violet-blue: Home in the accent, then steel blue,
-   a soft gold, sea green, dusty rose, mauve, teal and slate. 4.9:1 or more on the pearl paper,
-   4.5:1 or more on their own tint. */
+   a soft gold, sea green, dusty rose, mauve, teal, slate and a warm peach. 4.9:1 or more on the
+   pearl paper, 4.5:1 or more on their own tint. */
 :root[data-skin="y2k"] {
   --mod-home: var(--accent);
   --mod-tasks: #93aedb;
@@ -70,6 +75,7 @@
   --mod-pomodoro: #c3a6db;
   --mod-training: #8cc3cc;
   --mod-finance: #aab4c8;
+  --mod-recovery: #e3b08e;
   --mod-health: var(--text-3);
 }
 
@@ -81,6 +87,7 @@
   --mod-pomodoro: #77508c;
   --mod-training: #2d6a76;
   --mod-finance: #535f78;
+  --mod-recovery: #8a4c24;
 }
 
 :root[data-skin="oldmoney"] {
@@ -92,6 +99,7 @@
   --mod-pomodoro: var(--om-brass, var(--accent));
   --mod-training: var(--om-brass, var(--accent));
   --mod-finance: var(--om-brass, var(--accent));
+  --mod-recovery: var(--om-brass, var(--accent));
   --mod-health: var(--om-brass, var(--accent));
 }
 
@@ -158,6 +166,7 @@
 .cc-on.cc-pages .ib[data-tone="pomodoro"] { --ib-c: var(--mod-pomodoro); }
 .cc-on.cc-pages .ib[data-tone="training"] { --ib-c: var(--mod-training); }
 .cc-on.cc-pages .ib[data-tone="finance"] { --ib-c: var(--mod-finance); }
+.cc-on.cc-pages .ib[data-tone="recovery"] { --ib-c: var(--mod-recovery); }
 .cc-on.cc-pages .ib[data-tone="health"] { --ib-c: var(--mod-health); }
 .cc-on.cc-pages .ib[data-tone="settings"] { --ib-c: var(--mod-settings); }
 
@@ -171,6 +180,7 @@
 .cc-on.cc-pages :is(.nav-item, .tab)[data-id="pomodoro"] > .icon { color: var(--mod-pomodoro); }
 .cc-on.cc-pages :is(.nav-item, .tab)[data-id="training"] > .icon { color: var(--mod-training); }
 .cc-on.cc-pages :is(.nav-item, .tab)[data-id="finance"] > .icon { color: var(--mod-finance); }
+.cc-on.cc-pages :is(.nav-item, .tab)[data-id="recovery"] > .icon { color: var(--mod-recovery); }
 .cc-on.cc-pages :is(.nav-item, .tab)[data-id="health"] > .icon { color: var(--mod-health); }
 
 /* ---- A page's title with its icon ---- */

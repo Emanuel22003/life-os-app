@@ -1,7 +1,8 @@
 // LIFE/OS — 01 // Home: the start page, today at a glance. A greeting, the Today strip (a tile
 // each for events, tasks, habits and the timer: the first place to look), and a board of widgets
 // you arrange yourself (Customize): the week, the Pomodoro timer, today's habits, the to-do list,
-// a quick note, the habit graph, a clock, the agenda, payments and training. Every widget wears
+// a quick note, the habit graph, a clock, the agenda, payments, training and recovery (not on the
+// board until added). Every widget wears
 // its page's badge (icon + color), so you can tell them apart without reading.
 // Drag a widget by its handle (or move it with the arrow keys), pick its size, remove it, or add
 // one from the shelf; the layout is per device (store 'home'.layout, rules in home.logic.js).
@@ -66,6 +67,8 @@ import { financeApi } from './finance.js';
 import { upcoming as upcomingPayments, totals as paymentTotals } from './finance.logic.js';
 import { trainingApi } from './training.js';
 import { weekStats, lastDone, sessionElapsed, restLeft, formatDuration } from './training.logic.js';
+import { recoveryApi } from './recovery.js';
+import { orderedTrackers, stats as recoveryStats, trackerIcon } from './recovery.logic.js';
 import { PHASE_LABEL, focusStats } from './pomodoro.logic.js';
 import { iconOf } from '../icons.logic.js';
 import * as HM from './home.logic.js';
@@ -347,6 +350,7 @@ function mount(root) {
       notes,
       subs: financeApi.subscriptions().length,
       workouts: trainingApi.getState().workouts?.length ?? 0,
+      trackers: recoveryApi.trackers().length,
     };
   }
 
@@ -1573,6 +1577,61 @@ function mount(root) {
     );
   }
 
+  /* ---- Recovery: each tracker's days clean (one tap opens it) ---- */
+
+  const rcBody = h('div', { class: 'rc-w-body' });
+  const rcCard = h(
+    'section',
+    { class: 'panel hm-card rc-w', 'aria-labelledby': 'hm-rc-title' },
+    cardHead('hm-rc-title', 'recovery', 'Recovery', moreLink({ href: '#/recovery', label: 'Recovery' })),
+    rcBody,
+  );
+
+  function paintRecovery() {
+    const list = orderedTrackers(recoveryApi.trackers()).filter((t) => !t.archived);
+    if (!list.length) {
+      rcBody.replaceChildren(
+        miniEmpty({
+          iconName: 'leaf',
+          title: 'Nothing tracked yet',
+          text: 'Count the days you stay away from something.',
+          action: h('button', { type: 'button', class: 'btn btn--sm', onClick: () => recoveryApi.add() }, icon('plus', { size: 14 }), 'Add one'),
+        }),
+      );
+      return;
+    }
+    const rows = list.slice(0, 5).map((t) => {
+      const st = recoveryStats(t, state.today);
+      const unit = !st.started ? 'not yet' : st.current === 1 ? 'day' : 'days';
+      return h(
+        'li',
+        null,
+        h(
+          'button',
+          {
+            type: 'button',
+            class: 'rc-w-row',
+            dataset: { fid: `rc:${t.id}` },
+            'aria-label': `${t.name}: ${st.started ? `${st.current} ${unit} clean` : `starts ${formatDay(t.start)}`}. Open in Recovery`,
+            onClick: () => {
+              recoveryApi.select(t.id);
+              location.hash = '#/recovery';
+            },
+          },
+          h('span', { class: 'rc-w-ic', 'aria-hidden': 'true' }, icon(trackerIcon(t), { size: 15 })),
+          h('span', { class: 'rc-w-name' }, t.name),
+          h('span', { class: 'rc-w-days' }, h('span', { class: 'stat-value' }, st.started ? String(st.current) : '–'), h('span', { class: 'rc-w-unit' }, unit)),
+        ),
+      );
+    });
+    // Native replaceChildren() would print a null as "null": only the parts there are
+    keepFocus(rcBody, () =>
+      rcBody.replaceChildren(
+        ...[h('ul', { class: 'rc-w-list', 'aria-label': 'Days clean' }, rows), list.length > 5 ? h('p', { class: 'rc-w-more' }, `+ ${list.length - 5} more in Recovery`) : null].filter(Boolean),
+      ),
+    );
+  }
+
   /* ---- Your own Home: the board of widgets ----
      home.logic.js places the widgets (placeWidgets): each in its columns, as high as it fits,
      at its own height, so a short widget leaves room under it. The board sizes and measures
@@ -1580,7 +1639,7 @@ function mount(root) {
      Customize shows a bar on each (drag handle, size, remove) and the Add shelf below; the
      widgets themselves are inert meanwhile, so a drag never presses a button inside them. */
 
-  const CARDS = { week: weekCard, pomodoro: pomo.card, todo: todoCard, habits: habitsCard, graph: graphCard, note: noteCard, clock: clockCard, agenda: agendaCard, payments: payCard, training: trainCard };
+  const CARDS = { week: weekCard, pomodoro: pomo.card, todo: todoCard, habits: habitsCard, graph: graphCard, note: noteCard, clock: clockCard, agenda: agendaCard, payments: payCard, training: trainCard, recovery: rcCard };
   const board = h('div', { class: 'hm-board' });
   const below = h('div', { class: 'hm-below' });
   const announce = h('p', { class: 'sr-only', role: 'status', 'aria-live': 'polite' });
@@ -1946,6 +2005,7 @@ function mount(root) {
     paintAgenda();
     paintPayments();
     paintTraining();
+    paintRecovery();
   }
   paintAll();
   // Now that the widgets have their content, place them by their real heights
@@ -2060,6 +2120,7 @@ function mount(root) {
       refreshStart();
     }),
     financeApi.subscribe(() => paintPayments()),
+    recoveryApi.subscribe(() => paintRecovery()),
     trainingApi.subscribe(() => paintTraining()),
     // The layout or the calendar's view changed (here, or in another window); a Start step too
     prefs.subscribe(() => {

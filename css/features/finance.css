@@ -1,9 +1,9 @@
 /* ==========================================================================
-   LIFE/OS — Finance (js/features/finance.js): subscriptions
+   LIFE/OS — Finance (js/features/finance.js): subscriptions, and Daily results (an option)
    Built from the shared kit (.panel .hud, .panel-head, .tag, .seg, .btn, .dd, .empty), so every
    template restyles it without rules of its own. Layout: the totals as one line beside the title,
    the list on the left, the next 30 days and the cost by category on the right (stacked on
-   narrow windows).
+   narrow windows). Daily results is at the end of this file.
    ========================================================================== */
 
 /* ---- Totals: one line beside the title (pageHeader's stat, js/features/finance.js) ----
@@ -24,6 +24,13 @@ html[data-skin] .main .view.fn-root > .page-header .page-stat:has(> .fn-sum) {
   html[data-skin] .main .view.fn-root > .page-header .page-heading > .page-stat:has(> .fn-sum) {
     grid-column: 1 / -1;
     grid-row: 2;
+  }
+
+  /* The title row holds Show ▾ and Add subscription: the middle column it left empty gives its
+     two gaps back (6px each, 12px in all), so "Finance" stays whole on a 375px phone. (One class
+     more than css/compact.css's phone gap, which comes later.) */
+  html[data-skin] .main .view.fn-root > .page-header:has(> .page-actions) {
+    column-gap: 6px;
   }
 }
 
@@ -472,7 +479,884 @@ html[data-skin] .main .view.fn-root > .page-header .page-stat:has(> .fn-sum) {
 @media (prefers-reduced-motion: reduce) {
   .fn-row,
   .fn-row-actions,
-  .fn-caret {
+  .fn-caret,
+  .fn-entry,
+  .fn-acct,
+  .fn-ch-tip {
     transition: none;
+  }
+}
+
+/* ==========================================================================
+   Daily results (Show → Daily results): what you made or lost each day
+   The tabs under the page top, the quick add, then two columns: the graph and every day on the
+   left, the overview, how the days went and the accounts on the right. One window column on
+   narrow screens, in reading order: overview, graph, how it went, accounts, days.
+   Up and down never rely on a color: a result has its sign and ▲ / ▼, a day up is a filled bar
+   and a day down an outlined one (the LIFE index's way: up solid, down hollow), and the graph's
+   area is a soft fill over 0 and hatched under it.
+   ========================================================================== */
+
+/* Add subscription: "Add" on a phone, where Show ▾ shares the title row */
+.fn-add-short {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  .fn-add-sub > .fn-add-long {
+    display: none;
+  }
+
+  .fn-add-sub > .fn-add-short {
+    display: inline;
+  }
+}
+
+/* Show ▾ holds one option: no count beside its word */
+.fn-show-btn .dd-count {
+  display: none;
+}
+
+/* ---- Subscriptions · Results ---- */
+.fn-tabs {
+  margin-bottom: var(--space-5);
+}
+
+.fn-tab {
+  height: 32px;
+  padding: 0 var(--space-4);
+}
+
+.fn-tab > svg {
+  flex: none;
+}
+
+.fn-results {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  min-width: 0;
+}
+
+/* ---- A result: the sign and sum, ▲ / ▼ before it; a loss a step quieter, never only a color ---- */
+.fn-amt {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--text);
+}
+
+.fn-amt.is-down {
+  color: var(--text-2);
+}
+
+.fn-amt.is-flat {
+  font-weight: 500;
+  color: var(--text-2);
+}
+
+.fn-glyph {
+  font-size: 0.72em;
+  vertical-align: 0.08em;
+}
+
+/* ---- The quick add: one line on a wide window ---- */
+.fn-qa {
+  padding: var(--space-4);
+}
+
+.fn-qa-grid {
+  display: grid;
+  grid-template-columns: 156px minmax(250px, auto) minmax(160px, 1fr) auto;
+  align-items: end;
+  gap: var(--space-3);
+}
+
+.fn-qa.has-account .fn-qa-grid {
+  grid-template-columns: 156px minmax(130px, 0.7fr) minmax(250px, auto) minmax(150px, 1fr) auto;
+}
+
+.fn-qa-grid > .field {
+  min-width: 0;
+}
+
+.fn-qa-pair {
+  display: flex;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+/* + Made · − Lost: as tall as the field beside it */
+.fn-qa-pair > .seg {
+  flex: none;
+  align-items: center;
+  height: 40px;
+}
+
+.fn-qa-pair > .seg .seg-btn {
+  height: 32px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The amount with its currency at the end, inside the field's edge */
+.fn-qa-money {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 96px;
+}
+
+.fn-qa-money > .input {
+  padding-right: 48px;
+  font-variant-numeric: tabular-nums;
+}
+
+.fn-qa-cur {
+  position: absolute;
+  top: 50%;
+  right: var(--space-3);
+  translate: 0 -50%;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+  pointer-events: none;
+}
+
+.fn-qa-add {
+  height: 40px;
+}
+
+.fn-qa-error {
+  margin: var(--space-3) 0 0;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--text);
+}
+
+/* ---- Two columns ---- */
+.fn-r-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1.7fr) minmax(280px, 1fr);
+  gap: var(--space-5);
+  align-items: start;
+}
+
+.fn-r-main,
+.fn-r-side {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  min-width: 0;
+}
+
+/* No results yet: the empty state inside the Progress card, without the card's own edge */
+.fn-ch-panel > .fn-r-empty {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+/* ---- Progress: what it shows, the time range, the sum and the graph ---- */
+.fn-ch-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.fn-ch-sum {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px var(--space-3);
+  padding: var(--space-4) var(--space-4) var(--space-2);
+}
+
+.fn-ch-total {
+  font-family: var(--font-display);
+  font-size: var(--fs-xl);
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+}
+
+.fn-ch-when {
+  font-size: var(--fs-sm);
+  color: var(--text-3);
+}
+
+.fn-ch {
+  /* Opaque, so no backdrop art (Old Money's horse) runs through the line; a template without
+     art may give it the page's own color (Minimal) */
+  --fn-ch-bg: var(--surface-solid);
+  position: relative;
+  margin: 0 var(--space-4);
+  border-radius: var(--radius-sm);
+  background: var(--fn-ch-bg);
+}
+
+.fn-ch:focus-visible {
+  outline: 1px solid var(--line-focus);
+  outline-offset: 4px;
+}
+
+.fn-ch-svg {
+  display: block;
+  max-width: 100%;
+  overflow: visible;
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.fn-ch-grid line {
+  stroke: var(--line);
+  stroke-width: 1;
+  shape-rendering: crispEdges;
+}
+
+/* 0: where the range started; above it is up over the range */
+.fn-ch-grid line.fn-ch-zero {
+  stroke: var(--text-3);
+  stroke-dasharray: 4 3;
+}
+
+.fn-ch-axis {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  fill: var(--text-3);
+}
+
+.fn-ch-axis.is-zero {
+  fill: var(--text-2);
+  font-weight: 600;
+}
+
+.fn-ch-line {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.fn-ch-area--up {
+  fill: var(--accent);
+  fill-opacity: 0.1;
+}
+
+.fn-ch-hatch {
+  stroke: var(--text-3);
+  stroke-width: 1.2;
+  stroke-opacity: 0.55;
+}
+
+.fn-ch-base {
+  stroke: var(--line-strong);
+  stroke-width: 1;
+  shape-rendering: crispEdges;
+}
+
+/* A day up: filled; a day down: outlined (a thin bar is filled in the quieter gray) */
+.fn-ch-bar {
+  shape-rendering: crispEdges;
+}
+
+.fn-ch-bar.is-up {
+  fill: var(--text-2);
+}
+
+.fn-ch-bar.is-down {
+  fill: var(--fn-ch-bg);
+  stroke: var(--text-2);
+  stroke-width: 1;
+}
+
+.fn-ch-bar.is-down.is-thin {
+  fill: var(--text-3);
+  stroke: none;
+}
+
+.fn-ch-bar.is-flat {
+  fill: var(--text-3);
+}
+
+.fn-ch-bar.is-active.is-up,
+.fn-ch-bar.is-active.is-flat,
+.fn-ch-bar.is-active.is-down.is-thin {
+  fill: var(--text);
+}
+
+.fn-ch-bar.is-active.is-down {
+  stroke: var(--text);
+  stroke-width: 2;
+}
+
+.fn-ch-cross {
+  stroke: var(--line-strong);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+}
+
+/* The last day and the day read: a disc on a ring of the card, so the line never runs through it */
+.fn-ch-end,
+.fn-ch-dot {
+  fill: var(--accent);
+  stroke: var(--fn-ch-bg);
+  stroke-width: 3;
+  paint-order: stroke;
+}
+
+.fn-ch-tip {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 2;
+  display: grid;
+  gap: 2px;
+  max-width: 240px;
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-w) solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface-solid);
+  box-shadow: var(--shadow-sm);
+  font-size: var(--fs-xs);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--dur-fast) var(--ease);
+}
+
+.fn-ch-tip.is-on {
+  opacity: 1;
+}
+
+.fn-ch-tip-main {
+  color: var(--text);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.fn-ch-tip-sub {
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The graph's key: what the line and the two bars mean, in their own shapes */
+.fn-ch-key {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px var(--space-2);
+  margin: 0;
+  padding: var(--space-3) var(--space-4) var(--space-4);
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+}
+
+.fn-key {
+  flex: none;
+  width: 10px;
+  height: 10px;
+}
+
+.fn-key:not(:first-child) {
+  margin-left: var(--space-2);
+}
+
+.fn-key--line {
+  width: 14px;
+  height: 2px;
+  background: var(--accent);
+}
+
+.fn-key--up {
+  background: var(--text-2);
+}
+
+.fn-key--down {
+  border: 1px solid var(--text-2);
+}
+
+/* ---- Today, this week, this month, all time ---- */
+.fn-kpis {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4) var(--space-3);
+  padding: var(--space-4);
+}
+
+.fn-kpi {
+  display: grid;
+  gap: 3px;
+  align-content: start;
+  min-width: 0;
+}
+
+.fn-kpi-value {
+  font-size: var(--fs-lg);
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.fn-kpi-sub {
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+}
+
+/* ---- How the days went ---- */
+.fn-stat-list {
+  margin: 0;
+  padding: var(--space-2) 0;
+}
+
+.fn-stat {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 2px var(--space-3);
+  padding: 7px var(--space-4);
+}
+
+.fn-stat-label {
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+}
+
+.fn-stat-value {
+  display: contents;
+  margin: 0;
+}
+
+.fn-stat-value > :first-child {
+  justify-self: end;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.fn-stat-note {
+  grid-column: 1 / -1;
+  font-size: var(--fs-xs);
+  font-weight: 400;
+  color: var(--text-3);
+}
+
+/* Days up, even and down side by side: filled, faint, outlined */
+.fn-split {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 2px;
+  height: 6px;
+  margin-top: 4px;
+}
+
+.fn-split > span {
+  flex-basis: 0;
+  min-width: 3px;
+}
+
+.fn-split-up {
+  background: var(--text-2);
+}
+
+.fn-split-flat {
+  background: var(--heat-1);
+}
+
+.fn-split-down {
+  border: 1px solid var(--text-2);
+}
+
+/* ---- Every day, by month ---- */
+.fn-month + .fn-month {
+  border-top: 1px solid var(--line);
+}
+
+.fn-month-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px var(--space-3);
+  margin: 0;
+  padding: var(--space-3) var(--space-4) var(--space-2);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--text);
+}
+
+.fn-month-meta {
+  font-size: var(--fs-xs);
+  font-weight: 400;
+  color: var(--text-3);
+}
+
+.fn-month-total {
+  margin-left: auto;
+}
+
+.fn-day-list,
+.fn-entry-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.fn-entry {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 44px;
+  padding: 6px var(--space-4);
+  border-top: 1px solid var(--line);
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease);
+}
+
+/* A one-result day: its date in a column of its own */
+.fn-entry.fn-day {
+  grid-template-columns: 82px minmax(0, 1fr) auto;
+}
+
+.fn-day.is-multi {
+  border-top: 1px solid var(--line);
+}
+
+.fn-day-head {
+  display: grid;
+  grid-template-columns: 82px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 40px;
+  padding: 6px var(--space-4) 2px;
+}
+
+.fn-day-count {
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+}
+
+/* A day's own results, under its total, indented to the words' column */
+.fn-entry-list > .fn-entry {
+  padding-left: calc(var(--space-4) + 82px + var(--space-3));
+  border-top: 0;
+  min-height: 40px;
+}
+
+.fn-entry-list > .fn-entry .fn-entry-amt {
+  font-weight: 500;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .fn-entry:hover {
+    background: var(--surface-2);
+  }
+}
+
+.fn-entry:focus-visible,
+.fn-acct:focus-visible {
+  outline: 2px solid var(--line-focus);
+  outline-offset: -2px;
+}
+
+.fn-day-date {
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.fn-day-date.is-today {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.fn-entry-main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 var(--space-2);
+  min-width: 0;
+  font-size: var(--fs-sm);
+}
+
+.fn-entry-acct {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.fn-entry-note {
+  overflow: hidden;
+  color: var(--text-3);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+.fn-day-total,
+.fn-entry-amt {
+  justify-self: end;
+}
+
+.fn-days-more {
+  justify-content: center;
+}
+
+/* ---- The accounts ---- */
+.fn-acct-cap {
+  margin: 0;
+  padding: var(--space-2) var(--space-4) 0;
+  text-align: right;
+}
+
+.fn-acct-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.fn-acct {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 52px;
+  padding: var(--space-2) var(--space-4);
+  border-top: 1px solid var(--line);
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease);
+}
+
+.fn-acct-list > .fn-acct:first-child {
+  border-top: 0;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .fn-acct:hover {
+    background: var(--surface-2);
+  }
+}
+
+/* The account the view shows: its name in the edge's ink */
+.fn-acct.is-shown {
+  box-shadow: inset 3px 0 0 var(--text);
+}
+
+.fn-acct.is-archived :is(.fn-name, .fn-acct-month) {
+  color: var(--text-2);
+}
+
+.fn-acct.is-archived .fn-avatar {
+  opacity: 0.55;
+}
+
+.fn-acct-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.fn-acct-meta,
+.fn-acct-all {
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+  white-space: nowrap;
+}
+
+.fn-acct-nums {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.fn-acct-add {
+  margin-left: auto;
+}
+
+/* ---- The account dialog's Archived check ---- */
+.fn-ac-check {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--fs-sm);
+  cursor: pointer;
+}
+
+/* ---- Narrower windows ---- */
+@media (max-width: 1100px) {
+  .fn-r-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* One column in reading order: what it adds up to, the graph, how it went, the accounts, then every day */
+  .fn-r-main,
+  .fn-r-side {
+    display: contents;
+  }
+
+  .fn-r-body > * > .fn-over {
+    order: 1;
+  }
+
+  .fn-r-body > * > .fn-ch-panel {
+    order: 2;
+  }
+
+  .fn-r-body > * > .fn-stats {
+    order: 3;
+  }
+
+  .fn-r-body > * > .fn-accts {
+    order: 4;
+  }
+
+  .fn-r-body > * > .fn-days {
+    order: 5;
+  }
+
+  .fn-kpis {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .fn-qa-grid,
+  .fn-qa.has-account .fn-qa-grid {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+
+  .fn-qa-f-date {
+    grid-column: span 2;
+  }
+
+  .fn-qa-f-account {
+    grid-column: span 4;
+  }
+
+  .fn-qa:not(.has-account) .fn-qa-f-amount {
+    grid-column: span 4;
+  }
+
+  .fn-qa.has-account .fn-qa-f-amount {
+    grid-column: span 3;
+  }
+
+  .fn-qa.has-account .fn-qa-f-note {
+    grid-column: span 3;
+  }
+
+  .fn-qa:not(.has-account) .fn-qa-f-note {
+    grid-column: span 5;
+  }
+
+  .fn-qa.has-account .fn-qa-add {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 640px) {
+  .fn-tabs {
+    display: flex;
+    width: 100%;
+    margin-bottom: var(--space-3);
+  }
+
+  .fn-tab {
+    flex: 1;
+    justify-content: center;
+    min-width: 0;
+    padding: 0 var(--space-2);
+  }
+
+  .fn-results {
+    gap: var(--space-4);
+  }
+
+  .fn-qa {
+    padding: var(--space-3);
+  }
+
+  /* Day and account on a row, Made or lost and the amount, the note, then Add the full width */
+  .fn-qa-grid,
+  .fn-qa.has-account .fn-qa-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .fn-qa-grid > *,
+  .fn-qa.has-account .fn-qa-grid > * {
+    grid-column: 1 / -1;
+  }
+
+  .fn-qa.has-account .fn-qa-f-date,
+  .fn-qa.has-account .fn-qa-f-account {
+    grid-column: span 1;
+  }
+
+  .fn-qa-add {
+    width: 100%;
+  }
+
+  .fn-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .fn-ch-sum {
+    padding: var(--space-3) var(--space-3) var(--space-2);
+  }
+
+  .fn-ch {
+    margin: 0 var(--space-2);
+  }
+
+  .fn-r-body .fn-panel-head {
+    padding: var(--space-3);
+  }
+
+  .fn-entry,
+  .fn-day-head,
+  .fn-acct {
+    padding-inline: var(--space-3);
+  }
+
+  .fn-entry.fn-day,
+  .fn-day-head {
+    grid-template-columns: 64px minmax(0, 1fr) auto;
+  }
+
+  .fn-entry-list > .fn-entry {
+    padding-left: calc(var(--space-3) + 64px + var(--space-3));
+  }
+
+  .fn-month-head {
+    padding-inline: var(--space-3);
+  }
+
+  /* The graph's head: what it shows beside the title, the five ranges on a row of their own */
+  .fn-ch-tools {
+    display: contents;
+  }
+
+  .fn-ch-panel .fn-panel-head {
+    flex-wrap: wrap;
+    row-gap: var(--space-3);
+  }
+
+  .fn-ch-panel .fn-panel-head > .fn-panel-title {
+    margin-right: auto;
+  }
+
+  .fn-range-seg {
+    flex: 1 1 100%;
+    order: 3;
+  }
+
+  .fn-range-seg .seg-btn {
+    flex: 1;
+    justify-content: center;
+    padding: 0 8px;
   }
 }

@@ -40,7 +40,7 @@ import { openSyncPanel, syncLabel } from './sync.panel.js';
 import { provideShell, normalizeTabs, toggleTab, MAX_TABS } from './shell.js';
 import { isNewerVersion, startPage, LEGAL_LINKS } from './features/settings.logic.js';
 
-const VERSION = 'v0.30';
+const VERSION = 'v0.31';
 
 // Read before any feature module can seed data: tells a first-ever run from an upgrade
 const hadSavedData = hasSavedData();
@@ -54,9 +54,11 @@ registerIcon('dumbbell', '<path d="M6.5 6.5v11M17.5 6.5v11M3.5 9.5v5M20.5 9.5v5M
 registerIcon('wallet', '<path d="M4 7.5V18a2 2 0 0 0 2 2h14V9.5H6a2 2 0 0 1-2-2Zm0 0A2 2 0 0 1 6 5.5h11V9.5"/><circle cx="16.5" cy="14.75" r="1.1" fill="currentColor" stroke="none"/>');
 registerIcon('heart', '<path d="M12 20s-7.5-4.6-7.5-10.1A4.4 4.4 0 0 1 12 7.3a4.4 4.4 0 0 1 7.5 2.6C19.5 15.4 12 20 12 20Z"/>');
 registerIcon('timer', '<circle cx="12" cy="13.5" r="7.5"/><path d="M12 9.5v4l2.5 1.5M9.5 2.5h5M12 2.5V6M18.5 6.5l1.5-1.5"/>');
+// Recovery: a leaf, for growing back (also the icon of a tracker whose name suggests none)
+registerIcon('leaf', '<path d="M8.6 15.4C6.9 9.1 11.3 4.6 19.8 4.2c.4 8.5-4.2 13-11.2 11.2Z"/><path d="M4.2 19.8c3-3.4 6.3-6.5 10.3-9.3"/>');
 
-// Order = nav order and number keys (1 Home … 8 Finance). The phone tab bar shows four of them
-// (settings.tabs, Edit tabs in More) under their own names, and More lists the rest.
+// Order = nav order and number keys (1 Home … 8 Finance, 9 Recovery). The phone tab bar shows four
+// of them (settings.tabs, Edit tabs in More) under their own names, and More lists the rest.
 // `hidden`: a page outside the module nav (Settings: its own entry in the sidebar foot and in More).
 // `soon`: not available: grayed out at the end of the sidebar and in More ("Idea"), no number key or tab.
 const MANIFEST = [
@@ -68,6 +70,7 @@ const MANIFEST = [
   { id: 'pomodoro', title: 'Pomodoro', icon: 'timer' },
   { id: 'training', title: 'Training', icon: 'dumbbell' },
   { id: 'finance', title: 'Finance', icon: 'wallet' },
+  { id: 'recovery', title: 'Recovery', icon: 'leaf' },
   { id: 'health', title: 'Health', icon: 'heart', soon: true },
   { id: 'settings', title: 'Settings', icon: 'gear', hidden: true },
 ];

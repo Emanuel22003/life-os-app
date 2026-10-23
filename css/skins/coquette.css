@@ -1698,6 +1698,54 @@
   color: var(--text);
 }
 
+/* Daily results' graph in Atelier's chart language: warm-taupe bars (a day down outlined) under
+   an ink line, the last day in rosewood */
+[data-skin="coquette"] .fn-ch-line,
+[data-skin="coquette"] .fn-key--line {
+  stroke: var(--text);
+  stroke-width: 1.5;
+  background: var(--text);
+}
+
+[data-skin="coquette"] .fn-ch-area--up {
+  fill: var(--accent);
+  fill-opacity: 0.08;
+}
+
+[data-skin="coquette"] .fn-ch-bar.is-up,
+[data-skin="coquette"] .fn-key--up {
+  fill: var(--at-taupe);
+  background: var(--at-taupe);
+}
+
+[data-skin="coquette"] .fn-ch-bar.is-down {
+  stroke: var(--at-taupe);
+}
+
+[data-skin="coquette"] .fn-ch-bar.is-down.is-thin {
+  fill: var(--at-taupe);
+}
+
+[data-skin="coquette"] .fn-key--down {
+  border-color: var(--at-taupe);
+}
+
+[data-skin="coquette"] :is(.fn-ch-end, .fn-ch-dot) {
+  fill: var(--accent);
+}
+
+[data-skin="coquette"] :is(.fn-ch-bar.is-active.is-up, .fn-ch-bar.is-active.is-flat, .fn-ch-bar.is-active.is-down.is-thin) {
+  fill: var(--accent);
+}
+
+[data-skin="coquette"] .fn-ch-bar.is-active.is-down {
+  stroke: var(--accent);
+}
+
+[data-skin="coquette"] .fn-ch {
+  border-radius: var(--radius-lg);
+}
+
 /* ---- Settings: Playfair section titles, the index in the picked look ---- */
 [data-skin="coquette"] .st-root .st-card-title {
   margin-top: var(--space-5);
@@ -1746,4 +1794,10 @@
   [data-skin="coquette"] :is(.pm-switch-track, .cal-ed-switch-track) {
     border: 1px solid CanvasText;
   }
+}
+
+/* ---- Recovery: the runs as slim warm-taupe bars, like the other charts (the one going on in the
+   rosewood accent) ---- */
+[data-skin="coquette"] .rc-root {
+  --rc-bar: var(--at-taupe);
 }

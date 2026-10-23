@@ -168,7 +168,7 @@ export function glanceHidden(layout) {
  */
 export function isEmptyApp(counts = {}) {
   const c = counts ?? {};
-  return ['tasks', 'habits', 'events', 'notes', 'subs', 'workouts'].every((k) => !(Number(c[k]) > 0));
+  return ['tasks', 'habits', 'events', 'notes', 'subs', 'workouts', 'trackers'].every((k) => !(Number(c[k]) > 0));
 }
 
 export const START_STEPS = Object.freeze(
@@ -358,6 +358,7 @@ export const WIDGETS = Object.freeze(
     { id: 'agenda', name: 'Agenda', text: 'Your next events, day by day.', size: 's', icon: 'calendar', tone: 'calendar' },
     { id: 'payments', name: 'Payments', text: 'Subscriptions due soon and what they cost a month.', size: 's', icon: 'coins', tone: 'finance' },
     { id: 'training', name: 'Training', text: 'Start a routine, or get back to the workout in progress.', size: 's', icon: 'dumbbell', tone: 'training' },
+    { id: 'recovery', name: 'Recovery', text: 'Days clean for each thing you stay away from.', size: 's', icon: 'leaf', tone: 'recovery' },
   ].map((w) => Object.freeze(w)),
 );
 
