@@ -1,206 +1,290 @@
 /* ==========================================================================
-   LIFE/OS — skin: Y2K (data-skin="y2k")
-   Baby pink, lilac and baby blue by day, a midnight-violet night with neon pink by dark. A
-   holographic gradient (pink → lilac → blue) on the main button, the open page and the titles;
-   bubble letters for page titles (Rubik Bubbles), round Fredoka for text, pixel captions
-   (Silkscreen); glassy cards with a bright rim, sparkles on the page, a sparkle in every ticked
-   box, and chrome butterflies as the crest and behind the pages (y2k-butterflies.webp,
-   generated with Yapper).
+   LIFE/OS — skin: Pearl (data-skin="y2k"; the id stays y2k, so saved settings carry over)
+   Modern, calm, grown-up, with a hint of shimmer. Pearl and lilac grey by day, a midnight
+   violet by night. Space Grotesk for titles and figures (tabular), Inter for text, 12–14px
+   corners, frosted glass on what floats over the page (dialogs, sheets, menus, Search, toasts,
+   the top bar, the tab bar, the live workout bar, a task's page). One solid violet-blue for
+   controls, and a thin pearl gradient (lilac → blue → rose) used only as an accent: the current
+   page, today, the focus timer's ring and progress, and the hairline under the page title.
 
-   A plain template: Simple underneath (css/skins/simple.css is scoped to [data-plain]); this
-   file restyles it. Its main colors (Appearance → Colors) are Background (--bg), Text (--text)
-   and Glitter (--accent): the holographic lilac and blue are the accent turned around the color
-   wheel (oklch), so one color re-tints the whole shimmer. Conventions as in the other skins.
-   After changing --bg, update SKIN_BOOT (js/skins.js and index.html's head script).
+   One language for each kind of state, on every page:
+   - Picked / on / pressed (a segment, a filter, a chip, a preset, a weekday, the selected day,
+     an editor option, the open note, task or section): a raised pearl-white pill with a fine violet
+     ring and violet words. Where you are (the menu, More's page tiles, the Settings index):
+     the same raised pill, its ring in the pearl gradient.
+   - Ticked / done (tasks, habits, sets, checklists, Start steps): a round violet box with a
+     white tick (dark: a lilac box, an ink tick), the habit week's days included (round too).
+   - Switches: on = a violet track with a white knob on the right; off = a soft track with a
+     visible edge, the knob on the left (white by day, grey at night).
+   - Card titles: Space Grotesk 600, 16px, ink, everywhere (Home's widgets, panels, Settings).
+   - Figures: Space Grotesk with tabular numerals (timers, totals, dates, tiles).
+   - Late (overdue): the late color (rose-red under Color coding) and its icon, nothing else.
+   In light mode the pearl gradient that marks something (the current page, today, the timer's
+   ring) is a deeper mother-of-pearl (violet → blue → rose, 3:1 on the paper, WCAG 1.4.11); the
+   pale pearl stays for decoration (the title's hairline, the crest).
+
+   A plain template: Simple underneath (css/skins/simple.css is scoped to [data-plain]); this file
+   restyles it. Its main colors (Appearance → Colors) are Background (--bg), Text (--text) and
+   Accent (--accent); glass, lines and tints are drawn from them. The pearl gradient keeps its own
+   three colors. Conventions as in the other skins: selectors start at the skin scope (never
+   :root / html / body: the scope is also a <div> in each Appearance preview), the shared kit
+   uses .thing:where([data-skin="y2k"] *), background-changing :hover rules sit in
+   @media (hover: hover) and (pointer: fine). Page-top sizes come from css/compact.css through the
+   --page-title-size / --page-header-* tokens. After changing --bg, update SKIN_BOOT (js/skins.js
+   and index.html's head script).
+   Backdrop blur is on the floating layers only: a card sits on a smooth background, where a blur
+   shows nothing, and a filter makes a card its own layer, which would trap the pop-up lists
+   positioned inside it (the exercise type-ahead, a dragged item) under the next card.
+   ========================================================================== */
+
+/* ==========================================================================
+   Tokens
    ========================================================================== */
 
 /* ---- Midnight (dark) and everything that doesn't change with the mode ---- */
 [data-skin="y2k"] {
-  --font-sans: "Fredoka", "Nunito", ui-rounded, "Varela Round", system-ui, sans-serif;
-  --font-display: "Rubik Bubbles", "Fredoka", ui-rounded, sans-serif;
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-display: "Space Grotesk", "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-sans);
-  --y2k-pixel: "Silkscreen", ui-monospace, "SF Mono", Menlo, monospace;
+  /* Figures: timers, totals, dates, tiles (tabular, so they don't jump) */
+  --pearl-figures: "Space Grotesk", "Inter", ui-sans-serif, system-ui, sans-serif;
 
   --fs-2xs: 12px;
-  --fs-xs: 13px;
-  --fs-sm: 14.5px;
-  --fs-md: 15.5px;
-  --fs-lg: 18px;
-  --fs-xl: 23px;
-  --fs-2xl: 30px;
-  --fs-3xl: 40px;
+  --fs-xs: 12.5px;
+  --fs-sm: 14px;
+  --fs-md: 15px;
+  --fs-lg: 17.5px;
+  --fs-xl: 22px;
+  --fs-2xl: 28px;
+  --fs-3xl: 34px;
 
-  --radius-xs: 10px;
-  --radius-sm: 14px;
-  --radius: 20px;
-  --radius-lg: 26px;
+  --radius-xs: 6px;
+  --radius-sm: 10px;
+  --radius: 12px;
+  --radius-lg: 14px;
 
-  /* Captions as in Simple (sentence case); the .label class gets pixel capitals below */
+  /* The page top (css/compact.css): a confident title, room for the pearl hairline under it */
+  --page-title-size: clamp(26px, 2.35vw, 32px);
+  --page-title-size-phone: 24px;
+  --page-header-pb: 14px;
+  --page-header-mb: 20px;
+
+  /* Captions: small sentence-case Inter, as in Simple */
   --label-font: var(--font-sans);
   --label-size: var(--fs-xs);
   --label-weight: 500;
   --label-case: none;
   --label-tracking: 0;
 
-  /* The shimmer: the accent and two neighbours on the color wheel */
-  --y2k-a: var(--accent);
-  --y2k-b: oklch(from var(--accent) l c calc(h - 50));
-  --y2k-c: oklch(from var(--accent) l c calc(h - 100));
-  --y2k-holo: linear-gradient(115deg, var(--y2k-a), var(--y2k-b) 52%, var(--y2k-c));
-  /* The shimmer the titles' letters are cut from: the same here; deeper on the light paper */
-  --y2k-holo-ink: var(--y2k-holo);
-  --y2k-rim: rgba(230, 200, 255, 0.16);
-  --y2k-art-alpha: 0.5;
-  --y2k-sparkle: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 1.5c.9 6.1 3.4 8.6 9.5 10.5-6.1 1.9-8.6 4.4-9.5 10.5-.9-6.1-3.4-8.6-9.5-10.5C8.6 10.1 11.1 7.6 12 1.5Z'/%3E%3C/svg%3E");
+  --border-w: 1px;
+  --border-w-sm: 1.5px;
 
-  /* Sparkles over a haze of the three colors */
+  /* The pearl: lilac, blue, rose. --pearl is the pale one (decoration); --pearl-mark the one
+     that marks something (deeper by day, see the light block) */
+  --pearl-lilac: #c7b8f5;
+  --pearl-blue: #a9c8f5;
+  --pearl-rose: #f2c4d6;
+  --pearl-m1: var(--pearl-lilac);
+  --pearl-m2: var(--pearl-blue);
+  --pearl-m3: var(--pearl-rose);
+  --pearl: linear-gradient(90deg, var(--pearl-lilac), var(--pearl-blue) 50%, var(--pearl-rose));
+  --pearl-fade: linear-gradient(90deg, var(--pearl-lilac), var(--pearl-blue) 30%, var(--pearl-rose) 62%, transparent 96%);
+  --pearl-mark: linear-gradient(90deg, var(--pearl-m1), var(--pearl-m2) 50%, var(--pearl-m3));
+  --pearl-mark-v: linear-gradient(180deg, var(--pearl-m1), var(--pearl-m2) 50%, var(--pearl-m3));
+  --pearl-ring: conic-gradient(from 0deg, var(--pearl-m1), var(--pearl-m2) 34%, var(--pearl-m3) 67%, var(--pearl-m1));
+  /* The timer ring's colors under the pearl (the ring is tinted by a blend, see Pomodoro): the
+     track never takes the pearl, the arc takes it exactly */
+  --pearl-ring-track: #35314a;
+  --pearl-ring-key: #f2c8f5;
+  --pearl-ring-blend: darken;
+  /* The crest: a small disc of mother-of-pearl (a soft sheen, no glossy highlight: a bead read
+     as Y2K) */
+  --pearl-orb: radial-gradient(circle at 32% 28%, rgba(255, 255, 255, 0.7), rgba(255, 255, 255, 0) 46%), conic-gradient(from 210deg, var(--pearl-lilac), var(--pearl-blue) 33%, var(--pearl-rose) 66%, var(--pearl-lilac));
+
+  /* Raised (picked, where you are), lit (a menu's or a list's highlighted row), glass */
+  --pearl-raised: #2d2a40;
+  --pearl-raise-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --pearl-lit: color-mix(in srgb, var(--accent) 14%, transparent);
+  /* The words of a picked choice: the accent with a little ink, so they stay readable on the
+     raised pill with your own accent too */
+  --pearl-on: color-mix(in srgb, var(--accent) 82%, var(--text));
+  --pearl-edge: rgba(255, 255, 255, 0.075);
+  --pearl-sheen: inset 0 1px 0 rgba(255, 255, 255, 0.045);
+  --pearl-glass: rgba(31, 29, 45, 0.82);
+  --pearl-blur: blur(18px) saturate(140%);
+  --pearl-btn: #262337;
+  /* A switch's knob when off (on, it is white in both modes) */
+  --pearl-knob: #bdb8cc;
+  --pearl-chip: color-mix(in srgb, var(--text) 8%, transparent);
+  --pearl-toast: rgba(45, 42, 64, 0.94);
+  --pearl-toast-ink: #ece9f3;
+  --pearl-toast-action: var(--accent);
+
+  --simple-card-shadow: 0 1px 2px rgba(0, 0, 0, 0.25), 0 10px 28px rgba(0, 0, 0, 0.2);
+  --simple-ring: 0 0 0 3px color-mix(in srgb, var(--accent) 26%, transparent);
+
+  /* A faint pearl light behind the glass: lilac at the top, blue to the right, rose low */
   --page-bg-image:
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cg fill='%23ffffff' fill-opacity='.5'%3E%3Cpath transform='translate(28 36) scale(.55)' d='M12 1.5c.9 6.1 3.4 8.6 9.5 10.5-6.1 1.9-8.6 4.4-9.5 10.5-.9-6.1-3.4-8.6-9.5-10.5C8.6 10.1 11.1 7.6 12 1.5Z'/%3E%3Cpath transform='translate(150 18) scale(.38)' d='M12 1.5c.9 6.1 3.4 8.6 9.5 10.5-6.1 1.9-8.6 4.4-9.5 10.5-.9-6.1-3.4-8.6-9.5-10.5C8.6 10.1 11.1 7.6 12 1.5Z'/%3E%3Cpath transform='translate(118 146) scale(.7)' d='M12 1.5c.9 6.1 3.4 8.6 9.5 10.5-6.1 1.9-8.6 4.4-9.5 10.5-.9-6.1-3.4-8.6-9.5-10.5C8.6 10.1 11.1 7.6 12 1.5Z'/%3E%3Ccircle cx='82' cy='118' r='1.4'/%3E%3Ccircle cx='196' cy='96' r='1.1'/%3E%3Ccircle cx='40' cy='190' r='1.2'/%3E%3C/g%3E%3C/svg%3E"),
-    radial-gradient(42% 52% at 10% 16%, color-mix(in srgb, var(--y2k-a) 22%, transparent), transparent 70%),
-    radial-gradient(46% 56% at 90% 10%, color-mix(in srgb, var(--y2k-b) 22%, transparent), transparent 70%),
-    radial-gradient(52% 60% at 76% 94%, color-mix(in srgb, var(--y2k-c) 20%, transparent), transparent 70%);
-  --page-bg-size: 220px 220px, 100% 100%, 100% 100%, 100% 100%;
-
-  --simple-card-shadow: 0 10px 32px rgba(0, 0, 0, 0.35);
-  --simple-ring: 0 0 0 3px color-mix(in srgb, var(--accent) 40%, transparent);
+    radial-gradient(60% 55% at 22% -8%, rgba(199, 184, 245, 0.11), transparent 70%),
+    radial-gradient(50% 50% at 104% 6%, rgba(169, 200, 245, 0.09), transparent 72%),
+    radial-gradient(60% 60% at 88% 108%, rgba(242, 196, 214, 0.07), transparent 72%);
+  --page-bg-size: 100% 100%, 100% 100%, 100% 100%;
 
   color-scheme: dark;
 
-  --bg: #140a26;
-  --bg-elev: #180c2e;
-  --surface: rgba(36, 19, 66, 0.78);
-  --surface-2: #2a1650;
-  --surface-3: #351d63;
-  --surface-solid: #1f1040;
-  --surface-solid-2: #2a1650;
+  --bg: #15131f;
+  --bg-elev: #1a1826;
+  --surface: rgba(38, 35, 54, 0.72);
+  --surface-2: #272436;
+  --surface-3: #312d42;
+  --surface-solid: #1f1d2d;
+  --surface-solid-2: #252334;
 
-  --line: rgba(230, 200, 255, 0.13);
-  --line-strong: rgba(230, 200, 255, 0.26);
-  --line-focus: #ff8ad1;
+  --line: rgba(236, 233, 243, 0.08);
+  --line-strong: rgba(236, 233, 243, 0.16);
+  /* (the accent's own value: the focus ring and the heat scale follow a color you pick) */
+  --line-focus: var(--accent);
+  /* A field's edge: 3:1 against the cards, the tracks and the page, also where it lies over the
+     field's own fill (WCAG 1.4.11) */
+  --field-line: color-mix(in srgb, var(--text) 44%, transparent);
 
-  --text: #f7ecff;
-  --text-2: #dcc6f5;
-  /* 4.5:1 also on a tag's violet chip (WCAG 1.4.3; #ad93cf was 4.4:1 there) */
-  --text-3: #b39ad3;
-  --text-4: #5e4683;
+  --text: #ece9f3;
+  --text-2: #bdb8cc;
+  /* 4.5:1 on the cards, the tracks and the pearl light, also on a tag's tint inside a card
+     (a done task's tags, WCAG 1.4.3) */
+  --text-3: #a5a0b7;
+  --text-4: #4a4660;
 
-  --accent: #ff8ad1;
-  --accent-ink: #22093a;
-  --accent-soft: rgba(255, 138, 209, 0.16);
+  --accent: #a99cf5;
+  --accent-ink: #15131f;
+  --accent-soft: rgba(169, 156, 245, 0.14);
 
   --glow: var(--simple-ring);
-  --glow-strong: 0 0 22px color-mix(in srgb, var(--accent) 40%, transparent);
-  --shadow: 0 24px 64px rgba(0, 0, 0, 0.55);
-  --shadow-sm: 0 6px 22px rgba(0, 0, 0, 0.35);
+  --glow-strong: 0 2px 12px rgba(0, 0, 0, 0.35);
+  --shadow: 0 24px 64px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.25);
+  --shadow-sm: 0 6px 20px rgba(0, 0, 0, 0.3);
 
   --grid-line: transparent;
-  --scrim: rgba(10, 4, 22, 0.62);
-  --hatch: rgba(230, 200, 255, 0.08);
+  --scrim: rgba(8, 7, 14, 0.55);
+  --hatch: rgba(236, 233, 243, 0.07);
 
-  --heat-0: rgba(255, 138, 209, 0.1);
-  --heat-1: rgba(255, 138, 209, 0.28);
-  --heat-2: rgba(255, 138, 209, 0.48);
-  --heat-3: rgba(255, 138, 209, 0.72);
-  --heat-4: #ff8ad1;
+  --heat-0: color-mix(in srgb, var(--accent) 10%, transparent);
+  --heat-1: color-mix(in srgb, var(--accent) 26%, transparent);
+  --heat-2: color-mix(in srgb, var(--accent) 46%, transparent);
+  --heat-3: color-mix(in srgb, var(--accent) 72%, transparent);
+  --heat-4: var(--accent);
 
-  /* Color coding in candy brights */
-  --cc-red: #ff7a9c;
-  --cc-orange: #ffae6b;
-  --cc-yellow: #ffe17a;
-  --cc-green: #8ff0b0;
-  --cc-teal: #7ff0e6;
-  --cc-blue: #8ec8ff;
-  --cc-purple: #c79bff;
-  --cc-pink: #ff8ad1;
-  --cc-ink: #22093a;
+  /* Color coding: clear jewel tones, a little softened (3:1 or more on the cards, WCAG 1.4.11) */
+  --cc-red: #f08a9b;
+  --cc-orange: #f2a877;
+  --cc-yellow: #e8c873;
+  --cc-green: #7fd3a7;
+  --cc-teal: #74cfd3;
+  --cc-blue: #8fb4f7;
+  --cc-purple: #b7a6fa;
+  --cc-pink: #f09ac4;
+  --cc-ink: #15131f;
 }
 
-/* ---- Pastel (light) ---- */
+/* ---- Pearl (light) ---- */
 [data-skin="y2k"][data-theme="light"] {
-  /* The titles' shimmer with some ink in it: the pastel stops alone were 1.8:1 on the pale
-     paper, under the 3:1 big text needs (WCAG 1.4.3) */
-  --y2k-holo-ink: linear-gradient(115deg, color-mix(in srgb, var(--y2k-a) 65%, var(--text)), color-mix(in srgb, var(--y2k-b) 65%, var(--text)) 52%, color-mix(in srgb, var(--y2k-c) 65%, var(--text)));
-  --y2k-rim: rgba(255, 255, 255, 0.95);
-  --y2k-art-alpha: 0.62;
-  --page-bg-image:
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cg fill='%23b98cff' fill-opacity='.32'%3E%3Cpath transform='translate(28 36) scale(.55)' d='M12 1.5c.9 6.1 3.4 8.6 9.5 10.5-6.1 1.9-8.6 4.4-9.5 10.5-.9-6.1-3.4-8.6-9.5-10.5C8.6 10.1 11.1 7.6 12 1.5Z'/%3E%3Cpath transform='translate(150 18) scale(.38)' d='M12 1.5c.9 6.1 3.4 8.6 9.5 10.5-6.1 1.9-8.6 4.4-9.5 10.5-.9-6.1-3.4-8.6-9.5-10.5C8.6 10.1 11.1 7.6 12 1.5Z'/%3E%3Cpath transform='translate(118 146) scale(.7)' d='M12 1.5c.9 6.1 3.4 8.6 9.5 10.5-6.1 1.9-8.6 4.4-9.5 10.5-.9-6.1-3.4-8.6-9.5-10.5C8.6 10.1 11.1 7.6 12 1.5Z'/%3E%3Ccircle cx='82' cy='118' r='1.4'/%3E%3Ccircle cx='196' cy='96' r='1.1'/%3E%3Ccircle cx='40' cy='190' r='1.2'/%3E%3C/g%3E%3C/svg%3E"),
-    radial-gradient(42% 52% at 10% 16%, color-mix(in srgb, var(--y2k-a) 24%, transparent), transparent 70%),
-    radial-gradient(46% 56% at 90% 10%, color-mix(in srgb, var(--y2k-b) 26%, transparent), transparent 70%),
-    radial-gradient(52% 60% at 76% 94%, color-mix(in srgb, var(--y2k-c) 24%, transparent), transparent 70%);
+  /* Marks in a deeper mother-of-pearl: 3.2:1 or more on the paper and the cards */
+  --pearl-m1: #8571de;
+  --pearl-m2: #5a86d4;
+  --pearl-m3: #c46790;
+  --pearl-ring-track: #f2ecf8;
+  --pearl-ring-key: #5a6790;
+  --pearl-ring-blend: lighten;
 
-  --simple-card-shadow: 0 10px 30px color-mix(in srgb, var(--y2k-b) 20%, transparent);
+  --pearl-raised: #ffffff;
+  --pearl-raise-shadow: 0 1px 2px rgba(46, 38, 92, 0.1), 0 2px 8px rgba(46, 38, 92, 0.06);
+  --pearl-lit: color-mix(in srgb, var(--accent) 9%, transparent);
+  --pearl-edge: rgba(31, 28, 41, 0.075);
+  --pearl-sheen: inset 0 1px 0 rgba(255, 255, 255, 0.85);
+  --pearl-glass: rgba(252, 251, 254, 0.86);
+  --pearl-btn: #ffffff;
+  --pearl-knob: #ffffff;
+  --pearl-chip: color-mix(in srgb, var(--text) 6%, transparent);
+  --pearl-toast: rgba(31, 28, 41, 0.94);
+  --pearl-toast-ink: #f3f1f6;
+  /* Undo on the dark toast: a pale violet, 8:1 */
+  --pearl-toast-action: #c3bcff;
+
+  --simple-card-shadow: 0 1px 2px rgba(46, 38, 92, 0.04), 0 8px 24px rgba(46, 38, 92, 0.06);
+  /* (restated here: Simple's light block sets a gray ring and a gray focus line at this same
+     strength, and they won over the dark block's violet ones in light mode) */
+  --simple-ring: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
+
+  --page-bg-image:
+    radial-gradient(60% 55% at 22% -8%, rgba(199, 184, 245, 0.24), transparent 70%),
+    radial-gradient(50% 50% at 104% 6%, rgba(169, 200, 245, 0.22), transparent 72%),
+    radial-gradient(60% 60% at 88% 108%, rgba(242, 196, 214, 0.22), transparent 72%);
 
   color-scheme: light;
 
-  --bg: #fff0fa;
-  --bg-elev: #fff6fc;
-  --surface: rgba(255, 255, 255, 0.76);
-  --surface-2: #fde4f5;
-  --surface-3: #f4d4f0;
+  --bg: #f3f1f6;
+  --bg-elev: #f8f7fb;
+  --surface: rgba(255, 255, 255, 0.7);
+  --surface-2: #ece9f2;
+  --surface-3: #e3dfeb;
   --surface-solid: #ffffff;
-  --surface-solid-2: #fff3fb;
+  --surface-solid-2: #f7f6fa;
 
-  --line: rgba(120, 60, 160, 0.14);
-  --line-strong: rgba(120, 60, 160, 0.26);
-  /* The focus ring: a deeper lilac, 3:1 on the pink paper and the pink cards (WCAG 1.4.11;
-     #b36bff was 2.9:1 on the page) */
-  --line-focus: #9559d5;
-  /* A field's edge with a little more ink than the other templates': it lies over the glassy
-     card's white, and where the page's sky-blue glow is strongest the usual 56% was 2.8:1
-     (WCAG 1.4.11) */
-  --field-line: color-mix(in srgb, var(--text) 66%, transparent);
+  --line: rgba(31, 28, 41, 0.09);
+  --line-strong: rgba(31, 28, 41, 0.17);
+  --line-focus: var(--accent);
+  --field-line: color-mix(in srgb, var(--text) 58%, transparent);
 
-  --text: #3b1d5c;
-  --text-2: #5f3f84;
-  /* 4.5:1 also where the page's sky-blue glow sits behind the words (WCAG 1.4.3; #7a5a9c fell
-     to 4.1:1 there) */
-  --text-3: #715390;
-  --text-4: #cdb6e3;
+  --text: #1f1c29;
+  --text-2: #4a4659;
+  --text-3: #5f5b70;
+  --text-4: #c4c0cf;
 
-  --accent: #ff6ec4;
-  --accent-ink: #2b1240;
-  --accent-soft: rgba(255, 110, 196, 0.16);
+  /* The violet-blue: 5:1 on the paper, white words on it 5.7:1 */
+  --accent: #5a55d6;
+  --accent-ink: #ffffff;
+  --accent-soft: rgba(90, 85, 214, 0.1);
 
-  --glow-strong: 0 0 22px color-mix(in srgb, var(--accent) 35%, transparent);
-  --shadow: 0 24px 64px rgba(90, 40, 140, 0.18);
-  --shadow-sm: 0 6px 22px rgba(90, 40, 140, 0.12);
+  --glow: var(--simple-ring);
+  --glow-strong: 0 2px 10px rgba(46, 38, 92, 0.12);
+  --shadow: 0 24px 60px rgba(46, 38, 92, 0.16), 0 2px 8px rgba(46, 38, 92, 0.06);
+  --shadow-sm: 0 6px 20px rgba(46, 38, 92, 0.1);
 
-  --scrim: rgba(70, 30, 110, 0.22);
-  --hatch: rgba(120, 60, 160, 0.07);
+  --scrim: rgba(52, 46, 84, 0.22);
+  --hatch: rgba(31, 28, 41, 0.07);
 
-  --heat-0: rgba(185, 140, 255, 0.14);
-  --heat-1: rgba(255, 110, 196, 0.3);
-  --heat-2: rgba(255, 110, 196, 0.5);
-  --heat-3: rgba(255, 110, 196, 0.74);
-  --heat-4: #ff6ec4;
+  --heat-0: color-mix(in srgb, var(--accent) 8%, transparent);
+  --heat-1: color-mix(in srgb, var(--accent) 22%, transparent);
+  --heat-2: color-mix(in srgb, var(--accent) 42%, transparent);
+  --heat-3: color-mix(in srgb, var(--accent) 68%, transparent);
+  --heat-4: var(--accent);
 
-  --cc-red: #f0507a;
-  --cc-orange: #f5893d;
-  --cc-yellow: #d9a514;
-  --cc-green: #2fb36a;
-  --cc-teal: #1fb2a6;
-  --cc-blue: #3d8ef0;
-  --cc-purple: #9a5cf0;
-  --cc-pink: #f0479f;
+  --cc-red: #b23a55;
+  --cc-orange: #b65a26;
+  --cc-yellow: #9a7413;
+  --cc-green: #2c8259;
+  --cc-teal: #1e7a82;
+  --cc-blue: #3a6bcb;
+  --cc-purple: #6a51d0;
+  --cc-pink: #b0427a;
   --cc-ink: #ffffff;
 }
 
 /* ==========================================================================
-   Page
+   Page: Inter, quiet captions, the violet focus ring
    ========================================================================== */
 
 [data-skin="y2k"] .lo-page {
   font-feature-settings: normal;
-  letter-spacing: 0.005em;
+  letter-spacing: -0.003em;
+}
+
+[data-skin="y2k"] :is(h1, h2, h3, h4) {
+  letter-spacing: -0.012em;
 }
 
 [data-skin="y2k"] .label {
-  font-family: var(--y2k-pixel);
-  font-size: 9.5px;
-  font-weight: 400;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--text-3);
+  letter-spacing: 0;
 }
 
 /* :where: as weak as base.css's ring, so a feature's own focus treatment still wins */
@@ -210,58 +294,36 @@
 }
 
 [data-skin="y2k"] ::selection {
-  background: color-mix(in srgb, var(--accent) 38%, transparent);
+  background: color-mix(in srgb, var(--accent) 24%, transparent);
 }
 
 [data-skin="y2k"] .main,
 [data-skin="y2k"] .sidebar {
   scrollbar-width: thin;
-  scrollbar-color: color-mix(in srgb, var(--y2k-b) 60%, transparent) transparent;
+  scrollbar-color: color-mix(in srgb, var(--text) 20%, transparent) transparent;
 }
 
-/* Butterflies behind the page, in the lower right */
-[data-skin="y2k"] .main {
-  isolation: isolate;
-}
-
-[data-skin="y2k"] .main::before {
-  content: "";
-  position: fixed;
-  z-index: -1;
-  right: clamp(8px, 2.5vw, 56px);
-  bottom: clamp(24px, 5vh, 72px);
-  width: clamp(240px, 30vw, 460px);
-  aspect-ratio: 1400 / 1172;
-  background: url("y2k-butterflies.webp") center / contain no-repeat;
-  opacity: var(--y2k-art-alpha);
-  pointer-events: none;
-}
-
-@media (max-width: 640px) {
-  [data-skin="y2k"] .main::before {
-    width: 64vw;
-    right: 2vw;
-    bottom: calc(var(--tabbar-h) + 16px);
-  }
+/* Icon badges: a soft tint of their color, gently rounded */
+[data-skin="y2k"] .ib {
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--ib-c) 12%, transparent);
 }
 
 /* ==========================================================================
-   Shell: butterflies as the crest, a shimmering pill on the open page
+   Shell: a small pearl as the crest, glass over the pearl light
    ========================================================================== */
 
 [data-skin="y2k"] .sidebar {
+  gap: var(--space-5);
   border-right: 1px solid var(--line);
-  padding-top: 22px;
+  background: color-mix(in srgb, var(--bg-elev) 72%, transparent);
+  /* (the icon rail's content is a pixel wider than its inside: no sideways scrollbar for that) */
+  overflow-x: hidden;
 }
 
 [data-skin="y2k"] .brand {
-  flex-direction: column;
-  align-items: center;
-  height: auto;
-  gap: 0;
-  padding: 0 0 16px;
-  border-bottom: 1px solid var(--line);
-  text-align: center;
+  gap: 10px;
+  padding: 0 var(--space-2);
 }
 
 [data-skin="y2k"] .brand-mark {
@@ -270,50 +332,68 @@
 
 [data-skin="y2k"] .brand::before {
   content: "";
-  width: 128px;
-  aspect-ratio: 1400 / 1172;
-  margin-bottom: 2px;
-  background: url("y2k-butterflies.webp") center / contain no-repeat;
+  flex: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--pearl-orb);
+  box-shadow: inset 0 0 0 1px rgba(60, 40, 110, 0.12), 0 1px 2px rgba(46, 38, 92, 0.18);
 }
 
 [data-skin="y2k"] .brand-name {
   font-family: var(--font-display);
-  font-size: 24px;
-  font-weight: 400;
+  font-size: 16px;
+  font-weight: 600;
   letter-spacing: 0.04em;
-  line-height: 1.1;
-  background: var(--y2k-holo);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  -webkit-text-fill-color: transparent;
 }
 
-[data-skin="y2k"] .brand::after {
-  content: "✦ est. 2026 ✦";
-  margin-top: 6px;
-  font-family: var(--y2k-pixel);
-  font-size: 8px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--text-3);
+/* Search: a frosted field under the crest */
+[data-skin="y2k"] .sidebar-search {
+  border-color: var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  box-shadow: var(--pearl-sheen);
+}
+
+[data-skin="y2k"] .sidebar-search-kbd {
+  border-color: var(--line);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="y2k"] .sidebar-search:hover {
+    border-color: var(--field-line);
+    color: var(--text-2);
+  }
+}
+
+[data-skin="y2k"] .nav {
+  gap: 2px;
 }
 
 [data-skin="y2k"] .nav-item {
-  border-radius: var(--radius-pill);
-  font-size: 15px;
+  height: 38px;
+  border: 1.5px solid transparent;
+  border-radius: var(--radius-sm);
+  font-size: 14.5px;
   font-weight: 500;
+  color: var(--text-2);
 }
 
-[data-skin="y2k"] .nav-item:hover {
-  background: color-mix(in srgb, var(--y2k-b) 16%, transparent);
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="y2k"] .nav-item:hover {
+    background: var(--pearl-chip);
+    color: var(--text);
+  }
 }
 
-[data-skin="y2k"] .nav-item[aria-current="page"] {
-  background: var(--y2k-holo);
-  color: var(--accent-ink);
+/* Where you are: the raised pill, its ring in the pearl (border-box under the pill's own fill) */
+[data-skin="y2k"] .nav-item[aria-current="page"],
+[data-skin="y2k"] .sidebar-foot .settings-btn[aria-current="page"] {
+  border: 1.5px solid transparent;
+  background: linear-gradient(var(--pearl-raised), var(--pearl-raised)) padding-box, var(--pearl-mark) border-box;
+  color: var(--text);
   font-weight: 600;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6), 0 4px 14px color-mix(in srgb, var(--accent) 30%, transparent);
+  box-shadow: var(--pearl-raise-shadow);
 }
 
 [data-skin="y2k"] .nav-item[aria-current="page"]::before {
@@ -321,59 +401,140 @@
 }
 
 [data-skin="y2k"] .nav-badge {
-  background: color-mix(in srgb, var(--y2k-b) 22%, transparent);
-  color: var(--text);
-  font-family: var(--font-sans);
+  min-width: 22px;
+  padding: 1px 7px;
+  background: var(--pearl-chip);
+  color: var(--text-2);
+  font-weight: 600;
 }
 
 [data-skin="y2k"] .nav-item[aria-current="page"] .nav-badge {
-  background: rgba(255, 255, 255, 0.7);
-  color: var(--accent-ink);
+  background: var(--accent-soft);
+  color: var(--text);
 }
 
-/* A short window: smaller butterflies, so the whole sidebar (down to the Privacy · Business
-   details line) fits without scrolling */
-@media (min-width: 901px) and (max-height: 860px) {
-  [data-skin="y2k"] .brand::before {
-    width: 88px;
-  }
-}
-
-@media (max-width: 900px) {
-  [data-skin="y2k"] .brand::before {
-    width: 50px;
-  }
-
-  [data-skin="y2k"] .brand::after {
-    content: none;
-  }
-}
-
-[data-skin="y2k"] .topbar {
-  background: color-mix(in srgb, var(--bg) 80%, transparent);
-}
-
-[data-skin="y2k"] .tab[aria-current="page"] {
+/* Training's badge is a dot while a workout is live: violet, like the page's own live dot */
+[data-skin="y2k"] .nav-item[data-id="training"] .nav-badge {
   color: var(--accent);
 }
 
-/* On the light pink paper the bubblegum pink is too pale for a small word (2.3:1): the open
-   tab takes it deeper, mixed with the ink, so its label keeps 4.5:1 (WCAG 1.4.3) */
-[data-skin="y2k"][data-theme="light"] .tab[aria-current="page"] {
-  color: color-mix(in srgb, var(--accent) 55%, var(--text));
+[data-skin="y2k"] .nav-soon {
+  padding: 0 7px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-pill);
+  color: var(--text-3);
 }
 
-/* …and its bar above it takes the same deeper pink: the bubblegum bar was 2.3:1 on the bar's
-   paper, too faint to mark the open page (WCAG 1.4.11) */
-[data-skin="y2k"][data-theme="light"] .tab[aria-current="page"]::before {
-  background: currentColor;
+[data-skin="y2k"] .nav-item[aria-current="page"] .nav-soon {
+  color: var(--text-2);
 }
 
-/* ---- Page header: bubble letters in the shimmer over a shimmering line ---- */
+[data-skin="y2k"] .sidebar-foot {
+  gap: 6px;
+}
+
+[data-skin="y2k"] .sidebar-foot .sidebar-link {
+  color: var(--text-2);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="y2k"] .sidebar-foot .btn--ghost:hover {
+    border-color: transparent;
+    background: var(--pearl-chip);
+    color: var(--text);
+  }
+}
+
+/* The icon rail: the pearl alone */
+@media (max-width: 900px) {
+  [data-skin="y2k"] .brand::before {
+    width: 22px;
+    height: 22px;
+  }
+}
+
+/* ---- Top bar: glass on the page ---- */
+[data-skin="y2k"] .topbar {
+  border-bottom-color: var(--line);
+  background: color-mix(in srgb, var(--bg) 72%, transparent);
+}
+
+[data-skin="y2k"] .clock {
+  font-family: var(--pearl-figures);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+}
+
+/* ---- Phone tab bar: glass; the open page in violet with the pearl over it ---- */
+[data-skin="y2k"] .tabbar {
+  border-top-color: var(--line);
+  background: color-mix(in srgb, var(--bg-elev) 76%, transparent);
+  -webkit-backdrop-filter: var(--pearl-blur);
+  backdrop-filter: var(--pearl-blur);
+}
+
+[data-skin="y2k"] .tab {
+  font-family: var(--font-sans);
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: 0;
+  color: var(--text-3);
+}
+
+/* (More is "current" while one of its pages is open: the same look) */
+[data-skin="y2k"] :is(.tab[aria-current="page"], .tab--more.is-current) {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+[data-skin="y2k"] :is(.tab[aria-current="page"], .tab--more.is-current)::before {
+  top: 0;
+  left: 30%;
+  right: 30%;
+  height: 3px;
+  border-radius: 0 0 3px 3px;
+  background: var(--pearl-mark);
+  box-shadow: none;
+}
+
+/* (its page-tone icon would say a second color: the open tab's icon in violet, like its name;
+   one attribute more than css/icons.css's page-tone rule, which loads later) */
+[data-skin="y2k"][data-plain] .tabbar :is(.tab[aria-current="page"], .tab--more.is-current) > .icon {
+  color: var(--accent);
+}
+
+/* ---- More (the phone tab bar's last tab): frosted tiles; the open page raised in the pearl ---- */
+[data-skin="y2k"] .more-page {
+  border-color: var(--pearl-edge);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--pearl-sheen);
+}
+
+[data-skin="y2k"] .more-page[aria-current="page"] {
+  border: 1.5px solid transparent;
+  background: linear-gradient(var(--pearl-raised), var(--pearl-raised)) padding-box, var(--pearl-mark) border-box;
+  box-shadow: var(--pearl-raise-shadow);
+}
+
+[data-skin="y2k"] .more-row-icon {
+  color: var(--text-3);
+}
+
+/* (Settings, when it is the open page: the same pill as in the sidebar) */
+[data-skin="y2k"] .more-row[aria-current="page"] {
+  border: 1.5px solid transparent;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(var(--pearl-raised), var(--pearl-raised)) padding-box, var(--pearl-mark) border-box;
+  box-shadow: var(--pearl-raise-shadow);
+}
+
+/* ---- Page top: a Space Grotesk title over the pale pearl hairline ----
+   (size and spacing: the --page-title-size / --page-header-* tokens above, css/compact.css) */
 [data-skin="y2k"] .page-header {
   position: relative;
-  padding-bottom: 22px;
-  margin-bottom: 28px;
+  border-bottom: 0;
 }
 
 [data-skin="y2k"] .page-header::after {
@@ -383,236 +544,1229 @@
   right: 0;
   bottom: 0;
   width: auto;
-  height: 3px;
+  height: 1px;
   border: 0;
-  border-radius: 3px;
-  background: var(--y2k-holo);
-  opacity: 0.85;
+  background: var(--pearl-fade);
+  box-shadow: none;
 }
 
 [data-skin="y2k"] .page-title {
-  width: fit-content;
   font-family: var(--font-display);
-  font-size: clamp(38px, 4.4vw, 54px);
-  font-weight: 400;
-  line-height: 1.12;
-  letter-spacing: 0.01em;
-  background: var(--y2k-holo-ink);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  -webkit-text-fill-color: transparent;
-  filter: drop-shadow(0 2px 0 color-mix(in srgb, var(--text) 22%, transparent));
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  line-height: 1.1;
+}
+
+[data-skin="y2k"] .page-title > .page-ib {
+  border-radius: 0.26em;
 }
 
 [data-skin="y2k"] .page-subtitle {
-  font-size: 16px;
   color: var(--text-2);
+}
+
+/* On a phone the page top has no room for the full hairline (css/compact.css): a short stroke of
+   pearl under the title instead, in the space below the header, so it costs no height */
+@media (max-width: 640px) {
+  [data-skin="y2k"] :is(.view > .page-header, .tr-normal > .page-header)::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    bottom: -7px;
+    width: 48px;
+    height: 2px;
+    border-radius: 2px;
+    background: var(--pearl);
+    pointer-events: none;
+  }
+
+  /* The Calendar's page top is its toolbar: no stroke there */
+  [data-skin="y2k"] .view > .page-header.cal-page-header::before {
+    content: none;
+  }
+}
+
+[data-skin="y2k"] .page-stat :is(strong, b) {
+  font-weight: 600;
+  color: var(--text);
 }
 
 /* ==========================================================================
-   Shared kit: glassy, round, shiny
+   Shared kit: glass, fine lines, one violet
    ========================================================================== */
 
+/* Cards: translucent pearl-white over the page's light, a hairline and a soft lift */
 .panel:where([data-skin="y2k"] *) {
-  border: 1.5px solid var(--y2k-rim);
+  border: 1px solid var(--pearl-edge);
   border-radius: var(--radius-lg);
-  box-shadow: var(--simple-card-shadow), inset 0 1px 0 rgba(255, 255, 255, 0.45);
+  background: var(--surface);
+  box-shadow: var(--pearl-sheen), var(--simple-card-shadow);
 }
 
+/* Floating glass: what lies over the page (each one its own layer, so the blur sees the page) */
+:is(.dd-menu, .cal-pop):where([data-skin="y2k"] *),
+[data-skin="y2k"] .ctx-menu,
+[data-skin="y2k"] .nt-menu:not(.nt-menu--sheet) {
+  border-color: var(--pearl-edge);
+  background: var(--pearl-glass);
+  -webkit-backdrop-filter: var(--pearl-blur);
+  backdrop-filter: var(--pearl-blur);
+}
+
+/* ---- Buttons: white with a hairline; the main one in violet ---- */
 .btn:where([data-skin="y2k"] *) {
-  border-width: 1.5px;
-  border-radius: var(--radius-pill);
-  font-family: var(--font-sans);
-  font-weight: 600;
+  border-color: var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--pearl-btn);
+  box-shadow: 0 1px 2px rgba(31, 28, 41, 0.05);
+  font-weight: 500;
+}
+
+.btn--ghost:where([data-skin="y2k"] *) {
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
 }
 
 .btn--primary:where([data-skin="y2k"] *) {
-  border-color: transparent;
-  background: var(--y2k-holo);
+  border-color: var(--accent);
+  background: var(--accent);
   color: var(--accent-ink);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65), 0 4px 16px color-mix(in srgb, var(--accent) 32%, transparent);
+  font-weight: 600;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16), 0 1px 2px color-mix(in srgb, var(--accent) 35%, transparent), 0 4px 14px color-mix(in srgb, var(--accent) 18%, transparent);
 }
 
-.btn--primary:where([data-skin="y2k"] *):hover {
-  border-color: transparent;
-  background: var(--y2k-holo);
-  color: var(--accent-ink);
-  filter: brightness(1.06) saturate(1.1);
+/* Destructive (outside a confirm, where it is filled: css/compact.css): the late color's words */
+.btn--danger:where([data-skin="y2k"] *) {
+  border-style: solid;
+  border-color: color-mix(in srgb, var(--alert) 40%, transparent);
+  background: transparent;
+  color: var(--alert);
+  box-shadow: none;
 }
 
-[data-skin="y2k"] .seg {
-  border-radius: var(--radius-pill);
-  background: color-mix(in srgb, var(--y2k-b) 15%, transparent);
+@media (hover: hover) and (pointer: fine) {
+  .btn:where([data-skin="y2k"] *):hover {
+    border-color: color-mix(in srgb, var(--text) 32%, transparent);
+    background: var(--surface-solid-2);
+  }
+
+  .btn--ghost:where([data-skin="y2k"] *):hover {
+    border-color: transparent;
+    background: var(--pearl-chip);
+    color: var(--text);
+  }
+
+  .btn--primary:where([data-skin="y2k"] *):hover,
+  .btn--primary:where([data-skin="y2k"][data-theme="light"] *):hover {
+    filter: none;
+    border-color: color-mix(in srgb, var(--accent) 88%, var(--text));
+    background: color-mix(in srgb, var(--accent) 88%, var(--text));
+    color: var(--accent-ink);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16), 0 2px 10px color-mix(in srgb, var(--accent) 30%, transparent);
+  }
+
+  .btn--danger:where([data-skin="y2k"] *):hover {
+    border-color: var(--alert);
+    background: color-mix(in srgb, var(--alert) 8%, transparent);
+    color: var(--alert);
+  }
 }
 
-[data-skin="y2k"] .seg .seg-btn {
-  border-radius: var(--radius-pill);
-}
-
-/* The picked pill's lilac rim takes some ink: see-through it was 1.4–2.9:1 against the track, too
-   faint to say which is picked (WCAG 1.4.11 / 1.4.1) */
-[data-skin="y2k"] .seg .seg-btn:is([aria-pressed="true"], [aria-selected="true"]) {
-  background: var(--surface-solid);
-  color: var(--text);
-  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--y2k-b) 55%, var(--text)), 0 2px 10px color-mix(in srgb, var(--y2k-b) 25%, transparent);
-}
-
-/* The same rim on a dialog's picked option (a pink cell, 2.2:1 on its track alone) */
-[data-skin="y2k"] .cal-ed-seg-opt.is-on {
-  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--y2k-b) 55%, var(--text));
-}
-
-.tag:where([data-skin="y2k"] *) {
+/* ---- Segmented controls: a soft track; the picked one raised (see Picked below) ---- */
+.seg:where([data-skin="y2k"] *) {
+  padding: 3px;
+  gap: 2px;
   border: 0;
-  border-radius: var(--radius-pill);
-  background: color-mix(in srgb, var(--y2k-b) 16%, transparent);
+  border-radius: var(--radius-sm);
+  background: var(--pearl-chip);
+}
+
+.seg-btn:where([data-skin="y2k"] *) {
+  border-radius: 8px;
+  font-family: var(--font-sans);
+  font-size: 13.5px;
+  font-weight: 500;
   color: var(--text-2);
 }
 
-.tag--solid:where([data-skin="y2k"] *) {
-  background: var(--y2k-holo);
-  color: var(--accent-ink);
+@media (hover: hover) and (pointer: fine) {
+  .seg-btn:where([data-skin="y2k"] *):not([aria-pressed="true"]):not([aria-selected="true"]):hover {
+    color: var(--text);
+  }
 }
 
+/* ---- Picked / on / pressed: one look on every page ----
+   The raised pearl-white pill, a fine violet ring (3:1 or more against the track and the cards,
+   WCAG 1.4.11 / 1.4.1) and violet words. */
+[data-skin="y2k"] .seg .seg-btn:is([aria-pressed="true"], [aria-selected="true"], .is-on),
+[data-skin="y2k"] .pm-preset[aria-pressed="true"],
+[data-skin="y2k"] .nt-chip[aria-current="true"],
+[data-skin="y2k"] .hb-wd[aria-pressed="true"],
+[data-skin="y2k"] .hb-sel[aria-checked="true"],
+[data-skin="y2k"] .cal-ed-seg-opt.is-on,
+[data-skin="y2k"] .cal-ed-wd[aria-pressed="true"],
+[data-skin="y2k"] .cal-ed-style.is-on,
+[data-skin="y2k"] .cal-sheet-quick .btn.is-current,
+[data-skin="y2k"] .cal-tray-toggle[aria-expanded="true"],
+[data-skin="y2k"] .tr-chip[aria-pressed="true"],
+[data-skin="y2k"] .tr-ex[aria-pressed="true"],
+[data-skin="y2k"] .hbi-table-btn[aria-pressed="true"],
+[data-skin="y2k"][data-plain] .nt-pin[aria-pressed="true"],
+[data-skin="y2k"] .nt-rail-item[aria-current="true"],
+[data-skin="y2k"] .nt-item[aria-current="true"],
+[data-skin="y2k"] .ip-btn[aria-checked="true"] {
+  border-color: transparent;
+  background: var(--pearl-raised);
+  color: var(--pearl-on);
+  font-weight: 600;
+  box-shadow: inset 0 0 0 1.5px var(--accent), var(--pearl-raise-shadow);
+}
+
+/* Inside a picked card its own words keep their colors (the title in ink, the small print soft) */
+[data-skin="y2k"] :is(.pm-preset[aria-pressed="true"], .hb-sel[aria-checked="true"], .nt-item[aria-current="true"], .tr-ex[aria-pressed="true"]) {
+  color: var(--text);
+}
+
+/* (and its weights: the open note's preview line and a picked preset's times stay regular under
+   their semibold names) */
+[data-skin="y2k"] :is(.nt-item[aria-current="true"], .pm-preset[aria-pressed="true"]) {
+  font-weight: 400;
+}
+
+/* An event's picked look: its name in the violet beside the tick */
+[data-skin="y2k"] .cal-ed-style.is-on .cal-ed-style-name {
+  color: var(--pearl-on);
+}
+
+[data-skin="y2k"] .hb-sel[aria-checked="true"] :is(.hb-sel-wd, .hb-sel-date) {
+  color: var(--pearl-on);
+}
+
+[data-skin="y2k"] .pm-preset[aria-pressed="true"] .pm-preset-sub {
+  color: var(--text-2);
+  opacity: 1;
+}
+
+[data-skin="y2k"] .hb-sel[aria-checked="true"] .hb-sel-bar {
+  background: var(--line-strong);
+}
+
+[data-skin="y2k"] .hb-sel[aria-checked="true"] .hb-sel-fill {
+  background: var(--accent);
+}
+
+/* (the open section's count stays a quiet number beside its violet name) */
+[data-skin="y2k"] .nt-rail-item[aria-current="true"] .nt-rail-count {
+  color: var(--text-2);
+}
+
+/* Where you are, in a page's own index: the Settings sections, raised in the pearl like the menu */
+[data-skin="y2k"] .st-index-link[aria-current] {
+  border: 1.5px solid transparent;
+  background: linear-gradient(var(--pearl-raised), var(--pearl-raised)) padding-box, var(--pearl-mark) border-box;
+  color: var(--text);
+  font-weight: 600;
+  box-shadow: var(--pearl-raise-shadow);
+}
+
+/* ---- Tags: soft pills; the solid one (High, the next payment) a violet tint ---- */
+.tag:where([data-skin="y2k"] *) {
+  height: 22px;
+  padding: 0 9px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: var(--pearl-chip);
+  color: var(--text-2);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.tag--solid:where([data-skin="y2k"] *) {
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+  /* (some ink in the violet: 4.5:1 on its tint also where the tag sits on a track) */
+  color: color-mix(in srgb, var(--accent) 70%, var(--text));
+  font-weight: 600;
+}
+
+/* (the test-copy marker in the sidebar: a quiet outline) */
+.tag--dashed:where([data-skin="y2k"] *) {
+  border: 1px solid var(--line-strong);
+}
+
+/* ---- Fields: white, a fine edge (3:1), the violet ring when typing ---- */
 .input:where([data-skin="y2k"] *),
 .select:where([data-skin="y2k"] *),
 .textarea:where([data-skin="y2k"] *) {
-  border-width: 1.5px;
+  border-color: var(--field-line);
   border-radius: var(--radius-sm);
+  background-color: var(--pearl-btn);
 }
 
-/* Ticked: a sparkle on the shimmer */
+.input:where([data-skin="y2k"] *):focus,
+.select:where([data-skin="y2k"] *):focus,
+.textarea:where([data-skin="y2k"] *):focus {
+  border-color: var(--accent);
+  background-color: var(--pearl-btn);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 20%, transparent);
+}
+
+/* ---- Ticked / done: a round violet box with a white tick ----
+   (the base kit fills a ticked box with the accent and draws the tick in --accent-ink; Pearl
+   rounds every tick box and gives the empty one a 3:1 edge, WCAG 1.4.11) */
 .check:where([data-skin="y2k"] *) {
   border-width: 1.5px;
+  border-color: var(--field-line);
   border-radius: 50%;
-  border-color: color-mix(in srgb, var(--y2k-b) 70%, var(--text-3));
-}
-
-/* Light: a little more ink in the ring, so an empty box keeps 3:1 on the pale cards (WCAG
-   1.4.11; it was 2.9:1) */
-.check:where([data-skin="y2k"][data-theme="light"] *) {
-  border-color: color-mix(in srgb, var(--y2k-b) 50%, var(--text-3));
-}
-
-.check:where([data-skin="y2k"] *)::after {
-  content: "";
-  position: absolute;
-  inset: 16%;
-  background: #ffffff;
-  -webkit-mask: var(--y2k-sparkle) center / contain no-repeat;
-  mask: var(--y2k-sparkle) center / contain no-repeat;
-  opacity: 0;
-  transform: scale(0.3) rotate(-45deg);
-  transition: opacity var(--dur-fast) var(--ease), transform var(--dur) var(--ease-out);
 }
 
 .check:where([data-skin="y2k"] *):is([aria-checked="true"], .is-checked) {
-  border-color: transparent;
-  /* The deeper shimmer on light paper: the white sparkle and the filled box keep 3:1 (WCAG
-     1.4.11; on the pastel one they were 2.4:1). The same shimmer at night. */
-  background: var(--y2k-holo-ink);
+  border-color: var(--accent);
+  background: var(--accent);
+  box-shadow: none;
 }
 
-.check:where([data-skin="y2k"] *):is([aria-checked="true"], .is-checked) svg {
-  opacity: 0;
+@media (hover: hover) and (pointer: fine) {
+  .check:where([data-skin="y2k"] *):hover {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent);
+  }
 }
 
-.check:where([data-skin="y2k"] *):is([aria-checked="true"], .is-checked)::after {
-  opacity: 1;
-  transform: none;
+[data-skin="y2k"] :is(.cal-task-check, .cal-hcheck, .nt-task-box, .hm-start-mark) {
+  border-color: var(--field-line);
+  border-radius: 50%;
 }
 
-/* Dialogs: a glass card in a shimmering rim */
+[data-skin="y2k"] :is(.cal-hcheck, .nt-task-box) {
+  border-width: 1.5px;
+}
+
+[data-skin="y2k"] :is(.cal-task-check, .cal-hcheck)[aria-checked="true"],
+[data-skin="y2k"] .nt-task-box:checked,
+[data-skin="y2k"] .hm-start-step.is-done .hm-start-mark {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-ink);
+  box-shadow: none;
+}
+
+/* ---- Switches: on = a violet track, the knob right; off = a soft track with an edge, the knob
+   left. The same in Pomodoro, Settings and the event editor ---- */
+[data-skin="y2k"] :is(.pm-switch-track, .cal-ed-switch-track) {
+  width: 40px;
+  height: 24px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: var(--surface-3);
+  box-shadow: inset 0 0 0 1px var(--field-line);
+}
+
+[data-skin="y2k"] :is(.pm-switch-thumb, .cal-ed-switch-thumb) {
+  top: 50%;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--pearl-knob);
+  box-shadow: 0 1px 3px rgba(31, 28, 41, 0.28);
+  transform: translateY(-50%);
+}
+
+[data-skin="y2k"] :is(.pm-switch[aria-checked="true"] .pm-switch-track, .cal-ed-switch[aria-checked="true"] .cal-ed-switch-track) {
+  background: var(--accent);
+  box-shadow: none;
+}
+
+[data-skin="y2k"] :is(.pm-switch[aria-checked="true"] .pm-switch-thumb, .cal-ed-switch[aria-checked="true"] .cal-ed-switch-thumb) {
+  background: #ffffff;
+  transform: translate(16px, -50%);
+}
+
+/* (Settings adds the same edge to an off track: it is already here) */
+[data-skin="y2k"] .st-switch:not([aria-checked="true"]) .pm-switch-track {
+  box-shadow: inset 0 0 0 1px var(--field-line);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="y2k"] .pm-switch:not([aria-checked="true"]):hover .pm-switch-track,
+  [data-skin="y2k"] .cal-ed-switch:not([aria-checked="true"]):hover .cal-ed-switch-track {
+    box-shadow: inset 0 0 0 1px var(--text-2);
+  }
+}
+
+/* ---- Keys ---- */
+.kbd:where([data-skin="y2k"] *) {
+  border-color: var(--line-strong);
+  border-radius: 6px;
+  background: var(--pearl-btn);
+  box-shadow: 0 1px 0 var(--line);
+  font-family: var(--font-sans);
+}
+
+[data-skin="y2k"] .dd-count {
+  background: var(--pearl-chip);
+  font-weight: 600;
+}
+
+/* ---- Dialogs: frosted glass over a softly blurred page ---- */
+.modal-root:where([data-skin="y2k"] *) {
+  -webkit-backdrop-filter: blur(8px) saturate(120%);
+  backdrop-filter: blur(8px) saturate(120%);
+}
+
 .modal:where([data-skin="y2k"] *) {
-  border: 2px solid transparent;
-  border-radius: 28px;
-  background: linear-gradient(var(--surface-solid), var(--surface-solid)) padding-box, var(--y2k-holo) border-box;
+  border: 1px solid var(--pearl-edge);
+  border-radius: 18px;
+  background: var(--pearl-glass);
+  box-shadow: var(--pearl-sheen), var(--shadow);
 }
 
 .modal-title:where([data-skin="y2k"] *) {
-  width: fit-content;
   font-family: var(--font-display);
-  font-size: 30px;
-  font-weight: 400;
-  letter-spacing: 0.01em;
-  background: var(--y2k-holo-ink);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  -webkit-text-fill-color: transparent;
+  font-size: 21px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
 }
 
-.toast:where([data-skin="y2k"] *) {
+/* ---- Toasts: a dark glass pill in both modes; Undo in pale violet ---- */
+.toast:where([data-skin="y2k"] *),
+.toast:where([data-skin="y2k"][data-theme="light"] *) {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius);
+  background: var(--pearl-toast);
+  color: var(--pearl-toast-ink);
+  box-shadow: var(--shadow-sm);
+  -webkit-backdrop-filter: var(--pearl-blur);
+  backdrop-filter: var(--pearl-blur);
+}
+
+.toast-action:where([data-skin="y2k"] *),
+.toast-action:where([data-skin="y2k"][data-theme="light"] *) {
   border: 0;
-  border-radius: var(--radius-pill);
-  background: var(--text);
-  color: var(--bg);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--pearl-toast-action);
+  font-weight: 600;
 }
 
-.toast-action:where([data-skin="y2k"] *) {
+@media (hover: hover) and (pointer: fine) {
+  .toast-action:where([data-skin="y2k"] *):hover,
+  .toast-action:where([data-skin="y2k"][data-theme="light"] *):hover {
+    background: rgba(255, 255, 255, 0.16);
+    color: var(--pearl-toast-action);
+  }
+}
+
+/* ---- Empty states: a frosted card, a violet-tinted circle, a Space Grotesk title ---- */
+.empty:where([data-skin="y2k"] *) {
+  border: 1px solid var(--pearl-edge);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--pearl-sheen);
+}
+
+.empty-icon:where([data-skin="y2k"] *) {
+  background: var(--accent-soft);
   color: var(--accent);
 }
 
-/* Light: the Undo chip is dark gray, where the pink needs a touch of white to reach 4.5:1 */
-.toast-action:where([data-skin="y2k"][data-theme="light"] *) {
-  color: color-mix(in srgb, var(--accent) 85%, #fff);
+.empty-title:where([data-skin="y2k"] *) {
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: -0.015em;
 }
 
-[data-skin="y2k"] .ctx-menu {
+/* ---- Tips: a soft note, its icon violet ---- */
+.tip:where([data-skin="y2k"] *) {
+  border-color: var(--pearl-edge);
   border-radius: var(--radius);
-  border-color: var(--y2k-rim);
+  background: var(--surface);
+}
+
+.tip-icon:where([data-skin="y2k"] *) {
+  color: var(--accent);
+}
+
+/* ---- Menus (right-click, its submenus, dropdowns): glass; the lit item a violet tint (plus the
+   violet ring from the keyboard); Delete in the late color ---- */
+[data-skin="y2k"] .ctx-menu {
+  --ctx-hi: var(--pearl-lit);
+  border-radius: var(--radius);
+  box-shadow: var(--pearl-sheen), var(--shadow-sm);
 }
 
 [data-skin="y2k"] .ctx-item {
-  border-radius: var(--radius-sm);
+  border-radius: 8px;
+}
+
+[data-skin="y2k"] .ctx-menu .ctx-item.is-open {
+  background: var(--pearl-lit);
+}
+
+[data-skin="y2k"] .ctx-item:not([aria-disabled="true"]):focus-visible {
+  box-shadow: inset 0 0 0 1.5px var(--accent);
+}
+
+[data-skin="y2k"] .ctx-item.is-checked .ctx-icon {
+  color: var(--accent);
+}
+
+[data-skin="y2k"] .ctx-sep {
+  background: var(--line);
+}
+
+[data-skin="y2k"] .dd-menu {
+  border-radius: var(--radius);
+  box-shadow: var(--pearl-sheen), var(--shadow-sm);
+}
+
+[data-skin="y2k"] .dd-item {
+  border-radius: 8px;
+}
+
+[data-skin="y2k"] .dd-item:focus-visible {
+  background: var(--pearl-lit);
+  box-shadow: inset 0 0 0 1.5px var(--accent);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="y2k"] .dd-item:hover {
+    background: var(--pearl-lit);
+  }
+}
+
+[data-skin="y2k"] .dd-item .dd-mark {
+  color: var(--accent);
+}
+
+/* ---- Search (⌘K) and the shortcuts sheet: the lit result in the violet tint and ring ---- */
+[data-skin="y2k"] .cmd-input {
+  font-size: 17px;
+}
+
+/* The line under the field turns violet while you type in it, like the note and task titles */
+[data-skin="y2k"] .cmd-field:focus-within {
+  border-bottom-color: var(--accent);
+}
+
+[data-skin="y2k"] .cmd-item {
+  border-radius: 10px;
+}
+
+[data-skin="y2k"] .cmd-item[aria-selected="true"] {
+  background: var(--pearl-lit);
+  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--accent) 70%, transparent);
+}
+
+[data-skin="y2k"] .cmd-hit {
+  text-decoration-color: var(--accent);
+  text-decoration-thickness: 2px;
+}
+
+[data-skin="y2k"] .cmd-keys-head {
+  font-family: var(--font-display);
+  font-weight: 600;
 }
 
 /* ==========================================================================
    Pages
    ========================================================================== */
 
-[data-skin="y2k"] .stat-value {
-  font-family: var(--font-sans);
-  font-weight: 600;
-  letter-spacing: 0;
-}
-
-[data-skin="y2k"] .pm-time {
+/* ---- One card title, everywhere: Space Grotesk 600, 16px, ink ---- */
+[data-skin="y2k"] :is(.hm-card-title, .hm-week-title, .hm-start-title, .pm-card-title, .tr-section-title, .hbi-card-title, .cal-tray-title, .cal-pop-title),
+[data-skin="y2k"] .fn-root .fn-panel-title,
+[data-skin="y2k"] .st-root .st-card-title {
   font-family: var(--font-display);
-  font-weight: 400;
-  letter-spacing: 0.02em;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.25;
+  text-transform: none;
+  color: var(--text);
 }
 
-[data-skin="y2k"] .hm-card-title,
-[data-skin="y2k"] .fn-root .fn-panel-title {
-  font-family: var(--font-sans);
-  font-size: 16px;
+[data-skin="y2k"] .st-root .st-card-title {
+  margin-top: var(--space-5);
+}
+
+/* Small headings inside a page (a group of tasks, Pinned / Notes): Inter, semibold, soft */
+[data-skin="y2k"] :is(.tk-group-head, .nt-group) {
+  font-size: 13px;
   font-weight: 600;
   letter-spacing: 0;
   text-transform: none;
+  color: var(--text-2);
+}
+
+[data-skin="y2k"] .tk-group-head {
+  gap: 8px;
+  padding: var(--space-3) var(--space-3) var(--space-1);
+}
+
+/* ---- Figures: Space Grotesk, tabular, so timers and totals never jump ---- */
+[data-skin="y2k"] :is(.stat-value, .pm-digits, .hm-pomo-digits, .hm-gl-value, .hm-clock-time, .hbi-tile-value, .tr-kpi-value, .fn-sum-total, .tr-rest-time, .pm-mini-digits) {
+  font-family: var(--pearl-figures);
+  font-style: normal;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+[data-skin="y2k"] :is(.pm-digits, .hm-pomo-digits, .hm-clock-time) {
+  font-weight: 500;
+  letter-spacing: -0.03em;
+}
+
+[data-skin="y2k"] :is(.stat-value, .hm-gl-value, .hbi-tile-value, .tr-kpi-value) {
+  font-weight: 600;
+}
+
+[data-skin="y2k"] .fn-sum-total {
+  font-weight: 600;
+}
+
+/* Dates in grids and strips */
+[data-skin="y2k"] :is(.cal-date, .cal-dh-num, .hm-day-num, .hm-mnum, .hb-sel-date, .hb-mx-date) {
+  font-family: var(--pearl-figures);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- Today: its date in a violet pill, the pearl along its top edge ---- */
+[data-skin="y2k"] :is(.cal-cell.is-today .cal-date, .cal-dh.is-today .cal-dh-num, .hm-day.is-today .hm-day-num, .hm-mcell.is-today .hm-mnum) {
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  color: var(--accent-ink);
+  box-shadow: none;
+}
+
+[data-skin="y2k"] :is(.cal-cell.is-today, .cal-dh.is-today)::before,
+[data-skin="y2k"] :is(.hb-mx-th.is-today .hb-mx-colbtn, .hb-plan-th.is-today .hb-plan-colbtn)::before,
+[data-skin="y2k"] :is(.hb-sel.is-today, .hb-sel[aria-checked="true"].is-today)::before {
+  height: 2px;
+  background: var(--pearl-mark);
+  box-shadow: none;
+}
+
+[data-skin="y2k"] :is(.hb-sel.is-today, .hb-sel[aria-checked="true"].is-today)::before {
+  top: -1px;
+  left: 24%;
+  right: 24%;
+  border-radius: 0 0 2px 2px;
+}
+
+[data-skin="y2k"] .cal-ag-day.is-today::before {
+  background: var(--pearl-mark-v);
+  box-shadow: none;
+}
+
+[data-skin="y2k"] :is(.hm-day.is-today, .hm-mcell.is-today) {
+  background: var(--pearl-mark) 0 0 / 100% 2px no-repeat, linear-gradient(var(--accent-soft), var(--accent-soft)), var(--surface-solid);
+  box-shadow: none;
+}
+
+/* ---- Home ---- */
+[data-skin="y2k"] .hm-next {
+  border-color: var(--pearl-edge);
+}
+
+[data-skin="y2k"] .hm-day {
+  background: var(--surface);
+}
+
+[data-skin="y2k"] .hm-day.is-weekend {
+  background: var(--surface-solid-2);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="y2k"] .hm-day:not(.is-today):hover {
+    background: var(--surface-2);
+  }
+}
+
+/* A widget with nothing in it: a soft tint and the violet-tinted circle of the empty states */
+[data-skin="y2k"] .hm-empty {
+  background: var(--pearl-chip);
+}
+
+[data-skin="y2k"] .hm-empty-icon {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+/* Habits, last two weeks: violet bars, today's still going a lighter tint */
+[data-skin="y2k"] .hm-bar.is-today .hm-bar-fill {
+  background: var(--heat-2);
+}
+
+/* The focus timer on Home: its progress in the pearl */
+[data-skin="y2k"] .hm-pomo[data-phase="focus"] .hm-pomo-fill {
+  background: var(--pearl-mark);
+  box-shadow: none;
+}
+
+[data-skin="y2k"] .hm-start-btn {
+  border-color: var(--pearl-edge);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="y2k"] .hm-start-btn:hover {
+    border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+    background: var(--pearl-lit);
+  }
+}
+
+[data-skin="y2k"] .hm-start-mark {
+  border-width: 1.5px;
+  font-family: var(--pearl-figures);
+}
+
+/* A High task's flag in To do: the violet of its "High" tag on Tasks (an ink flag said a second
+   thing) */
+[data-skin="y2k"] .hm-pri.is-high {
+  color: var(--pearl-on);
+}
+
+/* ---- Tasks ---- */
+[data-skin="y2k"] .tk-command {
+  border-color: var(--field-line);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--pearl-sheen), var(--simple-card-shadow);
+}
+
+[data-skin="y2k"] .tk-command:focus-within {
+  border-color: var(--accent);
+  box-shadow: var(--simple-card-shadow), 0 0 0 3px color-mix(in srgb, var(--accent) 20%, transparent);
+}
+
+[data-skin="y2k"] .tk-group-count {
+  font-variant-numeric: tabular-nums;
+}
+
+/* The task whose page is open: the picked look (raised, the fine violet ring), as the open note
+   (Simple's ink bar at its edge read as a second "here") */
+[data-skin="y2k"] .tk-row.is-open {
+  border-top-color: transparent;
+  border-radius: var(--radius-sm);
+  background: var(--pearl-raised);
+  box-shadow: inset 0 0 0 1.5px var(--accent), var(--pearl-raise-shadow);
+}
+
+/* Focused, the ring grows and takes the focus color, so the keyboard sees where it is */
+[data-skin="y2k"] .tk-row.is-open:focus-visible {
+  box-shadow: inset 0 0 0 2.5px var(--line-focus), var(--pearl-raise-shadow);
+}
+
+[data-skin="y2k"] .tk-row.is-open + .tk-row {
+  border-top-color: transparent;
+}
+
+/* Links in a task's notes: underlined in the violet, the whole word violet when pointed at */
+[data-skin="y2k"] .tk-link {
+  text-decoration-color: color-mix(in srgb, var(--accent) 70%, transparent);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="y2k"] .tk-link:hover {
+    color: var(--pearl-on);
+    text-decoration-color: currentColor;
+  }
+}
+
+[data-skin="y2k"] .tk-link:focus-visible {
+  color: var(--pearl-on);
+  text-decoration-color: currentColor;
+}
+
+[data-skin="y2k"] .tk-link-item > .icon {
+  color: var(--text-3);
+}
+
+/* A task's page (the panel from the right): frosted glass like the other floating layers, a
+   Space Grotesk title */
+[data-skin="y2k"] .tk-page {
+  border-left: 1px solid var(--pearl-edge);
+  background: var(--pearl-glass);
+  box-shadow: var(--pearl-sheen), var(--shadow);
+  -webkit-backdrop-filter: var(--pearl-blur);
+  backdrop-filter: var(--pearl-blur);
+}
+
+/* (a phone's page takes the whole screen: blurred shapes of the list behind it only muddied the
+   paper, so there it is the plain raised paper) */
+@media (max-width: 640px) {
+  [data-skin="y2k"] .tk-page {
+    background: var(--bg-elev);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
+[data-skin="y2k"] :is(.tk-page-head, .tk-page-tools) {
+  border-bottom-color: var(--line);
+}
+
+[data-skin="y2k"] .tk-page-title {
+  letter-spacing: -0.025em;
+  line-height: 1.15;
+}
+
+/* Typing in the title: a violet line under it (the caret alone was all); the line is its ring,
+   so the page's default focus box doesn't frame the title as well */
+[data-skin="y2k"] .tk-page-title:focus {
+  border-bottom: 1px solid var(--accent);
+}
+
+[data-skin="y2k"] .tk-page-title:focus-visible {
+  outline: none;
+}
+
+[data-skin="y2k"] .tk-page-meta {
+  border-radius: var(--radius-sm);
+}
+
+/* (the base tints it on any :hover, a tap on a phone too) */
+[data-skin="y2k"] .tk-page-meta:hover {
+  background: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="y2k"] .tk-page-meta:hover {
+    background: var(--pearl-chip);
+  }
+}
+
+[data-skin="y2k"] .tk-page-meta:focus-visible {
+  box-shadow: inset 0 0 0 1.5px var(--accent);
+}
+
+[data-skin="y2k"] .tk-page-view:focus-visible {
+  box-shadow: 0 0 0 1.5px var(--accent);
+}
+
+[data-skin="y2k"] .tk-page-scrim {
+  background: var(--scrim);
+}
+
+/* ---- Notes ---- */
+[data-skin="y2k"] :is(.nt-title, .nt-card-title) {
+  font-family: var(--font-display);
+  letter-spacing: -0.015em;
+}
+
+[data-skin="y2k"] .nt-title {
+  font-weight: 600;
+}
+
+/* Typing in the title: a violet line under its words shows where you are (a caret alone was all;
+   it keeps to the text's own column) */
+[data-skin="y2k"] .nt-title:focus {
+  background: linear-gradient(var(--accent), var(--accent)) 50% 100% / calc(100% - 2 * var(--space-6)) 1px no-repeat;
+}
+
+@media (max-width: 640px) {
+  [data-skin="y2k"] .nt-title:focus {
+    background-size: calc(100% - 2 * var(--space-4)) 1px;
+  }
+}
+
+/* Links in a note: underlined in the violet */
+[data-skin="y2k"] .nt-prose a {
+  text-decoration-color: color-mix(in srgb, var(--accent) 70%, transparent);
+}
+
+[data-skin="y2k"] .nt-item {
+  border-radius: var(--radius);
+}
+
+[data-skin="y2k"] .nt-rail-item {
+  border-radius: var(--radius-sm);
+}
+
+[data-skin="y2k"] .nt-card {
+  border-color: var(--pearl-edge);
+  border-radius: var(--radius);
+  box-shadow: var(--pearl-sheen), var(--simple-card-shadow);
+}
+
+[data-skin="y2k"] .nt-card[aria-current="true"] {
+  border-color: transparent;
+  box-shadow: inset 0 0 0 1.5px var(--accent), var(--simple-card-shadow);
+}
+
+[data-skin="y2k"] .nt-col {
+  border-radius: var(--radius-lg);
+}
+
+[data-skin="y2k"] .nt-chip {
+  border-color: var(--line-strong);
+  background: var(--pearl-btn);
+}
+
+[data-skin="y2k"] .nt-status {
+  background: var(--pearl-chip);
+}
+
+[data-skin="y2k"] .nt-prose :is(h1, h2, h3) {
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: -0.015em;
+}
+
+[data-skin="y2k"] .nt-prose blockquote {
+  border-left-color: var(--accent);
+}
+
+/* ---- Habits ---- */
+/* A ticked day: the violet square and its white tick (the base kit); planned: a clear outline;
+   today still to do: the violet edge */
+[data-skin="y2k"] .hb-day[data-state="pending"] {
+  border: 1.5px solid var(--accent);
+}
+
+[data-skin="y2k"] .hb-day[data-state="future"][data-planned="true"] {
+  border-style: solid;
+  border-color: var(--field-line);
+}
+
+/* The week's days are round, like every other tick box: the same habit ticked in Day (a round
+   check) looked like another kind of mark here as a square. Its legend follows (the week plan's
+   own swatch stays the plan cell's square) */
+[data-skin="y2k"] .hb-mx-cell,
+[data-skin="y2k"] .hb-swatch:not([data-s="plan"]) {
+  border-radius: 999px;
+}
+
+/* The week plan: a planned day's tick in the violet of "on"; a day picked for a new habit (the
+   add row) the picked look (Simple's tint fill read as a fourth state) */
+[data-skin="y2k"] .hb-plan-cell[aria-pressed="true"] {
+  color: var(--pearl-on);
+}
+
+[data-skin="y2k"] .hb-plan-cell.is-draft[aria-pressed="true"] {
+  border-color: transparent;
+  background: var(--pearl-raised);
+  color: var(--pearl-on);
+  box-shadow: inset 0 0 0 1.5px var(--accent), var(--pearl-raise-shadow);
+}
+
+[data-skin="y2k"] .hb-sel {
+  border-color: var(--pearl-edge);
+  background: var(--surface);
+}
+
+[data-skin="y2k"] .hb-sel-fill {
+  background: var(--accent);
+}
+
+[data-skin="y2k"] .hb-wd {
+  border-color: var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--pearl-btn);
+  font-family: var(--font-sans);
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+}
+
+[data-skin="y2k"] .hb-wd-sub {
+  font-size: var(--fs-2xs);
+  opacity: 1;
+}
+
+[data-skin="y2k"] .pm-preset {
+  border-color: var(--pearl-edge);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--pearl-sheen);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="y2k"] :is(.hb-wd, .pm-preset):not([aria-pressed="true"]):not(:disabled):hover {
+    border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+    background: var(--pearl-raised);
+    color: var(--text);
+  }
+}
+
+/* ---- Habits insights: slim violet bars (full-width blocks were the loudest thing on the page),
+   today's, still going, a lighter tint ---- */
+[data-skin="y2k"] :is(.hbi-col, .hbi-zero) {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  scale: 0.62 1;
+}
+
+[data-skin="y2k"] :is(.hbi-col, .hbi-zero).is-pending {
+  fill: var(--heat-2);
+  fill-opacity: 1;
+}
+
+[data-skin="y2k"] .hbi-tile {
+  border-color: var(--pearl-edge);
+}
+
+/* ---- Calendar ---- */
+[data-skin="y2k"] .cal-title {
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+[data-skin="y2k"] :is(.cal-ev, .cal-task) {
+  border-radius: 7px;
+}
+
+/* An outlined, hatched or tinted event's spine: the violet of the solid ones (Simple's ink edge
+   read as a second event color); Color coding still paints its own (css/colors.css) */
+[data-skin="y2k"] :is(.cal-ev--outline, .cal-ev--hatched, .cal-ev--ink)::before {
+  background: var(--accent);
+}
+
+/* A task's priority, the bar at a chip's end: High in the violet of its "High" tag (an ink slab
+   read as a glitch beside the violet events), a finer 2px; Medium stays gray, Low dotted */
+[data-skin="y2k"] :is(.cal-task, .cal-tltask).pri-high::after {
+  width: 2px;
+  background: var(--accent);
+}
+
+[data-skin="y2k"] .cal-tltask.pri-high {
+  border-left-color: var(--accent);
+}
+
+/* An overdue task's chip: its edge in the late color, as late reads everywhere else (a firm gray
+   edge read as picked); 3:1 or more on the chip and the day, WCAG 1.4.11 */
+[data-skin="y2k"] .cal-task.is-overdue {
+  border-color: color-mix(in srgb, var(--alert) 72%, transparent);
+}
+
+/* Long blocks of time (bands): a wash and a spine in the event's color, or the violet */
+[data-skin="y2k"] .cal-tl .cal-tl-col > .cal-tlev.is-band {
+  border-color: color-mix(in srgb, var(--cc, var(--accent)) 24%, transparent);
+  border-left: 2px solid var(--cc, var(--accent));
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--cc, var(--accent)) 8%, transparent);
+}
+
+/* A block's place line at full strength: faded, it fell under 4.5:1 on the violet and on several
+   Color coding fills (WCAG 1.4.3) */
+[data-skin="y2k"] .cal-tlev-loc {
+  opacity: 1;
+}
+
+[data-skin="y2k"] .cal-pop {
+  border-radius: var(--radius-lg);
+  box-shadow: var(--pearl-sheen), var(--shadow-sm);
+}
+
+[data-skin="y2k"] .cal-hbar.is-perfect .cal-hbar-fill {
+  background: var(--accent);
+}
+
+/* ---- Pomodoro: Space Grotesk digits on a fine ring; the arc in the pearl ----
+   The ring's arc is an SVG stroke, which no CSS gradient can paint: the pearl lies over the ring
+   as a blended layer instead (darken at night, lighten by day). The track and the arc carry key
+   colors the blend turns into exactly the track and exactly the pearl. Breaks keep a plain arc. */
+[data-skin="y2k"] .pm-ring {
+  isolation: isolate;
+}
+
+[data-skin="y2k"] .pm-ring .ring-track,
+[data-skin="y2k"] .pm-timer:not([data-phase="focus"]) .pm-ring .ring-track {
+  stroke: var(--pearl-ring-track);
+  stroke-dasharray: none;
+}
+
+[data-skin="y2k"] .pm-timer[data-phase="focus"] .pm-ring .ring-fill {
+  stroke: var(--pearl-ring-key);
+}
+
+[data-skin="y2k"] .pm-timer:not([data-phase="focus"]) .pm-ring .ring-fill {
+  stroke: var(--text-3);
+}
+
+[data-skin="y2k"] .pm-timer[data-phase="focus"] .pm-ring::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: var(--pearl-ring);
+  /* a little wider than the stroke on both sides (it ends at the box's edge): a band cut to the
+     stroke left its unblended key color as a dark hairline along the edges; over the card the
+     blend keeps the card's own color, so the margin doesn't show */
+  -webkit-mask: radial-gradient(farthest-side, transparent 94.6%, #000 95.2%, #000 100%);
+  mask: radial-gradient(farthest-side, transparent 94.6%, #000 95.2%, #000 100%);
+  mix-blend-mode: var(--pearl-ring-blend);
+  pointer-events: none;
+}
+
+[data-skin="y2k"] .pm-dial-phase {
+  font-weight: 500;
+}
+
+[data-skin="y2k"] .pm-mini {
+  border-color: var(--line-strong);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+}
+
+[data-skin="y2k"] .pm-mini[data-status="running"][data-phase="focus"] {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+[data-skin="y2k"] .pm-mini[data-status="running"]:not([data-phase="focus"]) {
+  border-color: var(--line-strong);
+  background: var(--surface-3);
+}
+
+/* Paused: the word says it; the digits hold still in the soft ink (the base's pulse dipped them
+   under 4.5:1 on every beat, WCAG 1.4.3, and a blinking number is not calm) */
+[data-skin="y2k"] :is(.pm-mini[data-status="paused"] .pm-mini-digits, .pm-timer[data-status="paused"] .pm-digits) {
+  animation: none;
+  color: var(--text-2);
+}
+
+/* ---- Training ---- */
+[data-skin="y2k"] .tr-detail-title {
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: -0.015em;
+}
+
+/* The workout's name is a field: a fine line under it says so (WCAG 1.4.11), violet while typing */
+[data-skin="y2k"] .input.tr-sess-title {
+  border-bottom: 1px solid var(--field-line);
+  font-family: var(--font-display);
+  letter-spacing: -0.02em;
+}
+
+[data-skin="y2k"] .input.tr-sess-title:focus {
+  border-bottom-color: var(--accent);
+  box-shadow: 0 1px 0 var(--accent);
+}
+
+/* "Workout in progress": a violet dot; the late color stays for what is late */
+[data-skin="y2k"] .tr-live-dot {
+  background: var(--accent);
+}
+
+/* A ticked set's row has the violet tint: at night its fields' edges need a little more ink to
+   keep 3:1 against it (2.8:1 at the usual strength, WCAG 1.4.11) */
+[data-skin="y2k"]:not([data-theme="light"]) .tr-sess-set.is-done {
+  --field-line: color-mix(in srgb, var(--text) 54%, transparent);
+}
+
+[data-skin="y2k"] .tr-sess-bar {
+  border-color: var(--pearl-edge);
+  border-radius: var(--radius-lg);
+  background: var(--pearl-glass);
+  box-shadow: var(--pearl-sheen), var(--shadow-sm);
+  -webkit-backdrop-filter: var(--pearl-blur);
+  backdrop-filter: var(--pearl-blur);
+}
+
+[data-skin="y2k"] .tr-rest {
+  border-radius: var(--radius-pill);
+}
+
+[data-skin="y2k"] .tr-rest.is-running {
+  border-color: color-mix(in srgb, var(--accent) 50%, transparent);
+  background: var(--accent-soft);
+}
+
+/* The type-ahead's lit option (Enter takes it): the violet tint and ring */
+[data-skin="y2k"] .tr-pick-opt[aria-selected="true"] {
+  background: var(--pearl-lit);
+  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--accent) 70%, transparent);
+}
+
+[data-skin="y2k"] :is(.tr-pick-list, .tr-newex) {
+  border-radius: var(--radius);
+}
+
+[data-skin="y2k"] .tr-newex {
+  border-width: 1px;
+  background: var(--surface-2);
+}
+
+/* ---- Finance ---- */
+[data-skin="y2k"] .fn-root .fn-panel-head {
+  border-bottom-color: var(--line);
+}
+
+[data-skin="y2k"] .fn-cat-fill {
+  background: var(--accent);
 }
 
 [data-skin="y2k"] .fn-avatar {
   border: 0;
-  background: var(--y2k-holo);
-  color: var(--accent-ink);
-  font-family: var(--font-sans);
+  background: var(--accent-soft);
+  color: var(--text);
+  font-family: var(--font-display);
+  font-weight: 600;
+}
+
+/* The next payment keeps the solid tag's violet tint (a filled chip read as late) */
+[data-skin="y2k"] .fn-root .fn-meta .fn-next.tag--solid {
+  font-weight: 600;
+}
+
+/* ---- Settings ---- */
+[data-skin="y2k"] .st-root .st-card-title > .icon {
+  color: var(--text-3);
+}
+
+[data-skin="y2k"] .st-row-title {
+  font-weight: 500;
+}
+
+[data-skin="y2k"] .st-row-hint {
+  color: var(--text-2);
+}
+
+[data-skin="y2k"] .st-index-link {
+  border: 1.5px solid transparent;
+  border-radius: var(--radius-sm);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="y2k"] .st-index-link:not([aria-current]):hover {
+    background: var(--pearl-chip);
+  }
+}
+
+/* The jump bar (narrower windows): glass, a little more opaque so words don't show through */
+@media (max-width: 1099px) {
+  [data-skin="y2k"] .st-index {
+    background: color-mix(in srgb, var(--bg) 88%, transparent);
+    -webkit-backdrop-filter: var(--pearl-blur);
+    backdrop-filter: var(--pearl-blur);
+  }
+}
+
+/* ---- Health ---- */
+[data-skin="y2k"] .hl-ideas-title {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--text-2);
 }
 
 /* ==========================================================================
-   Forced colors: the butterflies and the shimmer are decoration
+   Forced colors: the pearl is decoration; picked pills and today get outlines
    ========================================================================== */
 
 @media (forced-colors: active) {
-  [data-skin="y2k"] .main::before,
-  [data-skin="y2k"] .brand::before {
+  [data-skin="y2k"] .brand::before,
+  [data-skin="y2k"] .page-header::after,
+  [data-skin="y2k"] .pm-timer[data-phase="focus"] .pm-ring::after {
     display: none;
   }
 
-  [data-skin="y2k"] :is(.page-title, .brand-name, .modal-title) {
-    background: none;
-    color: CanvasText;
-    -webkit-text-fill-color: CanvasText;
+  [data-skin="y2k"] :is(.nav-item[aria-current="page"], .more-page[aria-current="page"], .st-index-link[aria-current], .nt-card[aria-current="true"], .nt-item[aria-current="true"], .nt-rail-item[aria-current="true"], .nt-chip[aria-current="true"], .pm-preset[aria-pressed="true"], .hb-wd[aria-pressed="true"], .hb-sel[aria-checked="true"], .cal-ed-seg-opt.is-on, .cal-ed-wd[aria-pressed="true"], .cal-ed-style.is-on, .tr-chip[aria-pressed="true"], .tr-ex[aria-pressed="true"], .hbi-table-btn[aria-pressed="true"], .nt-pin[aria-pressed="true"], .hb-plan-cell.is-draft[aria-pressed="true"], .tk-row.is-open) {
+    outline: 2px solid Highlight;
+    outline-offset: -2px;
   }
 }

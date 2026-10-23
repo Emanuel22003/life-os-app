@@ -136,7 +136,7 @@ export function openHabitModal({ habit = null, weekday = null, draft = null, act
   // double-click on Create would add the habit twice, or stack two prompts.
   let closed = false;
 
-  const errEl = h('p', { id: ids.err, class: 'hb-f-error', hidden: true }, icon('x', { size: 12 }), h('span', null, term('habits.nameRequired', 'Name required — give the protocol a designation.')));
+  const errEl = h('p', { id: ids.err, class: 'hb-f-error', hidden: true }, icon('x', { size: 12 }), h('span', null, term('habits.nameRequired', 'Give your habit a name.')));
   const nameInput = h('input', {
     id: ids.name,
     class: 'input hb-f-name',
@@ -315,7 +315,7 @@ export function openHabitModal({ habit = null, weekday = null, draft = null, act
         }
       },
     },
-    h('div', { class: 'field' }, h('label', { class: 'label', for: ids.name }, 'Designation'), h('div', { class: 'hb-f-namerow' }, iconBtn, nameInput), errEl, iconWrap),
+    h('div', { class: 'field' }, h('label', { class: 'label', for: ids.name }, term('habits.nameLabel', 'Name')), h('div', { class: 'hb-f-namerow' }, iconBtn, nameInput), errEl, iconWrap),
     h(
       'div',
       { class: 'field' },
@@ -402,8 +402,8 @@ export function mountPlan(container, source, actions) {
     h(
       'span',
       { class: 'hb-legend', 'aria-hidden': 'true' },
-      h('span', { class: 'hb-legend-item label' }, h('span', { class: 'hb-swatch', dataset: { s: 'done' } }), 'Planned'),
-      h('span', { class: 'hb-legend-item label' }, h('span', { class: 'hb-swatch' }), 'Off'),
+      h('span', { class: 'hb-legend-item label' }, h('span', { class: 'hb-swatch', dataset: { s: 'plan' } }), 'Planned'),
+      h('span', { class: 'hb-legend-item label' }, h('span', { class: 'hb-swatch', dataset: { s: 'rest' } }), 'Off'),
     ),
   );
 
@@ -417,7 +417,7 @@ export function mountPlan(container, source, actions) {
       'button',
       { type: 'button', class: 'hb-plan-colbtn', 'aria-haspopup': 'dialog', onClick: () => openDayModal(wd) },
       h('span', { class: 'hb-plan-wd' }, WEEKDAYS_SHORT[wd]),
-      h('span', { class: 'hb-plan-load' }, count, h('span', { class: 'hb-plan-unit' }, unit, h('span', { class: 'hb-plan-unit-s' }, 'hb'))),
+      h('span', { class: 'hb-plan-load' }, count, h('span', { class: 'hb-plan-unit' }, unit)),
       h('span', { class: 'hb-plan-bar', 'aria-hidden': 'true' }, fill),
       h('span', { class: 'hb-plan-more', 'aria-hidden': 'true' }, icon('more', { size: 14 })),
     );
@@ -581,7 +581,8 @@ export function mountPlan(container, source, actions) {
       editBtn.setAttribute('aria-label', `Edit “${it.name}”`);
       archiveBtn.setAttribute('aria-label', `Archive “${it.name}”`);
       deleteBtn.setAttribute('aria-label', `Delete “${it.name}” forever`);
-      sub.textContent = it.createdAt > today ? `Starts ${formatDay(it.createdAt)}` : days.length ? perWeek(days) : 'No days';
+      // Every day goes without saying (the row's seven outlines say it); other plans get a count
+      sub.textContent = it.createdAt > today ? `Starts ${formatDay(it.createdAt)}` : !days.length ? 'No days' : days.length === 7 ? '' : perWeek(days);
       tr.classList.toggle('is-idle', !days.length);
       cells.forEach((c, i) => {
         const on = days.includes(c.wd);

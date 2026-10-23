@@ -147,8 +147,9 @@ export function openColorMenu({ anchor, value = null, onPick, title = 'Color' } 
       closeColorMenu({ restore: true });
     }
   };
+  // Also bound to window 'resize' and 'hashchange', whose target is window (not a Node)
   const onDown = (e) => {
-    if (!el.contains(e.target)) closeColorMenu();
+    if (!(e.target instanceof Node && el.contains(e.target))) closeColorMenu();
   };
   const onScroll = (e) => {
     if (!el.contains(e.target)) closeColorMenu();

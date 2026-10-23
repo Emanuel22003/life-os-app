@@ -16,11 +16,14 @@ export const PRIORITY_LABEL = { none: 'None', low: 'Low', med: 'Med', high: 'Hig
 export const FILTERS = ['all', 'today', 'upcoming', 'done'];
 export const FILTER_LABEL = { all: 'All', today: 'Today', upcoming: 'Upcoming', done: 'Done' };
 
-export const SORTS = ['manual', 'due', 'priority'];
-export const SORT_LABEL = { manual: 'Manual', due: 'Due', priority: 'Priority' };
+// 'smart' groups the open tasks by when they are due: Overdue · Today · Upcoming · No date
+export const SORTS = ['smart', 'manual', 'due', 'priority'];
+export const SORT_LABEL = { smart: 'Smart', manual: 'Manual', due: 'Due', priority: 'Priority' };
 
-// view.section: 'all' or the id of the section being shown (per device: it never syncs)
-export const DEFAULT_VIEW = Object.freeze({ filter: 'all', sort: 'manual', completedOpen: false, section: 'all' });
+// view.section: 'all' or the id of the section being shown (per device: it never syncs).
+// view.sortPicked: the sort was chosen in the menu. A view that never chose one gets Smart, also
+// one saved before Smart existed (it says 'manual' only because that was the default then).
+export const DEFAULT_VIEW = Object.freeze({ filter: 'all', sort: 'smart', sortPicked: false, completedOpen: false, section: 'all' });
 export const DEFAULT_STATE = Object.freeze({ items: [], sections: Object.freeze([]), view: DEFAULT_VIEW });
 
 /**
@@ -121,9 +124,12 @@ export function normalizeSection(raw) {
 
 export function normalizeView(raw, sectionIds = new Set()) {
   const v = raw && typeof raw === 'object' ? raw : {};
+  // A sort counts as chosen when the menu said so, or when it is one no default ever was
+  const picked = SORTS.includes(v.sort) && (v.sortPicked === true || (v.sort !== 'manual' && v.sort !== DEFAULT_VIEW.sort));
   return {
     filter: FILTERS.includes(v.filter) ? v.filter : DEFAULT_VIEW.filter,
-    sort: SORTS.includes(v.sort) ? v.sort : DEFAULT_VIEW.sort,
+    sort: picked ? v.sort : DEFAULT_VIEW.sort,
+    sortPicked: picked,
     completedOpen: typeof v.completedOpen === 'boolean' ? v.completedOpen : DEFAULT_VIEW.completedOpen,
     // A section deleted (here, or on another computer) falls back to All
     section: typeof v.section === 'string' && sectionIds.has(v.section) ? v.section : 'all',
@@ -254,6 +260,21 @@ export function openCount(items) {
   return n;
 }
 
+/**
+ * What needs doing today: open tasks due today or overdue. The page's badge, and the same tasks
+ * Home's To do card lists ("to do today").
+ */
+export function attentionCount(items, today) {
+  let n = 0;
+  for (const t of items) if (!t.done && t.due && t.due <= today) n++;
+  return n;
+}
+
+/** The Monday after today ("Next week" in the right-click menu, as to-do apps mean it). */
+export function nextWeek(today) {
+  return shiftKey(today, (8 - weekday(today)) % 7 || 7);
+}
+
 /* ==========================================================================
    Sorting
    ========================================================================== */
@@ -263,6 +284,37 @@ const cmpOrder = (a, b) => a.order - b.order;
 const cmpDue = (a, b) => (a.due === b.due ? 0 : !a.due ? 1 : !b.due ? -1 : a.due < b.due ? -1 : 1);
 const cmpPriority = (a, b) => PRIORITY_RANK[b.priority] - PRIORITY_RANK[a.priority];
 const cmpCompleted = (a, b) => (b.completedAt ?? 0) - (a.completedAt ?? 0);
+// A time of day comes first, earliest first; a task for the whole day after them
+const cmpTime = (a, b) => (a.time === b.time ? 0 : !a.time ? 1 : !b.time ? -1 : a.time < b.time ? -1 : 1);
+
+/**
+ * Smart order: the groups Overdue · Today · Upcoming · No date (as Home's To do lists them:
+ * the late ones first, oldest first), then inside each group what matters most first.
+ */
+export const SMART_GROUPS = Object.freeze(['overdue', 'today', 'upcoming', 'nodate']);
+export const SMART_GROUP_LABEL = Object.freeze({ overdue: 'Overdue', today: 'Today', upcoming: 'Upcoming', nodate: 'No date' });
+
+/** The Smart group a task sits in: 'overdue' | 'today' | 'upcoming' | 'nodate'. */
+export function smartGroup(t, today) {
+  if (!t?.due) return 'nodate';
+  if (t.due < today) return 'overdue';
+  return t.due === today ? 'today' : 'upcoming';
+}
+
+const SMART_WITHIN = {
+  overdue: (a, b) => cmpDue(a, b) || cmpPriority(a, b) || cmpTime(a, b) || cmpOrder(a, b),
+  today: (a, b) => cmpPriority(a, b) || cmpTime(a, b) || cmpOrder(a, b),
+  upcoming: (a, b) => cmpDue(a, b) || cmpTime(a, b) || cmpPriority(a, b) || cmpOrder(a, b),
+  nodate: (a, b) => cmpPriority(a, b) || cmpOrder(a, b),
+};
+
+function cmpSmart(today) {
+  return (a, b) => {
+    const ga = smartGroup(a, today);
+    const gb = smartGroup(b, today);
+    return ga === gb ? SMART_WITHIN[ga](a, b) : SMART_GROUPS.indexOf(ga) - SMART_GROUPS.indexOf(gb);
+  };
+}
 
 const COMPARATORS = {
   manual: cmpOrder,
@@ -271,19 +323,24 @@ const COMPARATORS = {
   completed: (a, b) => cmpCompleted(a, b) || cmpOrder(a, b),
 };
 
-const comparator = (sort) => (Object.prototype.hasOwnProperty.call(COMPARATORS, sort) ? COMPARATORS[sort] : cmpOrder);
+const comparator = (sort, today = dateKey()) => (sort === 'smart' ? cmpSmart(today) : Object.prototype.hasOwnProperty.call(COMPARATORS, sort) ? COMPARATORS[sort] : cmpOrder);
 
-/** sort: 'manual' | 'due' | 'priority' | 'completed' (most recently completed first). Returns a new array. */
-export function sortTasks(tasks, sort = 'manual') {
-  return [...tasks].sort(comparator(sort));
+/**
+ * sort: 'smart' (by group, as of `today`) | 'manual' | 'due' | 'priority' | 'completed' (most
+ * recently completed first). Returns a new array.
+ */
+export function sortTasks(tasks, sort = 'manual', today = dateKey()) {
+  return [...tasks].sort(comparator(sort, today));
 }
 
 const byManual = (items) => sortTasks(items, 'manual');
 
 /**
- * What the list shows for a view: { main, completed }.
+ * What the list shows for a view: { main, completed, groups }.
  * - main: the primary list (open tasks for all/today/upcoming, done tasks for 'done')
  * - completed: the collapsible "Completed" section (only in 'all')
+ * - groups: in Smart order, main split under its headings: [{ key, tasks }] (the empty ones left
+ *   out); null in every other order and in Done
  *
  * `linger` maps id -> { done, completedAt } as they were before a toggle, so a
  * just-checked row holds its place for a beat while its animation plays.
@@ -293,18 +350,22 @@ export function viewSections(items, view, today, linger) {
     const snap = linger?.get(t.id);
     return { t, ref: snap ? { ...t, done: snap.done, completedAt: snap.completedAt } : t };
   });
-  const take = (pred, sort) => {
-    const cmp = comparator(sort);
-    return pairs
-      .filter(({ ref }) => pred(ref))
-      .sort((a, b) => cmp(a.ref, b.ref))
-      .map(({ t }) => t);
+  const pick = (pred, sort) => {
+    const cmp = comparator(sort, today);
+    return pairs.filter(({ ref }) => pred(ref)).sort((a, b) => cmp(a.ref, b.ref));
   };
+  const tasksOf = (list) => list.map(({ t }) => t);
 
-  if (view.filter === 'done') return { main: take((r) => r.done, 'completed'), completed: [] };
+  if (view.filter === 'done') return { main: tasksOf(pick((r) => r.done, 'completed')), completed: [], groups: null };
+  const main = pick((r) => !r.done && matchesFilter(r, view.filter, today), view.sort);
+  let groups = null;
+  if (view.sort === 'smart') {
+    groups = SMART_GROUPS.map((key) => ({ key, tasks: tasksOf(main.filter(({ ref }) => smartGroup(ref, today) === key)) })).filter((g) => g.tasks.length);
+  }
   return {
-    main: take((r) => !r.done && matchesFilter(r, view.filter, today), view.sort),
-    completed: view.filter === 'all' ? take((r) => r.done, 'completed') : [],
+    main: tasksOf(main),
+    completed: view.filter === 'all' ? tasksOf(pick((r) => r.done, 'completed')) : [],
+    groups,
   };
 }
 
@@ -727,7 +788,7 @@ export function withSectionIcon(sections, id, icon) {
    ========================================================================== */
 
 export const VIEW_ICON = Object.freeze({ all: 'list', today: 'sun', upcoming: 'calendar', done: 'check-circle' });
-export const SORT_ICON = Object.freeze({ manual: 'grip', due: 'calendar', priority: 'flag' });
+export const SORT_ICON = Object.freeze({ smart: 'zap', manual: 'grip', due: 'calendar', priority: 'flag' });
 // None is "no flag"; Low, Medium and High share the flag and differ in weight (tasks.css)
 export const PRIORITY_ICON = Object.freeze({ none: 'circle-slash', low: 'flag', med: 'flag', high: 'flag' });
 export const DUE_ICON = Object.freeze({ overdue: 'alert', today: 'sun', tomorrow: 'sunrise', date: 'calendar', none: 'circle-slash' });

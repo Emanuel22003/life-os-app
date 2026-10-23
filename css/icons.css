@@ -20,7 +20,7 @@
   --mod-settings: var(--text-2);
 }
 
-:root:is([data-skin="simple"], [data-skin="coquette"], [data-skin="y2k"]) {
+:root[data-skin="simple"] {
   --mod-home: var(--cc-purple);
   --mod-tasks: var(--cc-blue);
   --mod-notes: var(--cc-yellow);
@@ -29,7 +29,58 @@
   --mod-pomodoro: var(--cc-orange);
   --mod-training: var(--cc-pink);
   --mod-finance: var(--cc-teal);
-  --mod-health: var(--cc-red);
+  /* Health is an idea, not a page yet: a quiet gray, not the Calendar's red */
+  --mod-health: var(--text-3);
+}
+
+/* Atelier (id coquette): muted editorial tones, Home in the house's own accent (rosewood by day,
+   rose gold by night), then slate, ochre, sage, rust, plum, teal and a bronze taupe. Each is 5:1
+   or more on the paper and 4.4:1 or more on its own tint (icons need 3:1, WCAG 1.4.11). */
+:root[data-skin="coquette"] {
+  --mod-home: var(--accent);
+  --mod-tasks: #a3b6d0;
+  --mod-notes: #d5b878;
+  --mod-habits: #a9bd94;
+  --mod-calendar: #dda27e;
+  --mod-pomodoro: #c2a8cf;
+  --mod-training: #92c0b9;
+  --mod-finance: #c9b296;
+  --mod-health: var(--text-3);
+}
+
+:root[data-skin="coquette"][data-theme="light"] {
+  --mod-tasks: #475e7c;
+  --mod-notes: #80621c;
+  --mod-habits: #4f6744;
+  --mod-calendar: #94512d;
+  --mod-pomodoro: #6b4d78;
+  --mod-training: #386663;
+  --mod-finance: #6f5b47;
+}
+
+/* Pearl (id y2k): cool, muted tones around its violet-blue: Home in the accent, then steel blue,
+   a soft gold, sea green, dusty rose, mauve, teal and slate. 4.9:1 or more on the pearl paper,
+   4.5:1 or more on their own tint. */
+:root[data-skin="y2k"] {
+  --mod-home: var(--accent);
+  --mod-tasks: #93aedb;
+  --mod-notes: #d3bd8a;
+  --mod-habits: #93c2b2;
+  --mod-calendar: #e4a3bc;
+  --mod-pomodoro: #c3a6db;
+  --mod-training: #8cc3cc;
+  --mod-finance: #aab4c8;
+  --mod-health: var(--text-3);
+}
+
+:root[data-skin="y2k"][data-theme="light"] {
+  --mod-tasks: #3d6194;
+  --mod-notes: #7d6533;
+  --mod-habits: #3c6c60;
+  --mod-calendar: #a24a68;
+  --mod-pomodoro: #77508c;
+  --mod-training: #2d6a76;
+  --mod-finance: #535f78;
 }
 
 :root[data-skin="oldmoney"] {
@@ -58,18 +109,17 @@
 
 /* Late text is small: in light mode it takes the red a shade darker than the color-coding
    palette, so it keeps 4.5:1 on paper and on its own wash (WCAG 1.4.3; #d64545 on white was
-   4.4:1, Coquette's 3.8:1, Y2K's 3.4:1; Y2K's goes deeper still for its sky-blue glow). The
-   other dark modes' reds and Old Money's daytime claret pass as they are. */
+   4.4:1). Pearl's rose takes the same shade (#993249: 6.4:1 on its paper, 7.2:1 on cards, 5.4:1
+   on its own 12% wash). Atelier's brick red, Old Money's daytime claret and the dark modes' reds
+   pass as they are. */
 :root.cc-on[data-plain][data-theme="light"] {
   --alert: color-mix(in srgb, var(--cc-red) 86%, #000);
 }
 
+/* Atelier's brick red already keeps 6:1 on its ivory and 5:1 on its own wash: as it is, so late
+   and Delete read red, well apart from the rosewood accent (darkened, it sank into it) */
 :root.cc-on[data-skin="coquette"][data-theme="light"] {
-  --alert: color-mix(in srgb, var(--cc-red) 80%, #000);
-}
-
-:root.cc-on[data-skin="y2k"][data-theme="light"] {
-  --alert: color-mix(in srgb, var(--cc-red) 70%, #000);
+  --alert: var(--cc-red);
 }
 
 :root.cc-on[data-skin="oldmoney"][data-theme="light"] {
@@ -162,9 +212,11 @@
   transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
 }
 
-.ip-btn:hover {
-  background: var(--surface-2);
-  color: var(--text);
+@media (hover: hover) and (pointer: fine) {
+  .ip-btn:hover {
+    background: var(--surface-2);
+    color: var(--text);
+  }
 }
 
 .ip-btn[aria-checked="true"] {

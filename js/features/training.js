@@ -8,7 +8,7 @@
 // a history table). The workout dialog starts each exercise from last time, so the next session
 // can go a little further. Store 'training' (shape in training.logic.js); it syncs, the view doesn't.
 
-import { h, icon, registerIcon, pageHeader, emptyState, toast, openModal, confirmDialog, promptDialog, todayKey, formatDay, relativeDay, uid, onDayChange, isTyping, modalOpen, plural, clamp, plainSkin } from '../ui.js';
+import { h, icon, registerIcon, pageHeader, emptyState, tip, dismissTip, dropdown, checkButton, setChecked, toast, openModal, confirmDialog, promptDialog, todayKey, formatDay, relativeDay, uid, onDayChange, isTyping, modalOpen, num, plural, clamp } from '../ui.js';
 import { createStore } from '../store.js';
 import { registerContextProvider } from '../contextmenu.js';
 import {
@@ -51,6 +51,7 @@ import {
   REST_MIN,
   REST_MAX,
   sessionItem,
+  itemHasData,
   sessionElapsed,
   restLeft,
   sessionGhosts,
@@ -62,6 +63,7 @@ import { cleanTitle } from './tasks.logic.js';
 
 registerIcon('tr-routine', '<path d="M7 3.5h10a1 1 0 0 1 1 1v16l-6-3.6-6 3.6v-16a1 1 0 0 1 1-1Z"/><path d="M9.5 8.5h5M9.5 11.5h3"/>');
 registerIcon('tr-rest', '<circle cx="12" cy="13" r="7.5"/><path d="M12 9.5V13l2 1.5M9.5 2.5h5"/>');
+registerIcon('tr-skip', '<path d="M5 5.2v13.6a.7.7 0 0 0 1.1.6l9.4-6.8a.7.7 0 0 0 0-1.2L6.1 4.6a.7.7 0 0 0-1.1.6Z"/><path d="M19 5v14"/>');
 registerIcon('tr-trophy', '<path d="M8 4h8v4.5a4 4 0 0 1-8 0Z"/><path d="M8 6H5.5v1.5A3 3 0 0 0 8.5 10.5M16 6h2.5v1.5a3 3 0 0 1-3 3M12 12.5V16M8.5 20h7M10 16h4v4h-4Z"/>');
 
 const RANGE_LABEL = { '1M': '1M', '3M': '3M', '6M': '6M', '1Y': '1Y', all: 'All' };
@@ -317,15 +319,55 @@ let editorOpen = null;
 
 const kindText = (x) => (x.kind === 'sprint' ? formatMeters(x.distanceM) : KIND_SHORT[x.kind]);
 
+// The quick-add chips for someone who has made few exercises: the usual ones, a few of each kind
+const STARTERS = ['Bench press', 'Squat', 'Deadlift', 'Pull-ups', 'Running', 'Cycling', 'Plank', '100 m sprint', 'Overhead press', 'Barbell row', 'Push-ups', 'Swimming', 'Rowing', 'Cardio', '200 m sprint', '400 m'];
+const CHIP_MAX = 8;
+const MATCH_MAX = 8;
+let pickSeq = 0;
+
+/** Exercises by the day they were last logged, newest first (never logged: after, A–Z). */
+function byRecent(list) {
+  const last = new Map();
+  for (const w of getState().workouts) for (const e of w.entries) if ((last.get(e.exerciseId) ?? '') < w.date) last.set(e.exerciseId, w.date);
+  return [...list].sort((a, b) => (last.get(b.id) ?? '').localeCompare(last.get(a.id) ?? '') || a.name.localeCompare(b.name));
+}
+
 /**
- * "Add an exercise…": pick one, or make one (one-click presets, or a name + what to log). Shared
- * by the workout and routine dialogs. exercises() is the dialog's working list (a new exercise
- * stays in it until that dialog saves); used() the ids already in the dialog.
+ * "Add an exercise": type its name (the matches drop down, the first one lit: Enter takes the lit
+ * one, ↑ ↓ light another, or a click), or tap one of the chips under the field (your latest
+ * exercises, then the usual ones). A name that matches nothing has one match, "New exercise":
+ * Enter asks what it logs (Strength, Distance, Time, Sprint). Shared
+ * by the live workout, the workout dialog and the routine dialog. exercises() is the working list
+ * (a new exercise stays in it until that place saves); used() the ids already added. With
+ * onUnpick (the routine dialog), the chips are toggles: a pressed one is in, a tap takes it out.
+ * The field stays open after each pick, so several go in one after the other.
  */
-function exercisePicker({ exercises, setExercises, used, onPick, say }) {
-  const select = h('select', { class: 'select tr-picker', 'aria-label': 'Add an exercise' });
+function exercisePicker({ exercises, setExercises, used, onPick, onUnpick = null, say, placeholder = 'Add an exercise: type its name…' }) {
+  const n = ++pickSeq;
+  const listId = `tr-pick-${n}`;
+  let options = []; // [{ id, label, sub, run }]
+  let active = -1;
+
+  const input = h('input', {
+    class: 'input tr-pick-input',
+    type: 'text',
+    maxlength: String(NAME_MAX),
+    placeholder,
+    autocomplete: 'off',
+    enterkeyhint: 'done',
+    role: 'combobox',
+    'aria-label': 'Add an exercise',
+    'aria-autocomplete': 'list',
+    'aria-expanded': 'false',
+    'aria-controls': listId,
+  });
+  const listEl = h('ul', { class: 'tr-pick-list', id: listId, role: 'listbox', 'aria-label': 'Exercises', hidden: true });
+  const chipsEl = h('div', { class: 'tr-chips', role: 'group', 'aria-label': 'Quick add' });
+
+  /* ---- a new exercise: what it logs ---- */
   let newKind = 'strength';
-  const newName = h('input', { class: 'input', type: 'text', maxlength: String(NAME_MAX), placeholder: 'Exercise name', 'aria-label': 'New exercise name', autocomplete: 'off' });
+  let newName = '';
+  const newTitle = h('span', { class: 'tr-newex-title' });
   const newDist = h('input', { class: 'input tr-num', type: 'text', inputmode: 'decimal', value: '100', 'aria-label': 'Distance in meters' });
   const distField = h('label', { class: 'tr-inline', hidden: true }, 'Distance', newDist, 'm');
   const kindSeg = h('div', { class: 'seg tr-kind-seg', role: 'group', 'aria-label': 'What you log' });
@@ -343,15 +385,43 @@ function exercisePicker({ exercises, setExercises, used, onPick, say }) {
               newKind = k;
               distField.hidden = k !== 'sprint';
               paintKinds();
+              kindSeg.querySelector('[aria-pressed="true"]')?.focus();
             },
           },
           KIND_SHORT[k],
         ),
       ),
     );
-  paintKinds();
-  const presetsEl = h('div', { class: 'tr-presets' });
-  const create = (spec) => {
+  const closeNew = () => {
+    newForm.hidden = true;
+    syncEsc();
+    input.focus();
+  };
+  const newForm = h(
+    'div',
+    { class: 'tr-newex', hidden: true, role: 'group', 'aria-label': 'New exercise' },
+    newTitle,
+    h('div', { class: 'tr-newex-row' }, kindSeg, distField, btn('Add', () => create({ name: newName, kind: newKind, distanceM: parseNumber(newDist.value) }), { iconName: 'plus', primary: true }), btn('Cancel', closeNew, { ghost: true })),
+  );
+  newDist.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      create({ name: newName, kind: newKind, distanceM: parseNumber(newDist.value) });
+    }
+  });
+
+  function askKind(name) {
+    newName = cleanTitle(name).slice(0, NAME_MAX);
+    if (!newName) return;
+    newTitle.textContent = `New exercise “${newName}”: what do you log?`;
+    newForm.hidden = false;
+    paintKinds();
+    closeList();
+    syncEsc();
+    kindSeg.querySelector('[aria-pressed="true"]')?.focus();
+  }
+
+  function create(spec) {
     const res = addExercise(exercises(), { ...spec, distanceM: Number.isFinite(spec.distanceM) && spec.distanceM > 0 ? spec.distanceM : 100 });
     if (res.error) {
       say(res.error === 'taken' ? `There is already an exercise called “${cleanTitle(spec.name)}”: pick it in the list.` : 'Give the exercise a name.');
@@ -360,53 +430,170 @@ function exercisePicker({ exercises, setExercises, used, onPick, say }) {
     say('');
     setExercises(res.exercises);
     newForm.hidden = true;
-    newName.value = '';
-    onPick(res.exercise);
+    pick(res.exercise);
+  }
+
+  function pick(x) {
+    if (!x) return;
+    input.value = '';
+    closeList();
+    onPick(x);
     refresh();
+  }
+
+  /* ---- the matches under the field ---- */
+  const presetsLeft = () => {
+    const names = new Set(exercises().map((x) => x.name.toLowerCase()));
+    return PRESETS.filter((p) => !names.has(p.name.toLowerCase()));
   };
-  const createTyped = () => create({ name: newName.value, kind: newKind, distanceM: parseNumber(newDist.value) });
-  const newForm = h(
-    'div',
-    { class: 'tr-newex', hidden: true },
-    h('div', { class: 'label' }, 'Quick add'),
-    presetsEl,
-    h('div', { class: 'label' }, 'Or make your own'),
-    h('div', { class: 'tr-newex-row' }, newName, kindSeg, distField, btn('Add', createTyped, { iconName: 'plus' }), btn('', () => ((newForm.hidden = true), select.focus()), { iconName: 'x', ghost: true, aria: 'Close' })),
-  );
-  newName.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') {
+
+  function matches(query) {
+    const q = query.trim().toLowerCase();
+    if (!q) return [];
+    const taken = used();
+    const rank = (name) => (name.toLowerCase().startsWith(q) ? 0 : 1);
+    const own = byRecent(exercises())
+      .filter((x) => !taken.has(x.id) && x.name.toLowerCase().includes(q))
+      .sort((a, b) => rank(a.name) - rank(b.name))
+      .map((x) => ({ label: x.name, sub: kindText(x), run: () => pick(x) }));
+    const usual = presetsLeft()
+      .filter((p) => p.name.toLowerCase().includes(q))
+      .sort((a, b) => rank(a.name) - rank(b.name))
+      .map((p) => ({ label: p.name, sub: `New · ${KIND_SHORT[p.kind]}`, run: () => create(p) }));
+    // The exact name first (Enter takes the first match), then yours, then the usual ones
+    const list = [...own, ...usual].sort((a, b) => (b.label.toLowerCase() === q) - (a.label.toLowerCase() === q)).slice(0, MATCH_MAX);
+    const exact = exercises().some((x) => x.name.toLowerCase() === q) || presetsLeft().some((p) => p.name.toLowerCase() === q);
+    if (!exact) list.push({ label: `New exercise “${cleanTitle(query).slice(0, NAME_MAX)}”…`, sub: 'Pick what it logs', run: () => askKind(query), isNew: true });
+    return list;
+  }
+
+  function paintList() {
+    options = matches(input.value);
+    if (active >= options.length) active = options.length - 1;
+    listEl.replaceChildren(
+      ...options.map((o, i) =>
+        h(
+          'li',
+          {
+            id: `${listId}-${i}`,
+            class: ['tr-pick-opt', o.isNew && 'is-new'],
+            role: 'option',
+            'aria-selected': String(i === active),
+            onPointerdown: (e) => e.preventDefault(),
+            onClick: () => o.run(),
+          },
+          h('span', { class: 'tr-pick-name' }, o.label),
+          h('span', { class: 'tr-pick-sub label' }, o.sub),
+        ),
+      ),
+    );
+    const open = options.length > 0;
+    listEl.hidden = !open;
+    input.setAttribute('aria-expanded', String(open));
+    if (active >= 0) input.setAttribute('aria-activedescendant', `${listId}-${active}`);
+    else input.removeAttribute('aria-activedescendant');
+    syncEsc();
+  }
+
+  function closeList() {
+    active = -1;
+    options = [];
+    listEl.hidden = true;
+    listEl.replaceChildren();
+    input.setAttribute('aria-expanded', 'false');
+    input.removeAttribute('aria-activedescendant');
+    syncEsc();
+  }
+
+  /* Escape closes the matches or the new-exercise question, not the dialog around them:
+     ui.openModal hears Escape first (on document, capturing), so while one of them is open the
+     picker listens before it, on window */
+  function onEscape(e) {
+    if (e.key !== 'Escape' || e.isComposing) return;
+    if (!input.isConnected) return syncEsc(true);
+    if (!listEl.hidden && document.activeElement === input) closeList();
+    else if (!newForm.hidden && newForm.contains(document.activeElement)) closeNew();
+    else return;
+    e.preventDefault();
+    e.stopPropagation();
+  }
+
+  function syncEsc(off = false) {
+    if (!off && (!listEl.hidden || !newForm.hidden)) window.addEventListener('keydown', onEscape, true);
+    else window.removeEventListener('keydown', onEscape, true);
+  }
+
+  input.addEventListener('input', () => {
+    // The first match is lit: Enter takes it ("ben" + Enter = Bench press, not a new "ben")
+    active = 0;
+    say('');
+    newForm.hidden = true;
+    paintList();
+  });
+  input.addEventListener('blur', () => setTimeout(() => document.activeElement !== input && closeList(), 120));
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      if (!options.length) paintList();
+      if (!options.length) return;
       e.preventDefault();
-      createTyped();
+      active = e.key === 'ArrowDown' ? (active + 1) % options.length : active <= 0 ? options.length - 1 : active - 1;
+      paintList();
+      listEl.children[active]?.scrollIntoView?.({ block: 'nearest' });
+    } else if (e.key === 'Enter' && !e.isComposing) {
+      e.preventDefault();
+      const q = input.value.trim().toLowerCase();
+      if (!q) return;
+      if (active >= 0 && options[active]) return options[active].run();
+      // The exact name: that exercise (or that usual one); anything else is a new one
+      const known = exercises().find((x) => x.name.toLowerCase() === q && !used().has(x.id));
+      if (known) return pick(known);
+      const usual = presetsLeft().find((p) => p.name.toLowerCase() === q);
+      if (usual) return create(usual);
+      if (exercises().some((x) => x.name.toLowerCase() === q)) return say(`“${cleanTitle(input.value)}” is in already.`);
+      askKind(input.value);
     }
   });
 
+  /* ---- the chips: your latest exercises, then the usual ones you haven't made ---- */
   function refresh() {
     const taken = used();
-    const groups = KINDS.map((kind) => {
-      const list = exercises()
-        .filter((x) => x.kind === kind && !taken.has(x.id))
-        .sort((a, b) => a.name.localeCompare(b.name));
-      return list.length ? h('optgroup', { label: KIND_SHORT[kind] }, list.map((x) => h('option', { value: x.id }, x.name))) : null;
+    const own = byRecent(exercises()).filter((x) => onUnpick || !taken.has(x.id));
+    const ownChips = own.slice(0, CHIP_MAX).map((x) => {
+      const on = taken.has(x.id);
+      return h(
+        'button',
+        {
+          type: 'button',
+          class: 'btn btn--sm tr-chip',
+          'aria-pressed': onUnpick ? String(on) : null,
+          title: on ? `${x.name}: take it out` : `Add ${x.name}`,
+          onClick: () => {
+            if (on) onUnpick(x);
+            else onPick(x);
+            refresh();
+          },
+        },
+        icon(on ? 'check' : 'plus', { size: 13 }),
+        h('span', null, x.name),
+      );
     });
-    select.replaceChildren(h('option', { value: '' }, 'Add an exercise…'), ...groups.filter(Boolean), h('option', { value: '__new' }, '＋ New exercise…'));
-    select.value = '';
+    const left = presetsLeft();
+    const usual = STARTERS.map((name) => left.find((p) => p.name === name))
+      .filter(Boolean)
+      .slice(0, Math.max(0, CHIP_MAX - ownChips.length))
+      .map((p) => h('button', { type: 'button', class: 'btn btn--sm btn--ghost tr-chip is-new', title: `New: ${p.name} (${KIND_LABEL[p.kind]})`, onClick: () => create(p) }, icon('plus', { size: 13 }), h('span', null, p.name)));
+    chipsEl.replaceChildren(...ownChips, ...usual);
+    chipsEl.hidden = !chipsEl.childElementCount;
+    if (!listEl.hidden) paintList();
   }
-  select.addEventListener('change', () => {
-    const v = select.value;
-    select.value = '';
-    if (v === '__new') {
-      const names = new Set(exercises().map((x) => x.name.toLowerCase()));
-      presetsEl.replaceChildren(...PRESETS.filter((p) => !names.has(p.name.toLowerCase())).map((p) => btn(p.name, () => create(p), { iconName: 'plus', ghost: true, title: KIND_LABEL[p.kind] })));
-      presetsEl.hidden = !presetsEl.childElementCount;
-      newForm.hidden = false;
-      newName.focus();
-    } else if (v) {
-      onPick(exercises().find((x) => x.id === v));
-      refresh();
-    }
-  });
+
   refresh();
-  return { el: h('div', { class: 'tr-add' }, select, newForm), refresh, focus: () => select.focus() };
+  return {
+    el: h('div', { class: 'tr-add' }, h('div', { class: 'tr-pick' }, icon('search', { size: 15, className: 'tr-pick-ic' }), input, listEl), chipsEl, newForm),
+    refresh,
+    focus: () => input.focus(),
+    input,
+  };
 }
 
 /**
@@ -516,8 +703,9 @@ function openEditor(existing = null, { routine = null } = {}) {
       const rowEls = [];
       const number = () => rowEls.forEach((r, i) => (r.n.textContent = `Set ${i + 1}`));
       const addSet = ({ value = null, ghost = null } = {}, focusIt = false) => {
-        const reps = h('input', { class: 'input tr-num', type: 'text', inputmode: 'numeric', value: value?.reps ?? '', placeholder: ghost ? String(ghost.reps) : 'reps', 'aria-label': ghost ? `Reps (last time ${ghost.reps})` : 'Reps', autocomplete: 'off' });
-        const kg = h('input', { class: 'input tr-num', type: 'text', inputmode: 'decimal', value: value?.weight ? String(value.weight) : '', placeholder: ghost?.weight > 0 ? String(ghost.weight) : 'kg', 'aria-label': ghost?.weight > 0 ? `Weight in kg (last time ${ghost.weight})` : 'Weight in kg (empty for body weight)', autocomplete: 'off' });
+        // Last time's numbers in gray, or a dash: the unit stays after the field, said once
+        const reps = h('input', { class: 'input tr-num', type: 'text', inputmode: 'numeric', value: value?.reps ?? '', placeholder: ghost ? String(ghost.reps) : '–', 'aria-label': ghost ? `Reps (last time ${ghost.reps})` : 'Reps', autocomplete: 'off' });
+        const kg = h('input', { class: 'input tr-num', type: 'text', inputmode: 'decimal', value: value?.weight ? String(value.weight) : '', placeholder: ghost?.weight > 0 ? String(ghost.weight) : '–', 'aria-label': ghost?.weight > 0 ? `Weight in kg (last time ${ghost.weight})` : 'Weight in kg (empty for body weight)', autocomplete: 'off' });
         const n = h('span', { class: 'tr-set-n label' });
         const row = h('div', { class: 'tr-set' }, n, reps, h('span', { class: 'tr-x', 'aria-hidden': 'true' }, '×'), kg, h('span', { class: 'tr-unit' }, 'kg'));
         const item = { row, reps, kg, n, ghost };
@@ -571,7 +759,7 @@ function openEditor(existing = null, { routine = null } = {}) {
       const kmGhost = lastE?.distanceKm > 0 ? String(lastE.distanceKm) : '';
       const timeGhost = lastE?.durationSec > 0 ? formatDuration(lastE.durationSec) : '';
       ed.ghosted = !!(kmGhost || timeGhost);
-      const km = h('input', { class: 'input tr-num', type: 'text', inputmode: 'decimal', value: e.distanceKm ?? '', placeholder: kmGhost || 'km', 'aria-label': kmGhost ? `Distance in km (last time ${kmGhost})` : 'Distance in km', autocomplete: 'off' });
+      const km = h('input', { class: 'input tr-num', type: 'text', inputmode: 'decimal', value: e.distanceKm ?? '', placeholder: kmGhost || '–', 'aria-label': kmGhost ? `Distance in km (last time ${kmGhost})` : 'Distance in km', autocomplete: 'off' });
       const time = h('input', { class: 'input tr-time', type: 'text', value: e.durationSec ? formatDuration(e.durationSec) : '', placeholder: timeGhost || 'm:ss', 'aria-label': `Time (m:ss or h:mm:ss; a plain number is minutes)${timeGhost ? `, last time ${timeGhost}` : ''}`, autocomplete: 'off' });
       const pace = h('span', { class: 'tr-pace label' });
       const value = (input, ghost) => input.value.trim() || (ed.fresh && ed.touched ? ghost : '');
@@ -601,7 +789,7 @@ function openEditor(existing = null, { routine = null } = {}) {
       const list = h('div', { class: 'tr-times' });
       const inputs = [];
       const addTime = (sec, focusIt = false) => {
-        const input = h('input', { class: 'input tr-num', type: 'text', inputmode: 'decimal', value: sec ? String(sec) : '', placeholder: 'sec', 'aria-label': `Attempt ${inputs.length + 1} in seconds`, autocomplete: 'off' });
+        const input = h('input', { class: 'input tr-num', type: 'text', inputmode: 'decimal', value: sec ? String(sec) : '', placeholder: '–', 'aria-label': `Attempt ${inputs.length + 1} in seconds`, autocomplete: 'off' });
         inputs.push(input);
         list.append(h('label', { class: 'tr-inline' }, input, 's'));
         if (focusIt) input.focus();
@@ -690,6 +878,8 @@ function openEditor(existing = null, { routine = null } = {}) {
       routines: newRoutine ? [...cur.routines, newRoutine] : cur.routines,
     };
     commit(next);
+    // A workout logged: the page's explanation has done its job
+    if (isNew) dismissTip('training.intro');
     m.close();
     const records = recordsIn(next, workout.id);
     const saved = newRoutine ? ` Saved as routine “${newRoutine.name}”.` : '';
@@ -738,7 +928,7 @@ function openEditor(existing = null, { routine = null } = {}) {
     footer,
     size: 'lg',
     className: 'tr-modal',
-    initialFocus: editors.length ? entriesEl.querySelector('input') : picker.el.querySelector('select'),
+    initialFocus: editors.length ? entriesEl.querySelector('input') : picker.input,
     onClose: () => (editorOpen = null),
   });
   editorOpen = m;
@@ -791,7 +981,8 @@ function openRoutineEditor(routine = null) {
   const start = getState();
   let exercises = [...start.exercises];
   const items = routine ? routine.items.map((it) => ({ ...it })) : [];
-  const nameIn = h('input', { class: 'input', type: 'text', value: routine?.name ?? '', maxlength: String(NAME_MAX), placeholder: 'Push day, Legs, Long run…', 'aria-label': 'Routine name', autocomplete: 'off' });
+  const nameId = `tr-rname-${++pickSeq}`;
+  const nameIn = h('input', { id: nameId, class: 'input', type: 'text', value: routine?.name ?? '', maxlength: String(NAME_MAX), placeholder: 'Push day, Legs, Long run…', autocomplete: 'off' });
   const listEl = h('ol', { class: 'tr-rlist' });
   const err = h('p', { class: 'tr-err', role: 'alert' });
 
@@ -844,12 +1035,20 @@ function openRoutineEditor(routine = null) {
     );
     listEl.hidden = !items.length;
   }
+  // Tap as many chips as the routine has (each one goes in, tap again to take it out), or type
   const picker = exercisePicker({
     exercises: () => exercises,
     setExercises: (list) => (exercises = list),
     used: () => new Set(items.map((it) => it.exerciseId)),
     onPick: (x) => {
+      if (items.some((it) => it.exerciseId === x.id)) return;
       items.push({ exerciseId: x.id, sets: 3 });
+      paint();
+    },
+    onUnpick: (x) => {
+      const at = items.findIndex((it) => it.exerciseId === x.id);
+      if (at === -1) return;
+      items.splice(at, 1);
       paint();
     },
     say: (t) => (err.textContent = t),
@@ -892,10 +1091,15 @@ function openRoutineEditor(routine = null) {
     title: routine ? 'Edit routine' : 'New routine',
     className: 'tr-modal',
     body: [
-      nameIn,
-      h('p', { class: 'tr-last' }, 'The exercises you do together, in order. Starting the routine opens them with last time’s numbers ready.'),
-      listEl,
-      picker.el,
+      h('div', { class: 'field' }, h('label', { class: 'label', for: nameId }, 'Routine name'), nameIn),
+      h(
+        'div',
+        { class: 'field tr-rfield' },
+        h('span', { class: 'label' }, 'Exercises'),
+        h('p', { class: 'tr-last' }, 'The exercises you do together, in order. Starting the routine opens them with last time’s numbers ready.'),
+        listEl,
+        picker.el,
+      ),
       err,
     ],
     footer: [
@@ -962,25 +1166,46 @@ function startSession({ routine = null } = {}) {
   location.hash = '#/training';
 }
 
+/**
+ * Throw the workout going on away. With nothing in it yet it goes at once (Undo in the toast);
+ * with sets or numbers in it, after asking: those are gone for good.
+ */
 async function discardSession() {
   const s = getState().session;
   if (!s) return;
-  const ok = await confirmDialog({
-    title: 'Discard this workout?',
-    message: 'Nothing from it is saved. Your earlier workouts stay as they are.',
-    confirmLabel: 'Discard workout',
+  if (s.note.trim() || s.items.some(itemHasData)) {
+    const ok = await confirmDialog({
+      title: 'Discard this workout?',
+      message: 'What you logged in it is not saved. Your earlier workouts stay as they are.',
+      confirmLabel: 'Discard workout',
+    });
+    if (ok && getState().session?.id === s.id) commit({ ...getState(), session: null });
+    return;
+  }
+  commit({ ...getState(), session: null });
+  toast('Workout discarded.', {
+    action: {
+      label: 'Undo',
+      onClick: () => {
+        const cur = getState();
+        if (cur.session) return;
+        commit({ ...cur, session: s });
+        location.hash = '#/training';
+      },
+    },
   });
-  if (ok && getState().session?.id === s.id) commit({ ...getState(), session: null });
 }
 
 /**
  * The session page in `host`. The working copy (`live`) takes every keystroke and is saved a
  * moment later; adding or removing exercises, sets and attempts saves at once and redraws.
+ * One bar stays in view at the bottom: the rest timer (once a set is ticked), Finish, Discard.
  * Returns { flush, destroy }.
  */
 function sessionPage(host) {
   let live = structuredClone(getState().session);
   let saveTimer = 0;
+  let alive = true;
   const refs = new Map(); // `${key}:${row}:${field}` -> input
   const exercisesNow = () => {
     const known = getState().exercises;
@@ -989,6 +1214,7 @@ function sessionPage(host) {
   };
   const exById = (id) => exercisesNow().find((x) => x.id === id) ?? null;
   const item = (key) => live.items.find((it) => it.key === key);
+  const mine = () => alive && getState().session?.id === live.id;
 
   function flush() {
     clearTimeout(saveTimer);
@@ -1001,15 +1227,23 @@ function sessionPage(host) {
     saveTimer = setTimeout(flush, 300);
   };
 
-  /* ---- head: name, clock, rest timer, finish ---- */
-  const titleIn = h('input', { class: 'input tr-sess-title', type: 'text', maxlength: String(TITLE_MAX), placeholder: 'Workout', 'aria-label': 'Workout name', autocomplete: 'off' });
+  /* ---- head: that it's going on, its name, the clock ---- */
+  const titleIn = h('input', { class: 'input tr-sess-title', type: 'text', maxlength: String(TITLE_MAX), placeholder: 'Name this workout', 'aria-label': 'Workout name', autocomplete: 'off' });
   titleIn.addEventListener('input', () => {
     live.title = titleIn.value;
     saveSoon();
   });
   const clock = h('span', { class: 'stat-value tr-sess-clock tnum', 'aria-label': 'Time so far' });
+  const head = h(
+    'header',
+    { class: 'tr-sess-head panel' },
+    h('div', { class: 'tr-sess-id' }, h('span', { class: 'tr-sess-live label' }, h('span', { class: 'tr-live-dot', 'aria-hidden': 'true' }), 'Workout in progress'), titleIn),
+    h('div', { class: 'tr-sess-timebox' }, h('span', { class: 'label' }, 'Time'), clock),
+  );
+
+  /* ---- the bar at the bottom: rest (from the first ticked set), Finish, Discard ---- */
   const restText = h('span', { class: 'tr-rest-time tnum' });
-  const restLabel = h('span', { class: 'label' }, 'Rest');
+  const restLabel = h('span', { class: 'label tr-rest-label' }, 'Rest');
   const setRest = (sec) => {
     live.restSec = clamp(sec, REST_MIN, REST_MAX);
     flush();
@@ -1017,36 +1251,45 @@ function sessionPage(host) {
   };
   const restEl = h(
     'div',
-    { class: 'tr-rest', role: 'timer', 'aria-live': 'off' },
+    { class: 'tr-rest', role: 'timer', 'aria-live': 'off', hidden: true },
     icon('tr-rest', { size: 16 }),
     restLabel,
     restText,
-    btn('−15 s', () => {
-      if (live.restEndsAt && live.restEndsAt > Date.now()) live.restEndsAt -= 15000;
-      setRest(live.restSec - 15);
-    }, { ghost: true, title: 'Shorter rest' }),
-    btn('+15 s', () => {
-      if (live.restEndsAt && live.restEndsAt > Date.now()) live.restEndsAt += 15000;
-      setRest(live.restSec + 15);
-    }, { ghost: true, title: 'Longer rest' }),
-    btn('Skip', () => {
-      live.restEndsAt = null;
-      flush();
-      tick();
-    }, { ghost: true, title: 'End the rest now' }),
+    h(
+      'div',
+      { class: 'tr-rest-ctl' },
+      btn('', () => {
+        if (live.restEndsAt && live.restEndsAt > Date.now()) live.restEndsAt -= 15000;
+        setRest(live.restSec - 15);
+      }, { iconName: 'minus', ghost: true, aria: '15 seconds less rest', title: '−15 s' }),
+      btn('', () => {
+        if (live.restEndsAt && live.restEndsAt > Date.now()) live.restEndsAt += 15000;
+        setRest(live.restSec + 15);
+      }, { iconName: 'plus', ghost: true, aria: '15 seconds more rest', title: '+15 s' }),
+      btn('', () => {
+        live.restEndsAt = null;
+        flush();
+        tick();
+      }, { iconName: 'tr-skip', ghost: true, aria: 'Skip the rest', title: 'Skip the rest' }),
+    ),
   );
   const err = h('p', { class: 'tr-err tr-sess-err', role: 'alert' });
-  const finishBtn = btn('Finish workout', () => finish(), { iconName: 'check', primary: true, small: false });
-  const head = h(
-    'header',
-    { class: 'tr-sess-head panel' },
-    h('div', { class: 'tr-sess-id' }, h('span', { class: 'tr-sess-live label' }, h('span', { class: 'tr-live-dot', 'aria-hidden': 'true' }), 'Workout in progress'), titleIn),
-    h('div', { class: 'tr-sess-timebox' }, h('span', { class: 'label' }, 'Time'), clock),
+  const bar = h(
+    'div',
+    { class: 'tr-sess-bar panel' },
     restEl,
-    h('div', { class: 'tr-sess-actions' }, finishBtn, btn('Discard', () => discardSession(), { ghost: true, small: false, title: 'Throw this workout away' })),
+    h(
+      'div',
+      { class: 'tr-sess-actions' },
+      btn('Finish workout', () => finish(), { iconName: 'check', primary: true, small: false }),
+      btn('Discard', () => {
+        flush();
+        discardSession();
+      }, { iconName: 'trash', ghost: true, small: false, title: 'Throw this workout away', aria: 'Discard this workout' }),
+    ),
   );
 
-  const hint = h('p', { class: 'tr-ghost-hint tr-sess-hint' }, 'Gray numbers are last time’s. Tick a set when it’s done: empty fields take last time’s numbers and the rest timer starts. Everything is saved as you go; the workout stays open until you press Finish.');
+  const hint = tip({ id: 'training.session', className: 'tr-sess-hint', text: 'Gray numbers are last time’s. Tick a set when it’s done (or press Enter in it): empty fields take last time’s numbers and the rest timer starts. Everything saves as you go; the workout stays open until you press Finish.' });
   const itemsEl = h('div', { class: 'tr-sess-items' });
   const picker = exercisePicker({
     exercises: exercisesNow,
@@ -1068,8 +1311,7 @@ function sessionPage(host) {
     live.note = noteIn.value;
     saveSoon();
   });
-  const foot = h('div', { class: 'tr-sess-foot' }, btn('Finish workout', () => finish(), { iconName: 'check', primary: true, small: false }), btn('Discard', () => discardSession(), { ghost: true, small: false }));
-  host.replaceChildren(head, hint, itemsEl, h('div', { class: 'tr-sess-add panel' }, picker.el), noteIn, err, foot);
+  host.replaceChildren(head, hint, itemsEl, h('div', { class: 'tr-sess-add panel' }, picker.el), noteIn, err, bar);
 
   /* ---- one exercise ---- */
   function input(key, row, field, value, attrs, onInput) {
@@ -1083,6 +1325,21 @@ function sessionPage(host) {
     });
     refs.set(`${key}:${row}:${field}`, el);
     return el;
+  }
+
+  /** Put back an exercise or a set row taken out a moment ago (the toast's Undo). */
+  function undoable(message, put) {
+    toast(message, {
+      action: {
+        label: 'Undo',
+        onClick: () => {
+          if (!mine()) return;
+          put();
+          flush();
+          build();
+        },
+      },
+    });
   }
 
   function exerciseEl(it, ghosts) {
@@ -1115,6 +1372,14 @@ function sessionPage(host) {
             structural(() => {});
           }, { iconName: 'reset', ghost: true, title: 'Fill in last time’s numbers' })
         : null;
+    // Taken out at once; with something in it, Undo puts it back where it was
+    const removeItem = () => {
+      const at = live.items.indexOf(it);
+      if (at === -1) return;
+      const had = itemHasData(it);
+      structural(() => live.items.splice(at, 1));
+      if (had) undoable(`${x.name} taken out of the workout.`, () => !item(it.key) && live.items.splice(Math.min(at, live.items.length), 0, it));
+    };
     const el = h(
       'section',
       { class: 'tr-entry tr-sess-ex panel', 'aria-label': x.name, dataset: { key: it.key } },
@@ -1122,12 +1387,7 @@ function sessionPage(host) {
         'div',
         { class: 'tr-entry-head' },
         h('div', { class: 'tr-entry-name' }, x.name, h('span', { class: 'tr-kind label' }, kindText(x))),
-        h(
-          'div',
-          { class: 'tr-entry-acts' },
-          sameAsLast,
-          btn('', () => structural(() => live.items.splice(live.items.indexOf(it), 1)), { iconName: 'x', ghost: true, aria: `Remove ${x.name}`, title: 'Remove from this workout' }),
-        ),
+        h('div', { class: 'tr-entry-acts' }, sameAsLast, btn('', removeItem, { iconName: 'x', ghost: true, aria: `Remove ${x.name}`, title: 'Remove from this workout' })),
       ),
       h('p', { class: 'tr-last' }, last ? `Last time (${formatDay(last.date)}): ${entrySummary(last.entry, x)}. ${nextTarget(last.entry, x)}` : 'First time: whatever you log becomes the baseline.'),
       body,
@@ -1137,21 +1397,19 @@ function sessionPage(host) {
       const rows = h('div', { class: 'tr-sets' });
       it.sets.forEach((row, i) => {
         const gs = g.sets[i] ?? null;
-        const reps = input(it.key, i, 'reps', row.reps, { inputmode: 'numeric', placeholder: gs ? String(gs.reps) : 'reps', 'aria-label': `Set ${i + 1} reps${gs ? ` (last time ${gs.reps})` : ''}` }, (v) => (row.reps = v));
-        const kg = input(it.key, i, 'kg', row.kg, { inputmode: 'decimal', placeholder: gs?.weight > 0 ? String(gs.weight) : 'kg', 'aria-label': `Set ${i + 1} weight in kg${gs?.weight > 0 ? ` (last time ${gs.weight})` : ''}` }, (v) => (row.kg = v));
-        const done = h(
-          'button',
-          { type: 'button', class: 'tr-done', 'aria-pressed': String(row.done), 'aria-label': `Set ${i + 1} done`, title: row.done ? 'Done (click to undo)' : 'Mark this set done' },
-          icon('check', { size: 16, stroke: 2.4 }),
-        );
-        const setEl = h('div', { class: ['tr-set', 'tr-sess-set', row.done && 'is-done'] }, h('span', { class: 'tr-set-n label' }, `Set ${i + 1}`), reps, h('span', { class: 'tr-x', 'aria-hidden': 'true' }, '×'), kg, h('span', { class: 'tr-unit' }, 'kg'), done);
-        done.addEventListener('click', () => {
-          if (!row.done) {
+        // Last time's numbers in gray, or a dash; the unit follows the field, once
+        const reps = input(it.key, i, 'reps', row.reps, { inputmode: 'numeric', enterkeyhint: 'next', placeholder: gs ? String(gs.reps) : '–', 'aria-label': `Set ${i + 1} reps${gs ? ` (last time ${gs.reps})` : ''}` }, (v) => (row.reps = v));
+        const kg = input(it.key, i, 'kg', row.kg, { inputmode: 'decimal', enterkeyhint: 'next', placeholder: gs?.weight > 0 ? String(gs.weight) : '–', 'aria-label': `Set ${i + 1} weight in kg${gs?.weight > 0 ? ` (last time ${gs.weight})` : ''}` }, (v) => (row.kg = v));
+        const setEl = h('div', { class: ['tr-set', 'tr-sess-set', row.done && 'is-done'] });
+        /** Tick (or untick) the set: an empty field takes last time's number, and the rest starts. */
+        const mark = (on) => {
+          if (on && !row.done) {
             if (!row.reps.trim()) {
               if (!gs) {
                 err.textContent = `${x.name}, set ${i + 1}: type the reps first.`;
                 reps.focus();
-                return;
+                setChecked(done, false);
+                return false;
               }
               row.reps = String(gs.reps);
               reps.value = row.reps;
@@ -1163,24 +1421,54 @@ function sessionPage(host) {
             row.done = true;
             it.touched = true;
             live.restEndsAt = Date.now() + live.restSec * 1000;
-          } else row.done = false;
+            // The session tip explains ticking: done once, it goes (C2)
+            dismissTip('training.session');
+          } else if (!on) row.done = false;
           err.textContent = '';
           setEl.classList.toggle('is-done', row.done);
-          done.setAttribute('aria-pressed', String(row.done));
+          setChecked(done, row.done);
           done.title = row.done ? 'Done (click to undo)' : 'Mark this set done';
           flush();
           tick();
-        });
-        setEl.append(btn('', () => structural(() => it.sets.splice(i, 1)), { iconName: 'x', ghost: true, aria: `Remove set ${i + 1}` }));
+          return true;
+        };
+        const done = checkButton({ checked: row.done, label: `Set ${i + 1} done`, size: 'lg', onToggle: (next) => mark(next) });
+        done.classList.add('tr-done');
+        done.title = row.done ? 'Done (click to undo)' : 'Mark this set done';
+        // Enter ticks the set and goes on to the next one (the next set, or the next exercise)
+        const onEnter = (e) => {
+          if (e.key !== 'Enter' || e.isComposing) return;
+          e.preventDefault();
+          if (!row.done && !mark(true)) return;
+          // (after the last exercise: the field that adds one)
+          const next = refs.get(`${it.key}:${i + 1}:reps`) ?? el.nextElementSibling?.querySelector('input') ?? picker.input;
+          next?.focus();
+        };
+        reps.addEventListener('keydown', onEnter);
+        kg.addEventListener('keydown', onEnter);
+        const removeSet = () => {
+          const had = row.done || row.reps.trim() || row.kg.trim();
+          structural(() => it.sets.splice(i, 1));
+          if (had) undoable(`Set ${i + 1} of ${x.name} removed.`, () => !it.sets.includes(row) && it.sets.splice(Math.min(i, it.sets.length), 0, row));
+        };
+        setEl.append(
+          h('span', { class: 'tr-set-n label' }, `Set ${i + 1}`),
+          reps,
+          h('span', { class: 'tr-x', 'aria-hidden': 'true' }, '×'),
+          kg,
+          h('span', { class: 'tr-unit' }, 'kg'),
+          done,
+          btn('', removeSet, { iconName: 'x', ghost: true, aria: `Remove set ${i + 1}` }),
+        );
         rows.append(setEl);
       });
       body.append(rows, btn('Add set', () => structural(() => it.sets.push({ reps: '', kg: '', done: false }), `${it.key}:${it.sets.length}:reps`), { iconName: 'plus', ghost: true }));
     } else if (x.kind === 'sprint') {
       const list = h('div', { class: 'tr-times' });
-      it.times.forEach((t, i) => list.append(h('label', { class: 'tr-inline' }, input(it.key, i, 'times', t, { inputmode: 'decimal', placeholder: 'sec', 'aria-label': `Attempt ${i + 1} in seconds` }, (v) => (it.times[i] = v)), 's')));
+      it.times.forEach((t, i) => list.append(h('label', { class: 'tr-inline' }, input(it.key, i, 'times', t, { inputmode: 'decimal', placeholder: '–', 'aria-label': `Attempt ${i + 1} in seconds` }, (v) => (it.times[i] = v)), 's')));
       body.append(list, btn('Add attempt', () => structural(() => it.times.push(''), `${it.key}:${it.times.length}:times`), { iconName: 'plus', ghost: true }));
     } else {
-      const km = x.kind === 'distance' ? input(it.key, 0, 'km', it.km, { inputmode: 'decimal', placeholder: g.km || 'km', 'aria-label': g.km ? `Distance in km (last time ${g.km})` : 'Distance in km' }, (v) => (it.km = v)) : null;
+      const km = x.kind === 'distance' ? input(it.key, 0, 'km', it.km, { inputmode: 'decimal', placeholder: g.km || '–', 'aria-label': g.km ? `Distance in km (last time ${g.km})` : 'Distance in km' }, (v) => (it.km = v)) : null;
       const time = input(it.key, 0, 'time', it.time, { class: 'input tr-time', placeholder: g.time || 'm:ss', 'aria-label': `Time${g.time ? `, last time ${g.time}` : ''}` }, (v) => (it.time = v));
       body.append(h('div', { class: 'tr-fields' }, km ? h('label', { class: 'tr-inline' }, km, 'km') : null, h('label', { class: 'tr-inline' }, km ? 'in' : 'Time', time)));
     }
@@ -1194,10 +1482,11 @@ function sessionPage(host) {
     titleIn.value = live.title;
     noteIn.value = live.note;
     const ghosts = sessionGhosts(live, getState().workouts);
-    const els = live.items.map((it) => exerciseEl(it, ghosts)).filter(Boolean);
-    itemsEl.replaceChildren(...(els.length ? els : [h('p', { class: 'tr-routines-empty' }, 'Add the exercises you do below. Each one shows last time’s numbers.')]));
+    itemsEl.replaceChildren(...live.items.map((it) => exerciseEl(it, ghosts)).filter(Boolean));
+    itemsEl.hidden = !itemsEl.childElementCount;
     picker.refresh();
     if (keep) refs.get(keep)?.focus({ preventScroll: !focus });
+    tick();
   }
 
   /* ---- clock and rest timer ---- */
@@ -1205,6 +1494,8 @@ function sessionPage(host) {
     clock.textContent = clockText(sessionElapsed(live));
     const left = restLeft(live);
     const over = live.restEndsAt && live.restEndsAt <= Date.now() && Date.now() - live.restEndsAt < 8000;
+    // The rest timer comes in with the first ticked set
+    restEl.hidden = !live.restEndsAt && !live.items.some((it) => it.sets.some((x) => x.done));
     restEl.classList.toggle('is-running', left > 0);
     restEl.classList.toggle('is-over', !!over);
     restText.textContent = left > 0 ? clockText(left) : over ? 'Go!' : clockText(live.restSec);
@@ -1227,7 +1518,7 @@ function sessionPage(host) {
     }
     if (!res.entries.length) {
       err.textContent = live.items.length ? 'Log at least one set (tick it, or type its numbers) before you finish. Or discard the workout.' : 'Add an exercise first, or discard the workout.';
-      (live.items.length ? itemsEl.querySelector('input') : picker.el.querySelector('select'))?.focus();
+      (live.items.length ? itemsEl.querySelector('input') : picker.input)?.focus();
       return;
     }
     const workout = workoutFromSession(live, res.entries);
@@ -1240,6 +1531,7 @@ function sessionPage(host) {
       session: null,
     };
     commit(next);
+    dismissTip('training.intro');
     const records = recordsIn(next, workout.id);
     const length = workoutLength(workout);
     const words = records.slice(0, 2).map((r) => {
@@ -1251,7 +1543,6 @@ function sessionPage(host) {
   }
 
   build();
-  tick();
   const timer = setInterval(tick, 1000);
   const onHide = () => {
     if (document.visibilityState === 'hidden') flush();
@@ -1264,6 +1555,7 @@ function sessionPage(host) {
     flush,
     destroy() {
       flush();
+      alive = false;
       clearInterval(timer);
       document.removeEventListener('visibilitychange', onHide);
       window.removeEventListener('pagehide', flush);
@@ -1310,33 +1602,62 @@ function mountLivePill(slot) {
    The page
    ========================================================================== */
 
+/** This week on the page's title row, in a few words: 'This week: 2 workouts · 4,200 kg' ('' before the first one). */
+function weekStat(s) {
+  if (!s.workouts.length) return '';
+  const w = weekStats(s, todayKey());
+  if (!w.workouts) return 'No workouts yet this week';
+  const parts = [`This week: ${num(w.workouts)} ${w.workouts === 1 ? 'workout' : 'workouts'}`];
+  if (w.volumeKg) parts.push(`${Math.round(w.volumeKg).toLocaleString('en')} kg`);
+  else if (w.km) parts.push(formatKm(w.km));
+  return parts.join(' · ');
+}
+
+/** A section's title, like a card's on the other pages: its icon, its name, then its buttons. */
+function sectionHead(iconName, title, ...extra) {
+  return h('div', { class: 'tr-section-head' }, h('h2', { class: 'tr-section-title' }, icon(iconName, { size: 15 }), h('span', null, title)), ...extra);
+}
+
 function mount(root) {
   root.classList.add('tr-root');
-  const simple = plainSkin();
   let shown = LOG_PAGE;
   const cleanups = [];
 
+  // "Start workout"; a phone's title row says "Start" (the name stays "Start workout")
+  const startBtn = h(
+    'button',
+    { type: 'button', class: 'btn btn--primary', onClick: () => startSession() },
+    icon('play', { size: 14 }),
+    h('span', null, 'Start', h('span', { class: 'tr-start-more' }, ' workout')),
+  );
   const header = pageHeader({
     index: '07',
     title: 'Training',
     // What the page shows, not a promised result: whether you get better is up to the training
     subtitle: 'Log every workout. See how each lift, run and sprint changes over time.',
+    tipId: 'training.intro',
+    stat: weekStat(getState()),
     actions: [
       btn('Log past workout', () => openEditor(), { iconName: 'edit', ghost: true, small: false, title: 'Log a workout you already did, on any date' }),
-      btn('Start workout', () => startSession(), { iconName: 'play', primary: true, small: false }),
+      startBtn,
     ],
   });
-  const weekEl = h('section', { class: 'tr-week', 'aria-label': 'This week' });
   const tabsEl = h('div', { class: 'tr-tabs' });
   const bodyEl = h('div', { class: 'tr-body' });
-  // The page shows either the usual view or, while a workout is going, only that workout
-  const normalEl = h('div', { class: 'tr-normal' }, header, weekEl, tabsEl, bodyEl);
+  // The page shows either the usual view or, while a workout is going, only that workout. The
+  // header is the page's own (its first child), like every page's, so it gets the page's icon.
+  const normalEl = h('div', { class: 'tr-normal' }, tabsEl, bodyEl);
   const sessionEl = h('div', { class: 'tr-session', hidden: true });
-  root.append(normalEl, sessionEl);
+  // While a workout is going the header steps aside: the page keeps its h1 for screen readers
+  const sessionTitle = h('h1', { class: 'sr-only', hidden: true }, 'Training: workout in progress');
+  root.append(header, sessionTitle, normalEl, sessionEl);
   let sessionCtl = null;
+  let shownStat = null;
 
   function render() {
     const s = getState();
+    header.hidden = !!s.session;
+    sessionTitle.hidden = !s.session;
     if (s.session) {
       if (sessionCtl?.id !== s.session.id) {
         sessionCtl?.destroy();
@@ -1353,29 +1674,15 @@ function mount(root) {
     }
     sessionEl.hidden = true;
     normalEl.hidden = false;
+    const stat = weekStat(s);
+    if (stat !== shownStat) {
+      shownStat = stat;
+      header.setStat?.(stat);
+    }
     const focusId = document.activeElement?.closest?.('[data-tr-focus]')?.dataset.trFocus;
-    paintWeek(s);
     tabsEl.replaceChildren(seg('View', [{ value: 'log', label: 'Log' }, { value: 'progress', label: 'Progress' }], s.view.tab, (tab) => setView({ tab }), 'tr-tab-seg'));
     bodyEl.replaceChildren(s.view.tab === 'progress' ? progressView(s) : logView(s));
     if (focusId) bodyEl.querySelector(`[data-tr-focus="${CSS.escape(focusId)}"]`)?.focus({ preventScroll: true });
-  }
-
-  function paintWeek(s) {
-    const w = weekStats(s, todayKey());
-    if (simple) {
-      const parts = [plural(w.workouts, 'workout')];
-      if (w.volumeKg) parts.push(`${Math.round(w.volumeKg).toLocaleString('en')} kg lifted`);
-      if (w.km) parts.push(`${formatKm(w.km)} covered`);
-      weekEl.replaceChildren(h('p', { class: 'tr-week-line' }, `This week: ${parts.join(', ')}.`));
-      return;
-    }
-    const cell = (label, value) => h('div', { class: 'tr-stat panel' }, h('span', { class: 'label' }, label), h('span', { class: 'stat-value tr-stat-value' }, value));
-    weekEl.replaceChildren(
-      cell('Workouts this week', String(w.workouts)),
-      cell('Sets', String(w.sets)),
-      cell('Lifted', w.volumeKg ? `${Math.round(w.volumeKg).toLocaleString('en')} kg` : '—'),
-      cell('Distance', w.km ? formatKm(w.km) : '—'),
-    );
   }
 
   /* ---- Routines (Push day …): start one, edit one, make one ---- */
@@ -1409,28 +1716,46 @@ function mount(root) {
     });
     return h(
       'section',
-      { class: 'tr-routines', 'aria-label': 'Routines' },
-      h('div', { class: 'tr-routines-head' }, h('h2', { class: 'tr-section-title label' }, 'Routines'), btn('New routine', () => openRoutineEditor(), { iconName: 'plus', ghost: true })),
+      { class: 'tr-section tr-routines', 'aria-label': 'Routines' },
+      sectionHead('tr-routine', 'Routines', btn('New routine', () => openRoutineEditor(), { iconName: 'plus', ghost: true })),
       cards.length
         ? h('div', { class: 'tr-routine-grid' }, cards)
-        : h('p', { class: 'tr-routines-empty' }, 'Save the exercises you repeat as a routine, like Push day. Start it in one click with last time’s numbers ready, and type only what changed.'),
+        : emptyState({
+            icon: 'tr-routine',
+            title: 'No routines yet',
+            text: 'Save the exercises you repeat as a routine, like Push day: start it in one click with last time’s numbers ready.',
+            className: 'tr-empty-sm',
+          }),
     );
   }
 
   /* ---- Log ---- */
   function logView(s) {
+    // Nothing at all yet: one empty state (Start is at the top; a routine is the other way in)
+    if (!s.workouts.length && !s.routines.length) {
+      return h(
+        'div',
+        { class: 'tr-log' },
+        emptyState({
+          icon: 'dumbbell',
+          title: 'No workouts yet',
+          text: 'Press Start when you train: lifts with sets, reps and weight, runs with distance and time, cardio or sprint times. Every exercise gets its own progress graph.',
+          action: btn('Make a routine', () => openRoutineEditor(), { iconName: 'tr-routine', small: false, title: 'Save the exercises you repeat, like Push day' }),
+        }),
+      );
+    }
     const routines = routinesView(s);
     if (!s.workouts.length) {
-      return h('div', { class: 'tr-log' }, routines, emptyState({
-        icon: 'dumbbell',
-        title: 'No workouts yet',
-        text: 'Log lifts with sets, reps and weight, runs with distance and time, cardio, or sprint times. Every exercise gets its own progress graph.',
-        action: btn('Start a workout', () => startSession(), { iconName: 'play', primary: true, small: false }),
-      }));
+      return h(
+        'div',
+        { class: 'tr-log' },
+        routines,
+        h('section', { class: 'tr-section', 'aria-label': 'Workouts' }, sectionHead('list', 'Workouts'), emptyState({ icon: 'dumbbell', title: 'No workouts yet', text: 'Start a routine, or press Start at the top. Finished workouts show up here.', className: 'tr-empty-sm' })),
+      );
     }
     const exById = new Map(s.exercises.map((x) => [x.id, x]));
     const routineIds = new Set(s.routines.map((r) => r.id));
-    const list = h('div', { class: 'tr-log' }, routines, h('h2', { class: 'tr-section-title label' }, 'Workouts'));
+    const list = h('section', { class: 'tr-section tr-workouts', 'aria-label': 'Workouts' }, sectionHead('list', 'Workouts'));
     for (const w of s.workouts.slice(0, shown)) {
       const records = new Set(recordsIn(s, w.id).map((r) => r.exerciseId));
       const card = h(
@@ -1482,7 +1807,7 @@ function mount(root) {
     if (s.workouts.length > shown) {
       list.append(btn(`Show ${Math.min(LOG_PAGE, s.workouts.length - shown)} more`, () => ((shown += LOG_PAGE), render()), { ghost: true }));
     }
-    return list;
+    return h('div', { class: 'tr-log' }, routines, list);
   }
 
   /* ---- Progress ---- */
@@ -1492,7 +1817,7 @@ function mount(root) {
       .filter((r) => r.h.length)
       .sort((a, b) => (a.h[a.h.length - 1].date < b.h[b.h.length - 1].date ? 1 : -1));
     if (!trained.length) {
-      return emptyState({ icon: 'activity', title: 'No progress to show yet', text: 'Log a workout and each exercise in it gets a graph here.', action: btn('Log workout', () => openEditor(), { iconName: 'plus', primary: true }) });
+      return emptyState({ icon: 'activity', title: 'No progress to show yet', text: 'Finish a workout (or log a past one) and each exercise in it gets a graph here.' });
     }
     const selected = trained.find((r) => r.x.id === s.view.exerciseId) ?? trained[0];
     const today = todayKey();
@@ -1567,6 +1892,14 @@ function mount(root) {
         'div',
         { class: 'tr-controls' },
         metrics.length > 1 ? seg('Measure', metrics.map((m) => ({ value: m.id, label: m.label })), metric.id, (id) => setView({ metric: id }), 'tr-metric-seg') : h('span', { class: 'label' }, metric.label),
+        // A phone gets the measures as a menu: five of them don't fit its width
+        metrics.length > 1
+          ? h(
+              'div',
+              { class: 'tr-metric-menu' },
+              dropdown({ items: metrics.map((m) => ({ value: m.id, label: m.label })), value: metric.id, className: 'tr-metric-dd', ariaLabel: ({ picked }) => `Measure: ${picked?.label ?? ''}`, onSelect: (id) => setView({ metric: id }) }).el,
+            )
+          : null,
         seg('Time range', RANGES.map((r) => ({ value: r, label: RANGE_LABEL[r] })), s.view.range, (range) => setView({ range }), 'tr-range-seg'),
       ),
       h(
@@ -1699,11 +2032,18 @@ function mount(root) {
   return () => cleanups.forEach((off) => off());
 }
 
-/** For Home's Training widget: the data, its changes, and starting a workout. */
+/** For Home's Training widget: the data, its changes, and starting a workout; for Search: a
+ *  logged workout's dialog (openWorkout: false when there is no such workout). */
 export const trainingApi = Object.freeze({
   getState: () => getState(),
   subscribe: (fn) => store.subscribe(fn),
   startSession,
+  openWorkout: (id) => {
+    const w = getState().workouts.find((x) => x.id === id);
+    if (!w) return false;
+    openEditor(w);
+    return true;
+  },
 });
 
 /* ---- Rename (right-click menus) ---- */
@@ -1731,11 +2071,9 @@ async function renameRoutine(id) {
   commit({ ...cur, routines: cur.routines.map((x) => (x.id === id ? { ...x, name: cleanTitle(name).slice(0, NAME_MAX), updatedAt: Date.now() } : x)) });
 }
 
-/** This week's workouts on the nav (a dot while a workout is going; empty when none). */
+/** The nav shows only what's going on now: a dot while a workout is live (C6). */
 function badge() {
-  if (getState().session) return '●';
-  const n = weekStats(getState(), todayKey()).workouts;
-  return n ? String(n) : '';
+  return getState().session ? '●' : '';
 }
 
 export default {
@@ -1743,6 +2081,8 @@ export default {
   title: 'Training',
   icon: 'dumbbell',
   badge,
+  // The dot in words, in the links' names: "Training (workout in progress)"
+  badgeLabel: 'workout in progress',
   mount,
   topbar: mountLivePill,
 };

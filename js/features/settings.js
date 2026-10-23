@@ -5,7 +5,7 @@
 // sync with your other computers); appearance, motion and the start page in `settings` (this
 // computer only). Changes made elsewhere (the Pomodoro page, another window) show here at once.
 
-import { h, icon, pageHeader, toast, confirmDialog, openModal, formatDay, dateKey, uid, hiddenTipCount, resetTips } from '../ui.js';
+import { h, icon, pageHeader, dropdown, toast, confirmDialog, openModal, formatDay, dateKey, uid, hiddenTipCount, resetTips, reducedMotion } from '../ui.js';
 import { settings, stopSaving } from '../store.js';
 import { deleteAllFiles } from '../files.js';
 import { SKINS, normalizeSkin, THEMES } from '../skins.js';
@@ -17,7 +17,7 @@ import { syncConfig, syncStatus, onSyncStatus, disconnect } from '../sync.js';
 import { openSyncPanel, syncLabel } from '../sync.panel.js';
 import { describeCounts } from '../sync.logic.js';
 import { pomodoroApi } from './pomodoro.js';
-import { buildBackup, parseBackup, backupFileName, startPage, isNewerVersion, isDataKey, keysToDelete, cachesToDelete, storageKeys, pruneBackups, LEGAL_LINKS } from './settings.logic.js';
+import { buildBackup, parseBackup, backupFileName, startPage, isNewerVersion, isDataKey, keysToDelete, cachesToDelete, storageKeys, pruneBackups, LEGAL_LINKS, SETTINGS_SECTIONS, sectionAt } from './settings.logic.js';
 
 const STORAGE_TEXT = {
   checking: 'Checking how the browser keeps your data…',
@@ -36,20 +36,21 @@ const BACKUP_ERRORS = {
 /* ---- Small builders ---- */
 
 /**
- * A settings row: title + explanation on the left, the control on the right. Styling hooks only
- * (no behavior): a hint that reports how things are (Sync's status, the version, storage, blocked
- * notifications) rather than explaining the row carries st-row-hint--state (`state`, or per
- * update), so a template that hides explanations (Minimal) keeps it; `key` names the row
- * (data-row) for a template's own rules.
+ * A settings row: title + explanation on the left, the control on the right (on a phone too,
+ * on the title's line; `stack` puts a wide control, like a three-way choice, under the text
+ * there). Styling hooks only (no behavior): a hint that reports how things are (Sync's status,
+ * the version, storage, blocked notifications) rather than explaining the row carries
+ * st-row-hint--state (`state`, or per update), so a template that hides explanations (Minimal)
+ * keeps it; `key` names the row (data-row) for a template's own rules.
  */
-function row({ title, hint, control, state = false, key = null }) {
+function row({ title, hint, control, state = false, key = null, stack = false }) {
   const id = `st-${uid()}`;
   const hintEl = h('p', { class: ['st-row-hint', state && 'st-row-hint--state'] }, hint ?? '');
   hintEl.hidden = !hint;
   const controlEl = h('div', { class: 'st-row-control' }, typeof control === 'function' ? control(id) : control);
   const el = h(
     'div',
-    { class: 'st-row', dataset: key ? { row: key } : null },
+    { class: ['st-row', stack && 'st-row--stack'], dataset: key ? { row: key } : null },
     h('div', { class: 'st-row-text' }, h('div', { class: 'st-row-title', id }, title), hintEl),
     controlEl,
   );
@@ -112,8 +113,17 @@ function segControl(labelledBy, options, onChange) {
   };
 }
 
-const card = (title, rows, iconName = null) =>
-  h('section', { class: 'st-card panel hud', 'aria-label': title }, h('h2', { class: 'st-card-title label' }, iconName ? icon(iconName, { size: 14 }) : null, h('span', null, title)), rows.map((r) => r.el));
+/** A section's card (SETTINGS_SECTIONS: id, title, icon), named by its heading. The heading takes
+ *  the focus when the index jumps to it (tabindex -1: reachable that way, not by Tab). */
+function card(section, rows) {
+  const titleId = `st-sec-${section.id}-title`;
+  return h(
+    'section',
+    { class: 'st-card panel hud', id: `st-sec-${section.id}`, dataset: { section: section.id }, 'aria-labelledby': titleId },
+    h('h2', { class: 'st-card-title', id: titleId, tabindex: '-1' }, icon(section.icon, { size: 16 }), h('span', null, section.title)),
+    rows.map((r) => r.el),
+  );
+}
 
 const button = (label, onClick, { iconName, primary = false } = {}) =>
   h('button', { type: 'button', class: ['btn', 'btn--sm', primary && 'btn--primary'], onClick }, iconName ? icon(iconName, { size: 14 }) : null, label);
@@ -262,7 +272,8 @@ function openDeleteAll() {
     'button',
     {
       type: 'button',
-      class: 'btn btn--danger',
+      // The dialog's main button, filled like every danger confirm (ui.confirmDialog); Cancel has the focus
+      class: 'btn btn--danger btn--danger-fill',
       onClick: async () => {
         if (busy) return;
         busy = true;
@@ -314,7 +325,7 @@ function mount(root) {
   root.classList.add('st-root');
   const cleanups = [];
 
-  const header = pageHeader({ index: '00', title: 'Settings', subtitle: 'Sound and notifications, how LIFE/OS looks, where it opens, and your data.', tipId: 'settings.intro' });
+  const header = pageHeader({ index: '00', title: 'Settings', subtitle: 'How LIFE/OS looks, sound and notifications, where it opens, and your data.', tipId: 'settings.intro' });
 
   /* Sound & notifications (the timer's; they sync) */
   let sound;
@@ -348,7 +359,8 @@ function mount(root) {
   let mini;
   const miniRow = row({
     title: 'Mini timer',
-    hint: 'The small timer in the middle of the top bar.',
+    hint: 'The small timer that stays in view on every page.',
+    stack: true,
     control: (id) => {
       mini = segControl(id, [{ value: 'active', label: 'While running' }, { value: 'always', label: 'Always' }], (v) => pomodoroApi.setSettings({ showMini: v }));
       return mini.el;
@@ -373,13 +385,17 @@ function mount(root) {
     );
   }
 
-  /* Appearance (this computer) */
-  const templateRow = row({ title: 'Template', hint: '', control: button('Change…', () => shell.openAppearance(), { iconName: 'palette' }) });
+  /* Appearance (this computer). The button names the template in use and opens the Appearance
+     dialog (every template shows the name, Minimal too, which hides the explanations) */
+  const templateName = h('span', { class: 'st-value' });
+  const templateBtn = h('button', { type: 'button', class: 'btn btn--sm st-template-btn', 'aria-label': 'Change the template…', onClick: () => shell.openAppearance() }, icon('palette', { size: 14 }), templateName, icon('chevron-right', { size: 14, className: 'st-chev' }));
+  const templateRow = row({ title: 'Template', hint: '', control: templateBtn });
 
   let theme;
   const themeRow = row({
     title: 'Light or dark',
     hint: 'System follows your computer’s setting.',
+    stack: true,
     control: (id) => {
       theme = segControl(
         id,
@@ -437,6 +453,7 @@ function mount(root) {
   });
   const colorKindRows = COLOR_KINDS.map((k) => {
     const r = row({
+      key: `color-${k.id}`,
       title: k.name,
       hint: k.hint,
       control: (id) => {
@@ -468,7 +485,9 @@ function mount(root) {
   function paintSettings() {
     const s = settings.get();
     const current = SKINS.find((k) => k.id === normalizeSkin(s.skin));
-    templateRow.hint(current ? `${current.name}: ${current.description}` : '');
+    templateName.textContent = current?.name ?? 'Change…';
+    templateBtn.setAttribute('aria-label', current ? `Template: ${current.name}. Change…` : 'Change the template…');
+    templateRow.hint(current?.description ?? '');
     theme.set(THEMES.includes(s.theme) ? s.theme : 'dark');
     motion.set(s.motion === 'reduced');
     const colors = normalizeColorPrefs(s.colors);
@@ -569,20 +588,88 @@ function mount(root) {
     }),
   );
 
-  root.append(
-    header,
+  const rowsOf = {
+    appearance: [templateRow, themeRow, paletteRow, motionRow, tipsRow],
+    colors: [colorsRow, ...colorKindRows],
+    sound: [soundRow, notifyRow, miniRow],
+    startup: [startRow],
+    sync: [syncRow, backupRow, restoreRow, storageRow, deleteRow],
+    about: [versionRow, elsewhereRow],
+    legal: legalRows,
+  };
+  const cards = new Map(SETTINGS_SECTIONS.map((sec) => [sec.id, card(sec, rowsOf[sec.id])]));
+
+  /* The index: a column of the sections beside the cards on wide screens, one jump menu at the
+     top on narrower ones (css/features/settings.css picks one). Both mark where you are. */
+  let current = SETTINGS_SECTIONS[0].id;
+  let pinnedUntil = 0; // after a jump: the section jumped to stays marked while the page glides there
+  const indexLinks = SETTINGS_SECTIONS.map((sec) =>
     h(
-      'div',
-      { class: 'st-cards' },
-      card('Sound & notifications', [soundRow, notifyRow, miniRow], 'bell'),
-      card('Appearance', [templateRow, themeRow, paletteRow, motionRow, tipsRow], 'palette'),
-      card('Color coding', [colorsRow, ...colorKindRows], 'tag'),
-      card('Start-up', [startRow], 'home'),
-      card('Sync & backup', [syncRow, backupRow, restoreRow, storageRow, deleteRow], 'sync'),
-      card('About', [versionRow, elsewhereRow], 'tip'),
-      card('Legal', legalRows, 'note'),
+      'li',
+      null,
+      h('button', { type: 'button', class: 'st-index-link', dataset: { id: sec.id }, onClick: () => jump(sec.id) }, icon(sec.icon, { size: 15 }), h('span', null, sec.title)),
     ),
   );
+  const jumpMenu = dropdown({
+    icon: 'list',
+    items: SETTINGS_SECTIONS.map((sec) => ({ value: sec.id, label: sec.title, icon: sec.icon })),
+    value: current,
+    onSelect: (id) => jump(id),
+    className: 'st-jump-btn',
+    menuLabel: 'Settings sections',
+    ariaLabel: ({ picked }) => `Go to a section (now: ${picked?.label ?? ''})`,
+  });
+  const index = h(
+    'nav',
+    { class: 'st-index', 'aria-label': 'Settings sections' },
+    h('ul', { class: 'st-index-list' }, indexLinks),
+    h('div', { class: 'st-jump' }, jumpMenu.el),
+  );
+
+  function mark(id) {
+    if (!id || id === current) return;
+    current = id;
+    for (const li of indexLinks) {
+      const link = li.firstChild;
+      if (link.dataset.id === id) link.setAttribute('aria-current', 'location');
+      else link.removeAttribute('aria-current');
+    }
+    jumpMenu.update({ value: id });
+  }
+  indexLinks[0].firstChild.setAttribute('aria-current', 'location');
+
+  function jump(id) {
+    const sec = cards.get(id);
+    if (!sec) return;
+    sec.scrollIntoView({ block: 'start', behavior: reducedMotion() ? 'auto' : 'smooth' });
+    sec.querySelector('.st-card-title')?.focus({ preventScroll: true });
+    pinnedUntil = Date.now() + 900;
+    mark(id);
+  }
+
+  // Which section is in view: the page's scroll area is the shell's (.main), so any scroll is
+  // heard (capture) and measured once a frame
+  let spyFrame = 0;
+  const spy = () => {
+    spyFrame = 0;
+    if (!root.isConnected || Date.now() < pinnedUntil) return;
+    const scroller = root.closest('.main') ?? document.scrollingElement;
+    const top = scroller === document.scrollingElement ? 0 : scroller.getBoundingClientRect().top;
+    const stickyJump = index.querySelector('.st-jump')?.getClientRects().length ? index.offsetHeight : 0;
+    const tops = [...cards].map(([id, el]) => ({ id, top: el.getBoundingClientRect().top - top }));
+    const atEnd = scroller.scrollTop > 0 && scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 4;
+    mark(sectionAt(tops, { line: stickyJump + 96, atEnd }));
+  };
+  const onScroll = () => {
+    if (!spyFrame) spyFrame = requestAnimationFrame(spy);
+  };
+  window.addEventListener('scroll', onScroll, { capture: true, passive: true });
+  cleanups.push(() => {
+    window.removeEventListener('scroll', onScroll, { capture: true });
+    if (spyFrame) cancelAnimationFrame(spyFrame);
+  });
+
+  root.append(header, h('div', { class: 'st-layout' }, index, h('div', { class: 'st-cards' }, [...cards.values()])));
 
   // Live: the timer's settings (Pomodoro page, other windows), this computer's settings, sync
   let timerSig = '';

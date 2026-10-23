@@ -29,12 +29,28 @@
    - After changing --bg, update this skin's colors in SKIN_BOOT (js/skins.js
      and index.html's head script, kept equal by tools/tests/skins.test.js).
 
-   Sections: tokens · page · shell · shared kit · tasks · notes · notes board ·
-   habits · habits insights · calendar · motion and forced colors. Phone and
-   tablet rules sit with the part they change. The LIFE index (chart and top-bar
-   ticker), counters and shortcut tips are left out through the .lo-deco / .lo-hint
-   hooks in the feature JS, so they need no rules here. The event editor and the
-   Appearance preview card need nothing beyond the shared kit.
+   Sections: tokens · page · shell · shared kit · tasks · notes · notes board · habits ·
+   habits insights · calendar · home · pomodoro, then "Simple only, from here on" (its own
+   states, and its training, finance, health and settings) · motion and forced colors.
+   Phone and tablet rules sit with the part they change. The LIFE index (chart and top-bar
+   ticker), counters and shortcut tips are left out through the .lo-deco / .lo-hint hooks
+   in the feature JS, so they need no rules here.
+
+   Simple's own looks (in the last section only, scoped to the Simple template itself, so
+   Minimal, Old Money, Coquette and Y2K keep theirs on top of the [data-plain] base;
+   tools/tests/skins.test.js checks that nothing above that section names Simple alone):
+   - A choice you picked (a segment, a preset, a repeat, a weekday): the raised paper pill
+     with a fine ink edge, the shared kit's segmented look.
+   - Where you are (the menu, the notes rail, the Settings index, More's pages): a soft gray
+     fill and semibold words.
+   - Done: a filled ink rounded square with a paper tick (tasks, habits, sets, Home, Calendar);
+     missed: a soft gray square with its edge (no hatching anywhere in Simple).
+   - A switch: on is an ink track with a paper knob on the right; off is a soft track with a
+     visible edge and a gray knob on the left.
+   - A card's title: 16px semibold ink, its page icon before it.
+   - A dialog's labels: plain words over their fields, no icon before them.
+   - A chart: soft gray bars (3:1) under an ink trend line; the bar you point at in ink.
+   Hover fills sit in @media (hover: hover) and (pointer: fine): a tap never leaves one behind.
    ========================================================================== */
 
 /* ==========================================================================
@@ -259,24 +275,7 @@
   color: var(--accent-ink);
 }
 
-/* Icon rail (tablet) and tab bar (phone): the badge shrinks back to a corner count */
-@media (max-width: 900px) {
-  [data-plain] .nav-badge {
-    min-width: 0;
-    padding: 0 5px;
-    font-size: 10px;
-    line-height: 16px;
-  }
-}
-
-@media (max-width: 640px) {
-  [data-plain] .tab .nav-badge {
-    min-width: 0;
-    padding: 0 5px;
-    font-size: 10px;
-    line-height: 16px;
-  }
-}
+/* (The icon rail and the phone tab bar show a dot, .nav-dot in css/shell.css, not a count) */
 
 [data-plain] .sidebar-foot {
   border: 0;
@@ -330,20 +329,10 @@
   border-bottom-color: var(--line);
 }
 
-[data-plain] .crumbs {
-  font-size: var(--fs-sm);
-}
-
-/* The LIFE ticker is a trading readout: Simple keeps the top bar quiet (Habits still works fully) */
+/* The LIFE ticker is a trading readout: Simple keeps the top bar quiet (Habits still works fully).
+   (The crumbs are hidden in every template by css/shell.css: the page's title says where you are) */
 [data-plain] .topbar-widget[data-feature="habits"] {
   display: none;
-}
-
-/* With the ticker gone, the crumbs keep their place on narrow screens */
-@media (max-width: 760px) {
-  [data-plain] .topbar:has(.topbar-widget) .crumbs > .crumb-current {
-    display: inline;
-  }
 }
 
 [data-plain] .clock {
@@ -405,14 +394,16 @@
   font-weight: 600;
 }
 
-.btn--primary:where([data-plain] *):hover {
-  filter: brightness(0.9);
-}
+@media (hover: hover) and (pointer: fine) {
+  .btn--primary:where([data-plain] *):hover {
+    filter: brightness(0.9);
+  }
 
-.btn--primary:where([data-plain][data-theme="light"] *):hover {
-  filter: none;
-  background: #333333;
-  border-color: #333333;
+  .btn--primary:where([data-plain][data-theme="light"] *):hover {
+    filter: none;
+    background: #333333;
+    border-color: #333333;
+  }
 }
 
 /* Destructive stays plain: no dashes or hatching, the label and dialog say what happens */
@@ -420,22 +411,25 @@
   border-style: solid;
 }
 
-.btn--danger:where([data-plain] *):hover {
-  background: var(--surface-2);
-  border-color: var(--text-3);
+@media (hover: hover) and (pointer: fine) {
+  .btn--danger:where([data-plain] *):hover {
+    background: var(--surface-2);
+    border-color: var(--text-3);
+  }
 }
 
-/* ---- Fields ---- */
+/* ---- Fields ----
+   The color only: the `background` shorthand would wipe the select's chevron (components.css) */
 .input:where([data-plain] *),
 .textarea:where([data-plain] *),
 .select:where([data-plain] *) {
-  background: var(--surface);
+  background-color: var(--surface);
 }
 
 .input:where([data-plain] *):focus,
 .textarea:where([data-plain] *):focus,
 .select:where([data-plain] *):focus {
-  background: var(--surface);
+  background-color: var(--surface);
 }
 
 /* ---- Checkbox: a soft rounded square ---- */
@@ -564,14 +558,16 @@
   color: #ffffff;
 }
 
-.toast-action:where([data-plain] *):hover {
-  background: var(--accent);
-  color: var(--accent-ink);
-}
+@media (hover: hover) and (pointer: fine) {
+  .toast-action:where([data-plain] *):hover {
+    background: var(--accent);
+    color: var(--accent-ink);
+  }
 
-.toast-action:where([data-plain][data-theme="light"] *):hover {
-  background: #ffffff;
-  color: #1a1a1a;
+  .toast-action:where([data-plain][data-theme="light"] *):hover {
+    background: #ffffff;
+    color: #1a1a1a;
+  }
 }
 
 /* ---- Context menu (right-click): a soft card, sentence case, a gentle fill on the lit item.
@@ -605,10 +601,17 @@
   color: var(--text-2);
 }
 
-[data-plain] .ctx-item:not([aria-disabled="true"]):is(:hover, :focus),
+[data-plain] .ctx-item:not([aria-disabled="true"]):focus,
 [data-plain] .ctx-item:focus-visible {
   background: var(--ctx-hi);
   box-shadow: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-plain] .ctx-item:not([aria-disabled="true"]):hover {
+    background: var(--ctx-hi);
+    box-shadow: none;
+  }
 }
 
 /* From the keyboard, a ring as well (as the menus' items have, css/components.css): the soft fill
@@ -650,6 +653,21 @@
 .modal-foot:where([data-plain] *) {
   border-top: 0;
   padding: var(--space-3) var(--space-6) var(--space-5);
+}
+
+/* A phone's sheet: the body's 24px sides were wide on a 375px screen */
+@media (max-width: 640px) {
+  .modal-head:where([data-plain] *) {
+    padding: var(--space-4) var(--space-4) var(--space-1);
+  }
+
+  .modal-body:where([data-plain] *) {
+    padding: var(--space-3) var(--space-4);
+  }
+
+  .modal-foot:where([data-plain] *) {
+    padding-inline: var(--space-4);
+  }
 }
 
 /* ==========================================================================
@@ -722,14 +740,15 @@
   background: var(--surface-2);
 }
 
-[data-plain] .tk-token:hover {
-  border-style: solid;
-  background: var(--surface-3);
+@media (hover: hover) and (pointer: fine) {
+  [data-plain] .tk-token:hover {
+    border-style: solid;
+    background: var(--surface-3);
+  }
 }
 
-/* Filter and section counts: the subtitle already says what today holds */
-[data-plain] .tk-filters .seg-count,
-[data-plain] .tk-sec-seg .seg-count {
+/* Filter counts: the status beside the title already says what today holds */
+[data-plain] .tk-filters .seg-count {
   display: none;
 }
 
@@ -744,7 +763,10 @@
   grid-template-columns: 28px auto minmax(0, 1fr) auto;
 }
 
+/* One ring, inside the row: the default ring above (as strong as tasks.css's outline: none, and
+   later) drew a second one 2px outside it */
 [data-plain] .tk-row:focus-visible {
+  outline: none;
   box-shadow: inset 0 0 0 2px var(--line-focus);
 }
 
@@ -770,11 +792,15 @@
   border-color: transparent;
 }
 
-/* Overdue: a tinted chip in the alert tone (red while color coding is on, else gray) */
+/* Overdue: a tinted chip in the alert tone (red while color coding is on, else gray). The task's
+   page (aside.tk-page, on <body>) sits outside .tk-root, where --tk-alert is set: the fallback
+   keeps its chip the same tinted one as the list's (without it, it lost both tint and red).
+   Its words a step deeper than the alert: on the open task's gray row (or a hovered one) the
+   alert over its own tint read 4.1:1 (light) and 4.4:1 (dark); this keeps 4.8:1 or more */
 [data-plain] .tk-due-tag--overdue {
-  background: color-mix(in srgb, var(--tk-alert) 14%, transparent);
+  background: color-mix(in srgb, var(--tk-alert, var(--alert)) 12%, transparent);
   border-color: transparent;
-  color: var(--tk-alert);
+  color: color-mix(in srgb, var(--tk-alert, var(--alert)) 80%, var(--text));
 }
 
 [data-plain] .tk-due-tag--overdue strong {
@@ -828,8 +854,18 @@
   content: none;
 }
 
-[data-plain] .tk-detail-foot {
+[data-plain] .tk-detail-foot,
+[data-plain] .tk-more {
   border-top-style: solid;
+}
+
+/* ---- A task's page (tasks.panel.js) ----
+   It writes like a page: the caret (and the line under the title) shows where you type, as in
+   the shared look. tasks.css sets outline: none on the page, its title, its notes and the dialog's
+   form, but the default ring above is as strong and comes later, so it boxed the notes in 2px of
+   ink while you wrote (and drew a ring round the whole page and the dialog's form) */
+[data-plain] :is(.tk-page, .tk-page-title, .tk-page-text, .tk-page-view, .tk-detail):focus-visible {
+  outline: none;
 }
 
 /* ==========================================================================
@@ -1396,7 +1432,8 @@
   box-shadow: none;
 }
 
-/* ---- Task chips: overdue is a firmer outline, priority letters stay in the day list ---- */
+/* ---- Task chips: overdue is a firmer outline (priority is the bar at a chip's end; the day's
+   list keeps its letters) ---- */
 [data-plain] .cal-task {
   border-radius: 6px;
 }
@@ -1405,10 +1442,6 @@
 [data-plain] .cal-trow.is-overdue {
   border-style: solid;
   border-color: var(--text-3);
-}
-
-[data-plain] .cal-month .cal-pri {
-  display: none;
 }
 
 /* ---- Events ---- */
@@ -1435,9 +1468,21 @@
   background-color: var(--accent-soft);
 }
 
-/* Week view: priority letters stay in the day list only */
-[data-plain] .cal-wk-allday .cal-pri {
-  display: none;
+/* The legend's month sample is a short bar (calendar.css's later .cal-hbar rule stretched it to
+   70% of the line, which squeezed its sentence into a column) */
+[data-plain] .cal-legend .cal-legend-hbar {
+  width: 20px;
+}
+
+/* Small print the base sets at 9px: Simple's floor is 12px (11px where a grid has no room) */
+[data-plain] .cal-ad-label {
+  font-size: 11px;
+}
+
+[data-plain] .cal-now-label {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 600;
 }
 
 /* ==========================================================================
@@ -1462,12 +1507,8 @@
   color: var(--text);
 }
 
-[data-plain] .hm-more,
-[data-plain] .hm-count {
-  font-size: var(--fs-sm);
-}
-
 [data-plain] .hm-more {
+  font-size: var(--fs-sm);
   color: var(--text-2);
 }
 
@@ -1480,8 +1521,10 @@
   background: var(--surface);
 }
 
-[data-plain] .hm-day:hover {
-  background: var(--surface-2);
+@media (hover: hover) and (pointer: fine) {
+  [data-plain] .hm-day:hover {
+    background: var(--surface-2);
+  }
 }
 
 [data-plain] .hm-day.is-weekend {
@@ -1502,15 +1545,6 @@
 [data-plain] .hm-day-tag {
   font-size: var(--fs-2xs);
   font-weight: 600;
-}
-
-/* Priority stays visible on Home, as a small round letter */
-[data-plain] .hm-day .cal-pri {
-  min-width: 15px;
-  height: 15px;
-  padding: 0;
-  border-radius: var(--radius-pill);
-  font-size: 9px;
 }
 
 [data-plain] .hm-pomo-digits {
@@ -1676,11 +1710,374 @@
   border-color: var(--line-strong);
 }
 
-/* Six tabs on a phone: counts like "2/5" stay inside their tab */
-@media (max-width: 640px) {
-  [data-plain] .tab .nav-badge {
-    padding: 0 3px;
+/* ==========================================================================
+   Simple only, from here on ([data-skin="simple"]: Old Money, Coquette and Y2K keep the
+   [data-plain] base above and draw their own). After every page's base rules, so these win.
+   One look per meaning on every page: picked, where you are, done, a switch, a card's title.
+   ========================================================================== */
+
+/* ---- Picked: the segmented control's raised paper pill with its fine ink edge, also for the
+   choices built another way (the event's Repeat, a habit's weekdays, the timer's presets).
+   Not picked, they sit flat on the soft track, as a segment does ---- */
+[data-skin="simple"] .cal-ed-seg-opt.is-on,
+[data-skin="simple"] .hb-wd[aria-pressed="true"],
+[data-skin="simple"] .pm-preset[aria-pressed="true"] {
+  border-color: transparent;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text) 60%, transparent), 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+[data-skin="simple"][data-theme="light"] .cal-ed-seg-opt.is-on,
+[data-skin="simple"][data-theme="light"] .hb-wd[aria-pressed="true"],
+[data-skin="simple"][data-theme="light"] .pm-preset[aria-pressed="true"] {
+  background: #ffffff;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text) 60%, transparent), 0 1px 3px rgba(0, 0, 0, 0.14);
+}
+
+/* A habit's weekdays: seven soft tiles, the picked ones raised (words, not mono caps) */
+[data-skin="simple"] .hb-wd {
+  border-color: transparent;
+  border-radius: var(--radius-sm);
+  background: var(--surface-3);
+  box-shadow: none;
+  font-family: var(--font-sans);
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+}
+
+[data-skin="simple"] .hb-wd-sub {
+  font-size: var(--fs-2xs);
+  opacity: 1;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="simple"] .hb-wd:not(:disabled):not([aria-pressed="true"]):hover {
+    border-color: transparent;
+    background: var(--surface-2);
+    color: var(--text);
   }
+}
+
+/* The timer's presets: flat soft cards; the one in use is raised with its ink edge */
+[data-skin="simple"] .pm-preset {
+  border-color: transparent;
+  background: var(--surface-2);
+  box-shadow: none;
+}
+
+[data-skin="simple"] .pm-preset[aria-pressed="true"] .pm-preset-sub {
+  color: var(--text-2);
+  opacity: 1;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="simple"] .pm-preset:not([aria-pressed="true"]):hover {
+    border-color: transparent;
+    background: var(--surface-3);
+  }
+}
+
+/* ---- Where you are: a soft gray fill and semibold words, as in the menu ---- */
+[data-skin="simple"] .st-index-link[aria-current] {
+  background: var(--surface-3);
+  box-shadow: none;
+}
+
+[data-skin="simple"] .more-page[aria-current="page"] {
+  border-color: transparent;
+}
+
+/* ---- Done: a filled ink rounded square with a paper tick, the same box on every page (the
+   Calendar day's habit circles too) ---- */
+[data-skin="simple"] .cal-hcheck {
+  border-width: 1.5px;
+  border-color: var(--text-3);
+  border-radius: 6px;
+}
+
+[data-skin="simple"] .cal-hcheck[aria-checked="true"] {
+  border-color: var(--accent);
+  box-shadow: none;
+}
+
+/* ---- Missed (a planned day gone by, still tickable): a soft gray square with its edge, not the
+   base's hatching (Simple has none): the habit grid, its legend and the Day list ---- */
+[data-skin="simple"] :is(.hb-day[data-state="miss"], .hb-swatch[data-s="miss"], .hb-row.is-miss .hb-row-check) {
+  background: var(--heat-0);
+}
+
+/* ---- Dialogs: one label style, plain words over their fields (the task and event dialogs put an
+   icon before every label, the habit and subscription dialogs none) ---- */
+[data-skin="simple"] .modal :is(.label, label) > svg {
+  display: none;
+}
+
+/* ---- A switch: off keeps an edge you can see (3:1) around its soft track; on is ink ---- */
+[data-skin="simple"] .pm-switch:not([aria-checked="true"]) .pm-switch-track {
+  box-shadow: inset 0 0 0 1px var(--field-line);
+}
+
+/* The event's All day is the same switch (it kept the default look's small square toggle with a
+   square knob), its word in plain sentence case */
+[data-skin="simple"] .cal-ed-switch {
+  font-family: var(--font-sans);
+  font-size: var(--fs-sm);
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+[data-skin="simple"] .cal-ed-switch-track {
+  width: 38px;
+  height: 22px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: var(--surface-3);
+  box-shadow: inset 0 0 0 1px var(--field-line);
+}
+
+[data-skin="simple"] .cal-ed-switch-thumb {
+  top: 3px;
+  left: 3px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--text-2);
+}
+
+[data-skin="simple"] .cal-ed-switch[aria-checked="true"] .cal-ed-switch-track {
+  background: var(--text);
+  box-shadow: none;
+}
+
+[data-skin="simple"] .cal-ed-switch[aria-checked="true"] .cal-ed-switch-thumb {
+  background: var(--bg);
+  transform: translateX(16px);
+}
+
+/* ---- A card's title: one size and weight on every page (a Home widget, a panel, a Settings
+   section, a Training list, the Calendar day's Tasks and Habits), its page icon before it where
+   the card has one ---- */
+[data-skin="simple"] :is(.hm-card-title, .hm-week-title, .hm-start-title, .pm-card-title, .tr-section-title, .hbi-card-title, .cal-tray-title, .cal-plan-title),
+[data-skin="simple"] .fn-root .fn-panel-title,
+[data-skin="simple"] .st-root .st-card-title {
+  font-family: var(--font-sans);
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.25;
+  text-transform: none;
+  color: var(--text);
+}
+
+[data-skin="simple"] .tr-section-title > svg {
+  color: var(--text-2);
+}
+
+/* ---- Habits insights: soft gray bars under an ink trend line (white bars in the dark were the
+   loudest thing on the page, and the line had to cross them); the bar under the pointer in ink.
+   The bars keep 3:1 against the card (WCAG 1.4.11) ---- */
+[data-skin="simple"] .hbi {
+  --simple-bar: color-mix(in srgb, var(--text) 40%, var(--surface-solid));
+}
+
+[data-skin="simple"][data-theme="light"] .hbi {
+  --simple-bar: color-mix(in srgb, var(--text) 48%, var(--surface-solid));
+}
+
+[data-skin="simple"] :is(.hbi-col:not(.hbi-col--planned), .hbi-zero) {
+  fill: var(--simple-bar);
+}
+
+[data-skin="simple"] .hbi-slot.is-hot :is(.hbi-col:not(.hbi-col--planned), .hbi-zero) {
+  fill: var(--text);
+}
+
+[data-skin="simple"] .hbi-line--trend {
+  stroke: var(--text);
+}
+
+[data-skin="simple"] .hbi-dot--trend {
+  fill: var(--text);
+}
+
+/* The week plan's load under each day: a soft gray bar too, not seven ink stripes */
+[data-skin="simple"] .hb-plan-bar {
+  border-radius: var(--radius-pill);
+}
+
+[data-skin="simple"] .hb-plan-bar-fill {
+  background: var(--text-3);
+}
+
+/* The legend and the pointer's tooltip draw the same marks */
+[data-skin="simple"] :is(.hbi-swatch--col, .hbi-key--col) {
+  background: var(--simple-bar);
+}
+
+[data-skin="simple"] :is(.hbi-swatch--trend, .hbi-key--trend) {
+  background: var(--text);
+}
+
+/* ---- Tasks: the Smart order's headings read as headings (14px), late ones in the late color ---- */
+[data-skin="simple"] .tk-group-head {
+  gap: 8px;
+  padding: var(--space-3) var(--space-3) var(--space-1);
+  font-size: var(--fs-sm);
+}
+
+[data-skin="simple"] .tk-group-count {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- Calendar: every event look reads as an event (the outline one kept only its spine on the
+   timeline; the hatched one was the only hatching left in Simple: a light tint instead) ---- */
+[data-skin="simple"] .cal-ev--outline {
+  border-color: var(--line-strong);
+  background: var(--surface-solid);
+}
+
+[data-skin="simple"] .cal-ev--hatched {
+  border-color: transparent;
+  background: linear-gradient(var(--heat-0), var(--heat-0)), var(--surface-solid);
+}
+
+[data-skin="simple"] .cal-tl .cal-tl-col > .cal-tlev.is-band.cal-band--hatched {
+  background: color-mix(in srgb, var(--cc, var(--text)) 7%, transparent);
+}
+
+/* A band in a week's narrow day: its time on a line under its name. On one line (1512px and up)
+   the day's "▲ 1 earlier", right-aligned at the top of the view where a band from the first hour
+   has its label, covered the time */
+@container cal-col (max-width: 240px) {
+  [data-skin="simple"] .cal-band-label .cal-tlev-time {
+    flex-basis: 100%;
+  }
+}
+
+/* A band on a day gone by fades like every past event; its time in ink, so the faded words keep
+   4.5:1 (gray under the 70% fade read 3.5:1 on the band's wash) */
+[data-skin="simple"] .cal-tlev.is-band.is-past .cal-band-label .cal-tlev-time {
+  color: var(--text);
+}
+
+/* ---- Training: lists and cards with Simple's titles and room; the live bar a soft sheet ---- */
+[data-skin="simple"] .tr-log {
+  gap: var(--space-7);
+}
+
+[data-skin="simple"] .tr-card-head .label {
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+}
+
+/* A set you ticked: a soft gray row (the shared 10% white wash in the dark took its "Set 1", its
+   "kg" and its fields' edges under AA); the filled tick says it is done */
+[data-skin="simple"] .tr-sess-set.is-done {
+  background: var(--surface-2);
+}
+
+[data-skin="simple"] .tr-sess-bar {
+  border-color: var(--line);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+/* The workout's name is a field: a fine line under it says so (without one, the gray "Name this
+   workout" read as a grayed-out title and the field had no edge, WCAG 1.4.11) */
+[data-skin="simple"] .input.tr-sess-title {
+  border-bottom: 1px solid var(--field-line);
+}
+
+[data-skin="simple"] .tr-rest {
+  border-radius: var(--radius-pill);
+}
+
+/* The rest timer running: its ink edge says it, on the soft gray (the 10% white wash in the dark
+   took its "Rest" under AA, as on a ticked set) */
+[data-skin="simple"] .tr-rest.is-running {
+  background: var(--surface-2);
+}
+
+[data-skin="simple"] .tr-newex {
+  border-width: 1px;
+  border-radius: var(--radius);
+  background: var(--surface-2);
+}
+
+/* ---- Finance: the header's totals, the soon chip as a soft pill (solid ink read as late) ---- */
+[data-skin="simple"] .fn-sum-total {
+  font-weight: 650;
+}
+
+[data-skin="simple"] .fn-root .fn-panel-head {
+  border-bottom-color: var(--line);
+}
+
+[data-skin="simple"] .fn-root .fn-meta .fn-next.tag--solid {
+  border-color: transparent;
+  background: var(--surface-3);
+  color: var(--text);
+  font-weight: 600;
+}
+
+/* ---- Health: "Idea" in the menu is a soft pill like the menu's counts (no dashes in Simple);
+   the ideas under the empty state are words with a small heading ---- */
+[data-skin="simple"] .nav-soon {
+  padding: 0 7px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: var(--surface-3);
+  font-size: var(--fs-2xs);
+  font-weight: 500;
+  color: var(--text-2);
+}
+
+[data-skin="simple"] :is(.nav-item, .more-page)[aria-current="page"] .nav-soon {
+  background: var(--surface);
+  color: var(--text);
+}
+
+/* ---- A workout going on: Training's mark in the menu and in More is the same small red dot as
+   "Workout in progress" and the top bar's pill (its "●" sat in a count's pill, which read as a
+   switch, black on white where Training is open) ---- */
+[data-skin="simple"] :is(.nav-item[data-id="training"], .more-page[data-id="training"]) .nav-badge:not(:empty) {
+  width: 8px;
+  min-width: 0;
+  height: 8px;
+  padding: 0;
+  border-radius: 50%;
+  background: var(--alert);
+  font-size: 0;
+  line-height: 0;
+}
+
+[data-skin="simple"] .hl-ideas-title {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--text-2);
+}
+
+/* Wide enough for the six ideas on one line (at 46ch "Mood ·" ended a line on its own dot) */
+[data-skin="simple"] .hl-ideas {
+  max-width: 64ch;
+}
+
+/* ---- Settings: the section's title (semibold) leads its rows (medium, a step below it) ---- */
+[data-skin="simple"] .st-root .st-card-title {
+  margin-top: var(--space-5);
+}
+
+[data-skin="simple"] .st-root .st-card-title > .icon {
+  color: var(--text-2);
+}
+
+[data-skin="simple"] .st-row-title {
+  font-weight: 500;
+}
+
+[data-skin="simple"] .st-row-hint {
+  color: var(--text-2);
 }
 
 /* ==========================================================================

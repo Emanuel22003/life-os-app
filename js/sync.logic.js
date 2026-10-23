@@ -11,7 +11,8 @@ import { WELCOME_NOTE, WELCOME_NOTE_EARLIER_BODIES } from './features/notes.logi
 export const SYNCED = Object.freeze({
   tasks: Object.freeze(['view']),
   notes: Object.freeze(['view', 'selectedId', 'layout', 'boardCollapsed']),
-  habits: Object.freeze(['view']),
+  // (the open tab, Check in · Plan · Insights, is this window's choice too)
+  habits: Object.freeze(['view', 'tab']),
   calendar: Object.freeze(['view', 'layers']),
   pomodoro: Object.freeze(['state']),
   training: Object.freeze(['view', 'session']),

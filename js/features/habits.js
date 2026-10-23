@@ -1,15 +1,16 @@
-// LIFE/OS — 03 // Habits: weekday-planned protocols. The page pins the LIFE-index
-// trading chart (habits.ticker.js) above three tabs: TODAY (check-ins, as a habits × days
-// week matrix, one day as a list, or habits × the last weeks), WEEK PLAN (habits.plan.js)
-// and INSIGHTS (habits.insights.js). Pure rules live in habits.logic.js / habits.stats.js
-// (unit-tested); this file owns the store, the read-only `source` the other views share,
-// and the mutations they all go through.
+// LIFE/OS — 03 // Habits: weekday-planned habits. Three tabs: CHECK IN (tick them off, as one
+// day's list, a habits × days week matrix, or habits × the last weeks), PLAN (habits.plan.js)
+// and INSIGHTS (habits.insights.js), with the LIFE-index trading chart (habits.ticker.js) under
+// them. Pure rules live in habits.logic.js / habits.stats.js (unit-tested); this file owns the
+// store, the read-only `source` the other views share, and the mutations they all go through.
 
 import {
   h,
   icon,
   pageHeader,
   tip,
+  tipHidden,
+  dismissTip,
   dropdown,
   menuOpen,
   emptyState,
@@ -40,23 +41,33 @@ import { mountTradingChart, mountTicker } from './habits.ticker.js';
 import { registerContextProvider } from '../contextmenu.js';
 import { copyName, pasteName, insertAfter } from '../contextmenu.logic.js';
 
-// The app's shared icon words: today = a sun, a week = columns, trends = a graph line
+// The app's shared icon words: a tick to check in, a week = columns, trends = a graph line.
+// The ids stay as they were stored ('today' is the Check in tab; Home opens it by that name).
 const TABS = Object.freeze([
-  { id: 'today', label: 'Today', icon: 'sun' },
-  { id: 'plan', label: 'Week plan', icon: 'columns' },
+  { id: 'today', label: 'Check in', icon: 'check-circle' },
+  { id: 'plan', label: 'Plan', icon: 'columns' },
   { id: 'insights', label: 'Insights', icon: 'activity' },
 ]);
 const TAB_IDS = TABS.map((t) => t.id);
 const HABITS_ROUTE = /^#\/habits(?![\w-])/;
 
-// The Today tab's overviews (the `view` preference, kept per device). The menu's button shows
-// the open one's icon, so the icon alone says which overview this is.
+// The Check in tab's overviews (the `view` preference, kept per device), a segmented switch
 const VIEW_ITEMS = Object.freeze([
-  { value: 'day', label: 'Day', icon: 'rows', hint: 'One day, listed' },
-  { value: 'week', label: 'Week', icon: 'columns', hint: 'Habits × days' },
-  { value: 'history', label: 'History', icon: 'activity', hint: `Last ${L.HISTORY_WEEKS} weeks` },
+  { value: 'day', label: 'Day', icon: 'rows', hint: 'One day, listed', key: 'D' },
+  { value: 'week', label: 'Week', icon: 'columns', hint: 'Every habit × every day of the week', key: 'W' },
+  { value: 'history', label: 'History', icon: 'activity', hint: 'Every habit × the last weeks', key: 'H' },
 ]);
 const VIEW_KEYS = Object.freeze({ d: 'day', w: 'week', h: 'history' });
+
+// A touch screen opens on the Day list until a view is picked (L.pickView); a phone's History
+// shows fewer, tappable weeks
+const COARSE = globalThis.matchMedia?.('(pointer: coarse)');
+const PHONE = globalThis.matchMedia?.('(max-width: 640px)');
+
+/** term() text with its {placeholders} filled in ('“{name}” added · {plan}.'). */
+function fill(text, values) {
+  return text.replace(/\{(\w+)\}/g, (m, k) => (k in values ? String(values[k]) : m));
+}
 
 // Starter habits, each with its icon ("Move" suggests none, so it says which)
 const SUGGESTIONS = [
@@ -90,7 +101,8 @@ const nextId = (prefix) => `${prefix}-${++seq}`;
    State — one store shared by the page, the nav badge, the ticker and the charts
    ========================================================================== */
 
-const store = createStore('habits', { items: [], view: 'week' });
+// No `view` by default: until one is picked, the device decides (L.pickView)
+const store = createStore('habits', { items: [] });
 
 let memo = { raw: null, today: '', state: null };
 
@@ -104,9 +116,9 @@ function getState() {
 
 const getItems = () => getState().items;
 const tabOf = (s) => (TAB_IDS.includes(s.tab) ? s.tab : TAB_IDS[0]);
-// The Today tab's overview lives in `view`, which stays on this device (Sync leaves it out).
+// The Check in tab's overview lives in `view`, which stays on this device (Sync leaves it out).
 // The old card toggle (`cardView`, which synced) is no longer read.
-const viewOf = (s) => L.normalizeView(s.view);
+const viewOf = (s) => L.pickView(s.view, { coarse: !!COARSE?.matches });
 
 function commit(fn) {
   const prev = getState();
@@ -193,12 +205,74 @@ function setLogFromApi(id, key, done) {
   return store.get() !== before;
 }
 
-/** For the Calendar: the shared read-only source plus check-ins. */
-export const habitsApi = Object.freeze({ source, setLog: setLogFromApi });
+/* ---- What other pages ask of this one (Search, Home's Start card): a habit shown, the editor
+   opened. The request waits here while another page is showing; the Habits page acts on it once
+   it has drawn (now, or when it mounts). ---- */
 
+const ASK_TTL_MS = 10000; // a request no Habits page picked up by then is stale
+let pendingAsk = null; // { kind: 'reveal', id } | { kind: 'editor', starters }, plus `at`
+let askInView = null; // set while the page is mounted, so a request there acts at once
+
+function askPage(ask) {
+  pendingAsk = { ...ask, at: Date.now() };
+  if (askInView) askInView();
+  else if (!HABITS_ROUTE.test(location.hash)) location.hash = '#/habits';
+}
+
+function takeAsk() {
+  const a = pendingAsk;
+  pendingAsk = null;
+  return a && Date.now() - a.at < ASK_TTL_MS ? a : null;
+}
+
+/**
+ * Show a habit on the Habits page: on a tab that lists it (the open one when it does: Check in
+ * or Plan; Plan for an archived one), scrolled to, focused and flashed. False when there is no
+ * such habit.
+ */
+function apiReveal(id) {
+  const hb = findHabit(id);
+  if (!hb) return false;
+  const tab = L.isArchived(hb, todayKey()) ? 'plan' : currentTab() === 'plan' ? 'plan' : 'today';
+  // (switching tabs is saved, so only when the open one doesn't list it)
+  if (currentTab() !== tab) {
+    pendingAsk = { kind: 'reveal', id, at: Date.now() };
+    openTab(tab);
+    if (askInView) askInView();
+  } else askPage({ kind: 'reveal', id });
+  return true;
+}
+
+/**
+ * The new-habit editor on the Habits page. `starters: true` (Home's Start card): with no habits
+ * yet it opens on Check in, and the starter habits sit under the form, one tap each. True.
+ */
+function apiOpenEditor({ starters = false } = {}) {
+  const ask = { kind: 'editor', starters: !!starters };
+  if (ask.starters && currentTab() !== 'today' && !getItems().some((it) => !L.isArchived(it, todayKey()))) {
+    pendingAsk = { ...ask, at: Date.now() };
+    openTab('today');
+    if (askInView) askInView();
+  } else askPage(ask);
+  return true;
+}
+
+/** For the Calendar: the shared read-only source plus check-ins; for Search and Home: reveal, openEditor. */
+export const habitsApi = Object.freeze({ source, setLog: setLogFromApi, reveal: apiReveal, openEditor: apiOpenEditor });
+
+/** The nav badge: only what needs you today, the habits planned today and not done yet. */
 function badge() {
-  const sum = L.todaySummary(getItems(), todayKey());
-  return sum.scheduled ? `${sum.done}/${sum.scheduled}` : '';
+  const left = L.todaySummary(getItems(), todayKey()).remaining;
+  return left ? String(left) : '';
+}
+
+/** The header's live line: what today still asks ('9 to go today', as Home's habits card says). */
+function statText(items, today) {
+  const sum = L.todaySummary(items, today);
+  if (!sum.total) return '';
+  if (!sum.scheduled) return 'Nothing planned today';
+  if (sum.complete) return 'All done today';
+  return `${num(sum.remaining)} to go today`;
 }
 
 /** Weekday -> ids planned on it from today (snapshot for undoing a copy / clear). */
@@ -265,9 +339,17 @@ function longDate(key, today) {
 
 const cellCopy = (d) => (d.state === 'future' ? (d.scheduled ? 'Planned' : 'Not planned') : STATE_COPY[d.state]);
 
+/** A habit's days under its name, only when they aren't every day (most are: the rows say it). */
+const planNote = (days) => (days.length === 7 ? '' : L.scheduleLabel(days));
+
 /** Text that only changes when it differs: a live region re-reads a rewrite, even of the same words. */
 function setText(el, text) {
   if (el.textContent !== text) el.textContent = text;
+}
+
+/** A view's tip (its id lets doneTips in mount hide it once the user does what it says). */
+function tipEl(id, text) {
+  return tip({ id, className: 'hb-tip', text });
 }
 
 /** Run a sibling module's mount without letting its crash take the page down. */
@@ -328,10 +410,15 @@ function mount(root) {
 
   /* ---- Actions: every write from every tab goes through these ---- */
 
+  /** The user just did what these tips explain: they go for good, wherever they show (C2). */
+  function doneTips(...ids) {
+    for (const id of ids) if (!tipHidden(id)) dismissTip(id);
+  }
+
   function create({ name, days, createdAt, icon: picked } = {}) {
     const habit = L.createHabit({ name, days, createdAt, icon: picked }, getItems().length, todayKey());
     updateItems((items) => [...items, { ...habit, order: items.length }]);
-    toast(prose(`“${habit.name}” is online · ${L.scheduleLabel(habit.plan[0].days)}.`), {
+    toast(prose(fill(term('habits.added', '“{name}” added · {plan}.'), { name: habit.name, plan: L.scheduleLabel(habit.plan[0].days) })), {
       action: { label: 'Undo', onClick: () => updateItems((items) => (items.some((it) => it.id === habit.id) ? L.removeHabit(items, habit.id) : items)) },
     });
     todayView?.reveal(habit.id);
@@ -361,12 +448,14 @@ function mount(root) {
     updateHabit(id, (it) => L.setLog(it, key, done));
     if (rolled) render();
     if (!done) return;
+    // Ticking is what the page's explanations are about
+    doneTips('habits.intro', 'habits.legend', 'habits.day');
     todayView?.pop(id, key);
     if (key !== today) return;
     const after = L.todaySummary(getItems(), today);
     if (after.complete && !before.complete) {
       todayView?.celebrate();
-      toast(term('habits.allDone', `All protocols complete. Perfect-day streak: ${num(L.perfectDayStreak(getItems(), today))}.`));
+      toast(fill(term('habits.allDone.toast', 'All habits done for today. Nice work!'), { n: num(L.perfectDayStreak(getItems(), today)) }));
     }
   }
 
@@ -422,7 +511,10 @@ function mount(root) {
     refocus();
   }
 
-  /** Confirm, then erase the habit and its history. -> true (deleted) | false (cancelled) | null (gone). */
+  /**
+   * Erase the habit (Undo in the toast). One with check-ins asks first, since that erases its
+   * history from every graph. -> true (deleted) | false (cancelled) | null (gone).
+   */
   async function remove(id) {
     const hb = findHabit(id);
     if (!hb) {
@@ -430,14 +522,16 @@ function mount(root) {
       return null;
     }
     const logged = Object.keys(hb.log).length;
-    const confirmed = await confirmDialog({
-      title: 'Delete forever?',
-      message: prose(
-        `“${hb.name}” and its entire history (${plural(logged, 'logged day')}) will be erased from every graph — streaks, insights and the LIFE index. Archive it instead to keep the history.`,
-      ),
-      confirmLabel: 'Delete forever',
-      danger: true,
-    });
+    const confirmed =
+      !logged ||
+      (await confirmDialog({
+        title: 'Delete forever?',
+        message: prose(
+          `“${hb.name}” and its entire history (${plural(logged, 'logged day')}) will be erased from every graph — streaks, insights and the LIFE index. Archive it instead to keep the history.`,
+        ),
+        confirmLabel: 'Delete forever',
+        danger: true,
+      }));
     if (!confirmed) return false;
     // Honour an explicit confirmation even if the page was left meanwhile (e.g. browser Back).
     const index = getItems().findIndex((it) => it.id === id);
@@ -585,7 +679,7 @@ function mount(root) {
     duplicate,
     move,
   };
-  const ctx = { actions, ui, later, select, show };
+  const ctx = { actions, ui, later, select, show, doneTips };
 
   /* ---- Layout: header, pinned LIFE-index chart, tab bar, tab panel ---- */
 
@@ -596,12 +690,15 @@ function mount(root) {
     h('span', null, 'New habit'),
     h('span', { class: 'kbd hb-add-kbd lo-hint', 'aria-hidden': 'true' }, 'N'),
   );
+  // Today's check-ins on the title row (C1), kept current by render()
+  let shownStat = null;
   const header = pageHeader({
     index: '04',
     title: 'Habits',
     // Says what the page does, not what it does for you: no promised outcome (markedsføringsloven §§ 3, 7)
-    subtitle: term('habits.subtitle', 'Plan each weekday. Check in daily. Track your streaks and LIFE index.'),
+    subtitle: term('habits.subtitle', 'Small things you do on chosen days. Tick them off as you go.'),
     tipId: 'habits.intro',
+    stat: statText(getItems(), todayKey()),
     actions: [addBtn],
   });
 
@@ -611,7 +708,6 @@ function mount(root) {
 
   const panelId = `${n}-panel`;
   const tabEls = TABS.map((t) => {
-    const count = h('span', { class: 'seg-count tnum hb-tab-count lo-deco' });
     const btn = h(
       'button',
       {
@@ -626,9 +722,8 @@ function mount(root) {
       },
       icon(t.icon, { size: 14 }),
       h('span', null, t.label),
-      count,
     );
-    return { ...t, btn, count };
+    return { ...t, btn };
   });
   const tablist = h('div', { class: 'seg hb-tabs', role: 'tablist', 'aria-label': 'Habits views', onKeydown: onTabKey }, tabEls.map((t) => t.btn));
   const panel = h('div', { class: 'hb-panel', id: panelId, role: 'tabpanel' });
@@ -682,10 +777,11 @@ function mount(root) {
     tabEls[next].btn.focus();
   }
 
-  function paintTabCounts(items, today) {
-    const sum = L.todaySummary(items, today);
-    tabEls[0].count.textContent = sum.scheduled ? `${sum.done}/${sum.scheduled}` : '';
-    tabEls[1].count.textContent = sum.total ? num(sum.total) : '';
+  function paintStat(items, today) {
+    const text = statText(items, today);
+    if (text === shownStat) return;
+    shownStat = text;
+    header.setStat?.(text);
   }
 
   function render() {
@@ -693,7 +789,7 @@ function mount(root) {
     syncDay();
     const state = getState();
     showTab(currentTab());
-    paintTabCounts(state.items, todayKey());
+    paintStat(state.items, todayKey());
     todayView?.render();
   }
 
@@ -720,10 +816,76 @@ function mount(root) {
     }
   }
 
+  /* ---- habitsApi.reveal / openEditor, acted on once the page has drawn ---- */
+
+  /** The habit's row on the open tab: scrolled to, focused (its name or today's cell) and flashed. */
+  function revealHabit(id) {
+    const hb = findHabit(id);
+    if (!hb) return;
+    let row = null;
+    if (activeTab === 'today' && todayView) {
+      todayView.reveal(id);
+      row = document.activeElement?.closest?.('.hb-row, .hb-mx-row');
+      // On its name, as Search's other finds: not its tick box or today's cell (Enter there ticks)
+      row?.querySelector('.hb-row-name, .hb-mx-name')?.focus({ preventScroll: true });
+    } else if (activeTab === 'plan') {
+      row = [...panel.querySelectorAll(`.hb-plan-row[data-id="${CSS.escape(id)}"]`)].find((n) => n.getClientRects().length) ?? null;
+      if (!row && hb.archivedAt) row = archivedRow(hb);
+      row?.scrollIntoView({ block: 'center' });
+      (row?.querySelector('.hb-plan-name') ?? row)?.focus({ preventScroll: true });
+    }
+    if (row && panel.contains(row)) {
+      replay(row, 'lo-found');
+      later(() => row.classList.remove('lo-found'), 1600);
+    }
+  }
+
+  /** An archived habit in the Plan tab's Archived list (opened when folded), found by its name. */
+  function archivedRow(hb) {
+    const fold = panel.querySelector('.hb-arch .hb-fold');
+    if (fold?.getAttribute('aria-expanded') === 'false') fold.click();
+    const li = [...panel.querySelectorAll('.hb-arch-row')].find((n) => n.querySelector('.hb-arch-name')?.textContent === hb.name);
+    if (li) li.tabIndex = -1; // focusable for the reveal (Tab goes on to Restore)
+    return li ?? fold ?? null;
+  }
+
+  /** The new-habit editor; with `starters` and no habits yet, the starter habits under its form. */
+  function openNew({ starters = false } = {}) {
+    openEditor();
+    const m = activeModal;
+    if (!m || !starters || getItems().some((it) => !L.isArchived(it, todayKey()))) return;
+    m.el.querySelector('.modal-body')?.append(
+      suggestionsEl((s) => {
+        m.close();
+        actions.create(starterHabit(s));
+      }),
+    );
+  }
+
+  let askFrame = 0;
+  let askTimer = 0;
+  const runAsk = () => {
+    cancelAnimationFrame(askFrame);
+    clearTimeout(askTimer);
+    const ask = takeAsk();
+    if (!ask || !mounted) return;
+    if (ask.kind === 'editor') openNew(ask);
+    else revealHabit(ask.id);
+  };
+  // After the next frame (the tab drawn); the timer backs it up in a tab that paints no frames
+  const queueAsk = () => {
+    cancelAnimationFrame(askFrame);
+    clearTimeout(askTimer);
+    askFrame = requestAnimationFrame(runAsk);
+    askTimer = setTimeout(runAsk, 120);
+  };
+
   const offChart = guard('LIFE index', () => mountTradingChart(chartSlot, source), chartSlot);
   localTab ??= tabOf(getState());
   refreshPage = render;
   render();
+  askInView = queueAsk;
+  if (pendingAsk) queueAsk();
 
   const unsubscribe = store.subscribe(render);
   const offDayChange = onDayChange(render);
@@ -733,6 +895,9 @@ function mount(root) {
   return () => {
     mounted = false;
     if (refreshPage === render) refreshPage = null;
+    if (askInView === queueAsk) askInView = null;
+    cancelAnimationFrame(askFrame);
+    clearTimeout(askTimer);
     offMenu();
     unsubscribe();
     offDayChange();
@@ -746,9 +911,10 @@ function mount(root) {
 }
 
 /* ==========================================================================
-   TODAY tab — one slim bar (week, back to today, the overview), then one overview:
-   WEEK   every habit × the seven days, a tap ticks a day (the default)
-   DAY    one day as a list: what was planned first, then the rest (bonus ticks)
+   CHECK IN tab — one slim bar (week, back to today, Day · Week · History), then one overview:
+   DAY    one day as a list: what was planned first, then the rest (bonus ticks); a touch
+          screen's first view
+   WEEK   every habit × the seven days, a tap ticks a day (a mouse's first view)
    HISTORY every habit × the last weeks, shaded by how much of each week got done
    ========================================================================== */
 
@@ -762,6 +928,9 @@ function createTodayView(ctx) {
   const el = h('div', { class: 'hb-today-wrap' }, main, firstRun);
   let firstRunSig = '';
   let shown = null;
+  // A phone shows fewer weeks of History: turning the window across that width redraws it
+  const onWidth = () => render();
+  PHONE?.addEventListener?.('change', onWidth);
 
   function render() {
     const today = todayKey();
@@ -785,12 +954,13 @@ function createTodayView(ctx) {
     }
 
     const view = viewOf(state);
-    bar.update({ key: ui.key, today, view });
+    const weeks = L.historyWeeks(items, today, PHONE?.matches ? L.HISTORY_WEEKS_PHONE : L.HISTORY_WEEKS);
+    bar.update({ key: ui.key, today, view, weeksShown: weeks });
     for (const [name, v] of Object.entries(views)) v.el.hidden = name !== view;
     shown = views[view];
     // Rows move in the DOM when the order changes, which drops focus: put it back.
     const active = document.activeElement;
-    shown.update({ items, today, key: ui.key });
+    shown.update({ items, today, key: ui.key, weeks });
     if (active instanceof HTMLElement && active !== document.activeElement && active.isConnected) active.focus({ preventScroll: true });
   }
 
@@ -809,11 +979,13 @@ function createTodayView(ctx) {
     },
     pop: (id, key) => shown?.pop(id, key),
     celebrate: () => shown?.celebrate(),
-    destroy() {},
+    destroy() {
+      PHONE?.removeEventListener?.('change', onWidth);
+    },
   };
 }
 
-/* ---- The bar: ‹ week › · Today · the overview menu ---- */
+/* ---- The bar: ‹ week › · Today · Day | Week | History ---- */
 
 function createBar(ctx, { onToday }) {
   const { ui } = ctx;
@@ -839,32 +1011,37 @@ function createBar(ctx, { onToday }) {
     icon('sun', { size: 14 }),
     h('span', null, 'Today'),
   );
-  const viewMenu = dropdown({ items: VIEW_ITEMS, value: 'week', align: 'end', className: 'hb-view-dd', title: 'Overview (D · W · H)', onSelect: (v) => ctx.show(v) });
-  // The button leads with the open overview's icon (the dropdown draws a fixed one, so it is ours)
-  let viewIcon = null;
-  const viewIconEl = h('span', { class: 'hb-view-ic', 'aria-hidden': 'true' });
-  viewMenu.button.prepend(viewIconEl);
-  const el = h(
-    'div',
-    { class: 'hb-bar' },
-    prevBtn,
-    h('div', { class: 'hb-bar-when', 'aria-live': 'polite' }, rangeEl, relEl),
-    nextBtn,
-    todayBtn,
-    h('span', { class: 'spacer' }),
-    viewMenu.el,
+  // The overviews side by side, one tap each (the open one pressed)
+  const viewBtns = VIEW_ITEMS.map((v) =>
+    h(
+      'button',
+      {
+        type: 'button',
+        class: 'seg-btn hb-view-btn',
+        'aria-pressed': 'false',
+        'aria-keyshortcuts': v.key,
+        title: `${v.hint} (${v.key})`,
+        dataset: { view: v.value },
+        onClick: () => ctx.show(v.value),
+      },
+      icon(v.icon, { size: 14 }),
+      h('span', null, v.label),
+    ),
   );
+  const viewSeg = h('div', { class: 'seg hb-view-seg', role: 'group', 'aria-label': 'Overview' }, viewBtns);
+  const nav = h('div', { class: 'hb-bar-nav' }, prevBtn, h('div', { class: 'hb-bar-when', 'aria-live': 'polite' }, rangeEl, relEl), nextBtn, todayBtn);
+  const el = h('div', { class: 'hb-bar' }, viewSeg, nav);
 
   return {
     el,
-    update({ key, today, view }) {
+    update({ key, today, view, weeksShown = L.HISTORY_WEEKS }) {
       const history = view === 'history';
       prevBtn.hidden = history;
       nextBtn.hidden = history;
       relEl.hidden = history;
       // Every check-in repaints the bar; the live week label only speaks when the week changes
       if (history) {
-        setText(rangeEl, `Last ${L.HISTORY_WEEKS} weeks`);
+        setText(rangeEl, `Last ${plural(weeksShown, 'week')}`);
       } else {
         const week = L.weekDays(key);
         const weeks = Math.round((L.toDayNum(week[0]) - L.toDayNum(L.weekStart(today))) / 7);
@@ -874,13 +1051,8 @@ function createBar(ctx, { onToday }) {
       }
       // Only while away from today (History always ends with this week)
       todayBtn.hidden = history || key === today;
-      viewMenu.update({ value: view });
-      const item = VIEW_ITEMS.find((v) => v.value === view);
-      viewMenu.button.setAttribute('aria-label', `Overview: ${item?.label ?? ''}`);
-      if (item && item.icon !== viewIcon) {
-        viewIcon = item.icon;
-        viewIconEl.replaceChildren(icon(item.icon, { size: 14 }));
-      }
+      el.classList.toggle('is-away', !todayBtn.hidden);
+      viewBtns.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.view === view)));
     },
   };
 }
@@ -955,12 +1127,9 @@ function createRowHead(ctx, id) {
       const s = L.currentStreak(hb, today);
       badge.update(hb);
       nameText.textContent = hb.name;
-      sub.textContent = archived
-        ? `Archived ${formatDay(hb.archivedAt)}`
-        : hb.createdAt > today
-          ? `Starts ${formatDay(hb.createdAt)}`
-          : L.scheduleLabel(L.planOn(hb, today));
-      name.title = `${hb.name} · ${sub.textContent} — edit (${ALT_KEY} ↑ ↓ reorders)`;
+      sub.textContent = archived ? `Archived ${formatDay(hb.archivedAt)}` : hb.createdAt > today ? `Starts ${formatDay(hb.createdAt)}` : planNote(L.planOn(hb, today));
+      sub.hidden = !sub.textContent;
+      name.title = `${hb.name} · ${sub.textContent || L.scheduleLabel(L.planOn(hb, today))} — edit (${ALT_KEY} ↑ ↓ reorders)`;
       name.setAttribute('aria-label', `${hb.name}${archived ? ' (archived)' : ''}, edit`);
       streak.hidden = s === 0;
       // Phones put the streak under the name (habits.css), which then moves up to make room
@@ -1086,7 +1255,7 @@ function createWeekView(ctx) {
   const el = h(
     'section',
     { class: 'hb-view hb-week', 'aria-label': 'Week' },
-    tip({ id: 'habits.legend', className: 'hb-tip', text: 'Tap a square to tick that day off.' }),
+    tipEl('habits.legend', 'Tap a square to tick that day off.'),
     h('div', { class: 'panel hud hb-mx-panel' }, h('div', { class: 'hb-mx-scroll' }, table), weekLegend()),
   );
 
@@ -1224,7 +1393,7 @@ function createDayView(ctx) {
   const el = h(
     'section',
     { class: 'hb-view hb-dayview', 'aria-label': 'Day' },
-    tip({ id: 'habits.day', className: 'hb-tip', text: "Tick a habit once you've done it." }),
+    tipEl('habits.day', "Tick a habit once you've done it."),
     strip.el,
     // The day first (where you are), its numbers at the end of the line, then "add"
     h('div', { class: 'panel hud hb-dl-panel' }, h('div', { class: 'hb-dl-head' }, titleEl, h('span', { class: 'spacer' }), readout.el, addBtn), plannedList, emptyEl, otherSec),
@@ -1371,7 +1540,12 @@ function createDayRow(ctx, id, onMove) {
   const streakNum = h('span');
   const streak = h('span', { class: 'hb-mx-streak hb-row-streak tnum' }, icon('flame', { size: 12 }), h('span', { class: 'sr-only' }, 'streak '), streakNum);
   const more = dropdown({ icon: 'more', items: [], showValue: false, align: 'end', className: 'btn--ghost btn--icon hb-row-more', title: 'More' });
-  const li = h('li', { class: 'hb-row', dataset: { id }, onKeydown: onRowKey }, check, badge.el, h('div', { class: 'hb-row-ident' }, name, sub), streak, more.el);
+  // A tap anywhere on the row that isn't one of its buttons ticks it (the whole row is the target)
+  const onRowClick = (e) => {
+    if (e.target instanceof Element && e.target.closest('button, a, input, .dd')) return;
+    if (!check.disabled) check.click();
+  };
+  const li = h('li', { class: 'hb-row', dataset: { id }, onKeydown: onRowKey, onClick: onRowClick }, check, badge.el, h('div', { class: 'hb-row-ident' }, name, sub), streak, more.el);
   const row = { li, group: 'planned', update, focus, pop };
 
   function onRowKey(e) {
@@ -1403,13 +1577,15 @@ function createDayRow(ctx, id, onMove) {
 
   function subText(hb, state, { group, today, key, plannedNow }) {
     if (L.isArchived(hb, today)) return `Archived ${formatDay(hb.archivedAt)}`;
-    const plan = L.scheduleLabel(L.planOn(hb, today));
+    // Its days only when they aren't every day
+    const plan = planNote(L.planOn(hb, today));
+    const join = (...parts) => parts.filter(Boolean).join(' · ');
     if (group === 'other') {
-      if (state === 'bonus') return `Bonus · ${plan}`;
+      if (state === 'bonus') return join('Bonus', plan);
       if (plannedNow) return hb.createdAt > key ? `Starts ${formatDay(hb.createdAt)}` : 'Planned from today';
-      return hb.createdAt > today ? `Starts ${formatDay(hb.createdAt)} · ${plan}` : plan;
+      return hb.createdAt > today ? join(`Starts ${formatDay(hb.createdAt)}`, plan) : plan;
     }
-    return state === 'miss' ? `Missed · ${plan}` : plan;
+    return state === 'miss' ? join('Missed', plan) : plan;
   }
 
   function update(entry, c) {
@@ -1426,6 +1602,7 @@ function createDayRow(ctx, id, onMove) {
     nameText.textContent = hb.name;
     name.title = `${hb.name} — edit`;
     sub.textContent = subText(hb, state, { ...c, plannedNow: entry.plannedNow });
+    sub.hidden = !sub.textContent;
     const s = L.currentStreak(hb, today);
     streak.hidden = s === 0;
     streakNum.textContent = num(s);
@@ -1450,44 +1627,43 @@ function createDayRow(ctx, id, onMove) {
   return row;
 }
 
-/* ---- HISTORY: habits × the last weeks ---- */
+/* ---- HISTORY: habits × the last weeks (from the oldest habit's week: at least 4, at most 12,
+   8 on a phone, so the squares stay big enough to tap) ---- */
 
 function createHistoryView(ctx) {
   const { actions } = ctx;
   const rows = new Map();
   let order = [];
   let weeks = []; // the Mondays shown
+  let heads = [];
   const nav = gridNav({ ids: () => order, cellsOf: (id) => rows.get(id)?.cells.map((c) => c.btn) ?? [], onMove: (id, delta) => actions.move(id, delta, order) });
 
-  const heads = Array.from({ length: L.HISTORY_WEEKS }, () => {
-    const month = h('span', { class: 'hb-hi-month' });
-    const date = h('span', { class: 'hb-hi-date tnum' });
-    return { th: h('th', { scope: 'col', class: 'hb-hi-th' }, month, date), month, date };
-  });
+  const colgroup = h('colgroup');
+  const headRow = h('tr');
+  const sumLabel = h('span', { class: 'label' }, 'Rate');
   const tbody = h('tbody');
-  const table = h(
-    'table',
-    { class: 'hb-mx hb-hi', 'aria-label': `Habits, last ${L.HISTORY_WEEKS} weeks`, onKeydown: nav.onKeydown },
-    h('colgroup', null, h('col', { class: 'hb-mx-namecol' }), heads.map(() => h('col')), h('col', { class: 'hb-mx-sumcol' })),
-    h(
-      'thead',
-      null,
-      h(
-        'tr',
-        null,
-        h('th', { scope: 'col', class: 'hb-mx-corner' }, h('span', { class: 'label' }, 'Week of')),
-        heads.map((c) => c.th),
-        h('th', { scope: 'col', class: 'hb-mx-sumth' }, h('span', { class: 'label' }, `${L.HISTORY_WEEKS} wk`)),
-      ),
-    ),
-    tbody,
-  );
+  const table = h('table', { class: 'hb-mx hb-hi', onKeydown: nav.onKeydown }, colgroup, h('thead', null, headRow), tbody);
   const el = h(
     'section',
     { class: 'hb-view hb-history', 'aria-label': 'History' },
-    tip({ id: 'habits.history', className: 'hb-tip', text: 'A square per week, darker the more got done. Tap one to open that week.' }),
+    tipEl('habits.history', 'A square per week, darker the more got done. Tap one to open that week.'),
     h('div', { class: 'panel hud hb-mx-panel' }, h('div', { class: 'hb-mx-scroll' }, table)),
   );
+
+  /** Columns for `count` weeks; the rows are made again for them. */
+  function setColumns(count) {
+    if (heads.length === count) return;
+    heads = Array.from({ length: count }, () => {
+      const month = h('span', { class: 'hb-hi-month' });
+      const date = h('span', { class: 'hb-hi-date tnum' });
+      return { th: h('th', { scope: 'col', class: 'hb-hi-th' }, month, date), month, date };
+    });
+    colgroup.replaceChildren(h('col', { class: 'hb-mx-namecol' }), ...heads.map(() => h('col')), h('col', { class: 'hb-mx-sumcol' }));
+    headRow.replaceChildren(h('th', { scope: 'col', class: 'hb-mx-corner' }, h('span', { class: 'label' }, 'Week of')), ...heads.map((c) => c.th), h('th', { scope: 'col', class: 'hb-mx-sumth' }, sumLabel));
+    table.setAttribute('aria-label', `Habits, last ${plural(count, 'week')}`);
+    for (const row of rows.values()) row.tr.remove();
+    rows.clear();
+  }
 
   function createRow(id) {
     const head = createRowHead(ctx, id);
@@ -1504,6 +1680,7 @@ function createHistoryView(ctx) {
   function openWeek(id, col) {
     const w = rows.get(id)?.cells[col].data;
     if (!w) return;
+    ctx.doneTips('habits.history');
     ctx.show('week', w.isCurrent ? todayKey() : w.key);
   }
 
@@ -1533,14 +1710,15 @@ function createHistoryView(ctx) {
       c.td.classList.toggle('is-today', w.isCurrent);
     });
     row.sum.textContent = due ? pct(done / due) : '—';
-    row.sum.title = due ? `${done} of ${due} planned days done in the last ${L.HISTORY_WEEKS} weeks` : 'Nothing due in these weeks';
+    row.sum.title = due ? `${done} of ${due} planned days done in the last ${plural(list.length, 'week')}` : 'Nothing due in these weeks';
   }
 
   return {
     el,
-    update({ items, today }) {
+    update({ items, today, weeks: count = L.HISTORY_WEEKS }) {
+      setColumns(count);
       const current = L.toDayNum(L.weekStart(today));
-      weeks = heads.map((_, i) => L.fromDayNum(current - 7 * (L.HISTORY_WEEKS - 1 - i)));
+      weeks = heads.map((_, i) => L.fromDayNum(current - 7 * (count - 1 - i)));
       heads.forEach((hd, i) => {
         const key = weeks[i];
         const prev = weeks[i - 1];
@@ -1550,10 +1728,11 @@ function createHistoryView(ctx) {
         hd.th.classList.toggle('is-today', i === heads.length - 1);
         hd.th.title = `Week of ${formatDay(key)}`;
       });
+      sumLabel.parentElement.title = `Done of planned in the last ${plural(count, 'week')}`;
       const shown = [];
       for (const hb of items) {
         const archived = L.isArchived(hb, today);
-        const list = L.weekHistory(hb, today, L.HISTORY_WEEKS);
+        const list = L.weekHistory(hb, today, count);
         if (archived && !list.some((w) => w.active)) continue;
         let row = rows.get(hb.id);
         if (!row) {
@@ -1582,60 +1761,53 @@ function createHistoryView(ctx) {
   };
 }
 
-/* ---- First run (no active habits) ---- */
+/* ---- First run (no active habits): what a habit is, then one tap to add a starter one. The
+   header's New habit is the way to make your own, so the empty state doesn't repeat it (C3). ---- */
 
-function buildFirstRun(ctx, archivedCount) {
-  const { actions } = ctx;
-  const create = h('button', { type: 'button', class: 'btn btn--primary', onClick: () => actions.openEditor() }, icon('plus'), 'Create your first habit');
-  const restore = archivedCount
-    ? h('button', { type: 'button', class: 'btn', onClick: () => actions.openTab('plan') }, icon('archive'), `Restore from archive (${archivedCount})`)
-    : null;
-  const suggestions = h(
+/** A starter habit as actions.create takes it. Its icon is stored only when the name wouldn't
+ *  suggest it, so a rename can still move the icon. */
+function starterHabit(s) {
+  return { name: s.name, days: s.days, icon: L.habitIcon({ name: s.name }) === s.icon ? null : s.icon };
+}
+
+/** "Or start with one of these" and the starter habits, one tap each (the first run, and the new-habit editor from Home). */
+function suggestionsEl(onPick, ...more) {
+  return h(
     'div',
     { class: 'hb-suggest' },
-    h('span', { class: 'label' }, term('habits.starter', 'Or deploy a starter protocol')),
+    h('span', { class: 'label' }, term('habits.starter', 'Or start with one of these')),
     h(
       'div',
       { class: 'hb-suggest-list' },
       SUGGESTIONS.map((s) =>
         h(
           'button',
-          {
-            type: 'button',
-            class: 'btn btn--sm hb-suggest-btn',
-            'aria-label': `Add “${s.name}” (${s.hint})`,
-            // Stored only when the name wouldn't suggest it, so a rename can still move the icon
-            onClick: () => actions.create({ name: s.name, days: s.days, icon: L.habitIcon({ name: s.name }) === s.icon ? null : s.icon }),
-          },
+          { type: 'button', class: 'btn btn--sm hb-suggest-btn', 'aria-label': `Add “${s.name}” (${s.hint})`, onClick: () => onPick(s) },
           icon(s.icon, { size: 14 }),
           h('span', null, s.name),
           h('span', { class: 'hb-suggest-hint', 'aria-hidden': 'true' }, s.hint),
         ),
       ),
     ),
-    h('p', { class: 'hb-empty-kbd label lo-hint' }, 'Press ', kbd('N'), ' anytime to add a habit'),
+    ...more,
   );
-  const steps = [
-    [idx(1), 'Plan', 'Give every weekday its own lineup — Monday can differ from Tuesday.'],
-    [idx(2), term('habits.step2', 'Execute'), 'Check habits off each day. Fix past days in the week view.'],
-    [idx(3), term('habits.step3', 'Measure'), term('habits.step3.text', 'Streaks, insights and your LIFE index update with every check-in.')],
-  ];
+}
+
+function buildFirstRun(ctx, archivedCount) {
+  const { actions } = ctx;
+  const restore = archivedCount
+    ? h('button', { type: 'button', class: 'btn', onClick: () => actions.openTab('plan') }, icon('archive'), `Restore from archive (${archivedCount})`)
+    : null;
+  const suggestions = suggestionsEl((s) => actions.create(starterHabit(s)), h('p', { class: 'hb-empty-kbd label lo-hint' }, 'Press ', kbd('N'), ' anytime to add a habit'));
   return [
     emptyState({
       icon: 'target',
-      title: archivedCount ? term('habits.empty.archived', 'All protocols archived') : term('habits.empty.title', 'No protocols online'),
+      title: archivedCount ? term('habits.empty.archived', 'All habits are archived') : term('habits.empty.title', 'No habits yet'),
       text: archivedCount
-        ? 'Every habit is archived — their history still feeds your graphs. Restore one or start something new.'
-        : term('habits.empty.text', 'Habits are small actions you plan on chosen weekdays. Check them off daily and LIFE/OS tracks streaks, completion and your LIFE index.'),
-      action: h('div', { class: 'hb-empty-actions' }, h('div', { class: 'hb-empty-buttons' }, create, restore), suggestions),
+        ? 'Every habit is archived: their history still feeds your graphs. Restore one, or add a new one with New habit.'
+        : term('habits.empty.text', 'A habit is something small you do on chosen days, like a walk or reading. Add one with New habit, tick it off when it is done, and LIFE/OS keeps your streak.'),
+      action: h('div', { class: 'hb-empty-actions' }, restore ? h('div', { class: 'hb-empty-buttons' }, restore) : null, suggestions),
     }),
-    h(
-      'ol',
-      { class: 'hb-howto' },
-      steps.map(([num, title, text]) =>
-        h('li', { class: 'panel hud hb-howto-step' }, h('span', { class: 'label' }, num), h('span', { class: 'hb-howto-title' }, title), h('p', { class: 'hb-howto-text' }, text)),
-      ),
-    ),
   ];
 }
 

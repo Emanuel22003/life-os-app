@@ -76,6 +76,37 @@ export function startPage(saved, pageIds) {
   return typeof saved === 'string' && pageIds.includes(saved) ? saved : pageIds[0];
 }
 
+/**
+ * The page's sections, in order: the cards and the index beside them (a jump menu on narrower
+ * screens). "Delete all my data" stays under Sync & backup: the privacy policy and the cookies
+ * page (legal/) send people there by that path.
+ */
+export const SETTINGS_SECTIONS = Object.freeze(
+  [
+    { id: 'appearance', title: 'Appearance', icon: 'palette' },
+    { id: 'colors', title: 'Color coding', icon: 'tag' },
+    { id: 'sound', title: 'Sound & notifications', icon: 'bell' },
+    { id: 'startup', title: 'Start-up', icon: 'home' },
+    { id: 'sync', title: 'Sync & backup', icon: 'sync' },
+    { id: 'about', title: 'About', icon: 'tip' },
+    { id: 'legal', title: 'Legal', icon: 'note' },
+  ].map((s) => Object.freeze(s)),
+);
+
+/**
+ * The section the index marks while the page scrolls: the last one whose top has reached `line`
+ * (px below the top of the visible area), else the first. Scrolled to the very end, the last one
+ * (a short last section can't reach the line). tops: [{ id, top }] in page order, each top
+ * relative to the visible area's top. null when there are none.
+ */
+export function sectionAt(tops, { line = 96, atEnd = false } = {}) {
+  if (!tops.length) return null;
+  if (atEnd) return tops[tops.length - 1].id;
+  let current = tops[0].id;
+  for (const t of tops) if (t.top <= line) current = t.id;
+  return current;
+}
+
 /** 'v0.10' is newer than 'v0.9': versions compare part by part as numbers. */
 export function isNewerVersion(a, b) {
   const parts = (v) => String(v ?? '').replace(/^v/, '').split('.').map((n) => Number.parseInt(n, 10) || 0);

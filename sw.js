@@ -10,7 +10,7 @@
 //   cache first in a cache of their own, so every template a window has shown keeps its fonts
 //   offline, the active one at least. A stylesheet is refreshed in the background; a font file
 //   never changes under its name (an updated one gets a new name). They stay out of the
-//   snapshots, which would otherwise copy 1.4 MB of mostly unused files on every load.
+//   snapshots, which would otherwise copy 1.1 MB of mostly unused files on every load.
 // - Everything else (other origins, non-GET, other schemes) is left to the browser. The app
 //   itself asks other hosts for nothing but GitHub's API, and only with Sync on (js/sync.js).
 // - This worker never reads or writes localStorage: app data is not its business.
@@ -92,21 +92,23 @@ const CORE = [
   'js/colors.logic.js',
   'js/palette.js',
   'js/palette.logic.js',
+  'js/command.js',
+  'js/command.logic.js',
   'css/tokens.css',
   'css/base.css',
   'css/shell.css',
   'css/components.css',
   'css/appearance.css',
   'css/sync.css',
+  'css/command.css',
   'css/skins/simple.css',
+  'css/skins/hud.css',
   'css/skins/brutalist.css',
   'css/skins/terminal.css',
   'css/skins/oldmoney.css',
   'css/skins/oldmoney-horse.png',
   'css/skins/coquette.css',
-  'css/skins/coquette-bow.webp',
   'css/skins/y2k.css',
-  'css/skins/y2k-butterflies.webp',
   'css/skins/minimal.css',
   'css/palette.css',
   'css/colors.css',

@@ -10,14 +10,14 @@
 //   height that shows the whole day without scrolling).
 // - Which day-plan lists are open is a preference of this device ('calendar-prefs', not synced).
 
-import { h, icon, pageHeader, term, toast, openModal, isTyping, modalOpen, menuOpen, todayKey, onDayChange, debounce, weekday, uid, MONTHS_SHORT, reducedMotion, plainSkin, promptDialog, dropdown, tip, tipHidden } from '../ui.js';
+import { h, icon, iconBadge, pageHeader, term, toast, openModal, isTyping, modalOpen, menuOpen, todayKey, onDayChange, debounce, weekday, uid, MONTHS_SHORT, reducedMotion, plainSkin, promptDialog, dropdown, tip, tipHidden, dismissTip } from '../ui.js';
 import { createStore } from '../store.js';
 import { tasksApi } from './tasks.js';
 import { habitsApi } from './habits.js';
 import * as L from './calendar.logic.js';
 import { getCalendar, getEvents, getEvent, saveEvent, replaceEvents, setView as saveView, setLayer, subscribeCalendar, isNewerFormat, getDayColors, setDayColor } from './calendar.store.js';
 import { openEventEditor, askScope, deleteEvent, NEWER_COPY, SPLIT_NOTE } from './calendar.editor.js';
-import { monthView, weekView, dayView, agendaView, trayView, legend, fillEdges, priorityBadge } from './calendar.views.js';
+import { monthView, weekView, dayView, agendaView, trayView, legend, fillEdges, priorityBadge, dayPopover } from './calendar.views.js';
 import { parseQuickAdd } from './tasks.logic.js';
 import { undoToast, undoLast, snapshot, revertEvents } from './calendar.undo.js';
 import { trackPointer, dropTargetAt, ghostOf, edgeScroller, cancelDrag, isDragging } from './calendar.drag.js';
@@ -40,8 +40,18 @@ const STACK_W = 620;
 const HOUR_H = 48;
 const HOUR_H_PHONE = 44;
 // Fitting a timeline to the screen: the readable floor and the ceiling of an hour (px), the room
-// above the first hour line and below the last (half each), and the margin kept at the bottom
-const FIT = Object.freeze({ min: 18, max: 96, pad: 18, margin: 12 });
+// above the first hour line and below the last (half each), and the margin kept at the bottom.
+// Below 40px an hour a half-hour event is a sliver: the timeline scrolls instead.
+const FIT = Object.freeze({ min: 40, max: 96, pad: 18, margin: 12 });
+// Where a timeline that scrolls opens: 08:00 (or the first event, when earlier); today, about
+// an hour before now
+const DAY_START_MIN = 8 * 60;
+// The month's rows (px, as calendar.css draws them): the weekday header, a cell's date row, one
+// item row (18px and its 2px gap) and the "+N more" row
+const MONTH = Object.freeze({ head: 31, cellHead: 28, slot: 20, more: 20 });
+// A task ticked with the pointer keeps its row (checked) this long before the lists redraw, so the
+// next row doesn't slide in under the finger and take the next tap (as on Home and in Tasks)
+const TICK_HOLD_MS = 900;
 
 // View preferences of this device (never synced): which day-plan lists are open
 const prefs = createStore('calendar-prefs', { dayPanels: null });
@@ -86,19 +96,56 @@ function apiOpen(key, view = 'day') {
 export const calendarApi = Object.freeze({ open: apiOpen });
 
 /* ==========================================================================
-   Nav badge: events today
+   Nav badge: none. A badge is for what needs attention today (C6); events aren't chores, and
+   Home's Today strip already says how many there are and what's next.
    ========================================================================== */
 
-let badgeMemo = { events: null, today: '', value: '' };
-
 function badge() {
+  return '';
+}
+
+/* ==========================================================================
+   ⌘/Ctrl + Z on this page takes back the newest change made here. Two kinds of Undo meet on the
+   Calendar: its own (calendar.undo.js: events, and task dates moved here) and the Tasks module's
+   (a task ticked or deleted here goes through tasksApi.complete / remove, with the Tasks page's
+   toast, so it reads the same everywhere). `tasksUndos.marks` holds the second kind's Undo
+   numbers (tasksApi.undoMark) since the last change of the first: a calendar Undo offered here
+   (offerUndo), or any change to the events (the editor's save or delete, another window).
+   ========================================================================== */
+
+let tasksUndos = { marks: [], events: null };
+
+/** A calendar change with Undo (calendar.undo.js): from now on ⌘/Ctrl + Z reaches it first. */
+function offerUndo(message, undo) {
+  tasksUndos = { marks: [], events: null };
+  undoToast(message, undo);
+}
+
+/** A tick or a task delete made here (its Undo is the Tasks module's): the Undo it just offered. */
+function markTasksUndo() {
   const events = getEvents();
-  const today = todayKey();
-  if (events !== badgeMemo.events || today !== badgeMemo.today) {
-    const n = L.occurrencesOn(events, today).length;
-    badgeMemo = { events, today, value: n ? String(n) : '' };
+  const mark = tasksApi.undoMark?.() ?? 0;
+  if (!mark) return;
+  tasksUndos = { marks: [...(tasksUndos.events === events ? tasksUndos.marks : []), mark], events };
+}
+
+/**
+ * ⌘/Ctrl + Z: the Tasks module's Undo while a tick or task delete made here is its newest one,
+ * else the calendar's. (A tick taken back from its toast is gone from there; a newer one from
+ * another page, Home or Tasks, is never taken back from here.)
+ */
+function undoNewest() {
+  if (tasksUndos.events === getEvents()) {
+    const newest = tasksApi.undoMark?.() ?? 0;
+    const marks = tasksUndos.marks;
+    while (marks.length && marks[marks.length - 1] > newest) marks.pop();
+    if (newest && marks[marks.length - 1] === newest) {
+      marks.pop();
+      if (tasksApi.undoLast()) return true;
+    }
   }
-  return badgeMemo.value;
+  tasksUndos = { marks: [], events: null };
+  return undoLast();
 }
 
 /* ==========================================================================
@@ -118,7 +165,7 @@ function commitEvents({ save = [], remove = [] }, message, what) {
   if (!replaceEvents(list)) return false;
   if (message) {
     const after = snapshot(ids);
-    undoToast(message, () => revertEvents(before, after, what));
+    offerUndo(message, () => revertEvents(before, after, what));
   }
   return true;
 }
@@ -184,7 +231,7 @@ function applyDue(id, key) {
   const prev = task.due;
   if (!tasksApi.setDue(id, key)) return false;
   const what = `“${clip(task.title)}”`;
-  undoToast(key ? `${what} ${prev ? 'moved' : 'scheduled'} to ${shortDay(key)}` : `${what} unscheduled`, () => {
+  offerUndo(key ? `${what} ${prev ? 'moved' : 'scheduled'} to ${shortDay(key)}` : `${what} unscheduled`, () => {
     // Undo only this change: a date set again since (here or in Tasks) stays
     if (findTask(id)?.due !== key) return refuse(`Nothing undone: ${what} changed since.`);
     tasksApi.setDue(id, prev);
@@ -206,7 +253,7 @@ function applySchedule(id, next) {
     : now.time
       ? `${shortDay(now.due)}, ${now.time}–${L.formatTime(L.parseTime(now.time) + (now.minutes || 30))}`
       : `${shortDay(now.due)}, all day`;
-  undoToast(`${what} ${when}`, () => {
+  offerUndo(`${what} ${when}`, () => {
     const cur = findTask(id);
     if (!cur || cur.due !== now?.due || (cur.time ?? null) !== (now?.time ?? null) || (cur.minutes ?? null) !== (now?.minutes ?? null)) return refuse(`Nothing undone: ${what} changed since.`);
     tasksApi.setSchedule(id, prev);
@@ -215,17 +262,16 @@ function applySchedule(id, next) {
   return true;
 }
 
+/** Tick a task off or open it again: the Tasks page's own tick (“X” done. + Undo, one toast for quick ticks). */
 function toggleTaskDone(id) {
   const task = findTask(id);
   if (!task) return;
-  const done = !task.done;
-  if (!tasksApi.setDone(id, done)) return;
-  const what = `“${clip(task.title)}”`;
-  undoToast(done ? `Done: ${what}` : `Reopened ${what}`, () => {
-    if (findTask(id)?.done !== done) return refuse(`Nothing undone: ${what} changed since.`);
-    tasksApi.setDone(id, !done);
-    return true;
-  });
+  if (tasksApi.complete(id, !task.done)) markTasksUndo();
+}
+
+/** A task's Delete here: the Tasks page's (Undo in its toast, and ⌘/Ctrl + Z here too). */
+function removeTask(id) {
+  if (tasksApi.remove(id)) markTasksUndo();
 }
 
 function nextMonday(today) {
@@ -476,30 +522,43 @@ function mount(root) {
   };
 
   /* ---- header ---- */
+  // Their names stay on them when a narrow calendar shows their icons only (calendar.css)
   const newBtn = h(
     'button',
-    { type: 'button', class: 'btn btn--primary cal-new', 'aria-keyshortcuts': 'N', onClick: () => newEvent() },
+    { type: 'button', class: 'btn btn--primary cal-new', 'aria-keyshortcuts': 'N', 'aria-label': 'New event', title: 'New event (N)', onClick: () => newEvent() },
     icon('plus'),
     h('span', null, 'New event'),
     h('span', { class: 'kbd cal-kbd lo-hint', 'aria-hidden': 'true' }, 'N'),
   );
   // A task's icon (a checked square), the same as the Tasks layer and the day's Tasks row
-  const addTaskBtn = h('button', { type: 'button', class: 'btn cal-addtask-btn', onClick: () => openAddTask(state.cursor, returnFocusAfter()) }, icon('check-square'), h('span', null, 'Add task'));
-  // The subtitle explains the page: a tip with its own ✓, gone for good once read
-  const header = pageHeader({ index: '05', title: 'Calendar', subtitle: term('calendar.subtitle', 'Month, week and day: events, tasks and habits on one timeline.'), actions: [addTaskBtn, newBtn], tipId: 'calendar.intro' });
+  const addTaskBtn = h('button', { type: 'button', class: 'btn cal-addtask-btn', 'aria-label': 'Add task', title: 'Add task', onClick: () => openAddTask(state.cursor, returnFocusAfter()) }, icon('check-square'), h('span', null, 'Add task'));
+  // One heading row: the month (or week, or day) on screen IS the page's title row, with the
+  // buttons at its end (the toolbar below). The page header keeps the page's name for screen
+  // readers; its explanation, a tip with its own ✓ (gone for good once read), moves under the
+  // title row (the tips below).
+  const header = pageHeader({ index: '05', title: 'Calendar', subtitle: term('calendar.subtitle', 'Month, week and day: events, tasks and habits on one timeline.'), actions: [], tipId: 'calendar.intro' });
+  header.classList.add('cal-page-header');
+  header.querySelector('.page-title')?.classList.add('sr-only');
 
   /* ---- toolbar ---- */
   // The month first, large (with its year), then the exact week or day: easy to find in every view
   const titleMonth = h('span', { class: 'cal-title-month' });
   const titleYear = h('span', { class: 'cal-title-year' });
   const titleSub = h('span', { class: 'cal-title-sub' });
-  const title = h(
-    'h2',
-    { class: 'cal-title', 'aria-live': 'polite', tabindex: '-1', dataset: { fid: 'title' } },
-    h('span', { class: 'cal-title-main' }, titleMonth, ' ', titleYear),
-    h('span', { class: 'sr-only' }, ', '),
-    titleSub,
-  );
+  const titleMain = h('span', { class: 'cal-title-main' }, titleMonth, ' ', titleYear);
+  const title = h('h2', { class: 'cal-title', 'aria-live': 'polite', tabindex: '-1', dataset: { fid: 'title' } }, titleMain, h('span', { class: 'sr-only' }, ', '), titleSub);
+
+  /**
+   * The month and its year are never cut to "Octo…": when the row is short of them (the browser
+   * can measure a large title a few px short and keep the buttons beside it), the buttons go to
+   * a second row instead (.is-tight).
+   */
+  function fitTitle() {
+    toolbar.classList.remove('is-tight');
+    if (titleMain.scrollWidth > titleMain.clientWidth) toolbar.classList.add('is-tight');
+  }
+  // The page's badge (as on every page's title), before the period
+  const pageBadge = iconBadge('calendar', { tone: 'calendar', size: 18, className: 'page-ib cal-page-ib' });
   const prevBtn = h('button', { type: 'button', class: 'btn btn--icon btn--sm', onClick: () => step(-1) }, icon('chevron-left'));
   const nextBtn = h('button', { type: 'button', class: 'btn btn--icon btn--sm', onClick: () => step(1) }, icon('chevron-right'));
   const todayBtn = h('button', { type: 'button', class: 'btn btn--sm cal-today-btn', 'aria-keyshortcuts': 'T', title: 'Today (T)', onClick: () => goToday() }, icon('sun', { size: 14 }), h('span', null, 'Today'));
@@ -545,6 +604,9 @@ function mount(root) {
   });
   showDd.el.classList.add('cal-show-dd');
   let showSig = '';
+  // Unscheduled tasks: a chip with their count that opens the tray (beside the calendar when
+  // there is room, above it on a phone). Closed, the calendar gets the whole width. While a task
+  // is dragged, the chip is where it can be dropped to take its date away.
   const trayCount = h('span', { class: 'seg-count tnum' });
   const trayToggle = h(
     'button',
@@ -552,11 +614,12 @@ function mount(root) {
       type: 'button',
       class: 'btn btn--sm cal-tray-toggle',
       'aria-controls': 'cal-tray',
-      title: 'Unscheduled tasks',
+      title: 'Unscheduled tasks: drag one onto a day to plan it',
+      dataset: { dropTray: '' },
       onClick: () => {
         state.trayOpen = !state.trayOpen;
         remember();
-        // Opening it shows the tray above the calendar: take focus there, not 20 tabs later
+        // Opening it: focus goes to the tray, not 20 tabs later
         if (state.trayOpen) pendingFocus = 'tray-head';
         render();
       },
@@ -568,7 +631,7 @@ function mount(root) {
   const toolbar = h(
     'div',
     { class: 'cal-toolbar' },
-    h('div', { class: 'cal-nav' }, prevBtn, nextBtn, todayBtn, title),
+    h('div', { class: 'cal-nav' }, pageBadge, prevBtn, nextBtn, todayBtn, title),
     h(
       'div',
       { class: 'cal-controls' },
@@ -576,15 +639,18 @@ function mount(root) {
       viewDd.el,
       showDd.el,
       trayToggle,
+      h('div', { class: 'cal-actions' }, addTaskBtn, newBtn),
     ),
   );
-  // Explanations are tips with their own ✓: how to start (while there are no events) and the
-  // look key (wide calendars; Simple leaves it out with the other decoration, .lo-deco)
+  // Explanations are tips with their own ✓ (the shell shows one at a time): how to start (while
+  // there are no events) and what the marks mean
   const legendEl = legend();
   const legendHabits = legendEl.querySelector('.cal-legend-group--hb');
-  const legendTip = tip({ id: 'calendar.legend', text: legendEl, className: 'cal-legend-tip lo-deco' });
+  const legendTip = tip({ id: 'calendar.legend', text: legendEl, className: 'cal-legend-tip' });
   let howTip = null;
-  const tips = h('div', { class: 'cal-tips' }, legendTip);
+  // The page's own explanation (its first-visit tip) comes first, under the title row as on
+  // every page, not above it
+  const tips = h('div', { class: 'cal-tips' }, header.querySelector('.page-tip'), legendTip);
 
   const body = h('div', { class: 'cal-body' });
   const tray = trayView();
@@ -617,7 +683,7 @@ function mount(root) {
       dayPanels: L.normalizeDayPanels(prefs.get().dayPanels)[stacked ? 'narrow' : 'wide'],
       layers,
       range,
-      slots: monthSlots(),
+      ...monthFit(),
       // The last height that fitted this view to the screen (fitTimeline corrects it)
       hourH: fitted[kind]?.hourH ?? (phone ? HOUR_H_PHONE : HOUR_H),
       tlFits: false,
@@ -657,11 +723,16 @@ function mount(root) {
     return el.getBoundingClientRect().top + (main?.scrollTop ?? 0);
   }
 
-  /** Month cells hold as many item rows as the window height allows (2–6). */
-  function monthSlots() {
+  /**
+   * The month fills the screen down to its bottom edge: each week row's height (rowH, px) and how
+   * many one-line items a day cell holds in it (slots, 1–8); the rest of a day is "+N more".
+   */
+  function monthFit() {
     const rows = L.monthGrid(state.cursor).weeks.length;
-    const avail = window.innerHeight - (body.isConnected ? pageTop(body) : 320) - 30 - 32;
-    return Math.max(2, Math.min(6, Math.floor((avail / rows - 44) / 20)));
+    const avail = viewportBottom() - FIT.margin - (body.isConnected ? pageTop(body) : 320) - MONTH.head;
+    const rowH = Math.max(MONTH.cellHead + 2 * MONTH.slot + MONTH.more, Math.floor(avail / rows));
+    const slots = Math.max(1, Math.min(8, Math.floor((rowH - MONTH.cellHead - MONTH.more) / MONTH.slot)));
+    return { slots, rowH };
   }
 
   /** The day view's lists go under its timeline (a phone, a narrow window) rather than beside it. */
@@ -719,7 +790,7 @@ function mount(root) {
     }
     const room = viewportBottom() - FIT.margin - pageTop(sc) - below - reserve;
     const fit = L.fitHourHeight(hours, room - FIT.pad, { min: FIT.min, max: FIT.max });
-    if (!fit.fits && v.kind === 'week') return { hourH: HOUR_H, height: Math.round(Math.max(360, Math.min(1180, room))), fits: false, from: span.from };
+    if (!fit.fits && v.kind === 'week') return { hourH: FIT.min, height: Math.round(Math.max(360, Math.min(1180, room))), fits: false, from: span.from };
     const height = fit.fits ? hours * fit.hourH + FIT.pad : Math.round(Math.max(240, room));
     return { hourH: fit.hourH, height, fits: fit.fits, from: span.from };
   }
@@ -781,7 +852,12 @@ function mount(root) {
       updateEdges();
       return;
     }
-    if (lastCtx.kind === 'month' && monthSlots() !== lastCtx.slots) return render();
+    if (lastCtx.kind === 'month') {
+      const mf = monthFit();
+      if (mf.slots !== lastCtx.slots) return render();
+      lastCtx.rowH = mf.rowH;
+      bodyView?.el?.style.setProperty('--cal-row-h', `${mf.rowH}px`);
+    }
     sizeMonth();
   }
 
@@ -831,6 +907,8 @@ function mount(root) {
       body.replaceChildren(bodyView.el);
     }
     bodyView.el.classList.add('cal-view');
+    // An open "+N more" list follows the new data (or goes with the month)
+    refreshDayPop(ctx);
 
     fitTimeline(ctx);
     sizeMonth();
@@ -969,6 +1047,7 @@ function mount(root) {
     cal.dataset.view = state.view;
     cal.classList.toggle('is-tray-open', state.trayOpen);
     cal.classList.toggle('is-phone', ctx.phone);
+    fitTitle();
   }
 
   /**
@@ -1027,14 +1106,15 @@ function mount(root) {
       const next = tip({ id: 'calendar.howto', text, className: 'cal-howto-tip' });
       next.dataset.text = text;
       if (howTip) howTip.replaceWith(next);
-      else tips.prepend(next);
+      else legendTip.before(next);
       howTip = next;
     }
     howTip.hidden = tipHidden('calendar.howto') || ctx.eventCount > 0;
     legendHabits.hidden = !ctx.layers.habits;
-    // No empty row (and no gap for it) once every tip is read or doesn't apply here
+    // No empty row (and no gap for it) once every tip is read or doesn't apply here. One waiting
+    // its turn (ui.gateTips, which runs a moment later) counts: the one before it may just have gone
     tips.hidden = false;
-    tips.hidden = ![...tips.children].some((t) => !t.hidden && t.getClientRects().length);
+    tips.hidden = ![...tips.children].some((t) => !t.hidden && (t.hasAttribute('data-tip-wait') || t.getClientRects().length));
   }
 
   function scrollTimeline(ctx) {
@@ -1042,8 +1122,8 @@ function mount(root) {
     if (!sc) return;
     const H = ctx.hourH;
     const timed = ctx.occs.filter((o) => !o.allDay);
-    const earliest = timed.length ? Math.min(...timed.map((o) => o.startMin)) : 7 * 60;
-    const target = Math.min(7 * 60, Math.floor(earliest / 60) * 60);
+    const earliest = timed.length ? Math.min(...timed.map((o) => o.startMin)) : DAY_START_MIN;
+    const target = Math.min(DAY_START_MIN, Math.floor(earliest / 60) * 60);
     const showsToday = ctx.range.from <= ctx.today && ctx.today <= ctx.range.to;
     // Today's first event that hasn't ended yet (the one on now, or the next)
     const pending = timed.filter((o) => o.start === ctx.today && o.endMin > ctx.nowMin);
@@ -1060,13 +1140,13 @@ function mount(root) {
       }
       const visible = sc.clientHeight || 480;
       let top = (target / 60) * H - 8;
-      // On today, keep the current time on screen when 07:00 can't show it, and prefer showing
-      // the current or next unfinished event over empty hours (the ▲ / ▼ chips cover the rest)
+      // On today: open about an hour before now, but never past the current or next unfinished
+      // event (the ▲ / ▼ chips point at what is out of view)
       const nowPx = (ctx.nowMin / 60) * H;
-      if (showsToday && nowPx > top + visible - 24) {
-        top = nowPx - visible * 0.4;
-        if (nextMin !== null) top = Math.min(top, (nextMin / 60) * H - 8);
-        top = Math.max(top, nowPx - visible + 24);
+      if (showsToday) {
+        top = (Math.floor(Math.max(0, ctx.nowMin - 60) / 60) * 60 / 60) * H - 8;
+        if (nextMin !== null) top = Math.min(top, (Math.floor(nextMin / 60) * 60 / 60) * H - 8);
+        top = Math.max(Math.min(top, nowPx - 24), nowPx - visible + 24);
       }
       sc.scrollTop = Math.max(0, top);
       updateEdges();
@@ -1142,6 +1222,8 @@ function mount(root) {
     const moveFocus = focus || body.contains(document.activeElement);
     const apply = () => {
       if (!alive) return;
+      // Moving between month, week and day is what the page's tip explains
+      if (view !== from && !tipHidden('calendar.intro')) dismissTip('calendar.intro');
       state.view = view;
       state.cursor = key;
       remember();
@@ -1278,6 +1360,8 @@ function mount(root) {
   /** After the editor: show what was saved (layer on, period that holds it). */
   function followResult(res) {
     if (!res || (res.action !== 'created' && res.action !== 'updated')) return;
+    // Adding an event is what the how-to tip explains: it has done its job
+    if (res.action === 'created' && !tipHidden('calendar.howto')) dismissTip('calendar.howto');
     if (!getCalendar().layers.events) setLayer('events', true);
     if (!root.isConnected || !res.key || !L.VIEWS.includes(state.view)) return;
     const { from, to } = L.viewRange(state.view, state.cursor);
@@ -1346,8 +1430,27 @@ function mount(root) {
     const task = tasksApi.insertCopy(snap, { afterId, due: key });
     if (!task) return refuse('That copy can’t be pasted.');
     if (!getCalendar().layers.tasks) setLayer('tasks', true);
-    undoToast(`${verb} “${clip(task.title)}”${key ? ` on ${shortDay(key)}` : ' to Unscheduled'}`, () => tasksApi.removeCopy(task));
+    offerUndo(`${verb} “${clip(task.title)}”${key ? ` on ${shortDay(key)}` : ' to Unscheduled'}`, () => tasksApi.removeCopy(task));
     return true;
+  }
+
+  /** One date of an event onto another day, same time (with Undo). A repeating one asks which dates. */
+  function moveOccurrenceTo(occ, key) {
+    const delta = L.daysBetween(occ.start, key);
+    if (!delta) return false;
+    return changeOccurrence(occ, { start: key, end: occ.allDay ? L.shiftDays(occ.end, delta) : key }, 'Moved');
+  }
+
+  /** A copy of this date of an event on `key` (same time, same length; one date, never a series). */
+  function duplicateTo(occ, key) {
+    const ev = getEvent(occ.eventId);
+    if (!ev) return false;
+    if (isNewerFormat(ev.id)) return refuse(NEWER_COPY);
+    const res = L.pasteEventCopy({ ...ev, repeat: null, exdates: [] }, occ.start, { day: key });
+    if (res.error) return refuse(res.error);
+    if (!getCalendar().layers.events) setLayer('events', true);
+    const what = `“${clip(res.event.title)}”`;
+    return commitEvents({ save: [res.event] }, `Duplicated ${what} to ${shortDay(key)}`, what);
   }
 
   /** The whole event (every date of a series) once more, same dates and times, new id. */
@@ -1378,11 +1481,19 @@ function mount(root) {
     const ev = occ ? getEvent(occ.eventId) : null;
     if (ev) {
       const newer = isNewerFormat(ev.id);
+      const today = todayKey();
       return {
         kind: 'event',
         id: ev.id,
         label: `Event: ${ev.title}`,
         el: evEl,
+        // The quick ones first (the shell lists them before Edit…)
+        actions: newer
+          ? []
+          : [
+              occ.start !== today ? { id: 'today', label: 'Move to today', icon: 'sun', run: () => moveOccurrenceTo(occ, today) } : null,
+              { id: 'dup-tomorrow', label: 'Duplicate to the next day', icon: 'sunrise', run: () => duplicateTo(occ, L.shiftDays(occ.start, 1)) },
+            ].filter(Boolean),
         accepts,
         paste: (c) => pasteOnDay(c, occ.start),
         copy: () => {
@@ -1404,18 +1515,27 @@ function mount(root) {
     if (task) {
       const id = task.id;
       const key = inTray ? null : dayAt(el);
+      const today = todayKey();
+      const tomorrow = L.shiftDays(today, 1);
       return {
         kind: 'task',
         id,
         label: `Task: ${task.title}`,
         el: taskEl.closest('[data-drag="task"]')?.querySelector('[data-act="task-open"]') ?? taskEl,
+        // The quick ones first: done, a day (with Undo), or no day at all
+        actions: [
+          { id: 'done', label: task.done ? 'Reopen' : 'Complete', icon: task.done ? 'undo' : 'check', run: () => toggleTaskDone(id) },
+          task.due !== today ? { id: 'today', label: 'Move to today', icon: 'sun', run: () => applyDue(id, today) } : null,
+          task.due !== tomorrow ? { id: 'tomorrow', label: 'Move to tomorrow', icon: 'sunrise', run: () => applyDue(id, tomorrow) } : null,
+          task.due ? { id: 'unschedule', label: 'Unschedule', icon: 'inbox', run: () => applySchedule(id, { due: null, time: null }) } : null,
+        ].filter(Boolean),
         accepts: key ? accepts : ['task'],
         paste: (c) => (c.kind === 'task' ? pasteTask(c.snapshot, key, { afterId: id }) : pasteOnDay(c, key)),
         copy: () => {
           const snapshot = tasksApi.snapshot(id);
           return snapshot ? { kind: 'task', snapshot, text: snapshot.title } : null;
         },
-        remove: () => tasksApi.remove(id),
+        remove: () => removeTask(id),
         duplicate: () => {
           const snapshot = tasksApi.snapshot(id);
           if (snapshot) pasteTask(snapshot, findTask(id)?.due ?? null, { afterId: id, verb: 'Duplicated' });
@@ -1443,6 +1563,98 @@ function mount(root) {
     };
   }
 
+  /* ---- "+N more": the day's whole list, over its cell ----
+     A small dialog (calendar.views dayPopover) inside .cal, so its clicks, drags and right-clicks
+     go through the page's own handlers. Esc or a click outside closes it (Esc gives focus back to
+     its "+N more"); ↑ ↓ move between its items. A new render rebuilds it with the new data. */
+
+  let pop = null; // { el, key }
+  let popShut = null; // { key, at }: a press outside just closed it (its own "+N more" toggles it)
+
+  function openDayPop(key) {
+    if (popShut?.key === key && Date.now() - popShut.at < 400) return;
+    closeDayPop(false);
+    if (!lastCtx || state.view !== 'month') return;
+    const el = dayPopover(lastCtx, key);
+    pop = { el, key };
+    cal.append(el);
+    placePop();
+    el.addEventListener('keydown', onPopKey);
+    el.addEventListener('focusout', onPopFocusOut);
+    document.addEventListener('pointerdown', onPopOutside, true);
+    popItems(el)[0]?.focus({ preventScroll: true });
+  }
+
+  /** What Tab and ↑ ↓ reach in the list, in order (the close button last for the arrows). */
+  const popItems = (el) => [...el.querySelectorAll('.cal-pop-list [tabindex="0"], .cal-pop-list button.cal-task-check, .cal-pop-list button.cal-task-title, .cal-pop-open')].filter((n) => n.getClientRects().length);
+
+  function placePop() {
+    if (!pop) return;
+    const cell = body.querySelector(`.cal-cell[data-key="${CSS.escape(pop.key)}"]`);
+    if (!cell) return closeDayPop(false);
+    const c = cal.getBoundingClientRect();
+    const r = cell.getBoundingClientRect();
+    const w = Math.min(c.width, Math.max(r.width + 24, 264));
+    const left = Math.max(0, Math.min(r.left - c.left - 12, c.width - w));
+    pop.el.style.width = `${w}px`;
+    pop.el.style.left = `${left}px`;
+    // Over the day, but kept on screen: a day in the last row opens upwards
+    const height = pop.el.offsetHeight;
+    const bottom = viewportBottom() - 8;
+    const top = Math.min(r.top - 6, bottom - height);
+    pop.el.style.top = `${Math.max(top, c.top) - c.top}px`;
+  }
+
+  function closeDayPop(returnFocus) {
+    if (!pop) return;
+    const { el, key } = pop;
+    pop = null;
+    document.removeEventListener('pointerdown', onPopOutside, true);
+    el.remove();
+    if (returnFocus) (byFid(`more:${key}`) ?? byFid(`cell:${key}`) ?? title).focus({ preventScroll: true });
+  }
+
+  function refreshDayPop(ctx) {
+    if (!pop) return;
+    if (ctx.kind !== 'month') return closeDayPop(false);
+    const had = pop.el.contains(document.activeElement) ? document.activeElement.closest('[data-fid]')?.dataset.fid ?? null : null;
+    const next = dayPopover(ctx, pop.key);
+    next.addEventListener('keydown', onPopKey);
+    next.addEventListener('focusout', onPopFocusOut);
+    pop.el.replaceWith(next);
+    pop.el = next;
+    placePop();
+    if (had) (next.querySelector(`[data-fid="${CSS.escape(had)}"]`) ?? popItems(next)[0])?.focus({ preventScroll: true });
+  }
+
+  function onPopKey(e) {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      e.stopPropagation();
+      closeDayPop(true);
+      return;
+    }
+    if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp' && e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+    // The arrows stay in the list (the page's ← → would move the month under it)
+    e.preventDefault();
+    const items = popItems(pop.el);
+    const at = items.indexOf(document.activeElement);
+    const step = e.key === 'ArrowDown' || e.key === 'ArrowRight' ? 1 : -1;
+    items[(at + step + items.length) % items.length]?.focus({ preventScroll: true });
+  }
+
+  // Focus left the list (Tab past its end, a click elsewhere): it closes, focus stays where it went
+  function onPopFocusOut(e) {
+    if (!pop || !e.relatedTarget || pop.el.contains(e.relatedTarget)) return;
+    closeDayPop(false);
+  }
+
+  function onPopOutside(e) {
+    if (!pop || pop.el.contains(e.target)) return;
+    popShut = { key: pop.key, at: Date.now() };
+    closeDayPop(false);
+  }
+
   function addTaskInline(text) {
     // Same priority tokens as Tasks' quick-add (!h / !m / !l); the day itself is the due date
     const parsed = parseQuickAdd(text, todayKey(), new Set(['due']));
@@ -1461,6 +1673,7 @@ function mount(root) {
 
   /* ---- clicks (delegated) ---- */
   function onClick(e) {
+    if (e.target.closest('[data-pop-close]')) return closeDayPop(true);
     const actEl = e.target.closest('[data-act]');
     if (actEl && cal.contains(actEl)) {
       const a = actEl.dataset;
@@ -1470,7 +1683,7 @@ function mount(root) {
         case 'zoom-day':
           return zoomTo('day', a.key, actEl);
         case 'more':
-          return zoomTo('day', a.key);
+          return openDayPop(a.key);
         case 'event':
           return editOccurrence(a.occ);
         case 'add-event':
@@ -1482,6 +1695,8 @@ function mount(root) {
         case 'plan-toggle':
           return toggleDayPanel(a.panel);
         case 'task-check':
+          // (a click or tap: the row holds its place a moment; a key redraws at once, focus kept)
+          if (e.detail > 0) holdTickedRow(actEl);
           return toggleTaskDone(a.task);
         case 'task-open':
         case 'task-schedule':
@@ -1572,6 +1787,10 @@ function mount(root) {
       onStart: (ev) => {
         ghost = ghostOf(chip, ev.clientX, ev.clientY);
         chip.classList.add('is-lifted');
+        // The Unscheduled chip shows it takes a task now
+        cal.classList.add('is-task-drag');
+        // Planning from the tray is what its tip explains
+        if (chip.closest('[data-drop-tray]') && !tipHidden('calendar.tray')) dismissTip('calendar.tray');
       },
       onMove: (ev) => {
         ghost.move(ev.clientX, ev.clientY);
@@ -1596,6 +1815,7 @@ function mount(root) {
     function cleanup() {
       ghost?.remove();
       chip.classList.remove('is-lifted');
+      cal.classList.remove('is-task-drag');
       target = setDropHighlight(target, null);
     }
   }
@@ -1743,6 +1963,7 @@ function mount(root) {
     trackPointer(e, {
       onStart: () => {
         block.classList.add('is-dragging');
+        if (!resize) cal.classList.add('is-task-drag');
         Object.assign(block.style, { left: '2px', width: 'calc(100% - 4px)' });
       },
       onMove: (ev) => {
@@ -1760,6 +1981,7 @@ function mount(root) {
       onEnd: () => {
         edge.stop();
         block.classList.remove('is-dragging', 'is-leaving');
+        cal.classList.remove('is-task-drag');
         const drop = lane;
         lane = setDropHighlight(lane, null);
         scheduleRender();
@@ -1772,6 +1994,7 @@ function mount(root) {
       onCancel: () => {
         edge.stop();
         block.classList.remove('is-dragging', 'is-leaving');
+        cal.classList.remove('is-task-drag');
         lane = setDropHighlight(lane, null);
         scheduleRender();
       },
@@ -1862,9 +2085,9 @@ function mount(root) {
 
   function onKeydown(e) {
     if (e.defaultPrevented || isTyping(e) || modalOpen() || menuOpen() || !root.isConnected) return;
-    // ⌘/Ctrl + Z: the latest calendar Undo (the toast may be long gone for keyboard users)
+    // ⌘/Ctrl + Z: the newest Undo of a change made here (the toast may be long gone for keyboard users)
     if ((e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === 'z') {
-      if (undoLast()) e.preventDefault();
+      if (undoNewest()) e.preventDefault();
       return;
     }
     if (e.metaKey || e.ctrlKey || e.altKey) return;
@@ -1924,7 +2147,21 @@ function mount(root) {
     if (lastCtx && s.events === lastCtx.events && s.layers === lastCtx.layers && (s.dayColors ?? lastCtx.dayColors) === lastCtx.dayColors) return;
     scheduleRender();
   });
-  const offTasks = tasksApi.subscribe(scheduleRender);
+  // A tick by pointer holds the task lists a moment (holdTickedRow): their redraw waits for it
+  let tickHoldUntil = 0;
+  let tickHoldTimer = 0;
+  function holdTickedRow(check) {
+    tickHoldUntil = Date.now() + TICK_HOLD_MS;
+    const done = check.getAttribute('aria-checked') !== 'true';
+    check.setAttribute('aria-checked', String(done));
+    check.closest('.cal-trow, .cal-task')?.classList.toggle('is-done', done);
+  }
+  const offTasks = tasksApi.subscribe(() => {
+    clearTimeout(tickHoldTimer);
+    const wait = tickHoldUntil - Date.now();
+    if (wait > 0) tickHoldTimer = setTimeout(scheduleRender, wait + 10);
+    else scheduleRender();
+  });
   const offHabits = habitsApi.source.subscribe(scheduleRender);
   const offDay = onDayChange((today) => {
     if (state.cursor === state.today) state.cursor = today;
@@ -1954,6 +2191,7 @@ function mount(root) {
           if (fitRaf) return;
           fitRaf = requestAnimationFrame(() => {
             fitRaf = 0;
+            if (alive && root.isConnected) fitTitle();
             refit();
           });
         })
@@ -1966,7 +2204,7 @@ function mount(root) {
   for (const b of [viewDd.button, showDd.button]) menuWatch.observe(b, { attributes: true, attributeFilter: ['aria-expanded'] });
   // A tip's ✓ hides it: the row may go, and the view gets that room
   const onTipDone = (e) => {
-    if (!e.target.closest?.('.tip-ok') || !lastCtx) return;
+    if (!e.target.closest?.('.tip-ok, .page-tip-ok') || !lastCtx) return;
     requestAnimationFrame(() => {
       if (alive && lastCtx) updateTips(lastCtx);
     });
@@ -1998,6 +2236,7 @@ function mount(root) {
 
   return () => {
     alive = false;
+    closeDayPop(false);
     if (openInView === openHere) openInView = null;
     if (raf) cancelAnimationFrame(raf);
     raf = 0;
@@ -2010,6 +2249,7 @@ function mount(root) {
     offMenu();
     offCal();
     offTasks();
+    clearTimeout(tickHoldTimer);
     offHabits();
     offDay();
     clearInterval(clock);

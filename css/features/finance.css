@@ -1,51 +1,43 @@
 /* ==========================================================================
    LIFE/OS — Finance (js/features/finance.js): subscriptions
-   Built from the shared kit (.panel .hud, .panel-head, .tag, .seg, .btn, .stat-value), so every
-   template restyles it without rules of its own. Layout: totals on top, the list on the left,
-   the next 30 days and the cost by category on the right (stacked on narrow windows).
+   Built from the shared kit (.panel .hud, .panel-head, .tag, .seg, .btn, .dd, .empty), so every
+   template restyles it without rules of its own. Layout: the totals as one line beside the title,
+   the list on the left, the next 30 days and the cost by category on the right (stacked on
+   narrow windows).
    ========================================================================== */
 
-/* ---- Totals ---- */
-.fn-summary {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: var(--space-3);
-  margin-bottom: var(--space-5);
-}
-
-.fn-summary[hidden] {
-  display: none;
-}
-
-.fn-stat {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+/* ---- Totals: one line beside the title (pageHeader's stat, js/features/finance.js) ----
+   'kr 219/mo · kr 2,628/yr · next: Netflix Thu'. A sum is never cut short: each part keeps its
+   words together and the line wraps between parts. Stronger than the shell's one-line stat
+   (cut short with "…" when the title row is full, css/compact.css), for this page only. */
+html[data-skin] .main .view.fn-root > .page-header .page-stat:has(> .fn-sum) {
   min-width: 0;
-  padding: var(--space-4);
+  max-width: none;
+  overflow: visible;
+  white-space: normal;
+  text-overflow: clip;
 }
 
-.fn-stat-value {
-  font-size: var(--fs-2xl);
-  overflow: hidden;
-  text-overflow: ellipsis;
+/* Narrow windows: the title and the Add button fill the title row (a phone left the line 13px
+   and it ran under the button), so the line takes its own row under them, full width */
+@media (max-width: 760px) {
+  html[data-skin] .main .view.fn-root > .page-header .page-heading > .page-stat:has(> .fn-sum) {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+}
+
+.fn-sum {
+  font-variant-numeric: tabular-nums;
+}
+
+.fn-sum-part {
   white-space: nowrap;
 }
 
-/* The next payment is a name, not a number */
-.fn-stat--next .fn-stat-value {
-  font-family: var(--font-sans);
-  font-size: var(--fs-xl);
+.fn-sum-total {
+  color: var(--text);
   font-weight: 600;
-  letter-spacing: -0.01em;
-}
-
-.fn-stat-sub {
-  font-size: var(--fs-xs);
-  color: var(--text-3);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 /* ---- Two columns ---- */
@@ -132,8 +124,10 @@
   border-top: 0;
 }
 
-.fn-row:hover {
-  background: var(--surface-2);
+@media (hover: hover) and (pointer: fine) {
+  .fn-row:hover {
+    background: var(--surface-2);
+  }
 }
 
 .fn-row:focus-visible {
@@ -141,9 +135,14 @@
   outline-offset: -2px;
 }
 
-.fn-row.is-paused,
-.fn-row.is-cancelled {
-  opacity: 0.62;
+/* Paused and cancelled rows read quieter: the name and price in the second gray, the icon faded.
+   Not the whole row (it was 0.62 opacity): its small tags fell under 4.5:1 (WCAG 1.4.3) */
+.fn-row:is(.is-paused, .is-cancelled) :is(.fn-name, .fn-price) {
+  color: var(--text-2);
+}
+
+.fn-row:is(.is-paused, .is-cancelled) .fn-avatar {
+  opacity: 0.55;
 }
 
 .fn-avatar {
@@ -188,12 +187,27 @@
   gap: 6px;
 }
 
+/* The site's link (only when one is saved) sits before the price; on a mouse it shows while
+   the row is pointed at or focused, so the list stays quiet */
 .fn-row-actions {
   justify-content: flex-end;
-  width: 64px;
 }
 
+@media (hover: hover) {
+  .fn-row-actions {
+    opacity: 0;
+    transition: opacity var(--dur-fast) var(--ease);
+  }
+
+  .fn-row:hover .fn-row-actions,
+  .fn-row:focus-within .fn-row-actions {
+    opacity: 1;
+  }
+}
+
+/* Always the last column: every price ends on the row's right edge, link or not */
 .fn-row-price {
+  grid-column: -2 / -1;
   display: flex;
   flex-direction: column;
   align-items: flex-end;
@@ -329,7 +343,8 @@
   list-style: none;
 }
 
-.fn-cat {
+/* A category's row (.fn-cat alone is the category tag on a subscription row) */
+.fn-cat-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 5px var(--space-3);
@@ -357,19 +372,14 @@
   background: var(--text);
 }
 
-/* ---- Nothing yet ---- */
-.fn-empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-8) var(--space-5);
-  text-align: center;
+/* ---- Nothing yet: the shared .empty (ui.emptyState), with quick starters; the page's full
+   width (not the list's column), like every other empty page ---- */
+.fn-body > .fn-empty {
+  grid-column: 1 / -1;
 }
 
 .fn-empty .empty-text {
   max-width: 48ch;
-  margin: 0;
 }
 
 .fn-starters {
@@ -378,7 +388,7 @@
   justify-content: center;
   gap: var(--space-2);
   max-width: 640px;
-  margin-bottom: var(--space-2);
+  margin-top: var(--space-1);
 }
 
 /* ---- The dialog ---- */
@@ -442,10 +452,6 @@
   .fn-body {
     grid-template-columns: minmax(0, 1fr);
   }
-
-  .fn-summary {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
 }
 
 @media (max-width: 640px) {
@@ -461,14 +467,11 @@
   .fn-ed-grid {
     grid-template-columns: minmax(0, 1fr);
   }
-
-  .fn-stat-value {
-    font-size: var(--fs-xl);
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .fn-row,
+  .fn-row-actions,
   .fn-caret {
     transition: none;
   }

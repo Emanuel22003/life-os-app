@@ -4,7 +4,7 @@
 // workspace), the move menu and the section dialogs. Every change is reported
 // through callbacks; notes.js owns the store, the selection and the autosave.
 
-import { h, icon, iconBadge, iconPicker, registerIcon, openModal, num, plural, clamp, reducedMotion, tip } from '../ui.js';
+import { h, icon, iconBadge, iconPicker, registerIcon, openModal, num, plural, clamp, reducedMotion, tip, dropdown } from '../ui.js';
 import { paintColor, colorPicker } from '../colors.js';
 import { ICON_CHOICES } from '../icons.logic.js';
 import {
@@ -267,6 +267,9 @@ export function createSectionNav(ctx) {
     totalEl.textContent = num(sections.length);
     paint(fixedRows.get(VIEW_ALL), { name: 'All notes', iconName: 'nt-all', count: counts.all, selected: view === VIEW_ALL });
     paint(fixedRows.get(VIEW_UNSORTED), { name: 'Unsorted', iconName: 'inbox', count: counts.unsorted, selected: view === VIEW_UNSORTED });
+    // An empty Unsorted says nothing: it shows while it holds notes, is open, or a note is
+    // being dragged onto the rail (to unfile it there; notes.css)
+    fixedRows.get(VIEW_UNSORTED).li.classList.toggle('nt-srow--empty', !unsortedShown());
 
     const live = new Set(sections.map((s) => s.id));
     for (const id of [...rows.keys()]) {
@@ -310,7 +313,7 @@ export function createSectionNav(ctx) {
    * plus that row's Edit / Delete; arrow keys move between rows.
    */
   function syncTabStops() {
-    const stop = rowFor(tabView) ? tabView : model.view;
+    const stop = rowFor(tabView) && (tabView !== VIEW_UNSORTED || unsortedShown()) ? tabView : model.view;
     for (const row of [...fixedRows.values(), ...rows.values()]) {
       const on = row.view === stop;
       row.btn.tabIndex = on ? 0 : -1;
@@ -355,7 +358,7 @@ export function createSectionNav(ctx) {
       e.preventDefault();
       ctx.onDelete(view);
     } else {
-      arrowFocus(e, [...railBody.querySelectorAll('.nt-rail-item')]);
+      arrowFocus(e, [...railBody.querySelectorAll('.nt-rail-item')].filter((b) => b.offsetParent !== null));
     }
   }
 
@@ -545,9 +548,17 @@ export function createSectionNav(ctx) {
     h('span', { class: 'nt-strip-hint label' }, hint(['[', ']'], 'Switch')),
     iconButton('sliders', 'Manage sections', () => ctx.onManage(), 'nt-strip-manage'),
   );
-  // The edge fades depend on the strip's width, which changes with the layout.
-  const resizeWatch = typeof ResizeObserver === 'function' ? new ResizeObserver(() => updateFades()) : null;
+  // Sections that don't fit the strip fold into "More ▾" at its end (the open one always shows),
+  // so none hides past the edge. Its menu lists them with their counts.
+  const moreDd = dropdown({ label: 'More', title: 'More sections', menuLabel: 'More sections', className: 'nt-chip nt-chip--more', showValue: false, onSelect: (view) => ctx.onView(view) });
+  moreDd.el.classList.add('nt-chip-more');
+  moreDd.el.hidden = true;
+  // What fits depends on the strip's width, which changes with the layout (the edge fades too).
+  const resizeWatch = typeof ResizeObserver === 'function' ? new ResizeObserver(() => fitChips()) : null;
   resizeWatch?.observe(chips);
+  // The template's web fonts can arrive after the first fit and change every chip's width, not the
+  // strip's (so the observer above stays quiet): fit again then
+  document.fonts?.ready.then(() => chips.isConnected && fitChips(), () => {});
 
   // Only the open view's chip is a Tab stop; arrow keys reach the others.
   // A section's chip shows its icon tinted (Notes tone or its own color); All and Unsorted stay gray.
@@ -585,18 +596,52 @@ export function createSectionNav(ctx) {
     const focused = active instanceof HTMLElement && chips.contains(active) ? active.dataset.view : null;
     chips.replaceChildren(
       chip(VIEW_ALL, 'All', 'nt-all', counts.all),
-      chip(VIEW_UNSORTED, 'Unsorted', 'inbox', counts.unsorted),
+      unsortedShown() ? chip(VIEW_UNSORTED, 'Unsorted', 'inbox', counts.unsorted) : '',
       ...sections.map((s) => chip(s.id, s.name, glyphOf(s), counts.bySection[s.id] ?? 0, s.color ?? null)),
       ...(sections.length ? [] : availableSuggestions([]).map(starterChip)),
+      moreDd.el,
       addChip,
     );
+    fitChips();
     if (focused) chips.querySelector(`[data-view="${CSS.escape(focused)}"]`)?.focus({ preventScroll: true });
+  }
+
+  /**
+   * Fold the section chips that don't fit into More ▾, last ones first (never the open one).
+   * Only while the strip shows; a hidden strip is measured again when it appears.
+   */
+  function fitChips() {
+    const secChips = [...chips.children].filter((c) => c.matches('.nt-chip[data-view]') && findSection(model.sections, c.dataset.view));
+    for (const c of secChips) c.hidden = false;
+    moreDd.el.hidden = true;
+    const over = () => chips.scrollWidth > chips.clientWidth + 1;
+    if (strip.offsetParent !== null && over()) {
+      moreDd.el.hidden = false;
+      const folded = [];
+      for (let i = secChips.length - 1; i >= 0 && over(); i--) {
+        if (secChips[i].dataset.view === model.view) continue;
+        secChips[i].hidden = true;
+        folded.unshift(secChips[i].dataset.view);
+      }
+      moreDd.el.hidden = !folded.length;
+      const items = folded.map((id) => {
+        const s = findSection(model.sections, id);
+        return { value: id, label: s.name, icon: glyphOf(s), hint: num(model.counts.bySection[id] ?? 0) };
+      });
+      moreDd.update({ items, value: null });
+      moreDd.button.setAttribute('aria-label', `More sections: ${plural(folded.length, 'section')}`);
+    }
     updateFades();
+  }
+
+  /** The chips the arrow keys move between: the ones showing (More ▾ by its button). */
+  function chipButtons() {
+    return [...chips.children].map((c) => (c.matches('.dd') ? c.querySelector('button') : c)).filter((c) => c && !c.closest('[hidden]'));
   }
 
   function onChipKey(e) {
     if (e.altKey || e.metaKey || e.ctrlKey) return;
-    arrowFocus(e, [...chips.children], { prev: 'ArrowLeft', next: 'ArrowRight' });
+    arrowFocus(e, chipButtons(), { prev: 'ArrowLeft', next: 'ArrowRight' });
   }
 
   /** Fade the strip's edges only on the sides that have more chips to scroll to. */
@@ -608,6 +653,8 @@ export function createSectionNav(ctx) {
 
   /* ---- Shared ---- */
 
+  // Unsorted shows while it holds notes or is the open view (else nothing is filed there to see)
+  const unsortedShown = () => model.counts.unsorted > 0 || model.view === VIEW_UNSORTED;
   const railVisible = () => rail.offsetParent !== null;
   const rowFor = (view) => (view == null ? null : fixedRows.get(view) ?? rows.get(view) ?? null);
   const chipFor = (view) => chips.querySelector(`[data-view="${CSS.escape(view)}"]`);
@@ -615,7 +662,7 @@ export function createSectionNav(ctx) {
   /** Bring the view's rail row and chip into sight (after '[' / ']' or a new section). */
   function revealView(view, { instant = false } = {}) {
     const chipEl = chipFor(view);
-    if (chipEl && strip.offsetParent !== null) {
+    if (chipEl && !chipEl.hidden && strip.offsetParent !== null) {
       scrollIntoBox(chips, chipEl, 'x', instant);
       updateFades();
     }
@@ -1182,7 +1229,7 @@ export function openDeleteSection({ section, count, onConfirm }) {
   const groupName = nextId('nt-dx');
   const notes = plural(count, 'note');
 
-  const confirmBtn = h('button', { type: 'button', class: 'btn btn--danger', onClick: () => confirm() }, icon('trash'), 'Delete section');
+  const confirmBtn = h('button', { type: 'button', class: 'btn btn--danger btn--danger-fill', onClick: () => confirm() }, icon('trash'), 'Delete section');
 
   function choice(value, title, sub, danger = false) {
     const input = h('input', {
@@ -1222,12 +1269,14 @@ export function openDeleteSection({ section, count, onConfirm }) {
     m.close();
   }
 
+  // Cancel has the focus, as in every danger confirm (ui.confirmDialog): Enter never deletes by accident
+  const cancelBtn = h('button', { type: 'button', class: 'btn btn--ghost', onClick: () => m.close() }, 'Cancel');
   const m = openModal({
     title: 'Delete section?',
     body,
-    footer: [h('button', { type: 'button', class: 'btn btn--ghost', onClick: () => m.close() }, 'Cancel'), confirmBtn],
+    footer: [cancelBtn, confirmBtn],
     className: 'nt-modal nt-dx-modal',
-    initialFocus: confirmBtn,
+    initialFocus: cancelBtn,
     onClose: () => {
       if (result) onConfirm(result);
     },

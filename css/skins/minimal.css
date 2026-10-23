@@ -10,9 +10,23 @@
    Conventions as in the other skins (see simple.css); every selector starts with
    [data-skin="minimal"]. After changing --bg, update SKIN_BOOT (js/skins.js and index.html).
 
-   Sections: tokens · whole app · Home · Tasks · Notes · Habits · Calendar · Focus timer ·
-   Finance · Settings · Training.
+   Sections: tokens · whole app · dialogs and sheets · Home · Tasks · Notes · Habits ·
+   Calendar · Focus timer · Finance · Settings · Training · Health.
    Each page's section is that page's own (marked "Home (minimal)" … "end Home").
+
+   One language for each meaning, on every page:
+   - Picked (a segment, a tab, a preset, a weekday, the Day strip's day): the word in ink and
+     semibold, with a 2px ink line under it (the line is the 3:1 mark, WCAG 1.4.11; weight
+     alone was not enough). Where you are (the menu, the notes rail, the Settings index, More's
+     pages): ink and semibold, no line.
+   - Done: filled with ink (a task's box, a habit's dot or circle, a set). A habit is round, a
+     task square, everywhere.
+   - A switch: a thin gray outline with a gray knob on the left when off; filled ink with a
+     paper knob on the right when on.
+   - Fields: one quiet line under the words, ink while you type (no boxes, one focus mark).
+   - A card's title: small gray words (14.5px), no icon. An empty state: one left-aligned
+     sentence and its one action as an ink word.
+   Hover fills sit in @media (hover: hover) and (pointer: fine): a tap never leaves one behind.
    ========================================================================== */
 
 /* ==========================================================================
@@ -37,6 +51,10 @@
 
   --label-size: var(--fs-xs);
   --label-weight: 400;
+
+  /* A quiet page title at every width (css/compact.css sizes it within its cap from these) */
+  --page-title-size: 30px;
+  --page-title-size-phone: 26px;
 
   /* No card lift, no glow around a focused field (the 2px outline says it, once) */
   --simple-card-shadow: none;
@@ -216,8 +234,29 @@
 }
 
 [data-skin="minimal"] .tab::before,
-[data-skin="minimal"] .tab[aria-current="page"]::before {
+[data-skin="minimal"] .tab[aria-current="page"]::before,
+[data-skin="minimal"] .tab--more.is-current::before {
   content: none;
+}
+
+/* More is "current" while one of its pages is open: its icon in ink, as an open page's */
+[data-skin="minimal"] .tab--more.is-current > .icon {
+  color: var(--text);
+}
+
+/* The open page's icon a step bolder too, as the menu's open page is semibold: with the words
+   out of sight, ink against gray was the only mark (More's dots are drawn at 2 already) */
+[data-skin="minimal"] .tab[aria-current="page"] > .icon {
+  stroke-width: 2;
+}
+
+/* "Needs you today": a small gray dot on the icon's corner, not a black blot (no counts here) */
+[data-skin="minimal"] .nav-dot {
+  width: 6px;
+  height: 6px;
+  margin: 1px 0 0 1px;
+  background: var(--text-2);
+  box-shadow: 0 0 0 2px var(--bg);
 }
 
 /* ---- Buttons: the main one is ink; the rest are just words or icons ---- */
@@ -238,8 +277,10 @@
   color: var(--text-2);
 }
 
-[data-skin="minimal"] .btn:not(.btn--primary):hover {
-  background: var(--surface-2);
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="minimal"] .btn:not(.btn--primary):hover {
+    background: var(--surface-2);
+  }
 }
 
 [data-skin="minimal"] .btn--primary {
@@ -248,7 +289,7 @@
   box-shadow: none;
 }
 
-/* ---- Switches and menus: plain words, the chosen one in ink ---- */
+/* ---- Switches and menus: plain words, the chosen one in ink with a line under it ---- */
 [data-skin="minimal"] .seg {
   border-color: transparent;
   background: transparent;
@@ -258,13 +299,23 @@
   color: var(--text-3);
 }
 
+/* The 2px ink line under the picked word: weight alone was too faint a sign (it is the mark the
+   a11y scan measures, 3:1 against the paper). Square corners: on a rounded button the line bent
+   up at both ends and read as a box around the word */
 [data-skin="minimal"] .seg-btn[aria-pressed="true"],
 [data-skin="minimal"] .seg-btn[aria-selected="true"],
 [data-skin="minimal"] .seg-btn.is-on {
+  border-radius: 0;
   background: transparent;
-  box-shadow: none;
+  box-shadow: inset 0 -2px 0 var(--text);
   color: var(--text);
   font-weight: 600;
+}
+
+/* Icons don't name the choice here, the words do (switches that are icons alone on a phone,
+   List · Board and the calendar's views, keep theirs in their own sections) */
+[data-skin="minimal"] :is(.hb-view-btn, .appearance-mode .seg-btn, .tk-pri-seg .seg-btn, .tk-due-chips .seg-btn, .tr-kind-seg .seg-btn) > svg {
+  display: none;
 }
 
 [data-skin="minimal"] .dd-btn {
@@ -285,30 +336,464 @@
   color: var(--text-2);
 }
 
-/* ---- Fields: a quiet line ---- */
-/* In use: the one 2px ring (the base field rule switches outlines off on focus, and this
-   template's resting border would otherwise hide the darker focus border too) */
-[data-skin="minimal"] :is(.input, .textarea, .select):focus {
-  outline: 2px solid var(--line-focus);
-  outline-offset: 2px;
-}
-
+/* ---- Fields: a quiet line under the words, no box ----
+   Quiet, but still 3:1: the line is the only sign it takes typing (WCAG 1.4.11). In use the line
+   turns ink and thickens: the one focus mark (an outline as well drew a second ring around it) */
 [data-skin="minimal"] :is(.input, .textarea, .select) {
-  /* Quiet, but still 3:1: the line is the only sign a box takes typing (WCAG 1.4.11) */
+  border-width: 0 0 1px;
   border-color: var(--field-line);
+  border-radius: 0;
   /* The color only: a select draws its arrow as a background image */
   background-color: transparent;
 }
 
-/* ---- Empty states: a short sentence, nothing around it ---- */
+[data-skin="minimal"] :is(.input, .textarea, .select):focus {
+  border-bottom-color: var(--line-focus);
+  box-shadow: inset 0 -1px 0 var(--line-focus);
+  outline: none;
+}
+
+[data-skin="minimal"] .textarea {
+  padding-inline: 0;
+}
+
+/* A field that is wrong: its line dashed, in the late color (the message under it says why) */
+[data-skin="minimal"] :is(.input, .textarea, .select)[aria-invalid="true"] {
+  border-bottom-style: dashed;
+  border-bottom-color: var(--alert);
+}
+
+/* ---- A switch: a thin gray outline and a gray knob when off; ink with a paper knob when on.
+   Small (32 × 18), so a stack of them in Settings stays calm ---- */
+[data-skin="minimal"] .pm-switch-track {
+  width: 32px;
+  height: 18px;
+  border: 1px solid var(--text-2);
+  background: transparent;
+  box-shadow: none;
+}
+
+[data-skin="minimal"] .pm-switch-thumb {
+  left: 3px;
+  width: 10px;
+  height: 10px;
+  background: var(--text-2);
+}
+
+[data-skin="minimal"] .pm-switch[aria-checked="true"] .pm-switch-track {
+  border-color: var(--text);
+  background: var(--text);
+}
+
+[data-skin="minimal"] .pm-switch[aria-checked="true"] .pm-switch-thumb {
+  background: var(--bg);
+  transform: translate(14px, -50%);
+}
+
+/* (Settings' own off rim, settings.css, is the same edge drawn as a shadow: one is enough) */
+[data-skin="minimal"] .st-switch:not([aria-checked="true"]) .pm-switch-track {
+  box-shadow: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="minimal"] .pm-switch:hover .pm-switch-track {
+    border-color: var(--text);
+  }
+}
+
+/* The event's All day is the same switch (it kept the square toggle and square knob of the
+   default look), its word in the dialog's small gray */
+[data-skin="minimal"] .cal-ed-switch {
+  font-family: var(--font-sans);
+  font-size: var(--fs-xs);
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+[data-skin="minimal"] .cal-ed-switch-track {
+  width: 32px;
+  height: 18px;
+  border: 1px solid var(--text-2);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  box-shadow: none;
+}
+
+[data-skin="minimal"] .cal-ed-switch-thumb {
+  top: 3px;
+  left: 3px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--text-2);
+}
+
+[data-skin="minimal"] .cal-ed-switch[aria-checked="true"] .cal-ed-switch-track {
+  border-color: var(--text);
+  background: var(--text);
+  box-shadow: none;
+}
+
+[data-skin="minimal"] .cal-ed-switch[aria-checked="true"] .cal-ed-switch-thumb {
+  background: var(--bg);
+  transform: translateX(14px);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="minimal"] .cal-ed-switch:hover .cal-ed-switch-track {
+    border-color: var(--text);
+  }
+}
+
+/* ---- Empty states: one left-aligned sentence (and its one action as an ink word), nothing
+   around it: no box, no icon, the explanation in gray under it when the page has one ---- */
 [data-skin="minimal"] .empty {
+  align-items: flex-start;
+  padding: var(--space-4) 0;
   border: 0;
   background: none;
+  text-align: left;
 }
 
 [data-skin="minimal"] .empty-icon {
   display: none;
 }
+
+[data-skin="minimal"] .empty-title {
+  font-size: var(--fs-md);
+  font-weight: 500;
+  color: var(--text);
+}
+
+[data-skin="minimal"] .empty-text {
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+}
+
+/* Its action: an ink word that lines up with the sentence (its padding steps out to the left) */
+[data-skin="minimal"] .empty > .btn {
+  margin-left: -10px;
+  padding-inline: 10px;
+}
+
+[data-skin="minimal"] .empty > .btn--primary {
+  border-color: transparent;
+  background: transparent;
+  color: var(--text);
+  font-weight: 600;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="minimal"] .empty > .btn--primary:hover {
+    background: var(--surface-2);
+  }
+}
+
+/* ---- A card's title: small gray words, the same on every page (Home's widgets, Finance's
+   lists, the timer's setup, Settings' sections, Training's lists, Insights' charts) ---- */
+[data-skin="minimal"] :is(.hm-card-title, .pm-card-title, .tr-section-title, .hbi-card-title, .hm-start-title),
+[data-skin="minimal"] .fn-root .fn-panel-title,
+[data-skin="minimal"] .st-root .st-card-title {
+  font-family: var(--font-sans);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--text-2);
+}
+
+[data-skin="minimal"] :is(.hm-card-title, .pm-card-title, .tr-section-title, .hbi-card-title, .hm-start-title, .st-card-title) > :is(svg, .ib) {
+  display: none;
+}
+
+/* ---- Search (⌘K): no icon tiles, the lit row a faint fill with an ink line on its left and its
+   title in semibold; the group names small gray words. Square rows: on a rounded one the line
+   bent round the corners like a "(" ---- */
+[data-skin="minimal"] .cmd-item {
+  border-radius: 0;
+}
+
+[data-skin="minimal"] .cmd-item[aria-selected="true"] {
+  background: var(--surface-2);
+  box-shadow: inset 2px 0 0 var(--text);
+}
+
+[data-skin="minimal"] .cmd-item[aria-selected="true"] .cmd-title {
+  font-weight: 600;
+}
+
+[data-skin="minimal"] .cmd-ib {
+  --ib-c: var(--text-3);
+}
+
+[data-skin="minimal"] .cmd-group {
+  font-size: var(--fs-xs);
+  font-weight: 400;
+  color: var(--text-3);
+}
+
+[data-skin="minimal"] .cmd-hit {
+  font-weight: 650;
+}
+
+/* The shortcuts sheet: its sections as small gray words, no rules */
+[data-skin="minimal"] .cmd-keys-head {
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+}
+
+/* ---- Right-click menu: Delete stays gray like every Delete here until it is lit (then red) ---- */
+[data-skin="minimal"] .ctx-item--delete:not(:hover):not(:focus) {
+  color: var(--text-2);
+}
+
+/* ---- More (a phone's last tab): the pages as icons and words, no tiles; the open one in ink;
+   no counts (a page that needs you has the tab bar's gray dot), "Idea" a gray word ---- */
+/* From the top, so a row's icons share one line (centered, Finance's sat 10px under Health's,
+   which has "Idea" under its name) */
+[data-skin="minimal"] .more-page {
+  justify-content: flex-start;
+  min-height: 72px;
+  border-color: transparent;
+  background: transparent;
+  color: var(--text-2);
+  font-weight: 400;
+}
+
+[data-skin="minimal"] .more-page > .icon {
+  color: var(--text-3);
+}
+
+[data-skin="minimal"] .more-page[aria-current="page"] {
+  border-color: transparent;
+  background: transparent;
+  color: var(--text);
+  font-weight: 600;
+}
+
+[data-skin="minimal"] .more-page[aria-current="page"] > .icon {
+  color: var(--text);
+}
+
+/* No counts: the tab bar's small gray dot on the corner of the page's icon, so the More tab's dot
+   leads somewhere (with nothing here, it said something needs you and showed no page) */
+[data-skin="minimal"] .more-page .more-page-count {
+  top: 8px;
+  right: auto;
+  left: calc(50% + 10px);
+  width: 6px;
+  min-width: 0;
+  height: 6px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--text-2);
+  box-shadow: 0 0 0 2px var(--surface-solid);
+  font-size: 0;
+  line-height: 0;
+}
+
+[data-skin="minimal"] .nav-soon {
+  padding: 0;
+  border: 0;
+  color: var(--text-3);
+}
+
+/* In More, "Idea" sits under its page's name as a small gray word (not a tag in the corner) */
+[data-skin="minimal"] .more-page .nav-soon {
+  position: static;
+  margin-top: -2px;
+  font-size: var(--fs-2xs);
+  line-height: 1.2;
+}
+
+[data-skin="minimal"] .more-row-icon {
+  color: var(--text-3);
+}
+
+/* ---- The sidebar's foot: Search, Settings and Appearance as quiet words ---- */
+[data-skin="minimal"] .sidebar-search {
+  border-color: transparent;
+  border-bottom-color: var(--field-line);
+  border-radius: 0;
+  background: transparent;
+}
+
+[data-skin="minimal"] .sidebar-foot {
+  border-top-color: transparent;
+}
+
+[data-skin="minimal"] .sidebar-foot .sidebar-link {
+  color: var(--text-2);
+}
+
+[data-skin="minimal"] .settings-btn[aria-current="page"] {
+  background: transparent;
+  color: var(--text);
+  font-weight: 600;
+}
+
+/* ==========================================================================
+   Dialogs and sheets (minimal)
+   The same paper as the pages: a field is its label and one line, a choice is a word (the
+   picked one in ink with its line), no icon in front of every label, no explanations under the
+   fields (a warning or an error still shows). The main button is the one ink pill, and so is a
+   danger confirmation's: its word says what happens (red means late here, nothing else).
+   ========================================================================== */
+
+[data-skin="minimal"] .modal-head {
+  border-bottom: 0;
+}
+
+/* Labels as small gray words, without their icons */
+[data-skin="minimal"] .modal :is(.label, label.label) {
+  font-size: var(--fs-xs);
+  font-weight: 400;
+  color: var(--text-2);
+}
+
+[data-skin="minimal"] .modal :is(.label, label) > svg {
+  display: none;
+}
+
+/* The fields start where their labels do (the line is the field; no inset for a box) */
+[data-skin="minimal"] .modal :is(.input, .select):not(.input-group > *, .tr-pick-input) {
+  padding-left: 0;
+}
+
+/* A field with suggestions (a subscription's name): the browser's ▾ in the quiet gray of the
+   other chevrons, not a black triangle */
+[data-skin="minimal"] .input[list]::-webkit-calendar-picker-indicator {
+  opacity: 0.45;
+}
+
+/* Explanations under a field go; the field's label says it. A line that says why something is off
+   or what will change stays: "Pick a day first." under a task's grayed-out Time, a day lineup's
+   "Replaces the lineup on Tue", and a habit's "Pick at least one day" (its days' summary, "5× /
+   week · Weekdays", goes once a day is picked: the picked days say it) */
+[data-skin="minimal"] .modal .fn-ed-hint,
+[data-skin="minimal"] .hb-form .field:has(.hb-wd[aria-pressed="true"]) > .hb-f-hint:not(.is-warn) {
+  display: none;
+}
+
+/* A danger confirmation (Delete, Discard, Clear): the ink pill, not a red block. Outranks the
+   shared html[data-skin] .btn.btn--danger.btn--danger-fill (css/compact.css) */
+[data-skin="minimal"] .modal .btn.btn--danger.btn--danger-fill {
+  border-color: var(--text);
+  border-radius: var(--radius-pill, 999px);
+  background: var(--text);
+  color: var(--bg);
+  font-weight: 600;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="minimal"] .modal .btn.btn--danger.btn--danger-fill:hover {
+    border-color: var(--text);
+    background: color-mix(in srgb, var(--text) 82%, var(--bg));
+    color: var(--bg);
+  }
+}
+
+/* Choices built another way read like the segments: a word, the picked one in ink with its line
+   (the event's Repeat; a habit's days, which were seven black tiles) */
+[data-skin="minimal"] .cal-ed-seg-opt.is-on {
+  border-radius: 0;
+  background: transparent;
+  box-shadow: inset 0 -2px 0 var(--text);
+  color: var(--text);
+  font-weight: 600;
+}
+
+/* Room between the days, so each picked day keeps its own short line (at 2px apart, Mon to Fri
+   read as one long rule) */
+[data-skin="minimal"] .hb-f-days {
+  gap: var(--space-2);
+}
+
+[data-skin="minimal"] .hb-wd {
+  height: 40px;
+  border-color: transparent;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  font-family: var(--font-sans);
+  font-size: var(--fs-sm);
+  color: var(--text-3);
+}
+
+[data-skin="minimal"] .hb-wd[aria-pressed="true"] {
+  border-color: transparent;
+  background: transparent;
+  box-shadow: inset 0 -2px 0 var(--text);
+  color: var(--text);
+  font-weight: 600;
+}
+
+[data-skin="minimal"] .hb-wd:disabled {
+  border-style: solid;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="minimal"] .hb-wd:not(:disabled):hover {
+    border-color: transparent;
+    background: var(--surface-2);
+    color: var(--text);
+  }
+}
+
+/* The task's More fold and the color row: words, no line above */
+[data-skin="minimal"] .tk-more {
+  border-top-color: transparent;
+}
+
+[data-skin="minimal"] .tk-more-sum {
+  color: var(--text-2);
+}
+
+/* The task's section: its name, no icon tile in front (sections are words here, as in the list) */
+[data-skin="minimal"] .tk-field-section-icon {
+  display: none;
+}
+
+/* Its priority and due choices stay words on a phone too (the shared sheet stretches them across
+   the row, which floated "Today" and "Tomorrow" mid-row and drew a 150px line under the picked one).
+   A habit's Every day · Weekdays · Weekends the same (stretched, their words sat 11px in from the
+   label and the picked one got a 113px line) */
+[data-skin="minimal"] .tk-modal :is(.tk-pri-seg, .tk-due-chips) .seg-btn,
+[data-skin="minimal"] .modal .hb-f-presets .seg-btn {
+  flex: none;
+}
+
+[data-skin="minimal"] .modal .hb-f-presets {
+  align-self: flex-start;
+}
+
+/* A dialog's choices start where their label does, as its fields do (they sat 15px in): the row
+   steps out by the words' padding, so a picked word's line stays centered under it. The event's
+   Repeat is a row of equal cells across the dialog and keeps its place */
+[data-skin="minimal"] .modal .field > :is(.label, label) + .seg:not(.cal-ed-seg),
+[data-skin="minimal"] .modal .tk-due > .tk-due-chips:first-child {
+  padding: 0;
+  margin-left: -12px;
+}
+
+/* A phone's sheet: the page's 16px sides */
+@media (max-width: 640px) {
+  [data-skin="minimal"] .modal-head {
+    padding: var(--space-4) var(--space-4) var(--space-1);
+  }
+
+  [data-skin="minimal"] .modal-body {
+    padding: var(--space-3) var(--space-4);
+  }
+
+  [data-skin="minimal"] .modal-foot {
+    padding-inline: var(--space-4);
+  }
+}
+
+/* end Dialogs */
 
 /* ==========================================================================
    Home (minimal)
@@ -342,7 +827,12 @@
 
 [data-skin="minimal"] .hm-page .page-header .hm-next:hover {
   background: none;
-  color: var(--text);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="minimal"] .hm-page .page-header .hm-next:hover {
+    color: var(--text);
+  }
 }
 
 [data-skin="minimal"] .hm-page .page-header .hm-next svg {
@@ -356,10 +846,12 @@
   color: var(--text-2);
 }
 
-[data-skin="minimal"] .hm-page .page-header .hm-quick.btn--primary:hover,
-[data-skin="minimal"] .hm-page .page-header .hm-customize:not(.btn--primary):hover {
-  background: var(--surface-2);
-  color: var(--text);
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="minimal"] .hm-page .page-header .hm-quick.btn--primary:hover,
+  [data-skin="minimal"] .hm-page .page-header .hm-customize:not(.btn--primary):hover {
+    background: var(--surface-2);
+    color: var(--text);
+  }
 }
 
 [data-skin="minimal"] .hm-page .page-header .hm-customize:not(.btn--primary) {
@@ -506,8 +998,7 @@
    ("N more in Tasks" under the list stays: it is the one way to know there are more.) */
 [data-skin="minimal"] .hm-page :is(.hm-card-title, .hm-week-name, .hm-clock-foot) > .hm-ib,
 [data-skin="minimal"] .hm-page .hm-card-head .hm-more,
-[data-skin="minimal"] .hm-page .hm-week-link,
-[data-skin="minimal"] .hm-page .hm-count {
+[data-skin="minimal"] .hm-page .hm-week-link {
   display: none;
 }
 
@@ -518,8 +1009,10 @@
   color: var(--text-3);
 }
 
-[data-skin="minimal"] .hm-page .hm-todo-foot > .hm-more:hover {
-  color: var(--text);
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="minimal"] .hm-page .hm-todo-foot > .hm-more:hover {
+    color: var(--text);
+  }
 }
 
 /* An empty widget: one gray sentence (and its button), nothing around it */
@@ -553,16 +1046,26 @@
   padding-inline: 10px;
 }
 
-/* Checks: a thin square, ink when ticked */
+/* Checks: a thin square, ink when ticked; a habit's is round (as on the Habits page and in the
+   Calendar's day), so a habit always looks like a habit */
 [data-skin="minimal"] .hm-page .check {
   --size: 18px;
   border: 1px solid var(--text-2);
   border-radius: 5px;
 }
 
+[data-skin="minimal"] .hm-page .hm-habit .check {
+  border-radius: 50%;
+}
+
 [data-skin="minimal"] .hm-page .check:hover {
-  border-color: var(--text);
   box-shadow: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="minimal"] .hm-page .check:hover {
+    border-color: var(--text);
+  }
 }
 
 [data-skin="minimal"] .hm-page .check[aria-checked="true"] {
@@ -607,9 +1110,14 @@
   color: var(--text-3);
 }
 
-[data-skin="minimal"] .hm-page .hm-cal-bar .dd-btn:hover,
 [data-skin="minimal"] .hm-page .hm-cal-bar .dd-btn[aria-expanded="true"] {
   color: var(--text);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="minimal"] .hm-page .hm-cal-bar .dd-btn:hover {
+    color: var(--text);
+  }
 }
 
 [data-skin="minimal"] .hm-page .hm-cal-bar .dd-btn > .icon:not(.dd-chev),
@@ -626,8 +1134,10 @@
   color: var(--text-3);
 }
 
-[data-skin="minimal"] .hm-page .hm-week-nav .btn:hover {
-  color: var(--text);
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="minimal"] .hm-page .hm-week-nav .btn:hover {
+    color: var(--text);
+  }
 }
 
 /* "This week" is a quiet word like the menus beside it (their 6px sides) */
@@ -691,8 +1201,10 @@
   color: var(--text-2);
 }
 
-[data-skin="minimal"] .hm-page .hm-day-head:hover :is(.hm-day-wd, .hm-day-num) {
-  color: var(--text);
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="minimal"] .hm-page .hm-day-head:hover :is(.hm-day-wd, .hm-day-num) {
+    color: var(--text);
+  }
 }
 
 [data-skin="minimal"] .hm-page .hm-day-wd,
@@ -759,8 +1271,10 @@
   background: var(--cc);
 }
 
-[data-skin="minimal"] .hm-page .hm-week :is(.cal-ev, .cal-tlev):hover {
-  background: var(--surface-2);
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="minimal"] .hm-page .hm-week :is(.cal-ev, .cal-tlev):hover {
+    background: var(--surface-2);
+  }
 }
 
 [data-skin="minimal"] .hm-page .hm-day .cal-ev {
@@ -809,8 +1323,10 @@
   line-height: 1.35;
 }
 
-[data-skin="minimal"] .hm-page .hm-week .cal-task:hover {
-  background-color: var(--surface-2);
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="minimal"] .hm-page .hm-week .cal-task:hover {
+    background-color: var(--surface-2);
+  }
 }
 
 [data-skin="minimal"] .hm-page .hm-week .cal-task-check {
@@ -825,8 +1341,13 @@
 }
 
 [data-skin="minimal"] .hm-page .hm-week .cal-task-check:hover {
-  border-color: var(--text);
   box-shadow: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="minimal"] .hm-page .hm-week .cal-task-check:hover {
+    border-color: var(--text);
+  }
 }
 
 [data-skin="minimal"] .hm-page .hm-week .cal-task.is-overdue .cal-task-check {
@@ -994,8 +1515,10 @@
   box-shadow: none;
 }
 
-[data-skin="minimal"] .hm-page .hm-mcell:hover {
-  background: var(--surface-2);
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="minimal"] .hm-page .hm-mcell:hover {
+    background: var(--surface-2);
+  }
 }
 
 [data-skin="minimal"] .hm-page .hm-mnum {
@@ -1121,8 +1644,10 @@
   background: var(--bg);
 }
 
-[data-skin="minimal"] .hm-page .hm-week .cal-tlev:hover {
-  background: var(--surface-2);
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="minimal"] .hm-page .hm-week .cal-tlev:hover {
+    background: var(--surface-2);
+  }
 }
 
 [data-skin="minimal"] .hm-page .hm-week .cal-tlev-title {
@@ -1218,19 +1743,102 @@
   color: var(--text-3);
 }
 
-/* ---- Habits today: the list only (the ring repeats the Today strip); "All done" stays ---- */
-[data-skin="minimal"] .hm-page .hm-habits-sum,
-[data-skin="minimal"] .hm-page .hm-ring {
-  display: none;
-}
-
-[data-skin="minimal"] .hm-page .hm-habits-body.is-complete .hm-habits-sum {
-  display: flex;
-}
-
+/* ---- Habits today: the list; "All done" as one gray line; "+7 more" a quiet word ---- */
 [data-skin="minimal"] .hm-page .hm-habits-line {
   font-size: var(--fs-sm);
   color: var(--text-2);
+}
+
+[data-skin="minimal"] .hm-page .hm-habits-line > .icon {
+  display: none;
+}
+
+/* (its word starts where the circles do: the link's own padding steps out to the left) */
+[data-skin="minimal"] .hm-page .hm-list-more {
+  margin-left: -4px;
+  font-family: var(--font-sans);
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+}
+
+/* ---- Today & next: the days as small headings, events as text after a thin line, tasks as a
+   thin box and their title; no priority bars (high is the bold title) ---- */
+[data-skin="minimal"] .hm-page .hm-up-head > .icon {
+  display: none;
+}
+
+[data-skin="minimal"] .hm-page .hm-up-when {
+  font-family: var(--font-sans);
+  font-size: var(--fs-sm);
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+[data-skin="minimal"] .hm-page .hm-up-date {
+  font-family: var(--font-sans);
+}
+
+[data-skin="minimal"] .hm-page .hm-up-earlier > .icon {
+  display: none;
+}
+
+[data-skin="minimal"] .hm-page .hm-week :is(.cal-task, .cal-tltask)::after {
+  content: none;
+}
+
+[data-skin="minimal"] .hm-page .hm-up-more {
+  font-family: var(--font-sans);
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+}
+
+/* ---- Getting started (a new app): three steps as plain rows, no tiles; a step is a thin
+   circle with its number, ink once done ---- */
+[data-skin="minimal"] .hm-page .hm-start {
+  gap: var(--space-2);
+  padding: 0;
+}
+
+[data-skin="minimal"] .hm-page .hm-start-ib,
+[data-skin="minimal"] .hm-page .hm-start-step-ib {
+  display: none;
+}
+
+[data-skin="minimal"] .hm-page .hm-start-count {
+  font-family: var(--font-sans);
+  color: var(--text-3);
+}
+
+[data-skin="minimal"] .hm-page .hm-start-list {
+  gap: 0 var(--space-5);
+}
+
+[data-skin="minimal"] .hm-page .hm-start-btn {
+  min-height: 56px;
+  margin-inline: -10px;
+  padding: var(--space-2) 10px;
+  width: calc(100% + 20px);
+  border-color: transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+}
+
+[data-skin="minimal"] .hm-page .hm-start-mark {
+  border-color: var(--text-2);
+  font-family: var(--font-sans);
+  font-weight: 500;
+}
+
+[data-skin="minimal"] .hm-page .hm-start-text strong {
+  font-size: var(--fs-md);
+  font-weight: 500;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="minimal"] .hm-page .hm-start-btn:hover {
+    border-color: transparent;
+    background: var(--surface-2);
+  }
 }
 
 /* ---- Focus timer: the phase in gray, the big time, the button as a word ---- */
@@ -1292,8 +1900,10 @@
   font-weight: 600;
 }
 
-[data-skin="minimal"] .hm-page .hm-pomo-main.btn--primary:hover {
-  background: var(--surface-2);
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="minimal"] .hm-page .hm-pomo-main.btn--primary:hover {
+    background: var(--surface-2);
+  }
 }
 
 [data-skin="minimal"] .hm-page .hm-pomo-skip {
@@ -1322,8 +1932,10 @@
   color: var(--text-2);
 }
 
-[data-skin="minimal"] .hm-page .hm-note-btn:hover {
-  color: var(--text);
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="minimal"] .hm-page .hm-note-btn:hover {
+    color: var(--text);
+  }
 }
 
 [data-skin="minimal"] .hm-page .hm-recent-item {
@@ -1335,10 +1947,12 @@
   background: none;
 }
 
-[data-skin="minimal"] .hm-page .hm-recent-item:hover .hm-recent-title {
-  text-decoration: underline;
-  text-decoration-color: var(--text-3);
-  text-underline-offset: 3px;
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="minimal"] .hm-page .hm-recent-item:hover .hm-recent-title {
+    text-decoration: underline;
+    text-decoration-color: var(--text-3);
+    text-underline-offset: 3px;
+  }
 }
 
 [data-skin="minimal"] .hm-page .hm-recent-title {
@@ -1489,6 +2103,12 @@
    for screen readers and in the details. The menus are quiet words; the grip is faint.
    ========================================================================== */
 
+/* Red is the one color here (late): today's sun, gold under Color coding (the Smart order's
+   Today heading), stays the gray of its words. As strong as tasks.css's :root.cc-on rule */
+[data-skin="minimal"]:root.cc-on :is(.tk-root, .tk-modal) {
+  --tk-sun: currentColor;
+}
+
 /* ---- Status beside the title: quiet words ("3 today · 3 overdue"), late still red ---- */
 [data-skin="minimal"] .tk-summary .tk-sum > .icon {
   display: none;
@@ -1547,9 +2167,11 @@
   color: var(--text-2);
 }
 
-[data-skin="minimal"] .tk-root .tk-command:has(.tk-add-input:placeholder-shown) .tk-add-btn:hover {
-  background: var(--surface-2);
-  color: var(--text);
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="minimal"] .tk-root .tk-command:has(.tk-add-input:placeholder-shown) .tk-add-btn:hover {
+    background: var(--surface-2);
+    color: var(--text);
+  }
 }
 
 /* The steps under it: no line above them, the choices as words (the picked one in ink) */
@@ -1571,7 +2193,10 @@
   padding-inline: 8px;
 }
 
-[data-skin="minimal"] .tk-root .tk-step-seg .seg-btn:first-child {
+/* The first word lines up with the text above: the row steps out by its padding (a first chip
+   without padding drew its focus ring over its first letter) */
+[data-skin="minimal"] .tk-root .tk-step-seg {
+  margin-left: -8px;
   padding-left: 0;
 }
 
@@ -1599,9 +2224,14 @@
 
 [data-skin="minimal"] .tk-root button.tk-step-pick:hover {
   background: none;
-  color: var(--text);
-  text-decoration: underline;
-  text-underline-offset: 3px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="minimal"] .tk-root button.tk-step-pick:hover {
+    color: var(--text);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
 }
 
 /* What the title's tokens set: words, crossed out on hover (a click keeps the token as text) */
@@ -1616,11 +2246,16 @@
 [data-skin="minimal"] .tk-root .tk-token:hover {
   border-color: transparent;
   background: none;
-  text-decoration: line-through;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="minimal"] .tk-root .tk-token:hover {
+    text-decoration: line-through;
+  }
 }
 
 /* ---- Section · filter · sort: quiet words, no icons in front of them ---- */
-[data-skin="minimal"] .tk-toolbar :is(.tk-sec-seg, .tk-filters) .tk-seg-icon,
+[data-skin="minimal"] .tk-toolbar .tk-filters .tk-seg-icon,
 [data-skin="minimal"] .tk-toolbar :is(.tk-sec-dd, .tk-filter-dd) .tk-dd-icon {
   display: none;
 }
@@ -1643,19 +2278,6 @@
 [data-skin="minimal"] .tk-toolbar .tk-clear-done,
 [data-skin="minimal"] .tk-done-head .btn--danger {
   color: var(--text-2);
-}
-
-/* New section and Edit sections (a wide window's tabs) show on hover or focus */
-@media (hover: hover) {
-  [data-skin="minimal"] .tk-sec-tabs > .btn {
-    color: var(--text-3);
-    opacity: 0;
-    transition: opacity var(--dur-fast) var(--ease);
-  }
-
-  [data-skin="minimal"] .tk-sec-tabs:is(:hover, :focus-within) > .btn {
-    opacity: 1;
-  }
 }
 
 /* ---- The list: rows parted by a hairline that starts at the title ---- */
@@ -1685,9 +2307,24 @@
 }
 
 [data-skin="minimal"] .tk-list .tk-row:first-child::before,
-[data-skin="minimal"] .tk-list .tk-row:hover::before,
-[data-skin="minimal"] .tk-list .tk-row:hover + .tk-row::before,
 [data-skin="minimal"] .tk-list .tk-row.is-dragging::before {
+  background: transparent;
+}
+
+[data-skin="minimal"] .tk-list .tk-row:hover::before,
+[data-skin="minimal"] .tk-list .tk-row:hover + .tk-row::before {
+  background: transparent;
+}
+
+/* The task whose page is open: the faint fill and the ink line on its left (as Search's lit row),
+   square, so the line stays straight (on the rounded row it bent round both corners like a "(");
+   no hairlines cut through the fill */
+[data-skin="minimal"] .tk-list .tk-row.is-open {
+  border-radius: 0;
+}
+
+[data-skin="minimal"] .tk-list .tk-row.is-open::before,
+[data-skin="minimal"] .tk-list .tk-row.is-open + .tk-row::before {
   background: transparent;
 }
 
@@ -1719,8 +2356,10 @@
   color: var(--text-3);
 }
 
-[data-skin="minimal"] .tk-list .tk-row.is-draggable .tk-grip:hover {
-  color: var(--text);
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="minimal"] .tk-list .tk-row.is-draggable .tk-grip:hover {
+    color: var(--text);
+  }
 }
 
 /* The box: thin, gray; ticked it fills with ink */
@@ -1799,6 +2438,35 @@
   border-color: transparent;
   background: none;
   color: var(--tk-alert);
+}
+
+/* The same red words on the task's page (it sits outside .tk-root, where --tk-alert is set,
+   hence the fallback; the chips' gray took the red away) */
+[data-skin="minimal"] .tk-page-meta .tk-due-tag--overdue {
+  background: none;
+  color: var(--tk-alert, var(--alert));
+}
+
+/* The page's date, priority and section read as the list's gray line: words joined by a dot, no
+   icon in front of each (the late alert and the High flag keep theirs) */
+[data-skin="minimal"] .tk-page-meta {
+  gap: 5px;
+}
+
+[data-skin="minimal"] .tk-page-meta > .tag + .tag::before {
+  content: "·";
+  margin-right: 2px;
+  color: var(--text-3);
+}
+
+[data-skin="minimal"] .tk-page-meta > :is(.tk-sec-tag, .tk-pri:not(.tk-pri--high), .tk-due-tag:not(.tk-due-tag--overdue)) > .icon {
+  display: none;
+}
+
+/* Its title the size of a note's (the page is the task's note), not the page's own title */
+[data-skin="minimal"] .tk-page-title {
+  font-size: var(--fs-xl);
+  letter-spacing: -0.02em;
 }
 
 /* High: a small ink flag first on the line (its word stays for screen readers) */
@@ -1970,6 +2638,18 @@
   border-bottom: 0;
 }
 
+/* A phone: the menu and the search stay on top over the paper itself (the shared raised surface
+   showed as a lighter band in the dark), and the menu's word starts on the notes' gutter */
+@media (max-width: 640px) {
+  [data-skin="minimal"] .nt-view[data-layout="list"][data-pane="list"] .nt-list-head {
+    background: var(--bg);
+  }
+
+  [data-skin="minimal"] .nt-list-head > .nt-viewdd {
+    margin-left: -8px;
+  }
+}
+
 /* Section menu (list) and column menu (board) on phones: the name and a caret; inside the menu
    the sections without their counts */
 [data-skin="minimal"] :is(.nt-viewdd, .nt-jumpdd) :is(.nt-dd-icon, .nt-dd-count) {
@@ -2080,9 +2760,11 @@
   display: contents;
 }
 
+/* A note's title in the list: medium, as a task's title is regular (600 shouted next to them) */
 [data-skin="minimal"] .nt-item-title {
   flex: 0 1 auto;
   max-width: calc(100% - 20px);
+  font-weight: 500;
 }
 
 [data-skin="minimal"] .nt-item-pin {
@@ -2193,8 +2875,10 @@
   font-weight: 600;
 }
 
-[data-skin="minimal"] .nt-rail-item[aria-current="true"]:hover {
-  background: var(--surface-2);
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="minimal"] .nt-rail-item[aria-current="true"]:hover {
+    background: var(--surface-2);
+  }
 }
 
 /* Counts (screen readers still hear them); the touch-screen reveal rules are very specific */
@@ -2210,8 +2894,10 @@
   color: var(--text-2);
 }
 
-[data-skin="minimal"] .nt-strip .nt-chip:hover {
-  background: var(--surface-2);
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="minimal"] .nt-strip .nt-chip:hover {
+    background: var(--surface-2);
+  }
 }
 
 [data-skin="minimal"] .nt-strip .nt-chip[aria-current="true"] {
@@ -2232,11 +2918,39 @@
   display: none;
 }
 
+/* Sections are words, as Tasks' sections are: no icon on every chip (Add keeps its +, More its ▾) */
+[data-skin="minimal"] .nt-strip .nt-chip:not(.nt-chip--add, .nt-chip--more) > svg {
+  display: none;
+}
+
 /* ---- Editor: the title and the text; the controls stay quiet ---- */
 [data-skin="minimal"] .nt-title {
   font-size: var(--fs-xl);
   font-weight: 600;
   letter-spacing: -0.02em;
+}
+
+/* The note's text (Preview, the first thing an opened note shows): its headings stay under the
+   note's own title (24px), the text's size and up; no rule under the second level */
+[data-skin="minimal"] .nt-prose h1 {
+  font-size: 21px;
+}
+
+[data-skin="minimal"] .nt-prose h2 {
+  padding-bottom: 0;
+  border-bottom: 0;
+  font-size: var(--fs-lg);
+}
+
+[data-skin="minimal"] .nt-prose h3 {
+  font-size: var(--fs-md);
+}
+
+/* A quote: gray words after a thin ink line, no wash behind them (the only fill left in a
+   note's text, the task's page's too) */
+[data-skin="minimal"] .nt-prose blockquote {
+  padding-block: 2px;
+  background: none;
 }
 
 /* The section button: a gray word with its caret */
@@ -2250,11 +2964,21 @@
   color: var(--text-3);
 }
 
-[data-skin="minimal"] .nt-move:hover,
 [data-skin="minimal"] .nt-move[aria-expanded="true"] {
   border-color: transparent;
   background: var(--surface-2);
   color: var(--text);
+}
+
+[data-skin="minimal"] .nt-move:hover {
+  border-color: transparent;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="minimal"] .nt-move:hover {
+    background: var(--surface-2);
+    color: var(--text);
+  }
 }
 
 [data-skin="minimal"] .nt-move-icon {
@@ -2316,8 +3040,10 @@
   color: var(--text-3);
 }
 
-[data-skin="minimal"] .nt-toolbar .btn--icon:hover {
-  color: var(--text);
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="minimal"] .nt-toolbar .btn--icon:hover {
+    color: var(--text);
+  }
 }
 
 [data-skin="minimal"] .nt-pin[aria-pressed="true"] {
@@ -2327,8 +3053,10 @@
   color: var(--text);
 }
 
-[data-skin="minimal"] .nt-pin[aria-pressed="true"]:hover {
-  background: var(--surface-2);
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="minimal"] .nt-pin[aria-pressed="true"]:hover {
+    background: var(--surface-2);
+  }
 }
 
 /* ---- Board: plain headings over flat text blocks ---- */
@@ -2427,12 +3155,22 @@
   box-shadow: none;
 }
 
-[data-skin="minimal"] .nt-col .nt-card:hover,
 [data-skin="minimal"] .nt-col .nt-card.is-pressing,
 [data-skin="minimal"] .nt-col .nt-card[aria-current="true"] {
   border-color: transparent;
   background-color: var(--surface-2);
   box-shadow: none;
+}
+
+[data-skin="minimal"] .nt-col .nt-card:hover {
+  border-color: transparent;
+  box-shadow: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="minimal"] .nt-col .nt-card:hover {
+    background-color: var(--surface-2);
+  }
 }
 
 [data-skin="minimal"] .nt-card-excerpt {
@@ -2493,7 +3231,8 @@
    day off is blank, and today is its heading in ink. The readout, streaks, icons, the plan under
    each name, the legend and the week totals go (each day's done / planned stays in its heading's
    name for screen readers; Insights keeps the streaks). The Day list is a thin circle and a
-   name; the Week plan is names and dots too; Insights is numbers and charts on the page.
+   name; the Week plan is names and rings (planned) or small dots (a day off); Insights is
+   numbers and charts on the page.
    ========================================================================== */
 
 /* ---- Tabs: quiet words, lined up with the title ---- */
@@ -2508,7 +3247,7 @@
   font-size: var(--fs-md);
 }
 
-[data-skin="minimal"] :is(.hb-tab > svg, .hb-tab-count) {
+[data-skin="minimal"] .hb-tab > svg {
   display: none;
 }
 
@@ -2523,21 +3262,14 @@
   color: var(--text-3);
 }
 
-/* The ‹ and the menu's ▾ line up with the page's edges */
-[data-skin="minimal"] .hb-bar > .hb-bar-step:first-child {
-  margin-left: calc(2px - var(--btn-h, 28px) / 2);
+/* Day · Week · History starts on the page's edge, under the tabs and the names: the row steps out
+   by its words' padding (so the picked word's line stays centered under it) */
+[data-skin="minimal"] .hb-view-seg {
+  padding: 0;
+  margin-left: -12px;
 }
 
-/* …which puts the ‹ at the very edge of the page: its focus ring sits inside it */
-[data-skin="minimal"] .hb-bar > .hb-bar-step:first-child:focus-visible {
-  outline-offset: -2px;
-}
-
-[data-skin="minimal"] .hb-bar > .dd:last-child {
-  margin-right: -6px;
-}
-
-[data-skin="minimal"] :is(.hb-bar-rel, .hb-view-ic) {
+[data-skin="minimal"] .hb-bar-rel {
   display: none;
 }
 
@@ -2566,8 +3298,10 @@
   content: none;
 }
 
-[data-skin="minimal"] .hb-mx-colbtn:hover {
-  background: var(--surface-2);
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="minimal"] .hb-mx-colbtn:hover {
+    background: var(--surface-2);
+  }
 }
 
 [data-skin="minimal"] .hb-mx-date {
@@ -2664,16 +3398,23 @@
 }
 
 [data-skin="minimal"] .hb-mx-cell[data-state]:not([aria-disabled="true"]):hover {
-  border-color: var(--text);
   box-shadow: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="minimal"] .hb-mx-cell[data-state]:not([aria-disabled="true"]):hover {
+    border-color: var(--text);
+  }
 }
 
 [data-skin="minimal"] .hb-mx-cell[aria-disabled="true"]:hover {
   border-color: transparent;
 }
 
-[data-skin="minimal"] .hb-mx-cell[data-state="future"][data-planned="true"]:hover {
-  border-color: var(--text-3);
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="minimal"] .hb-mx-cell[data-state="future"][data-planned="true"]:hover {
+    border-color: var(--text-3);
+  }
 }
 
 /* No press-shrink: a transform would make the dot the containing block of its hit area, so a
@@ -2713,8 +3454,13 @@
 }
 
 [data-skin="minimal"] .hb-wk:hover {
-  border-color: var(--text);
   box-shadow: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="minimal"] .hb-wk:hover {
+    border-color: var(--text);
+  }
 }
 
 /* Focus: a clear ring outside the dot (the inset one would sit inside it) */
@@ -2739,7 +3485,12 @@
 
 [data-skin="minimal"] .hb-sel:hover {
   border-color: transparent;
-  background: var(--surface-2);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="minimal"] .hb-sel:hover {
+    background: var(--surface-2);
+  }
 }
 
 [data-skin="minimal"] .hb-sel-date {
@@ -2751,10 +3502,12 @@
   color: var(--text);
 }
 
+/* The picked day: ink and bold, with the picked line under it (as every picked word here) */
 [data-skin="minimal"] .hb-sel[aria-checked="true"] {
   border-color: transparent;
+  border-radius: 0;
   background: none;
-  box-shadow: none;
+  box-shadow: inset 0 -2px 0 var(--text);
   color: var(--text);
 }
 
@@ -2832,8 +3585,10 @@
   border-color: var(--text-4);
 }
 
-[data-skin="minimal"] .hb-row .hb-row-check:not(:disabled):hover {
-  border-color: var(--text);
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="minimal"] .hb-row .hb-row-check:not(:disabled):hover {
+    border-color: var(--text);
+  }
 }
 
 [data-skin="minimal"] .hb-row-name-text {
@@ -2858,7 +3613,19 @@
   }
 }
 
-/* ---- Week plan: names and dots (filled = planned); a day's name opens copy / clear ---- */
+/* ---- Week plan: names and rings (a ring = planned, a small dot = a day off); a day's name opens
+   copy / clear. Its day columns sit where the Week's do (the same name column), so switching
+   tabs doesn't move the days ---- */
+[data-skin="minimal"] .hb-plan {
+  --hb-name-w: 30%;
+}
+
+@media (min-width: 900px) {
+  [data-skin="minimal"] .hb-plan {
+    --hb-name-w: 26%;
+  }
+}
+
 [data-skin="minimal"] .hb-plan-head,
 [data-skin="minimal"] .hb-plan-note,
 [data-skin="minimal"] :is(.hb-plan-load, .hb-plan-bar, .hb-plan-sub) {
@@ -2908,7 +3675,12 @@
 
 [data-skin="minimal"] .hb-plan-colbtn:hover {
   border-color: transparent;
-  background: var(--surface-2);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="minimal"] .hb-plan-colbtn:hover {
+    background: var(--surface-2);
+  }
 }
 
 [data-skin="minimal"] .hb-plan-wd {
@@ -2945,32 +3717,40 @@
   display: none;
 }
 
+/* A day off: a small gray dot, nothing to do that day */
 [data-skin="minimal"] .hb-plan-cell::after {
   content: "";
   box-sizing: border-box;
-  width: var(--hb-mn-dot, 16px);
-  height: var(--hb-mn-dot, 16px);
-  border: 1px solid var(--text-4);
+  width: 5px;
+  height: 5px;
   border-radius: 50%;
-}
-
-[data-skin="minimal"] .hb-plan-cell[aria-pressed="true"]::after {
-  border-color: var(--text);
-  background: var(--text);
-}
-
-/* The new habit's days: gray until it is added */
-[data-skin="minimal"] .hb-plan-cell.is-draft[aria-pressed="true"]::after {
-  border-color: var(--text-3);
   background: var(--text-3);
 }
 
-[data-skin="minimal"] .hb-plan-table .hb-plan-td > .hb-plan-cell:hover {
-  background: var(--surface-2);
+/* Planned: a thin ink ring, as a planned day in the Week. Hollow: a plan is not a check-in (84
+   filled ink dots were the heaviest screen in the template) */
+[data-skin="minimal"] .hb-plan-cell[aria-pressed="true"]::after {
+  width: var(--hb-mn-dot, 16px);
+  height: var(--hb-mn-dot, 16px);
+  border: 1.5px solid var(--text);
+  background: none;
 }
 
-[data-skin="minimal"] .hb-plan-cell:hover::after {
-  border-color: var(--text);
+/* The new habit's days: a gray ring until it is added */
+[data-skin="minimal"] .hb-plan-cell.is-draft[aria-pressed="true"]::after {
+  border-color: var(--text-3);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="minimal"] .hb-plan-table .hb-plan-td > .hb-plan-cell:hover {
+    background: var(--surface-2);
+  }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="minimal"] .hb-plan-cell:hover::after {
+    border-color: var(--text);
+  }
 }
 
 [data-skin="minimal"] .hb-plan-table .hb-plan-cell:focus-visible {
@@ -3005,8 +3785,10 @@
   font-weight: 600;
 }
 
-[data-skin="minimal"] .hb-plan-addbar .btn--primary:hover {
-  background: var(--surface-2);
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="minimal"] .hb-plan-addbar .btn--primary:hover {
+    background: var(--surface-2);
+  }
 }
 
 /* …under the name it adds, not across the page */
@@ -3044,13 +3826,22 @@
   padding: 0;
 }
 
-[data-skin="minimal"] .hbi-filters > .hbi-seg:first-child > .seg-btn:first-child {
-  padding-left: 0;
+/* The range (7 days · 30 days … or its menu on a narrow screen) starts on the page's edge: the
+   row steps out by the words' padding, so a picked "7 days" keeps its line centered under it */
+[data-skin="minimal"] .hbi-filters > .hbi-seg:first-child {
+  margin-left: -12px;
 }
 
+[data-skin="minimal"] .hbi-filters > .hbi-range-menu {
+  margin-left: -6px;
+}
+
+/* Table on: picked, as every picked word here (ink, semibold, the 2px line under it) */
 [data-skin="minimal"] .hbi-table-btn[aria-pressed="true"] {
   border-color: transparent;
+  border-radius: 0;
   background: none;
+  box-shadow: inset 0 -2px 0 var(--text);
   color: var(--text);
   font-weight: 600;
 }
@@ -3065,10 +3856,6 @@
 
 [data-skin="minimal"] .hbi-tile-sub {
   color: var(--text-3);
-}
-
-[data-skin="minimal"] .hbi-card-title {
-  font-size: var(--fs-lg);
 }
 
 [data-skin="minimal"] .hbi-note {
@@ -3115,10 +3902,28 @@
   visibility: hidden;
 }
 
-/* The charts: gray bars, the ink line on top (solid black bars were the loudest thing on the
-   page); the bar under the pointer turns ink */
+/* The charts: quiet gray bars, the ink line on top (solid black, then mid-gray bars were the
+   loudest thing on the page). Still 3:1 against the paper (WCAG 1.4.11), and the line stands 4:1
+   against them; the bar under the pointer turns ink */
+[data-skin="minimal"] .hbi {
+  --mn-bar: color-mix(in srgb, var(--text) 37%, var(--bg));
+}
+
+[data-skin="minimal"][data-theme="light"] .hbi {
+  --mn-bar: color-mix(in srgb, var(--text) 45%, var(--bg));
+}
+
 [data-skin="minimal"] :is(.hbi-col:not(.hbi-col--planned), .hbi-zero) {
-  fill: var(--text-3);
+  fill: var(--mn-bar);
+}
+
+/* The pointer's tooltip draws the same marks */
+[data-skin="minimal"] .hbi-key--col {
+  background: var(--mn-bar);
+}
+
+[data-skin="minimal"] .hbi-key--trend {
+  background: var(--text);
 }
 
 [data-skin="minimal"] .hbi-col--planned {
@@ -3155,23 +3960,12 @@
   }
 }
 
-/* ---- No habits yet: one quiet line, then the four starters as words (the explanation, the
-   three how-to cards and a second "create" button go: New habit is right above) ---- */
+/* ---- No habits yet: the one empty-state line (as on every page), then the four starters as
+   words (the explanation goes: New habit is right above; "Restore from archive", when every
+   habit is archived, stays) ---- */
 [data-skin="minimal"] .hb-empty .empty > .empty-text,
-[data-skin="minimal"] :is(.hb-empty-buttons, .hb-howto, .hb-suggest-btn > svg) {
+[data-skin="minimal"] .hb-suggest-btn > svg {
   display: none;
-}
-
-[data-skin="minimal"] .hb-empty .empty {
-  align-items: flex-start;
-  padding: var(--space-4) 0;
-  text-align: left;
-}
-
-[data-skin="minimal"] .hb-empty .empty-title {
-  font-size: var(--fs-md);
-  font-weight: 400;
-  color: var(--text-2);
 }
 
 [data-skin="minimal"] :is(.hb-empty-actions, .hb-suggest) {
@@ -3325,6 +4119,38 @@
   display: none;
 }
 
+/* …and the priority bar at a chip's end (as on Home): a high one is its bold title */
+[data-skin="minimal"] .cal :is(.cal-task, .cal-tltask)::after {
+  content: none;
+}
+
+[data-skin="minimal"] .cal .cal-task:is(.pri-high, .pri-med, .pri-low) {
+  padding-right: 2px;
+}
+
+/* A band (a long block, like work hours): a faint wash and a gray line, behind everything; a
+   hatched one's line is dashed, as a hatched event's */
+[data-skin="minimal"] .cal-tl .cal-tl-col > .cal-tlev.is-band {
+  --ev-line: var(--text-3);
+  border: 0;
+  border-radius: 0;
+  background: color-mix(in srgb, var(--cc, var(--text)) 4%, transparent);
+}
+
+[data-skin="minimal"] .cal-tl .cal-tl-col > .cal-tlev.is-band.cal-band--hatched {
+  --ev-line: repeating-linear-gradient(var(--text-3) 0 3px, transparent 3px 6px);
+  background: color-mix(in srgb, var(--cc, var(--text)) 3%, transparent);
+}
+
+/* In a week's narrow day its time goes on a line under its name: on one line, a day's
+   "▲ 1 earlier" (right-aligned at the top of the view, where a band from the first hour has its
+   label) covered the time and left "Work 0" showing */
+@container cal-col (max-width: 240px) {
+  [data-skin="minimal"] .cal-band-label .cal-tlev-time {
+    flex-basis: 100%;
+  }
+}
+
 /* The habit marks in the grids and the day headings: off the screen, still read out (each is an
    image named "Habits: 2 of 5 done", so a week's day headings keep saying it) */
 [data-skin="minimal"] :is(.cal-cell, .cal-dh, .cal-ag-head) .cal-hb {
@@ -3395,8 +4221,10 @@
   box-shadow: inset 0 -1px 0 color-mix(in srgb, var(--cc) 45%, transparent);
 }
 
-[data-skin="minimal"] :is(.cal-ev, .cal-tlev):hover {
-  background: var(--surface-2);
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="minimal"] :is(.cal-ev, .cal-tlev):hover {
+    background: var(--surface-2);
+  }
 }
 
 [data-skin="minimal"] :is(.cal-ev-time, .cal-tlev-time, .cal-ev-span) {
@@ -3427,8 +4255,10 @@
   color: var(--text);
 }
 
-[data-skin="minimal"].cc-events :is(.cal-ev, .cal-tlev)[data-cc]:hover {
-  background: var(--surface-2);
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="minimal"].cc-events :is(.cal-ev, .cal-tlev)[data-cc]:hover {
+    background: var(--surface-2);
+  }
 }
 
 [data-skin="minimal"].cc-events :is(.cal-ev, .cal-tlev)[data-cc]::before {
@@ -3454,8 +4284,10 @@
   background-image: linear-gradient(90deg, var(--cc) 0 var(--cc-bar, 0px), transparent var(--cc-bar, 0px));
 }
 
-[data-skin="minimal"] :is(.cal-task, .cal-tltask):hover {
-  background-color: var(--surface-2);
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="minimal"] :is(.cal-task, .cal-tltask):hover {
+    background-color: var(--surface-2);
+  }
 }
 
 [data-skin="minimal"] .cal-task-check {
@@ -3481,6 +4313,15 @@
   color: var(--text-3);
 }
 
+/* The day's list ("+2 more" opens it) floats over the grid: it keeps paper under it, a hairline
+   and a soft lift (a panel here has none, so the days showed through it) */
+[data-skin="minimal"] .cal-pop {
+  border-color: var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface-solid);
+  box-shadow: var(--shadow-sm);
+}
+
 /* "+2 more": a quiet word (its tooltip still splits events and tasks) */
 [data-skin="minimal"] .cal-more {
   font-size: var(--fs-2xs);
@@ -3491,8 +4332,10 @@
   display: none;
 }
 
-[data-skin="minimal"] .cal-more:hover {
-  background: var(--surface-2);
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="minimal"] .cal-more:hover {
+    background: var(--surface-2);
+  }
 }
 
 /* Dragged items keep the paper under them, so they read over what they pass */
@@ -3539,8 +4382,10 @@
   background-color: transparent;
 }
 
-[data-skin="minimal"] .cal-cell:hover {
-  background-color: var(--surface-2);
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="minimal"] .cal-cell:hover {
+    background-color: var(--surface-2);
+  }
 }
 
 /* The day the cursor is on needs no box (the keyboard's focus still shows, and touch tablets
@@ -3747,10 +4592,12 @@
   background: transparent;
 }
 
-[data-skin="minimal"] .cal-plan-toggle:hover .cal-plan-title {
-  text-decoration: underline;
-  text-decoration-color: var(--text-4);
-  text-underline-offset: 3px;
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="minimal"] .cal-plan-toggle:hover .cal-plan-title {
+    text-decoration: underline;
+    text-decoration-color: var(--text-4);
+    text-underline-offset: 3px;
+  }
 }
 
 [data-skin="minimal"] :is(.cal-plan-ib, .cal-plan-sub > .icon, .cal-plan-sub-n, .cal-note-ic) {
@@ -3843,8 +4690,11 @@
   border-color: var(--text-2);
 }
 
-[data-skin="minimal"] .cal-hcheck:not(:disabled):hover,
 [data-skin="minimal"] .cal-hcheck[aria-checked="true"] {
+  box-shadow: none;
+}
+
+[data-skin="minimal"] .cal-hcheck:not(:disabled):hover {
   box-shadow: none;
 }
 
@@ -3959,9 +4809,11 @@
 
 /* ---- Small controls: calm hovers, and Schedule…'s current day still shows (bold, a faint
    ground) now that its buttons have no outline ---- */
-[data-skin="minimal"] .cal-cell-add:hover {
-  background: var(--surface-3);
-  color: var(--text);
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="minimal"] .cal-cell-add:hover {
+    background: var(--surface-3);
+    color: var(--text);
+  }
 }
 
 [data-skin="minimal"] .cal-sheet-quick .btn.is-current {
@@ -4003,14 +4855,8 @@
   background: var(--cc);
 }
 
-/* Its chosen repeat is ink and bold like every switch here (not a filled pill); the chosen look
-   keeps its ink outline, without the halo */
-[data-skin="minimal"] .cal-ed-seg-opt.is-on {
-  background: transparent;
-  color: var(--text);
-  font-weight: 600;
-}
-
+/* (Its chosen repeat is a picked word, in "Dialogs and sheets" above.) The chosen look keeps its
+   ink outline, without the halo */
 [data-skin="minimal"] .cal-ed-style.is-on {
   box-shadow: none;
 }
@@ -4091,6 +4937,12 @@
   color: var(--text-2);
 }
 
+/* The picked phase right above already says "Focus": the word over the time shows only when it
+   says more ("Focus · Paused"). Its line keeps its room, so nothing moves on a pause */
+[data-skin="minimal"] .pm-page .pm-timer:not([data-status="paused"]) .pm-dial-phase {
+  visibility: hidden;
+}
+
 [data-skin="minimal"] .pm-page .pm-digits {
   font-family: var(--font-sans);
   font-size: clamp(76px, 24vw, 132px);
@@ -4130,8 +4982,10 @@
   color: var(--text-2);
 }
 
-[data-skin="minimal"] .pm-page .pm-ctl:not(.pm-main):hover {
-  color: var(--text);
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="minimal"] .pm-page .pm-ctl:not(.pm-main):hover {
+    color: var(--text);
+  }
 }
 
 [data-skin="minimal"] .pm-page .pm-ctl:not(.pm-main) > span {
@@ -4178,8 +5032,13 @@
 
 [data-skin="minimal"] .pm-page .pm-task-select:hover {
   border-color: transparent;
-  background-color: var(--surface-2);
-  color: var(--text);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="minimal"] .pm-page .pm-task-select:hover {
+    background-color: var(--surface-2);
+    color: var(--text);
+  }
 }
 
 [data-skin="minimal"] .pm-page .pm-task-select:focus {
@@ -4193,13 +5052,9 @@
   padding: 0;
 }
 
-[data-skin="minimal"] .pm-page :is(.pm-today-line, .pm-today-empty, .pm-today-more) {
+[data-skin="minimal"] .pm-page .pm-today-more {
   font-size: var(--fs-sm);
   color: var(--text-2);
-}
-
-[data-skin="minimal"] .pm-page .pm-today .stat-value {
-  font-weight: 500;
 }
 
 [data-skin="minimal"] .pm-page .pm-log {
@@ -4239,16 +5094,21 @@
   color: var(--text-2);
 }
 
-[data-skin="minimal"] .pm-page .pm-settings .pm-preset:hover {
-  background: var(--surface-2);
-  color: var(--text);
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="minimal"] .pm-page .pm-settings .pm-preset:hover {
+    background: var(--surface-2);
+    color: var(--text);
+  }
 }
 
 [data-skin="minimal"] .pm-page .pm-preset-name {
   font-weight: 400;
 }
 
+/* The one in use: ink, its name semibold, the picked line under it (as every picked word here) */
 [data-skin="minimal"] .pm-page .pm-settings .pm-preset[aria-pressed="true"] {
+  border-radius: 0;
+  box-shadow: inset 0 -2px 0 var(--text);
   color: var(--text);
 }
 
@@ -4273,8 +5133,10 @@
   color: var(--text-3);
 }
 
-[data-skin="minimal"] .pm-page .pm-step-btn:hover {
-  color: var(--text);
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="minimal"] .pm-page .pm-step-btn:hover {
+    color: var(--text);
+  }
 }
 
 [data-skin="minimal"] .pm-page .pm-step-input {
@@ -4289,7 +5151,12 @@
 
 [data-skin="minimal"] .pm-page .pm-step-input:hover {
   border-color: transparent;
-  background: var(--surface-2);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="minimal"] .pm-page .pm-step-input:hover {
+    background: var(--surface-2);
+  }
 }
 
 [data-skin="minimal"] .pm-page .pm-step-input:focus {
@@ -4336,8 +5203,10 @@
   transform: translate(14px, -50%);
 }
 
-[data-skin="minimal"] .pm-page .pm-switch:hover .pm-switch-track {
-  border-color: var(--text);
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="minimal"] .pm-page .pm-switch:hover .pm-switch-track {
+    border-color: var(--text);
+  }
 }
 
 [data-skin="minimal"] .pm-page .pm-switch-hint {
@@ -4392,9 +5261,11 @@
   color: var(--text);
 }
 
-[data-skin="minimal"] .pm-mini:hover {
-  border-color: var(--line-strong);
-  color: var(--text);
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="minimal"] .pm-mini:hover {
+    border-color: var(--line-strong);
+    color: var(--text);
+  }
 }
 
 [data-skin="minimal"] .pm-mini-phase {
@@ -4419,9 +5290,11 @@
   animation: none;
 }
 
-[data-skin="minimal"] .pm-mini-btn:hover,
-[data-skin="minimal"] .pm-mini[data-status="running"][data-phase="focus"] .pm-mini-btn:hover {
-  background: var(--surface-2);
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="minimal"] .pm-mini-btn:hover,
+  [data-skin="minimal"] .pm-mini[data-status="running"][data-phase="focus"] .pm-mini-btn:hover {
+    background: var(--surface-2);
+  }
 }
 
 /* Floating over a phone's page it needs its lift */
@@ -4440,7 +5313,7 @@
 
 /* ==========================================================================
    Finance (minimal)
-   Two big numbers (a month, a year) with gray words, then the subscriptions as plain rows:
+   The totals on the title's line, then the subscriptions as plain rows:
    the name, the price on the right, the next payment in gray. No category icons, no boxes;
    the next 30 days and the cost by category are quiet lists beside (or under) it.
    ========================================================================== */
@@ -4450,51 +5323,18 @@
   display: none;
 }
 
-/* Nothing yet: the starters and the title's Add are enough (no second Add under them) */
-[data-skin="minimal"] .fn-root .fn-empty > .btn--primary {
-  display: none;
-}
-
-/* ---- Totals: per month and per year, big; the next payment and the count are in the lists ---- */
-[data-skin="minimal"] .fn-root .fn-summary:not([hidden]) {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-4) var(--space-8);
-  margin-bottom: var(--space-7);
-}
-
-[data-skin="minimal"] .fn-root .fn-summary > :is(.fn-stat--next, .fn-stat:nth-child(4)) {
-  display: none;
-}
-
-[data-skin="minimal"] .fn-root .fn-stat {
-  gap: 2px;
-  padding: 0;
-}
-
-[data-skin="minimal"] .fn-root .fn-stat-value {
-  order: -1;
-  font-family: var(--font-sans);
-  font-size: var(--fs-2xl);
+/* ---- Totals: the line beside the title ("kr 219/mo · kr 2,628/yr · next: …"), the month in ink ---- */
+[data-skin="minimal"] .fn-root .fn-sum-total {
   font-weight: 600;
-  letter-spacing: -0.02em;
-  font-variant-numeric: tabular-nums;
+  color: var(--text);
 }
 
-[data-skin="minimal"] .fn-root .fn-stat > .label {
-  color: var(--text-2);
-  font-size: var(--fs-sm);
-  letter-spacing: 0;
-  text-transform: lowercase;
-}
-
-[data-skin="minimal"] .fn-root .fn-stat-sub {
-  color: var(--text-3);
-}
-
-/* "All active subscriptions" says nothing new; "+ $20" (another currency) stays */
-[data-skin="minimal"] .fn-root .fn-summary:not(:has(.fn-stat:nth-child(2) .fn-stat-sub)) .fn-stat--month .fn-stat-sub {
-  display: none;
+/* ---- Nothing yet: the starters (+ Netflix, + Spotify …) under the sentence, from its left edge
+   (the shared row centers them, which split the left-aligned empty state in two); the first
+   one's + lines up with the words (its padding and edge step out) ---- */
+[data-skin="minimal"] .fn-root .fn-starters {
+  justify-content: flex-start;
+  margin-left: -13px;
 }
 
 /* ---- The lists: no heads with lines, titles as quiet words ---- */
@@ -4551,14 +5391,19 @@
   pointer-events: none;
 }
 
-[data-skin="minimal"] .fn-root .fn-row:first-child::before,
-[data-skin="minimal"] .fn-root .fn-row:hover::before,
-[data-skin="minimal"] .fn-root .fn-row:hover + .fn-row::before {
+[data-skin="minimal"] .fn-root .fn-row:first-child::before {
   background: transparent;
 }
 
-[data-skin="minimal"] .fn-root .fn-row:hover {
-  background: var(--surface-2);
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="minimal"] .fn-root .fn-row:hover::before,
+  [data-skin="minimal"] .fn-root .fn-row:hover + .fn-row::before {
+    background: transparent;
+  }
+
+  [data-skin="minimal"] .fn-root .fn-row:hover {
+    background: var(--surface-2);
+  }
 }
 
 [data-skin="minimal"] .fn-root .fn-avatar,
@@ -4690,7 +5535,7 @@
   padding: 0;
 }
 
-[data-skin="minimal"] .fn-root .fn-cat {
+[data-skin="minimal"] .fn-root .fn-cat-row {
   gap: 4px var(--space-3);
   padding: 6px 0;
 }
@@ -4715,33 +5560,20 @@
   background: var(--text-3);
 }
 
-/* The sort's last word ends on the prices' edge */
-[data-skin="minimal"] .fn-root .fn-sort {
-  padding: 0;
+/* The sort ("Next payment ▾") ends on the prices' edge (its menu steps out, not the button: a
+   button pulled past its menu's edge was squeezed to "Next paym…"); its words, no icon */
+[data-skin="minimal"] .fn-root .dd:has(> .fn-sort-btn) {
+  margin-right: -6px;
 }
 
-[data-skin="minimal"] .fn-root .fn-sort .seg-btn:last-child {
-  padding-right: 0;
+[data-skin="minimal"] .fn-root .fn-sort-btn > .icon:not(.dd-chev) {
+  display: none;
 }
 
-/* ---- Phones: the price keeps the right edge (no actions column there); the sort fits beside
-   "Subscriptions" ---- */
+/* ---- Phones: the price keeps the right edge (no actions column there) ---- */
 @media (max-width: 640px) {
   [data-skin="minimal"] .fn-root .fn-row {
     grid-template-columns: minmax(0, 1fr) auto;
-  }
-
-  [data-skin="minimal"] .fn-root .fn-sort .seg-btn {
-    padding-inline: 6px;
-  }
-
-  [data-skin="minimal"] .fn-root .fn-summary:not([hidden]) {
-    gap: var(--space-3) var(--space-7);
-    margin-bottom: var(--space-6);
-  }
-
-  [data-skin="minimal"] .fn-root .fn-stat-value {
-    font-size: var(--fs-2xl);
   }
 }
 
@@ -4771,15 +5603,37 @@
   padding: 0;
 }
 
+/* A section's title is a card's title here (small gray words, "The whole app"), right on its rows */
 [data-skin="minimal"] .st-card-title {
   margin: 0 0 var(--space-1);
-  font-size: var(--fs-xs);
-  font-weight: 400;
-  color: var(--text-3);
 }
 
-[data-skin="minimal"] .st-card-title > .icon {
+/* The sections' index (a wide window): where you are is ink and semibold, its icon in ink, as in
+   the menu (no fill, no bar) */
+[data-skin="minimal"] .st-index-link[aria-current] {
+  background: transparent;
+  box-shadow: none;
+}
+
+/* …and on a narrower screen its menu ("Appearance ▾" over the rows): the section's name and the
+   caret, no icon, starting on the page's edge like the rows under it */
+[data-skin="minimal"] .st-jump-btn > .icon:not(.dd-chev) {
   display: none;
+}
+
+[data-skin="minimal"] .st-jump {
+  margin-left: -6px;
+}
+
+/* That menu's bar stays on top while you scroll: plain paper under it, not the shared 90% glass
+   (with no cards here the rows' words showed through it, a second "Color coding" behind the
+   first) */
+@media (max-width: 1099.98px) {
+  [data-skin="minimal"] .st-index {
+    background: var(--bg);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
 }
 
 [data-skin="minimal"] .st-row {
@@ -4852,8 +5706,10 @@
   background-repeat: no-repeat;
 }
 
-[data-skin="minimal"] .st-select:hover {
-  background-color: var(--surface-2);
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="minimal"] .st-select:hover {
+    background-color: var(--surface-2);
+  }
 }
 
 [data-skin="minimal"] .st-select:focus {
@@ -4870,6 +5726,18 @@
 
 /* Words carry the buttons; their icons go (GitHub keeps its "opens elsewhere" arrow) */
 [data-skin="minimal"] .st-row-control :is(button.btn, .seg-btn) > svg {
+  display: none;
+}
+
+/* …but the Template's name keeps its small gray › : alone, "Minimal" read as a value, not as
+   something to press (it opens the templates) */
+[data-skin="minimal"] .st-row-control .st-template-btn > svg.st-chev {
+  display: block;
+  color: var(--text-3);
+}
+
+/* Page colors: every page's icon is the same gray here, so the switch would change nothing */
+[data-skin="minimal"] .st-row[data-row="color-pages"] {
   display: none;
 }
 
@@ -4893,34 +5761,17 @@
    the rest, the sets.
    ========================================================================== */
 
-[data-skin="minimal"] .tr-normal .page-subtitle,
-[data-skin="minimal"] :is(.tr-pr, .tr-routine-meta, .tr-routines-empty, .tr-sess-hint, .tr-sess-foot),
+[data-skin="minimal"] :is(.tr-pr, .tr-routine-meta, .tr-sess-hint),
 [data-skin="minimal"] .tr-routine-name > svg,
 [data-skin="minimal"] .tr-sess-ex .tr-kind {
   display: none;
 }
 
-/* No workouts (or progress) yet: just that, a quiet line at the page's edge (the explanation goes,
-   and Start workout / Log past workout are right above) */
-[data-skin="minimal"] :is(.tr-log, .tr-body) > .empty > :is(.empty-text, .btn) {
+/* No workouts (or progress) yet: the one empty-state line, as on every page (the explanation goes:
+   Start workout / Log past workout are right above; Make a routine stays as its word, the only
+   way to a routine before the first workout) */
+[data-skin="minimal"] :is(.tr-log, .tr-body) > .empty > .empty-text {
   display: none;
-}
-
-[data-skin="minimal"] :is(.tr-log, .tr-body) > .empty {
-  align-items: flex-start;
-  padding: var(--space-4) 0;
-  text-align: left;
-}
-
-[data-skin="minimal"] :is(.tr-log, .tr-body) > .empty > .empty-title {
-  font-size: var(--fs-md);
-  font-weight: 400;
-  color: var(--text-2);
-}
-
-[data-skin="minimal"] .tr-week-line {
-  font-size: var(--fs-sm);
-  color: var(--text-3);
 }
 
 /* ---- Log / Progress: quiet words, lined up with the title ---- */
@@ -4991,8 +5842,10 @@
   font-weight: 600;
 }
 
-[data-skin="minimal"] .tr-routine .btn--primary:hover {
-  background: var(--surface-2);
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="minimal"] .tr-routine .btn--primary:hover {
+    background: var(--surface-2);
+  }
 }
 
 /* ---- Workouts: day, name and sets on the page; the row is the button ---- */
@@ -5010,7 +5863,12 @@
 
 [data-skin="minimal"] .tr-card:hover {
   border-color: transparent;
-  background: var(--surface-2);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="minimal"] .tr-card:hover {
+    background: var(--surface-2);
+  }
 }
 
 [data-skin="minimal"] .tr-card-head .label {
@@ -5063,7 +5921,12 @@
 
 [data-skin="minimal"] .tr-ex:hover {
   border-color: transparent;
-  background: var(--surface-2);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="minimal"] .tr-ex:hover {
+    background: var(--surface-2);
+  }
 }
 
 [data-skin="minimal"] .tr-ex[aria-pressed="true"] {
@@ -5145,64 +6008,6 @@
   [data-skin="minimal"] .tr-table th:nth-child(3) {
     display: none;
   }
-
-  /* The page top in one row, as on the other pages (compact.css only reaches a page's own
-     header, and Training's sits one level down): the title, Log past workout as an icon (its
-     name stays on it) and Start workout */
-  [data-skin="minimal"] .tr-normal > .page-header {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    align-items: center;
-    gap: 4px var(--space-3);
-    padding-bottom: 0;
-    margin-bottom: var(--space-3);
-    border-bottom: 0;
-  }
-
-  [data-skin="minimal"] .tr-normal > .page-header > .page-heading {
-    display: contents;
-  }
-
-  [data-skin="minimal"] .tr-normal > .page-header .page-title {
-    grid-column: 1;
-    grid-row: 1;
-    overflow: hidden;
-    font-size: 26px;
-    line-height: 1.1;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  [data-skin="minimal"] .tr-normal > .page-header > .page-actions {
-    grid-column: 2;
-    grid-row: 1;
-    flex-wrap: nowrap;
-    width: auto;
-    margin-left: auto;
-    gap: 6px;
-  }
-
-  [data-skin="minimal"] .tr-normal > .page-header .page-actions .btn {
-    --btn-h: 36px;
-  }
-
-  [data-skin="minimal"] .tr-normal > .page-header .page-actions .btn:not(.btn--primary) {
-    width: 36px;
-    padding: 0;
-    gap: 0;
-    font-size: 0;
-  }
-
-  [data-skin="minimal"] .tr-normal > .page-header .page-actions .btn--primary {
-    padding-inline: var(--space-3);
-  }
-}
-
-/* The smallest phones (320px): "Start workout" without its ▷, so "Training" stays whole */
-@media (max-width: 360px) {
-  [data-skin="minimal"] .tr-normal > .page-header .page-actions .btn--primary > .icon {
-    display: none;
-  }
 }
 
 /* ---- The workout going on: the clock, the rest and the sets big, the rest quiet ---- */
@@ -5214,6 +6019,12 @@
 [data-skin="minimal"] .tr-live-dot {
   background: var(--text);
   animation: none;
+}
+
+/* The workout's name is a field: the quiet line under it, as every field here (without it the
+   gray placeholder read as a grayed-out title, and the field had no edge, WCAG 1.4.11) */
+[data-skin="minimal"] .input.tr-sess-title {
+  border-bottom: 1px solid var(--field-line);
 }
 
 /* "Workout in progress" and "Time": the name and the running clock say it */
@@ -5291,18 +6102,34 @@
   font-size: var(--fs-lg);
 }
 
-[data-skin="minimal"] .tr-done {
+/* A set's tick: a thin box, filled with ink once done (the shared check's own checked look) */
+[data-skin="minimal"] .tr-done:not([aria-checked="true"]) {
   border-color: var(--text-3);
 }
 
-[data-skin="minimal"] .tr-done:hover {
-  border-color: var(--text);
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="minimal"] .tr-done:hover {
+    border-color: var(--text);
+  }
 }
 
-[data-skin="minimal"] .tr-done[aria-pressed="true"] {
-  border-color: var(--text);
-  background: var(--text);
-  color: var(--accent-ink);
+/* The bar at the bottom (Rest, Finish, Discard) stays put over the sets as the page scrolls: it
+   needs the paper under it (a panel here has none) and a hairline above, no card or shadow */
+[data-skin="minimal"] .tr-sess-bar {
+  padding-inline: 0;
+  border-color: transparent;
+  border-top-color: var(--line);
+  border-radius: 0;
+  background: var(--bg);
+  box-shadow: 0 var(--space-2) 0 var(--bg);
+}
+
+/* The exercise the arrows (and Enter) are on: a faint fill and an ink line on its left, as in
+   Search (square, so the line stays straight) */
+[data-skin="minimal"] .tr-pick-opt[aria-selected="true"] {
+  border-radius: 0;
+  background: var(--surface-2);
+  box-shadow: inset 2px 0 0 var(--text);
 }
 
 /* ---- The pill in the top bar: words and the time, no outline ---- */
@@ -5314,7 +6141,43 @@
 
 [data-skin="minimal"] .tr-live:hover {
   border-color: transparent;
-  background: var(--surface-2);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="minimal"] .tr-live:hover {
+    background: var(--surface-2);
+  }
 }
 
 /* end Training */
+
+/* ==========================================================================
+   Health (minimal)
+   Not available yet: the shared empty state as one left-aligned sentence (as every empty state
+   here), then the ideas as gray words with a small title. Its explanation is a tip, so it never
+   shows here; "Idea" in the menu is a gray word.
+   ========================================================================== */
+
+/* (wide enough for the six ideas on one line: at 46ch "Mood ·" ended a line on its own dot) */
+[data-skin="minimal"] .hl-root .hl-ideas {
+  gap: var(--space-1);
+  max-width: 64ch;
+  margin-top: var(--space-3);
+}
+
+[data-skin="minimal"] .hl-root .hl-ideas-title {
+  font-family: var(--font-sans);
+  font-size: var(--fs-xs);
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--text-3);
+}
+
+/* The ideas in the size of the sentence above them (16px made them louder than it) */
+[data-skin="minimal"] .hl-root .hl-list {
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+}
+
+/* end Health */

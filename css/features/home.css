@@ -76,9 +76,11 @@
   white-space: nowrap;
 }
 
-.hm-next:hover {
-  border-color: var(--text-3);
-  background: var(--surface-2);
+@media (hover: hover) and (pointer: fine) {
+  .hm-next:hover {
+    border-color: var(--text-3);
+    background: var(--surface-2);
+  }
 }
 
 .hm-next.is-empty {
@@ -135,15 +137,22 @@
 
 .hm-glance {
   display: grid;
-  /* The Calendar tile's extra line (what's next) is the longest: it gets a little more room */
-  grid-template-columns: minmax(0, 1.4fr) repeat(3, minmax(0, 1fr));
+  /* The Calendar tile's extra line (what's next) is the longest: it gets a little more room. A
+     tile whose widget is on the board is left out (home.js), so the others share its room */
+  grid-template-columns: minmax(0, 1.4fr);
+  grid-auto-columns: minmax(0, 1fr);
+  grid-auto-flow: column;
   margin-bottom: var(--space-5);
   container: hm-glance / inline-size;
 }
 
+.hm-glance[hidden] {
+  display: none;
+}
+
 @media (max-width: 640px) {
   .hm-glance {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
@@ -174,8 +183,10 @@
   border-radius: 0 var(--radius) var(--radius) 0;
 }
 
-.hm-gl:hover {
-  background: var(--surface-2);
+@media (hover: hover) and (pointer: fine) {
+  .hm-gl:hover {
+    background: var(--surface-2);
+  }
 }
 
 /* The focus ring inside the tile, so it doesn't run over the strip's edge or the next tile
@@ -359,6 +370,161 @@
   }
 }
 
+/* ---- First run: "Start here" ----
+   One card of three big steps instead of a board of zeros: each a button with its number (a
+   tick once done), its page's badge and two lines. Three side by side where there is room, one
+   under the other on a phone. */
+
+.hm-start {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-bottom: var(--space-5);
+  padding: var(--space-4) var(--space-5) var(--space-5);
+  container: hm-start / inline-size;
+}
+
+.hm-start[hidden] {
+  display: none;
+}
+
+.hm-start-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.hm-start-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  font-size: var(--fs-lg);
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.hm-start-ib {
+  --ib-box: 28px;
+}
+
+.hm-start-count {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--text-2);
+}
+
+.hm-start-ok {
+  margin-left: auto;
+}
+
+.hm-start-list {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.hm-start-btn {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  min-height: 64px;
+  padding: var(--space-3);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  text-align: left;
+  transition: background var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .hm-start-btn:hover {
+    border-color: var(--text-3);
+    background: var(--surface-2);
+  }
+}
+
+.hm-start-mark {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border: 1px solid var(--line-strong);
+  border-radius: 50%;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--text-2);
+}
+
+.hm-start-step-ib {
+  --ib-box: 32px;
+}
+
+.hm-start-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.hm-start-text strong {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+
+.hm-start-text span {
+  font-size: var(--fs-xs);
+  line-height: 1.35;
+  color: var(--text-2);
+}
+
+.hm-start-go {
+  color: var(--text-3);
+}
+
+/* Done: a filled tick, the words step back; it can still be pressed (add another) */
+.hm-start-step.is-done .hm-start-mark {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.hm-start-step.is-done .hm-start-text strong {
+  color: var(--text-2);
+  text-decoration: line-through;
+  text-decoration-color: var(--text-3);
+}
+
+@container hm-start (max-width: 720px) {
+  .hm-start-list {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-2);
+  }
+
+  .hm-start-btn {
+    min-height: 56px;
+  }
+}
+
+@media (max-width: 640px) {
+  .hm-start {
+    margin-bottom: var(--space-3);
+    padding: var(--space-3) var(--space-3) var(--space-4);
+  }
+
+  .hm-start-title {
+    font-size: var(--fs-md);
+  }
+}
+
 /* ---- Layout: your own board ----
    home.js places each widget (position + width) from home.logic.js: four columns on a wide
    board, two on a narrower one and on a phone, one only when very narrow (it sets data-cols on
@@ -450,9 +616,11 @@
   touch-action: none;
 }
 
-.hm-wgrip:hover {
-  color: var(--text);
-  border-color: var(--text);
+@media (hover: hover) and (pointer: fine) {
+  .hm-wgrip:hover {
+    color: var(--text);
+    border-color: var(--text);
+  }
 }
 
 .hm-wname {
@@ -978,6 +1146,26 @@
   justify-self: start;
 }
 
+/* A narrow card (half a phone, a quarter of a board): the words and the button stack, the
+   button the card's width, so no word wraps alone and no button spills out of the card */
+@container hm-widget (max-width: 320px) {
+  .hm-empty {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-2);
+  }
+
+  .hm-empty-icon {
+    display: none;
+  }
+
+  .hm-empty > .btn {
+    grid-column: 1;
+    justify-self: stretch;
+    max-width: 100%;
+    white-space: normal;
+  }
+}
+
 /* ---- The week ---- */
 
 .hm-week {
@@ -1132,10 +1320,14 @@
   background: var(--surface-solid);
   cursor: pointer;
   transition: background var(--dur-fast) var(--ease);
+  /* Each day knows its own width: a narrow column drops its "Today" word (below) */
+  container: hm-day / inline-size;
 }
 
-.hm-day:hover {
-  background: var(--surface-solid-2);
+@media (hover: hover) and (pointer: fine) {
+  .hm-day:hover {
+    background: var(--surface-solid-2);
+  }
 }
 
 .hm-day.is-weekend {
@@ -1193,11 +1385,21 @@
 
 .hm-day-tag {
   margin-left: auto;
+  overflow: hidden;
   font-family: var(--font-mono);
   font-size: 9px;
   letter-spacing: calc(0.12em * var(--label-tracking));
   text-transform: var(--label-case);
+  white-space: nowrap;
   color: var(--text);
+}
+
+/* A day column narrower than about 110px has no room for the word: the filled date says today
+   (and the day's name says it to screen readers) */
+@container hm-day (max-width: 109px) {
+  .hm-day-tag {
+    display: none;
+  }
 }
 
 .hm-day-items {
@@ -1213,7 +1415,8 @@
 }
 
 /* Titles get two lines here (a day is only ~100px wide). An event reads as one line of text
-   that wraps ("14:00 Design" / "sync"); a task's title wraps beside its checkbox. */
+   that wraps ("14:00 Design" / "sync"); a task's title wraps beside its checkbox. Words break
+   only between words (never "pic-tures"); what doesn't fit in two lines ends in "…" */
 .hm-day .cal-ev {
   display: -webkit-box;
   height: auto;
@@ -1224,16 +1427,22 @@
   overflow: hidden;
   line-height: 1.3;
   white-space: normal;
-  overflow-wrap: break-word;
-  hyphens: auto;
+  overflow-wrap: normal;
+  word-break: normal;
+  hyphens: manual;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
 }
 
-/* Inline-block: a wrap point between the time and the title (they touch, with no space) */
+/* Inline-block: a wrap point between the title and the time (they touch, with no space). The
+   title comes first ("Lunch with Ola 12:00"): squeezed, the name is what must show */
 .hm-day .cal-ev-time {
   display: inline-block;
   margin-right: 4px;
+}
+
+.hm-day .cal-ev.is-title-first .cal-ev-time {
+  margin: 0 0 0 4px;
 }
 
 .hm-day .cal-task {
@@ -1250,8 +1459,9 @@
   overflow: hidden;
   line-height: 1.3;
   white-space: normal;
-  overflow-wrap: break-word;
-  hyphens: auto;
+  overflow-wrap: normal;
+  word-break: normal;
+  hyphens: manual;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
 }
@@ -1290,6 +1500,139 @@
 .hm-day > .cal-hb {
   margin-top: auto;
   padding: 0 2px;
+}
+
+/* ---- "Today & next": a narrow widget's week (home.js agendaList) ----
+   Today, then only the days with something on them: each day's word and date on one quiet
+   line, its events and tasks under it as full-width rows a finger can hit. */
+
+.hm-days[data-view="agenda"] {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: none;
+}
+
+.hm-up-day {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.hm-up-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 2px 0;
+  border-radius: var(--radius-xs);
+  font-size: var(--fs-xs);
+  color: var(--text-2);
+  text-align: left;
+}
+
+.hm-up-head > .icon {
+  flex: none;
+  color: var(--text-3);
+}
+
+.hm-up-when {
+  font-family: var(--label-font);
+  font-size: var(--label-size);
+  font-weight: 600;
+  letter-spacing: calc(0.12em * var(--label-tracking));
+  text-transform: var(--label-case);
+  color: var(--text);
+}
+
+.hm-up-date {
+  font-family: var(--font-mono);
+  color: var(--text-3);
+}
+
+.hm-up-head:hover .hm-up-when {
+  text-decoration: underline;
+  text-decoration-color: var(--text-3);
+  text-underline-offset: 3px;
+}
+
+.hm-up-day.is-today .hm-up-head > .icon {
+  color: var(--text);
+}
+
+.hm-up-items {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+/* Rows, not slivers: the whole width, a readable size */
+.hm-up-items :is(.cal-ev, .cal-task) {
+  height: auto;
+  min-height: 30px;
+  font-size: var(--fs-sm);
+  cursor: pointer;
+}
+
+.hm-up-items .cal-ev {
+  gap: 8px;
+}
+
+.hm-up-none,
+.hm-up-rest {
+  margin: 0;
+  font-size: var(--fs-sm);
+  color: var(--text-3);
+}
+
+.hm-up-more {
+  align-self: flex-start;
+  padding: 2px 0;
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  color: var(--text-2);
+}
+
+.hm-up-more:hover {
+  color: var(--text);
+}
+
+/* Today's events that are over: one quiet line over what is next (it opens today) */
+.hm-up-earlier {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  gap: 5px;
+  padding: 2px 0;
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+}
+
+.hm-up-earlier:hover {
+  color: var(--text);
+}
+
+.hm-up-foot {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  margin-top: calc(-1 * var(--space-2));
+}
+
+.hm-up-foot-note {
+  margin-right: auto;
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+}
+
+.hm-up-foot[hidden] {
+  display: none;
 }
 
 /* ---- One day, listed ---- */
@@ -1581,8 +1924,10 @@
   transition: background var(--dur-fast) var(--ease);
 }
 
-.hm-mcell:hover {
-  background: var(--surface-solid-2);
+@media (hover: hover) and (pointer: fine) {
+  .hm-mcell:hover {
+    background: var(--surface-solid-2);
+  }
 }
 
 .hm-mcell:focus-visible {
@@ -1924,27 +2269,36 @@
   gap: var(--space-3);
 }
 
-.hm-habits-sum {
+/* All done: one line with a tick over the list (the Today strip has the numbers) */
+.hm-habits-line {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
-}
-
-.hm-ring {
-  flex: none;
-  width: 56px;
-  height: 56px;
-}
-
-.hm-ring-label {
-  font-size: var(--fs-xs);
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-}
-
-.hm-habits-line {
+  gap: 6px;
+  margin: 0;
   font-size: var(--fs-sm);
   color: var(--text-2);
+}
+
+.hm-habits-line > .icon {
+  flex: none;
+}
+
+/* "+7 more" under the five shown: its words stay, even in a small card */
+.hm-list-more {
+  justify-self: start;
+  padding: 2px 4px;
+  border-radius: var(--radius-xs);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--text-2);
+  text-decoration: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .hm-list-more:hover {
+    color: var(--text);
+    background: var(--surface-2);
+  }
 }
 
 .hm-habit-list {
@@ -1960,10 +2314,14 @@
   min-height: 34px;
   padding: 4px;
   border-radius: var(--radius-xs);
+  /* The whole row ticks the habit (home.js) */
+  cursor: pointer;
 }
 
-.hm-habit:hover {
-  background: var(--surface-2);
+@media (hover: hover) and (pointer: fine) {
+  .hm-habit:hover {
+    background: var(--surface-2);
+  }
 }
 
 .hm-habit-name {
@@ -1995,7 +2353,9 @@
   pointer-events: none;
 }
 
-.hm-add-input {
+/* The + sits inside the field, so the text always starts after it: .hm-add outranks a
+   template's own field padding (a plain `.input` rule), whatever the template */
+.hm-add .hm-add-input {
   height: 36px;
   padding-left: 32px;
 }
@@ -2020,8 +2380,10 @@
   transition: opacity var(--dur) var(--ease);
 }
 
-.hm-task:hover {
-  background: var(--surface-2);
+@media (hover: hover) and (pointer: fine) {
+  .hm-task:hover {
+    background: var(--surface-2);
+  }
 }
 
 .hm-task-title {
@@ -2131,8 +2493,10 @@
   text-align: left;
 }
 
-.hm-recent-item:hover {
-  background: var(--surface-2);
+@media (hover: hover) and (pointer: fine) {
+  .hm-recent-item:hover {
+    background: var(--surface-2);
+  }
 }
 
 .hm-recent-title {
@@ -2327,14 +2691,9 @@
     display: none;
   }
 
-  /* Habits today: a list of small checks; the ring goes (the count is in the header) */
+  /* Habits today: a list of small checks */
   .hm-habits-body {
     gap: var(--space-2);
-  }
-
-  .hm-habits-body:not(.is-complete) .hm-habits-sum,
-  .hm-ring {
-    display: none;
   }
 
   .hm-habit {
@@ -2494,6 +2853,14 @@
     height: 13px;
   }
 
+  /* The date line (the title row's status) gets its own row under the greeting: beside it, a
+     phone had room for "Mon 19" only, and what's next lives here on a phone */
+  html[data-skin] .main .view.hm-page > .page-header .page-heading > .page-stat:has(.hm-sub) {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    font-size: var(--fs-sm);
+  }
+
   /* The header: the short date · what's next as plain text, on one line */
   .hm-sub .hm-date-long {
     display: none;
@@ -2526,12 +2893,12 @@
 
   /* Quick note is an icon too, so the greeting keeps its room (compact.css keeps a primary
      button's word; this outranks it) */
-  html[data-skin] .main .view.hm-page > .page-header .page-actions .hm-quick {
+  html[data-skin] .main .view.hm-page > .page-header .page-actions .hm-quick.btn--primary {
     width: 36px;
     padding: 0;
   }
 
-  html[data-skin] .main .view.hm-page > .page-header .page-actions .hm-quick > span {
+  html[data-skin] .main .view.hm-page > .page-header .page-actions .hm-quick.btn--primary > span {
     display: none;
   }
 
@@ -2542,5 +2909,54 @@
   .hm-bars {
     height: 104px;
     gap: 3px;
+  }
+}
+
+/* ---- Touch: rows and checks a finger can hit ----
+   On a touch screen every row is at least 44px tall and every check reaches 44px around its box
+   (::before: the templates draw their tick marks on ::after) */
+@media (pointer: coarse) {
+  .hm-page :is(.hm-task, .hm-habit, .hm-recent-item, .hm-agenda-item, .hm-dv-habit, .hm-pay-row, .hm-train-row) {
+    min-height: 44px;
+  }
+
+  .hm-page .hm-card .check::before {
+    content: "";
+    position: absolute;
+    inset: -12px;
+  }
+
+  /* (Their checks' 44px square is in css/compact.css, with the Calendar's list checks) */
+  .hm-page .hm-up-items :is(.cal-ev, .cal-task) {
+    min-height: 44px;
+  }
+
+  .hm-page .hm-up-head,
+  .hm-page .hm-up-more,
+  .hm-page .hm-up-earlier,
+  .hm-page .hm-list-more {
+    min-height: 36px;
+  }
+
+  .hm-page .hm-list-more {
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .hm-page .hm-add .hm-add-input,
+  .hm-page .hm-add .hm-add-btn {
+    height: 44px;
+    --btn-h: 44px;
+  }
+
+  /* The small "›" links keep their look; their hit area reaches past them */
+  .hm-page .hm-more {
+    position: relative;
+  }
+
+  .hm-page .hm-more::before {
+    content: "";
+    position: absolute;
+    inset: -12px -6px;
   }
 }

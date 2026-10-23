@@ -2,7 +2,7 @@
 // next, free trials about to turn into payments, cost by category, and what cancelling saves.
 // Pure rules live in finance.logic.js; store 'finance' (synced, except view).
 
-import { h, icon, pageHeader, toast, openModal, todayKey, formatDay, relativeDay, diffDays, onDayChange, isTyping, modalOpen, plural, uid, promptDialog } from '../ui.js';
+import { h, icon, pageHeader, emptyState, dropdown, dismissTip, toast, openModal, todayKey, formatDay, relativeDay, diffDays, onDayChange, isTyping, modalOpen, uid, promptDialog } from '../ui.js';
 import { createStore } from '../store.js';
 import { registerContextProvider } from '../contextmenu.js';
 import * as F from './finance.logic.js';
@@ -142,50 +142,57 @@ function mount(root) {
   root.classList.add('fn-root');
   const cleanups = [];
 
+  // The totals are one line beside the title (the header's stat): 'kr 219/mo · kr 2,628/yr ·
+  // next: Netflix Thu'. Each part keeps its words together, so a narrow screen wraps the line
+  // between parts and never cuts a sum short.
+  const statEl = h('span', { class: 'fn-sum' });
   const header = pageHeader({
     index: '08',
     title: 'Finance',
     subtitle: 'Your subscriptions: what they cost, and when they renew.',
+    tipId: 'finance.intro',
+    stat: statEl,
     actions: [btn('Add subscription', () => openEditor(), { iconName: 'plus', primary: true, small: false })],
   });
-  const summaryEl = h('section', { class: 'fn-summary', 'aria-label': 'Totals' });
   const bodyEl = h('div', { class: 'fn-body' });
-  root.append(header, summaryEl, bodyEl);
+  root.append(header, bodyEl);
 
   function render() {
     const s = getState();
     const today = todayKey();
     const subs = s.subscriptions;
     const focusId = document.activeElement?.closest?.('.fn-row[data-id]')?.dataset.id;
+    const sortFocused = !!document.activeElement?.closest?.('.fn-root .fn-sort-btn');
+    renderStat(subs, today);
     if (!subs.length) {
-      summaryEl.hidden = true;
       bodyEl.replaceChildren(emptyView());
       return;
     }
-    summaryEl.hidden = false;
-    summaryEl.replaceChildren(...summaryCards(subs, today));
     bodyEl.replaceChildren(
       h('div', { class: 'fn-main' }, listPanel(s, today)),
       h('div', { class: 'fn-side' }, upcomingPanel(subs, today), categoryPanel(subs)),
     );
     if (focusId) bodyEl.querySelector(`.fn-row[data-id="${CSS.escape(focusId)}"]`)?.focus({ preventScroll: true });
+    else if (sortFocused) bodyEl.querySelector('.fn-sort-btn')?.focus({ preventScroll: true });
   }
 
-  /* ---- Totals ---- */
+  /* ---- Totals: the header's stat ---- */
 
-  function summaryCards(subs, today) {
-    const t = F.totals(subs);
-    const next = F.upcoming(subs, today, 400)[0] ?? null;
-    const card = (label, value, sub, cls) => h('div', { class: ['fn-stat', 'panel', 'hud', cls] }, h('span', { class: 'label' }, label), h('span', { class: 'stat-value fn-stat-value' }, value), sub ? h('span', { class: 'fn-stat-sub' }, sub) : null);
-    const [mainM, ...moreM] = t.month;
-    const [mainY, ...moreY] = t.year;
-    const counts = [t.trials && plural(t.trials, 'free trial'), t.paused && `${t.paused} paused`].filter(Boolean).join(' · ');
-    return [
-      card('Per month', mainM ? money(mainM.amount, mainM.currency, { round: true }) : '—', moreM.length ? `+ ${moneyList(moreM, { round: true })}` : 'All active subscriptions', 'fn-stat--month'),
-      card('Per year', mainY ? money(mainY.amount, mainY.currency, { round: true }) : '—', moreY.length ? `+ ${moneyList(moreY, { round: true })}` : null),
-      card('Next payment', next ? next.sub.name : 'Nothing due', next ? `${money(next.sub.amount, next.sub.currency)} · ${whenText(next.date, today)}` : null, 'fn-stat--next'),
-      card('Active', String(t.active), counts || null),
-    ];
+  function renderStat(subs, today) {
+    const sum = F.summary(subs, today);
+    const part = (cls, ...children) => h('span', { class: ['fn-sum-part', cls] }, ...children);
+    const parts = [];
+    if (sum.month.length) {
+      parts.push(part('fn-sum-month', h('strong', { class: 'fn-sum-total' }, moneyList(sum.month, { round: true })), '/mo'));
+      parts.push(part('fn-sum-year', `${moneyList(sum.year, { round: true })}/yr`));
+    } else if (subs.length) {
+      parts.push(part('fn-sum-none', sum.live ? 'Nothing to pay yet' : 'Nothing active'));
+    }
+    if (sum.next) parts.push(part('fn-sum-next', `next: ${sum.next.sub.name} ${F.shortWhen(sum.next.date, today)}${sum.next.trialEnd ? ', trial ends' : ''}`));
+    // The dot is tied to the part before it (a no-break space), so a wrapped line never starts with one
+    statEl.replaceChildren(...parts.flatMap((p, i) => (i ? [h('span', { class: 'fn-sum-sep', 'aria-hidden': 'true' }, '\u00a0· '), p] : [p])));
+    // No subscriptions: no line at all
+    header.setStat(parts.length ? statEl : null);
   }
 
   /* ---- The list ---- */
@@ -195,17 +202,21 @@ function mount(root) {
     const live = F.sortSubs(subs.filter((x) => x.status === 'active' || x.status === 'trial'), s.view.sort, today);
     const paused = F.sortSubs(subs.filter((x) => x.status === 'paused'), s.view.sort, today);
     const cancelled = F.sortSubs(subs.filter((x) => x.status === 'cancelled'), 'name', today);
-    const sort = seg(
-      'Sort by',
-      [
+    // One quiet word with a caret, not three buttons where column heads would be
+    const sort = dropdown({
+      icon: 'sort',
+      items: [
         { value: 'next', label: 'Next payment' },
         { value: 'price', label: 'Price' },
         { value: 'name', label: 'Name' },
       ],
-      s.view.sort,
-      (v) => setView({ sort: v }),
-      'fn-sort',
-    );
+      value: s.view.sort,
+      onSelect: (v) => setView({ sort: v }),
+      align: 'end',
+      className: 'btn--ghost fn-sort-btn',
+      menuLabel: 'Sort by',
+      ariaLabel: ({ picked }) => `Sort by ${picked?.label.toLowerCase() ?? 'next payment'}`,
+    });
     const group = (title, list) => (list.length ? [h('h3', { class: 'fn-group label' }, title), h('ul', { class: 'fn-list', role: 'list' }, list.map((x) => row(x, today)))] : []);
     const saved = F.savings(subs);
     const cancelToggle = cancelled.length
@@ -247,7 +258,8 @@ function mount(root) {
         class: ['fn-row', `is-${sub.status}`, soon && 'is-soon'],
         tabindex: '0',
         dataset: { id: sub.id },
-        'aria-label': `${sub.name}, ${money(sub.amount, sub.currency)} ${F.cycleLabel(sub).toLowerCase()}${next ? `, next payment ${formatDay(next, 'long')}` : ''}`,
+        // The row is the way to edit (there's no pencil button): its name says so, and its state
+        'aria-label': `${sub.name}, ${money(sub.amount, sub.currency)} ${F.cycleLabel(sub).toLowerCase()}${sub.status === 'active' ? '' : `, ${sub.status === 'trial' ? 'free trial' : sub.status}`}${next ? `, next payment ${formatDay(next, 'long')}` : ''}. Enter to edit`,
         onClick: (e) => {
           if (e.target.closest('a, button')) return;
           openEditor(sub.id);
@@ -274,17 +286,20 @@ function mount(root) {
           next && sub.status === 'active' ? nextTag(next, today, soon) : null,
         ),
       ),
+      // The site you saved, before the price (so every price ends on the row's right edge). The
+      // row itself opens the editor (click, Enter, or Edit… in its right-click menu)
+      url
+        ? h(
+            'div',
+            { class: 'row-actions fn-row-actions' },
+            h('a', { class: 'btn btn--ghost btn--icon btn--sm', href: url, target: '_blank', rel: 'noopener noreferrer', title: 'Manage or cancel (opens their site)', 'aria-label': `Open ${sub.name}’s site` }, icon('external', { size: 14 })),
+          )
+        : null,
       h(
         'div',
         { class: 'fn-row-price' },
         h('span', { class: 'fn-price' }, money(sub.amount, sub.currency), h('span', { class: 'fn-per' }, ` ${F.cycleShort(sub)}`)),
         monthly ? h('span', { class: 'fn-monthly' }, `≈ ${money(F.perMonth(sub), sub.currency, { round: true })} / mo`) : null,
-      ),
-      h(
-        'div',
-        { class: 'row-actions fn-row-actions' },
-        url ? h('a', { class: 'btn btn--ghost btn--icon btn--sm', href: url, target: '_blank', rel: 'noopener noreferrer', title: 'Manage or cancel (opens their site)', 'aria-label': `Open ${sub.name}’s site` }, icon('external', { size: 14 })) : null,
-        btn('', () => openEditor(sub.id), { iconName: 'edit', ghost: true, title: 'Edit', aria: `Edit ${sub.name}` }),
       ),
     );
   }
@@ -336,7 +351,7 @@ function mount(root) {
         cats.map((c) =>
           h(
             'li',
-            { class: 'fn-cat' },
+            { class: 'fn-cat-row' },
             h('span', { class: 'fn-cat-name' }, F.categoryName(c.category), h('span', { class: 'fn-cat-count' }, ` · ${c.count}`)),
             h('span', { class: 'fn-cat-amount tnum' }, money(c.amount, currency, { round: true })),
             h('span', { class: 'fn-cat-bar', 'aria-hidden': 'true' }, h('span', { class: 'fn-cat-fill', style: { width: `${Math.max(2, Math.round(c.share * 100))}%` } })),
@@ -349,16 +364,20 @@ function mount(root) {
 
   /* ---- Nothing yet ---- */
 
+  // The shared empty state; its quick starters fill in a name (Add subscription is the header's)
   function emptyView() {
-    return h(
-      'section',
-      { class: 'panel hud fn-empty' },
-      h('div', { class: 'empty-icon' }, icon('wallet', { size: 20 })),
-      h('h2', { class: 'empty-title' }, 'Track your subscriptions'),
-      h('p', { class: 'empty-text' }, 'Add what you pay for every month or year. LIFE/OS adds it up and lists what’s due next, including the day a free trial turns into a payment. It only uses what you type in: it isn’t connected to your bank or to the services.'),
-      h('div', { class: 'fn-starters' }, F.SUGGESTIONS.slice(0, 8).map((s) => h('button', { type: 'button', class: 'btn btn--sm', onClick: () => openEditor(null, { name: s.name, category: s.category }) }, icon('plus', { size: 13 }), s.name))),
-      btn('Add subscription', () => openEditor(), { iconName: 'plus', primary: true, small: false }),
-    );
+    const el = emptyState({
+      icon: 'wallet',
+      title: 'No subscriptions yet',
+      text: 'Add what you pay for every month or year: LIFE/OS adds it up and shows what’s due next. It only knows what you type in, not your bank.',
+      action: h(
+        'div',
+        { class: 'fn-starters', role: 'group', 'aria-label': 'Quick add' },
+        F.SUGGESTIONS.slice(0, 8).map((s) => h('button', { type: 'button', class: 'btn btn--sm', onClick: () => openEditor(null, { name: s.name, category: s.category }) }, icon('plus', { size: 13 }), s.name)),
+      ),
+    });
+    el.classList.add('fn-empty');
+    return el;
   }
 
   /* ---- Right-click: copy, paste, duplicate, delete ---- */
@@ -548,6 +567,8 @@ function openEditor(id = null, preset = {}) {
       const res = F.createSubscription(fields, { now, today: todayKey(), makeId: uid });
       if (res.error) return fail(res.error, res.field);
       setSubs((list) => [...list, res.sub]);
+      // The page's explanation has done its job once something is in
+      dismissTip('finance.intro');
       toast(`“${res.sub.name}” added: ${money(res.sub.amount, res.sub.currency)} ${F.cycleLabel(res.sub).toLowerCase()}.`);
     }
     m.close();
@@ -612,6 +633,12 @@ export const financeApi = Object.freeze({
   subscribe: (fn) => store.subscribe(fn),
   money,
   add: () => openEditor(),
+  /** Search: the subscription's own dialog (Edit). False when there is no such subscription. */
+  edit: (id) => {
+    if (!findSub(id)) return false;
+    openEditor(id);
+    return true;
+  },
 });
 
 /** Payments due today or in the next 3 days, on the nav (empty when none). */

@@ -5,35 +5,18 @@
    Focus is solid, breaks are hatched: the phase reads without color.
    ========================================================================== */
 
-/* ---- Layout: the timer (and today) beside the settings ---- */
+/* ---- Layout: one column. The timer first and alone; its setup unfolds under it (Set up ▾);
+   today's sessions follow once there is one ---- */
 
 .pm-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 380px;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-5);
   align-items: start;
 }
 
-.pm-stack {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-5);
-  min-width: 0;
-}
-
-@media (max-width: 1080px) {
-  .pm-layout {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  /* One column: timer, settings, then today */
-  .pm-stack {
-    display: contents;
-  }
-
-  .pm-timer { order: 1; }
-  .pm-settings { order: 2; }
-  .pm-today { order: 3; }
+.pm-layout > [hidden] {
+  display: none;
 }
 
 .pm-card-title {
@@ -144,9 +127,18 @@
   color: var(--text);
 }
 
+/* The time itself: the template's size times --pm-fit, which pomodoro.js sets below 1 only when
+   the time would be wider than the ring's inside */
+.pm-digits-fit {
+  display: inline-block;
+  font-size: calc(1em * var(--pm-fit, 1));
+  white-space: nowrap;
+}
+
+/* Paused: the digits step back to the soft ink and hold still ("Focus · Paused" says it). No
+   pulse: its low beat took them under 4.5:1 in every template (WCAG 1.4.3) */
 .pm-timer[data-status="paused"] .pm-digits {
   color: var(--text-2);
-  animation: lo-pulse 2.4s var(--ease) infinite;
 }
 
 .pm-dial-round {
@@ -200,6 +192,32 @@
   width: min(420px, 100%);
 }
 
+/* ---- The setup at a glance (the preset in use) and Set up ▾, under the controls ---- */
+
+.pm-setup-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+}
+
+.pm-setup-chip {
+  font-variant-numeric: tabular-nums;
+}
+
+.pm-setup-btn svg {
+  flex: none;
+}
+
+.pm-setup-chev {
+  transition: transform var(--dur) var(--ease);
+}
+
+.pm-setup-btn.is-open .pm-setup-chev {
+  transform: rotate(180deg);
+}
+
 /* ---- Today ---- */
 
 .pm-today {
@@ -215,14 +233,6 @@
   gap: var(--space-4);
 }
 
-.pm-today-stats {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--space-4);
-}
-
-.pm-today-line,
-.pm-today-empty,
 .pm-today-more {
   font-size: var(--fs-sm);
   color: var(--text-2);
@@ -273,13 +283,46 @@
   color: var(--text-2);
 }
 
-/* ---- Settings ---- */
+/* ---- Settings (folded until Set up ▾): one column, two side by side on a wide page ---- */
 
 .pm-settings {
   display: flex;
   flex-direction: column;
   gap: var(--space-5);
   padding: var(--space-4) var(--space-5) var(--space-5);
+}
+
+@media (min-width: 900px) {
+  .pm-settings {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-areas:
+      "title title"
+      "presets switches"
+      "steps sound"
+      "steps notify"
+      "mini notify";
+    align-items: start;
+    gap: var(--space-5) var(--space-7);
+  }
+
+  .pm-settings > .pm-card-title { grid-area: title; }
+  .pm-settings > .pm-presets { grid-area: presets; }
+  .pm-settings > .pm-steps { grid-area: steps; }
+  .pm-settings > .pm-switches { grid-area: switches; }
+  .pm-settings > .pm-sound { grid-area: sound; }
+  .pm-settings > .pm-notify { grid-area: notify; }
+  .pm-settings > .pm-mini-pref { grid-area: mini; }
+
+  /* Side by side, the first block of each column needs no line above it */
+  .pm-settings > .pm-switches {
+    padding-top: 0;
+    border-top: 0;
+  }
+}
+
+.pm-settings[hidden] {
+  display: none;
 }
 
 .pm-presets {
@@ -574,14 +617,11 @@
   background: repeating-linear-gradient(-45deg, var(--hatch) 0 2px, transparent 2px 6px), var(--surface-solid);
 }
 
-/* Paused: dashed and quiet, the digits breathe */
+/* Paused: dashed and quiet ("Paused" in place of the phase); the digits hold still, as on the
+   page (a pulse dipped them under 4.5:1) */
 .pm-mini[data-status="paused"] {
   border-style: dashed;
   border-color: var(--text-3);
-}
-
-.pm-mini[data-status="paused"] .pm-mini-digits {
-  animation: lo-pulse 2.4s var(--ease) infinite;
 }
 
 /* Idle (shown always): a quiet start pill */
@@ -664,6 +704,10 @@
   .pm-settings,
   .pm-today {
     padding: var(--space-4);
+  }
+
+  .pm-setup-row {
+    gap: var(--space-1) var(--space-2);
   }
 
   .pm-log-row {

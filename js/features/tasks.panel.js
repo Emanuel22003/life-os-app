@@ -17,7 +17,16 @@ import { insertBlock, toggleLinePrefix, wrapSelection, linkMarkup } from './task
 
 const SAVE_MS = 400;
 const LEAVE_MS = 260; // the slide out, then the panel is hidden for good
-const MOD_KEY = /Mac|iPhone|iPad/.test(globalThis.navigator?.platform ?? '') ? '⌘' : 'Ctrl';
+const IS_MAC = /Mac|iPhone|iPad|iPod/.test(globalThis.navigator?.userAgent ?? '');
+// A key with the modifier, as a tooltip writes it: '⌘B' on a Mac, 'Ctrl+B' elsewhere
+const chord = (k) => (IS_MAC ? `⌘${k}` : `Ctrl+${k}`);
+// ⌘ on a Mac (Ctrl + B and Ctrl + K move and delete there, in every text field), Ctrl elsewhere:
+// the same chord as Search's ⌘K (js/command.js); a non-Latin layout's key counts by its place
+const isModKey = (e, k) =>
+  (IS_MAC ? e.metaKey && !e.ctrlKey : e.ctrlKey && !e.metaKey) &&
+  !e.altKey &&
+  !e.shiftKey &&
+  (e.key?.toLowerCase() === k || (e.code === `Key${k.toUpperCase()}` && !/^[a-z]$/i.test(e.key ?? '')));
 
 registerIcon('tk-image', '<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9.5" r="1.5"/><path d="m21 16-5-5-9 9"/>');
 registerIcon('tk-heading', '<path d="M6 4v16M18 4v16M6 12h12"/>');
@@ -39,6 +48,7 @@ export function createTaskPanel({ getTask, chipsFor, onTitle, onNotes, onDone, o
   let notesTimer = 0;
   let leaveTimer = 0;
   let busy = 0; // pictures being saved
+  let switching = false; // setEditing() is swapping the page and its text box
   const wide = globalThis.matchMedia?.('(min-width: 1100px)') ?? null;
 
   const iconBtn = (name, label, onClick, extra = {}) =>
@@ -48,7 +58,8 @@ export function createTaskPanel({ getTask, chipsFor, onTitle, onNotes, onDone, o
   done.classList.add('tk-page-check');
   const detailsBtn = h(
     'button',
-    { type: 'button', class: 'btn btn--ghost btn--sm', title: 'Date, priority, section, color (E)', onClick: () => id && onDetails(id) },
+    // (E opens them from the task's row; here the page has the keyboard, so no key is promised)
+    { type: 'button', class: 'btn btn--ghost btn--sm', title: 'Date, priority, section, color', onClick: () => id && onDetails(id) },
     icon('sliders', { size: 14 }),
     h('span', null, 'Details'),
   );
@@ -80,15 +91,19 @@ export function createTaskPanel({ getTask, chipsFor, onTitle, onNotes, onDone, o
     tool('tk-heading', 'Heading', () => edit((v, a, b) => toggleLinePrefix(v, a, b, '## '))),
     tool('list', 'List', () => edit((v, a, b) => toggleLinePrefix(v, a, b, '- '))),
     tool('check-square', 'Checklist', () => edit((v, a, b) => toggleLinePrefix(v, a, b, '- [ ] '))),
-    tool('tk-bold', `Bold (${MOD_KEY}B)`, () => edit((v, a, b) => wrapSelection(v, a, b))),
-    tool('tk-link', `Link (${MOD_KEY}K)`, () => edit(linkMarkup)),
+    tool('tk-bold', `Bold (${chord('B')})`, () => edit((v, a, b) => wrapSelection(v, a, b))),
+    tool('tk-link', `Link (${chord('K')})`, () => edit(linkMarkup)),
   );
   const view = h('div', { class: 'tk-page-view nt-prose', tabindex: '0', role: 'region', 'aria-label': 'Page (click or press Enter to edit)' });
   const text = h('textarea', {
     class: 'tk-page-text',
     'aria-label': 'Page',
+    'aria-keyshortcuts': IS_MAC ? 'Meta+B Meta+K' : 'Control+B Control+K',
     placeholder: 'Write anything this task needs: steps, links, long notes, a checklist… Paste or drop pictures here.',
     spellcheck: 'true',
+    // ⌘K in here makes a link (a text field that owns ⌘K: js/command.js leaves it to it);
+    // anywhere else, the title above included, ⌘K is Search
+    'data-mod-k': 'own',
   });
   const status = h('span', { class: 'tk-page-status', role: 'status' });
   const foot = h('p', { class: 'tk-page-foot label' }, icon('tk-image', { size: 13 }), h('span', null, 'Pictures stay on this device. Text and links sync.'), status);
@@ -101,7 +116,13 @@ export function createTaskPanel({ getTask, chipsFor, onTitle, onNotes, onDone, o
     h('div', { class: 'tk-page-scroll' }, titleIn, chips, bodyWrap, foot),
     fileIn,
   );
-  const scrim = h('div', { class: 'tk-page-scrim', hidden: true, onClick: () => close() });
+  const scrim = h('div', {
+    class: 'tk-page-scrim',
+    hidden: true,
+    // The focus stays in the page until it closes, so it goes back to the task's row
+    onPointerdown: (e) => e.preventDefault(),
+    onClick: () => close(),
+  });
   document.body.append(scrim, el);
 
   /* ---- filling and drawing ---- */
@@ -151,15 +172,23 @@ export function createTaskPanel({ getTask, chipsFor, onTitle, onNotes, onDone, o
   /** The text box, or the drawn page. An empty page is always the text box, ready to type in. */
   function setEditing(on, { focus = false, caret = null } = {}) {
     editing = on || !text.value.trim();
-    text.hidden = !editing;
-    view.hidden = editing;
-    el.classList.toggle('is-editing', editing);
-    if (!editing) paintView();
-    else fit(text);
-    if (focus && editing) {
-      text.focus({ preventScroll: true });
-      const at = caret ?? text.value.length;
-      text.setSelectionRange(at, at);
+    // The text box takes the focus before the drawn page hides: hiding the page while it has
+    // the focus blurs it to <body> at once, and that blur (focusout below) would end the editing
+    // it was starting (a click on the page, or Enter on it, did nothing)
+    switching = true;
+    try {
+      text.hidden = !editing;
+      el.classList.toggle('is-editing', editing);
+      if (editing) fit(text);
+      if (focus && editing) {
+        text.focus({ preventScroll: true });
+        const at = caret ?? text.value.length;
+        text.setSelectionRange(at, at);
+      }
+      view.hidden = editing;
+      if (!editing) paintView();
+    } finally {
+      switching = false;
     }
   }
 
@@ -249,14 +278,17 @@ export function createTaskPanel({ getTask, chipsFor, onTitle, onNotes, onDone, o
       (editing ? text : view).focus({ preventScroll: true });
       return;
     }
-    if ((e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey && (e.key === 'b' || e.key === 'B')) {
+    // (a held key does it once: a held ⌘K nested link in link, as Search ignores a held ⌘K)
+    if (isModKey(e, 'b')) {
       e.preventDefault();
-      edit((v, a, b) => wrapSelection(v, a, b));
+      if (!e.repeat) edit((v, a, b) => wrapSelection(v, a, b));
       return;
     }
-    if ((e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey && (e.key === 'k' || e.key === 'K')) {
+    // (Search's ⌘K steps aside for this field: data-mod-k)
+    if (isModKey(e, 'k')) {
       e.preventDefault();
-      edit(linkMarkup);
+      e.stopPropagation();
+      if (!e.repeat) edit(linkMarkup);
       return;
     }
     // Enter in a list or checklist starts the next item (or ends the list on an empty one)
@@ -278,8 +310,12 @@ export function createTaskPanel({ getTask, chipsFor, onTitle, onNotes, onDone, o
 
   // Leaving the page (not for one of its tools): it is saved and drawn again
   bodyWrap.addEventListener('focusout', (e) => {
-    if (e.relatedTarget && bodyWrap.contains(e.relatedTarget)) return;
+    if (switching || (e.relatedTarget && bodyWrap.contains(e.relatedTarget))) return;
     if (notesTimer) saveNotes();
+    // Search or a dialog takes the keyboard for a while and gives it back to the text box: it
+    // stays open for that (hidden, the focus it gave back fell to <body>, and Esc then closed the
+    // page instead of ending the writing)
+    if (e.relatedTarget instanceof Element && e.relatedTarget.closest('.modal-root, .ctx-menu')) return;
     if (editing && document.activeElement !== text) setEditing(false);
   });
 
@@ -378,7 +414,10 @@ export function createTaskPanel({ getTask, chipsFor, onTitle, onNotes, onDone, o
   function paintScrim() {
     const show = !!id && !wide?.matches;
     if (show) scrim.hidden = false;
-    requestAnimationFrame(() => scrim.classList.toggle('is-open', show));
+    // (a timer backs the frame up, as for the slide in open())
+    const fade = () => scrim.classList.toggle('is-open', !!id && !wide?.matches);
+    requestAnimationFrame(fade);
+    setTimeout(fade, 60);
     if (!show) setTimeout(() => !id && (scrim.hidden = true), LEAVE_MS);
   }
   const onWide = () => paintScrim();
@@ -399,8 +438,11 @@ export function createTaskPanel({ getTask, chipsFor, onTitle, onNotes, onDone, o
     fill(task, { force: true });
     setEditing(false);
     el.querySelector('.tk-page-scroll').scrollTop = 0;
-    // Next frame, so the slide plays from off screen
-    requestAnimationFrame(() => el.classList.add('is-open'));
+    // Next frame, so the slide plays from off screen (the timer backs the frame up in a tab that
+    // paints no frames, a background or hidden one, where the page would stay off screen)
+    const slideIn = () => id && el.classList.add('is-open');
+    requestAnimationFrame(slideIn);
+    setTimeout(slideIn, 60);
     document.documentElement.classList.add('tk-page-open');
     paintScrim();
     onChange(id, null);
@@ -438,14 +480,16 @@ export function createTaskPanel({ getTask, chipsFor, onTitle, onNotes, onDone, o
     fill(task);
   }
 
-  // Esc closes it (the page's text box takes Esc first: back to the drawn page)
+  // Esc closes it, last: whatever is open on top takes it first (the page's text box: back to the
+  // drawn page; a dropdown, a right-click menu, a dialog, Search; a drag in the list, a rename, the
+  // add bar's steps). On window, so every page handler on document has had its turn.
   function onKey(e) {
-    if (!id || e.key !== 'Escape' || e.defaultPrevented || modalOpen() || menuOpen()) return;
+    if (!id || e.key !== 'Escape' || e.defaultPrevented || e.isComposing || modalOpen() || menuOpen()) return;
     if (!el.contains(e.target) && isTyping(e)) return;
     e.preventDefault();
     close();
   }
-  document.addEventListener('keydown', onKey);
+  window.addEventListener('keydown', onKey);
   const onHide = () => flush();
   window.addEventListener('pagehide', onHide);
 
@@ -462,7 +506,7 @@ export function createTaskPanel({ getTask, chipsFor, onTitle, onNotes, onDone, o
       clearTimeout(leaveTimer);
       if (id) document.documentElement.classList.remove('tk-page-open');
       id = null;
-      document.removeEventListener('keydown', onKey);
+      window.removeEventListener('keydown', onKey);
       window.removeEventListener('pagehide', onHide);
       wide?.removeEventListener?.('change', onWide);
       el.remove();

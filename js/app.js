@@ -6,6 +6,8 @@
 //     title: 'Tasks',           // nav label + page title
 //     icon: 'list',             // ui.icon() name
 //     badge() { return '3' },   // optional; short string ('' hides it). Re-read on every store change.
+//     badgeLabel: 'workout in progress', // optional; what a badge that is a mark, not a count
+//                               // ('●'), is called in the link's name: "Training (workout in progress)"
 //     mount(root) {             // render into `root` (a fresh .view div each time)
 //       return () => {}         // cleanup: remove global listeners, timers, subscriptions
 //     },
@@ -19,10 +21,11 @@
 //   }
 // A badge that changes without a store change (a running timer) dispatches `lifeos:badge`.
 
-import { h, icon, iconBadge, registerIcon, brandMark, emptyState, isTyping, modalOpen, openModal, closeAllModals, onDayChange, toast, ensureToastRegion, skin, num, term, WEEKDAYS_SHORT, MONTHS_SHORT, useSettings } from './ui.js';
+import { h, icon, iconBadge, registerIcon, brandMark, emptyState, isTyping, modalOpen, openModal, closeAllModals, onDayChange, toast, ensureToastRegion, skin, num, term, WEEKDAYS_SHORT, MONTHS_SHORT, useSettings, gateTips, checkButton } from './ui.js';
 import { settings } from './store.js';
 // The shared icon set (habits, sections, the ideas every page uses): before any page draws
 import './icons.js';
+import './command.js';
 
 // The tips (ui.tip, page explanations) keep their "✓ Got it" in settings.tips
 useSettings(settings);
@@ -34,10 +37,10 @@ import { installContextMenu } from './contextmenu.js';
 import { LOCAL_ORIGIN, isRealCopy } from './origin.js';
 import { startSync, syncStatus, onSyncStatus } from './sync.js';
 import { openSyncPanel, syncLabel } from './sync.panel.js';
-import { provideShell } from './shell.js';
+import { provideShell, normalizeTabs, toggleTab, MAX_TABS } from './shell.js';
 import { isNewerVersion, startPage, LEGAL_LINKS } from './features/settings.logic.js';
 
-const VERSION = 'v0.29.2';
+const VERSION = 'v0.30';
 
 // Read before any feature module can seed data: tells a first-ever run from an upgrade
 const hadSavedData = hasSavedData();
@@ -52,18 +55,19 @@ registerIcon('wallet', '<path d="M4 7.5V18a2 2 0 0 0 2 2h14V9.5H6a2 2 0 0 1-2-2Z
 registerIcon('heart', '<path d="M12 20s-7.5-4.6-7.5-10.1A4.4 4.4 0 0 1 12 7.3a4.4 4.4 0 0 1 7.5 2.6C19.5 15.4 12 20 12 20Z"/>');
 registerIcon('timer', '<circle cx="12" cy="13.5" r="7.5"/><path d="M12 9.5v4l2.5 1.5M9.5 2.5h5M12 2.5V6M18.5 6.5l1.5-1.5"/>');
 
-// Order = nav order and number keys (1 Home … 8 Finance). `short`: the phone tab bar's label.
-// `hidden`: a page outside the module nav (Settings opens from the gear in the sidebar foot).
-// `soon`: not available: grayed out at the end of the sidebar ("Idea"), no number key or phone tab.
+// Order = nav order and number keys (1 Home … 8 Finance). The phone tab bar shows four of them
+// (settings.tabs, Edit tabs in More) under their own names, and More lists the rest.
+// `hidden`: a page outside the module nav (Settings: its own entry in the sidebar foot and in More).
+// `soon`: not available: grayed out at the end of the sidebar and in More ("Idea"), no number key or tab.
 const MANIFEST = [
   { id: 'home', title: 'Home', icon: 'home' },
   { id: 'tasks', title: 'Tasks', icon: 'list' },
   { id: 'notes', title: 'Notes', icon: 'note' },
   { id: 'habits', title: 'Habits', icon: 'target' },
-  { id: 'calendar', title: 'Calendar', icon: 'calendar', short: 'Cal' },
-  { id: 'pomodoro', title: 'Pomodoro', icon: 'timer', short: 'Timer' },
-  { id: 'training', title: 'Training', icon: 'dumbbell', short: 'Train' },
-  { id: 'finance', title: 'Finance', icon: 'wallet', short: 'Money' },
+  { id: 'calendar', title: 'Calendar', icon: 'calendar' },
+  { id: 'pomodoro', title: 'Pomodoro', icon: 'timer' },
+  { id: 'training', title: 'Training', icon: 'dumbbell' },
+  { id: 'finance', title: 'Finance', icon: 'wallet' },
   { id: 'health', title: 'Health', icon: 'heart', soon: true },
   { id: 'settings', title: 'Settings', icon: 'gear', hidden: true },
 ];
@@ -168,7 +172,8 @@ function openPicker() {
   });
 }
 
-// The sidebar's status, mirrored in the top bar where the sidebar is hidden (phones, narrow app windows)
+// The sidebar's status, mirrored in the top bar (its APP tag and storage note) and, on a phone, at
+// the end of More
 const appMarkers = [h('span', { class: 'sys-app', hidden: true }, 'App'), h('span', { class: 'sys-app', hidden: true }, 'App')];
 const storageNotes = [h('span', { class: 'sr-only' }), h('span', { class: 'sr-only' })];
 const sysText = h('span');
@@ -181,14 +186,46 @@ const topbarStatus = h('span', { class: 'topbar-sys label' }, appMarkers[1], sto
 
 /* ---- Shell ---- */
 
-const badgeEls = new Map(FEATURES.map((f) => [f.id, []]));
+// What needs you today, per page (each page's badge(), C6 in the README): a count in the desktop
+// sidebar (.nav-badge), a dot on the icon rail, the phone tab bar and in More (.nav-dot); the
+// count is then in the link's name and tooltip
+// value: what the badge shows; spoken: what the links' names say (a mark such as '●' in words)
+const marks = new Map(FEATURES.map((f) => [f.id, { counts: [], dots: [], links: [], value: '', spoken: '' }]));
 const navLinks = [];
+let activeId = null; // the page showing (render())
 
 const badge = (id) => {
   const el = h('span', { class: 'nav-badge mono', 'aria-hidden': 'true' });
-  badgeEls.get(id).push(el);
+  marks.get(id).counts.push(el);
   return el;
 };
+
+const dot = (id) => {
+  const el = h('span', { class: 'nav-dot', 'aria-hidden': 'true', hidden: true });
+  marks.get(id).dots.push(el);
+  return el;
+};
+
+/** A page link whose name and tooltip follow its badge ("Tasks (3)"). */
+function markLink(id, el, name) {
+  const entry = { el, name };
+  marks.get(id).links.push(entry);
+  nameLink(entry, marks.get(id).spoken);
+  return el;
+}
+
+/** A badge in words: a count or '12m' as it is, a mark with no letter or digit ('●') as the
+ *  page's badgeLabel, so no link is named "Training (●)". */
+function spokenBadge(f, value) {
+  if (!value || /[\p{L}\p{N}]/u.test(value)) return value;
+  return String(f.badgeLabel ?? '').trim() || 'needs you';
+}
+
+function nameLink({ el, name }, value) {
+  const label = value ? `${name} (${value})` : name;
+  if (el.getAttribute('aria-label') !== label) el.setAttribute('aria-label', label);
+  el.title = label;
+}
 
 const navHeading = h('div', { class: 'nav-heading label' });
 
@@ -214,10 +251,24 @@ function syncShellCopy() {
   sysStatus.dataset.sync = sync.state;
 }
 
+// Search (⌘K): js/command.js opens it on the `lifeos:command` event
+const IS_MAC = /Mac|iPhone|iPad|iPod/.test(navigator.platform || navigator.userAgent || '');
+const SEARCH_KEY = IS_MAC ? '⌘K' : 'Ctrl K';
+const openSearch = () => window.dispatchEvent(new CustomEvent('lifeos:command'));
+
+const sidebarSearch = h(
+  'button',
+  { type: 'button', class: 'sidebar-search', 'aria-label': 'Search', 'aria-keyshortcuts': IS_MAC ? 'Meta+K' : 'Control+K', title: `Search pages, tasks, notes and more (${SEARCH_KEY})`, onClick: openSearch },
+  icon('search'),
+  h('span', { class: 'sidebar-search-label' }, 'Search'),
+  h('span', { class: 'kbd sidebar-search-kbd', 'aria-hidden': 'true' }, SEARCH_KEY),
+);
+
 const sidebar = h(
   'aside',
   { class: 'sidebar' },
   h('div', { class: 'brand' }, brandMark(), h('span', { class: 'brand-name' }, 'LIFE/OS'), h('span', { class: 'brand-version' }, VERSION)),
+  sidebarSearch,
   h(
     'nav',
     { class: 'nav', 'aria-label': 'Modules' },
@@ -225,14 +276,15 @@ const sidebar = h(
     NAV.map((f, i) => {
       const a = h(
         'a',
-        { class: 'nav-item', href: `#/${f.id}`, dataset: { id: f.id }, title: `${f.title} (${i + 1})` },
+        { class: 'nav-item', href: `#/${f.id}`, dataset: { id: f.id }, 'aria-keyshortcuts': String(i + 1) },
         h('span', { class: 'nav-index lo-deco' }, String(i + 1).padStart(2, '0')),
         icon(f.icon),
         h('span', { class: 'nav-label' }, f.title),
         badge(f.id),
+        dot(f.id),
       );
       navLinks.push(a);
-      return a;
+      return markLink(f.id, a, f.title);
     }),
     SOON.map((f) => {
       const a = h(
@@ -253,24 +305,26 @@ const sidebar = h(
     sysStatus,
     h('button', {
       type: 'button',
-      class: 'btn btn--sm install-btn',
+      class: 'btn btn--sm sidebar-link install-btn',
       hidden: true,
       ref: (el) => installButtons.push(el),
       onClick: onInstallClick,
     }),
+    // Settings, named (not only a gear), then Appearance with the light / dark switch beside it
+    h(
+      'a',
+      { class: 'btn btn--sm btn--ghost sidebar-link settings-btn', href: '#/settings', dataset: { id: 'settings' }, 'aria-label': 'Settings', title: 'Settings', ref: (el) => navLinks.push(el) },
+      icon('gear'),
+      h('span', { class: 'sidebar-link-label settings-label' }, 'Settings'),
+    ),
     h(
       'div',
       { class: 'appearance-row' },
       h(
         'button',
-        { type: 'button', class: 'btn btn--sm btn--ghost appearance-btn', 'aria-label': 'Appearance', title: 'Appearance: template and light or dark mode', onClick: openPicker },
+        { type: 'button', class: 'btn btn--sm btn--ghost sidebar-link appearance-btn', 'aria-label': 'Appearance', title: 'Appearance: template and light or dark mode', onClick: openPicker },
         icon('palette'),
-        h('span', { class: 'appearance-label' }, 'Appearance'),
-      ),
-      h(
-        'a',
-        { class: 'btn btn--sm btn--ghost btn--icon settings-btn', href: '#/settings', dataset: { id: 'settings' }, 'aria-label': 'Settings', title: 'Settings', ref: (el) => navLinks.push(el) },
-        icon('gear'),
+        h('span', { class: 'sidebar-link-label appearance-label' }, 'Appearance'),
       ),
       h('button', {
         type: 'button',
@@ -290,42 +344,16 @@ const topbarCenter = h('div', { class: 'topbar-center' });
 const clockDate = h('span', { class: 'label topbar-date' });
 const clockTime = h('span', { class: 'clock' });
 
+// The page's name is the sidebar's highlight and the page's own title: the crumbs repeat it, so
+// css/shell.css keeps them out of sight (a template may bring them back as part of its look).
+// On a phone the bar shows only a top-bar widget (Mission Control's LIFE ticker) and steps out
+// of the way when there is none; its buttons live in More.
 const topbar = h(
   'header',
   { class: 'topbar' },
-  h('div', { class: 'crumbs label' }, h('span', null, 'LIFE/OS'), h('span', { class: 'crumb-sep' }, '/'), crumbCurrent),
+  h('div', { class: 'crumbs label', 'aria-hidden': 'true' }, h('span', null, 'LIFE/OS'), h('span', { class: 'crumb-sep' }, '/'), crumbCurrent),
   topbarCenter,
-  h(
-    'div',
-    { class: 'topbar-end' },
-    topbarWidgets,
-    h(
-      'div',
-      { class: 'topbar-meta' },
-      testCopyTag,
-      topbarStatus,
-      clockDate,
-      clockTime,
-      h('button', {
-        type: 'button',
-        class: 'btn btn--ghost btn--icon btn--sm install-toggle-mobile',
-        hidden: true,
-        ref: (el) => installButtons.push(el),
-        onClick: onInstallClick,
-      }),
-      h(
-        'a',
-        { class: 'btn btn--ghost btn--icon btn--sm settings-toggle-mobile', href: '#/settings', dataset: { id: 'settings' }, 'aria-label': 'Settings', title: 'Settings', ref: (el) => navLinks.push(el) },
-        icon('gear'),
-      ),
-      h('button', {
-        type: 'button',
-        class: 'btn btn--ghost btn--icon btn--sm theme-toggle-mobile',
-        ref: (el) => themeButtons.push(el),
-        onClick: toggleTheme,
-      }),
-    ),
-  ),
+  h('div', { class: 'topbar-end' }, topbarWidgets, h('div', { class: 'topbar-meta' }, testCopyTag, topbarStatus, clockDate, clockTime)),
 );
 
 const main = h('main', { class: 'main', id: 'main' });
@@ -350,27 +378,228 @@ const skipLink = h(
   'Skip to content',
 );
 
-const tabbar = h(
-  'nav',
-  { class: 'tabbar', 'aria-label': 'Modules' },
+/* ---- Phone tab bar: four pages of your choice (settings.tabs), then More ---- */
+
+const tabEls = new Map(
   NAV.map((f) => {
-    const a = h(
-      'a',
-      { class: 'tab', href: `#/${f.id}`, dataset: { id: f.id }, title: f.short ? f.title : null },
-      icon(f.icon, { size: 20 }),
-      h('span', { class: 'tab-label' }, f.short ?? f.title),
-      badge(f.id),
-    );
+    const a = h('a', { class: 'tab', href: `#/${f.id}`, dataset: { id: f.id } }, icon(f.icon, { size: 22 }), h('span', { class: 'tab-label' }, f.title), dot(f.id));
     navLinks.push(a);
-    return a;
+    return [f.id, markLink(f.id, a, f.title)];
   }),
 );
+const moreDot = h('span', { class: 'nav-dot', 'aria-hidden': 'true', hidden: true });
+const moreBtn = h(
+  'button',
+  { type: 'button', class: 'tab tab--more', 'aria-haspopup': 'dialog', 'aria-expanded': 'false', onClick: () => openMore() },
+  icon('more', { size: 22, stroke: 2 }),
+  h('span', { class: 'tab-label' }, 'More'),
+  moreDot,
+);
+const tabbar = h('nav', { class: 'tabbar', 'aria-label': 'Pages' });
+
+const pinnedTabs = () => normalizeTabs(settings.get().tabs, NAV.map((f) => f.id));
+
+function renderTabs() {
+  const ids = pinnedTabs();
+  const next = [...ids.map((id) => tabEls.get(id)), moreBtn];
+  if (next.length !== tabbar.children.length || next.some((el, i) => tabbar.children[i] !== el)) tabbar.replaceChildren(...next);
+  tabbar.style.setProperty('--tabs', String(next.length));
+  syncMore();
+}
+
+/** More stands for the pages it holds: it is "current" on one of them, and dotted when one needs you. */
+function syncMore() {
+  const ids = pinnedTabs();
+  const inMore = (id) => !ids.includes(id);
+  const here = activeId && activeId !== 'settings' && inMore(activeId) ? FEATURES.find((f) => f.id === activeId) : null;
+  moreBtn.classList.toggle('is-current', !!(here || activeId === 'settings'));
+  const waiting = NAV.filter((f) => inMore(f.id) && marks.get(f.id).value);
+  moreDot.hidden = !waiting.length;
+  const parts = [here || activeId === 'settings' ? `you are on ${here?.title ?? 'Settings'}` : null, waiting.length ? waiting.map((f) => `${f.title} (${marks.get(f.id).spoken})`).join(', ') : null].filter(Boolean);
+  const label = parts.length ? `More pages: ${parts.join('; ')}` : 'More pages, Settings and Search';
+  moreBtn.setAttribute('aria-label', label);
+  moreBtn.title = label;
+}
+
+/* ---- More: every other page, Search, Settings, Appearance, light / dark, Edit tabs ----
+   A dialog (a sheet from the bottom on a phone, css/components.css). Its pages are links, so
+   choosing one navigates and the shell closes the dialog. */
+
+let moreDialog = null;
+
+// The page already open (no route change, so nothing would close the sheet): just close it
+const stayOnPage = (e) => {
+  if (e.currentTarget.dataset.id !== activeId) return;
+  e.preventDefault();
+  moreDialog?.close();
+};
+
+function moreRow({ iconName, label, hint = null, onClick = null, href = null, id = null, current = false, className = '', extra = null }) {
+  const content = [h('span', { class: 'more-row-icon', 'aria-hidden': 'true' }, icon(iconName, { size: 18 })), h('span', { class: 'more-row-label' }, label), hint ? h('span', { class: 'more-row-hint' }, hint) : null, extra];
+  return href
+    ? h('a', { class: ['more-row', className], href, dataset: id ? { id } : null, 'aria-current': current ? 'page' : null, onClick: stayOnPage }, content)
+    : h('button', { type: 'button', class: ['more-row', className], onClick }, content);
+}
+
+function morePages() {
+  const ids = pinnedTabs();
+  const pages = NAV.filter((f) => !ids.includes(f.id));
+  const tile = (f, { soon = false } = {}) => {
+    const value = soon ? '' : marks.get(f.id).value;
+    const name = value ? `${f.title} (${marks.get(f.id).spoken})` : f.title;
+    return h(
+      'a',
+      { class: ['more-page', soon && 'is-soon'], href: `#/${f.id}`, dataset: { id: f.id }, 'aria-current': activeId === f.id ? 'page' : null, 'aria-label': soon ? `${f.title}: not available yet` : name, onClick: stayOnPage },
+      iconBadge(f.icon, { tone: f.id, size: 18, box: 34 }),
+      h('span', { class: 'more-page-label' }, f.title),
+      soon ? h('span', { class: 'nav-soon label' }, 'Idea') : value ? h('span', { class: 'more-page-count nav-badge mono', 'aria-hidden': 'true' }, value) : null,
+    );
+  };
+  return h('div', { class: 'more-pages' }, pages.map((f) => tile(f)), SOON.map((f) => tile(f, { soon: true })));
+}
+
+/** The sheet's main view. sheet: { body, foot, title, close } (openMore). */
+function moreMain(sheet) {
+  const { body, close } = sheet;
+  sheet.title.textContent = 'More';
+  sheet.foot.replaceChildren();
+  const dark = document.documentElement.dataset.theme !== 'light';
+  const mode = installMode();
+  const install = mode ? INSTALL_MODES[mode] : null;
+  body.replaceChildren(
+    morePages(),
+    h(
+      'div',
+      { class: 'more-list' },
+      moreRow({
+        iconName: 'search',
+        label: 'Search',
+        hint: 'Pages, tasks, notes and more',
+        onClick: () => {
+          close();
+          // After the sheet's own focus has gone back, so the search keeps it
+          setTimeout(openSearch, 0);
+        },
+      }),
+      moreRow({ iconName: 'gear', label: 'Settings', href: '#/settings', id: 'settings', current: activeId === 'settings' }),
+      moreRow({
+        iconName: 'palette',
+        label: 'Appearance',
+        hint: 'Template and colors',
+        onClick: () => {
+          close();
+          setTimeout(openPicker, 0);
+        },
+      }),
+      moreRow({
+        iconName: dark ? 'sun' : 'moon',
+        label: dark ? 'Light mode' : 'Dark mode',
+        onClick: () => {
+          toggleTheme();
+          moreMain(sheet);
+          body.querySelector('.more-theme')?.focus();
+        },
+        className: 'more-theme',
+      }),
+      install
+        ? moreRow({
+            iconName: install.icon,
+            label: install.text,
+            onClick: () => {
+              close();
+              onInstallClick();
+            },
+          })
+        : null,
+      moreRow({ iconName: 'edit', label: 'Edit tabs', hint: 'Up to four in the bar', onClick: () => moreEditTabs(sheet), className: 'more-edit' }),
+    ),
+    // How your data is doing (the sidebar's status line): opens Sync
+    h(
+      'button',
+      { type: 'button', class: 'more-status', onClick: () => (close(), setTimeout(openSyncPanel, 0)) },
+      h('span', { class: 'sys-dot', 'aria-hidden': 'true' }),
+      h('span', null, sysText.textContent),
+      isStandalone() ? h('span', { class: 'sys-app' }, 'App') : null,
+    ),
+  );
+}
+
+/** Edit tabs: tick up to four pages for the bar; Done goes back to the main view. */
+function moreEditTabs(sheet) {
+  const { body } = sheet;
+  sheet.title.textContent = 'Tab bar';
+  const ids = NAV.map((f) => f.id);
+  const note = h('p', { class: 'more-tabs-note', role: 'status' });
+  const list = h('div', { class: 'more-tabs', role: 'group', 'aria-label': 'Pages in the tab bar' });
+  const paint = () => {
+    const tabs = pinnedTabs();
+    list.replaceChildren(
+      ...NAV.map((f) => {
+        const on = tabs.includes(f.id);
+        const full = !on && tabs.length >= MAX_TABS;
+        const check = checkButton({ checked: on, label: f.title, onToggle: () => pick(f.id) });
+        if (full) check.setAttribute('aria-disabled', 'true');
+        return h(
+          'div',
+          { class: ['more-tab', on && 'is-on', full && 'is-full'], onClick: (e) => e.target === check || check.contains(e.target) || pick(f.id) },
+          check,
+          iconBadge(f.icon, { tone: f.id, size: 16, box: 30 }),
+          h('span', { class: 'more-tab-label' }, f.title),
+          on ? h('span', { class: 'more-tab-pos', 'aria-hidden': 'true' }, String(tabs.indexOf(f.id) + 1)) : null,
+        );
+      }),
+    );
+    note.textContent = `${tabs.length} of ${MAX_TABS} in the bar${tabs.length >= MAX_TABS ? '. Untick one to pick another.' : '.'}`;
+  };
+  const pick = (id) => {
+    const res = toggleTab(settings.get().tabs, id, ids);
+    if (res.changed) settings.update({ tabs: res.tabs });
+    else if (res.reason === 'full') note.textContent = `The bar holds ${MAX_TABS}. Untick one first.`;
+    else if (res.reason === 'last') note.textContent = 'The bar keeps at least one page.';
+    if (res.changed) {
+      const focused = document.activeElement?.closest?.('.more-tab');
+      const at = focused ? [...list.children].indexOf(focused) : -1;
+      paint();
+      if (at >= 0) list.children[at]?.querySelector('.check')?.focus();
+    }
+  };
+  body.replaceChildren(h('p', { class: 'more-tabs-lead' }, 'Pick up to four pages for the tab bar. The rest stay one tap away in More.'), list, note);
+  sheet.foot.replaceChildren(
+    h('button', { type: 'button', class: 'btn btn--primary', onClick: () => (moreMain(sheet), body.querySelector('.more-edit')?.focus()) }, 'Done'),
+  );
+  paint();
+  list.querySelector('.check')?.focus();
+}
+
+function openMore() {
+  if (moreDialog) return;
+  // The title and the footer change with the view (More · Tab bar); an empty footer is hidden
+  const title = h('span', null, 'More');
+  const sheet = { body: h('div', { class: 'more-body' }), foot: h('div', { class: 'more-foot' }), title, close: () => moreDialog?.close() };
+  moreMain(sheet);
+  moreBtn.setAttribute('aria-expanded', 'true');
+  moreDialog = openModal({
+    title,
+    className: 'more-sheet',
+    body: sheet.body,
+    footer: sheet.foot,
+    initialFocus: sheet.body.querySelector('.more-page, .more-row'),
+    onClose: () => {
+      moreDialog = null;
+      moreBtn.setAttribute('aria-expanded', 'false');
+    },
+  });
+}
 
 const shell = h('div', { class: 'shell' }, skipLink, sidebar, topbar, main, tabbar);
 document.getElementById('app').replaceChildren(shell);
-// Right-click menu (Copy · Paste · Delete · Duplicate) over every module's items and blank areas
+renderTabs();
+settings.subscribe(() => renderTabs());
+// Right-click menu (the module's actions, Copy · Paste · Delete …) over every module's items and blank areas
 installContextMenu(main);
 ensureToastRegion();
+// One tip at a time on a page: the first one on screen shows, the rest wait their turn
+gateTips(main);
 
 syncShellCopy();
 onSyncStatus(syncShellCopy);
@@ -418,7 +647,6 @@ phoneQuery.addEventListener?.('change', placeCenter);
 
 /* ---- Router ---- */
 
-let activeId = null;
 let cleanup = null;
 
 function routeId() {
@@ -457,13 +685,14 @@ function render(force = false) {
   }
 
   // Every page's title carries its icon, in the page's color: you see at once where you are
-  // (Home's title is a greeting and draws its own)
-  const pageTitle = id !== 'home' ? view.querySelector(':scope > .page-header .page-title') : null;
+  // (Home's title is a greeting and draws its own; Training keeps its header in .tr-normal)
+  const pageTitle = id !== 'home' ? view.querySelector(':scope > .page-header .page-title, :scope > .tr-normal > .page-header .page-title') : null;
   if (pageTitle && !pageTitle.querySelector('.ib')) pageTitle.prepend(iconBadge(feature.icon, { tone: id, size: 18, className: 'page-ib' }));
 
   shownSkin = skin();
   navLinks.forEach((a) => (a.dataset.id === id ? a.setAttribute('aria-current', 'page') : a.removeAttribute('aria-current')));
   crumbCurrent.textContent = feature.title;
+  syncMore();
   syncTitle();
   if (!location.hash.startsWith(`#/${id}`)) history.replaceState(null, '', `#/${id}`);
 }
@@ -496,14 +725,20 @@ function refreshBadges() {
   for (const f of FEATURES) {
     let value = '';
     try {
-      value = f.badge ? String(f.badge() ?? '') : '';
+      value = f.badge ? String(f.badge() ?? '').trim() : '';
     } catch (err) {
       console.error(`[life-os] badge for "${f.id}" failed`, err);
     }
-    badgeEls.get(f.id).forEach((el) => {
+    const m = marks.get(f.id);
+    m.value = value;
+    m.spoken = spokenBadge(f, value);
+    m.counts.forEach((el) => {
       if (el.textContent !== value) el.textContent = value;
     });
+    m.dots.forEach((el) => (el.hidden = !value));
+    m.links.forEach((link) => nameLink(link, m.spoken));
   }
+  syncMore();
 }
 
 window.addEventListener('lifeos:change', refreshBadges);
@@ -611,13 +846,13 @@ function syncInstallUi() {
     btn.hidden = !mode;
     if (!mode) continue;
     const { text, icon: iconName, title } = INSTALL_MODES[mode];
-    const iconOnly = btn.classList.contains('install-toggle-mobile');
     if (btn.dataset.mode === mode) continue;
     btn.dataset.mode = mode;
-    // Chrome's own prompt is the one worth a solid button; the fallbacks stay quiet
-    if (!iconOnly) btn.classList.toggle('btn--ghost', mode !== 'prompt');
-    btn.replaceChildren(icon(iconName), h('span', { class: iconOnly ? 'install-label sr-only' : 'install-label' }, text));
-    // The accessible name is the visible text (also when only the icon shows)
+    // Chrome's own prompt is the one worth a solid button; the fallbacks stay quiet (on a phone
+    // the same choice is a row in More, built when it opens)
+    btn.classList.toggle('btn--ghost', mode !== 'prompt');
+    btn.replaceChildren(icon(iconName), h('span', { class: 'install-label' }, text));
+    // The accessible name is the visible text (also when only the icon shows: the icon rail)
     btn.setAttribute('aria-label', text);
     btn.title = title;
   }

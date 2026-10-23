@@ -1,20 +1,61 @@
 /* ==========================================================================
    LIFE/OS — compact layout, after the templates
-   Every page starts higher, and on a phone the page top is one row: the title, then the
-   page's buttons (icons, the main one keeps its word). A page's explanation is a tip with
-   its own ✓ (ui.pageHeader tipId), so it can go for good.
-   `html[data-skin] .main .view :is(.view > .page-header, …)` outranks the templates' own
+   Every page starts high, with one page top in every template: one row of the page's icon and
+   title, its live status (ui.pageHeader stat) and its buttons. What else the heading holds (the
+   page's explanation, a tip with its own ✓; Home's date line) runs full width under that row.
+   The kicker ("01 // TASKS") repeated the title and is left out. Titles stay within a cap
+   (--page-title-size, tokens.css): a template picks its size inside it.
+   `html[data-skin] .main .view :is(.view > .page-header)` outranks the templates' own
    `[data-skin="x"] …` rules and leaves the template previews (not a page's own header) alone.
-   Training keeps its header one level down (in .tr-normal), so that one counts too.
+   The same file holds the touch layer's few rules that have to beat the templates.
    ========================================================================== */
 
 html[data-skin] .main .view {
-  padding-top: var(--space-6);
+  padding-top: var(--space-4);
 }
 
-html[data-skin] .main .view :is(.view > .page-header, .tr-normal > .page-header) {
-  padding-bottom: var(--space-4);
-  margin-bottom: var(--space-5);
+html[data-skin] .main .view :is(.view > .page-header) {
+  display: grid;
+  grid-template-columns: minmax(0, max-content) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-2) var(--space-4);
+  padding-bottom: var(--page-header-pb, var(--space-3));
+  margin-bottom: var(--page-header-mb, var(--space-4));
+}
+
+/* Simple and Minimal draw no line under the page top: no room kept for one */
+html:is([data-skin="simple"], [data-skin="minimal"]) .main .view :is(.view > .page-header) {
+  padding-bottom: 0;
+}
+
+html[data-skin] .main .view :is(.view > .page-header) .page-heading {
+  display: contents;
+}
+
+html[data-skin] .main .view :is(.view > .page-header) .page-heading > * {
+  grid-column: 1 / -1;
+  min-width: 0;
+}
+
+html[data-skin] .main .view :is(.view > .page-header) .page-heading > .page-title {
+  grid-column: 1;
+  grid-row: 1;
+  font-size: clamp(22px, var(--page-title-size), 44px);
+}
+
+html[data-skin] .main .view :is(.view > .page-header) .page-heading > .page-stat {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+html[data-skin] .main .view :is(.view > .page-header) > .page-actions {
+  grid-column: 3;
+  grid-row: 1;
+  margin-left: 0;
+}
+
+html[data-skin] .main .view :is(.view > .page-header) .page-kicker {
+  display: none;
 }
 
 @media (max-width: 640px) {
@@ -25,84 +66,60 @@ html[data-skin] .main .view :is(.view > .page-header, .tr-normal > .page-header)
     padding-bottom: var(--space-5);
   }
 
-  /* Title and buttons on the first row; whatever else the heading holds (an explanation, Home's
-     "Now" line) runs full width under them */
-  html[data-skin] .main .view :is(.view > .page-header, .tr-normal > .page-header) {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    align-items: center;
+  html[data-skin] .main .view :is(.view > .page-header) {
     gap: 4px var(--space-3);
     padding-bottom: 0;
     margin-bottom: var(--space-3);
     border-bottom: 0;
   }
 
-  html[data-skin] .main .view :is(.view > .page-header, .tr-normal > .page-header) .page-heading {
-    display: contents;
-  }
-
-  html[data-skin] .main .view :is(.view > .page-header, .tr-normal > .page-header) .page-heading > * {
-    grid-column: 1 / -1;
-  }
-
-  html[data-skin] .main .view :is(.view > .page-header, .tr-normal > .page-header) .page-heading > .page-title {
-    grid-column: 1;
-    grid-row: 1;
-  }
-
-  html[data-skin] .main .view :is(.view > .page-header, .tr-normal > .page-header) > .page-actions {
-    grid-column: 2;
-    grid-row: 1;
-  }
-
-  html[data-skin] .main .view :is(.view > .page-header, .tr-normal > .page-header)::after {
+  html[data-skin] .main .view :is(.view > .page-header)::after {
     content: none;
   }
 
-  html[data-skin] .main .view :is(.view > .page-header, .tr-normal > .page-header) .page-kicker {
-    display: none;
-  }
-
-  html[data-skin] .main .view :is(.view > .page-header, .tr-normal > .page-header) .page-title {
+  html[data-skin] .main .view :is(.view > .page-header) .page-heading > .page-title {
     overflow: hidden;
-    font-size: 26px;
-    line-height: 1.1;
+    font-size: clamp(20px, var(--page-title-size-phone), 32px);
+    line-height: 1.15;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 
-  html[data-skin] .main .view :is(.view > .page-header, .tr-normal > .page-header) .page-subtitle {
+  html[data-skin] .main .view :is(.view > .page-header) .page-stat {
+    font-size: var(--fs-xs);
+  }
+
+  html[data-skin] .main .view :is(.view > .page-header) .page-subtitle {
     font-size: var(--fs-sm);
     line-height: 1.35;
   }
 
-  html[data-skin] .main .view :is(.view > .page-header, .tr-normal > .page-header) .page-actions {
+  html[data-skin] .main .view :is(.view > .page-header) .page-actions {
     flex: none;
     flex-wrap: nowrap;
     width: auto;
-    margin-left: auto;
     gap: 6px;
   }
 
   /* Secondary buttons become icons (their name stays on them: pageHeader sets it) */
-  html[data-skin] .main .view :is(.view > .page-header, .tr-normal > .page-header) .page-actions .btn:not(.btn--primary) {
-    width: 36px;
+  html[data-skin] .main .view :is(.view > .page-header) .page-actions .btn:not(.btn--primary) {
+    width: var(--btn-h);
     padding: 0;
   }
 
-  html[data-skin] .main .view :is(.view > .page-header, .tr-normal > .page-header) .page-actions .btn:not(.btn--primary) > span {
+  html[data-skin] .main .view :is(.view > .page-header) .page-actions .btn:not(.btn--primary) > span {
     display: none;
   }
 
-  html[data-skin] .main .view :is(.view > .page-header, .tr-normal > .page-header) .page-actions .btn {
-    --btn-h: 36px;
+  html[data-skin] .main .view :is(.view > .page-header) .page-actions .btn {
+    --btn-h: 40px;
   }
 
-  html[data-skin] .main .view :is(.view > .page-header, .tr-normal > .page-header) .page-actions .btn--primary {
+  html[data-skin] .main .view :is(.view > .page-header) .page-actions .btn--primary {
     padding-inline: var(--space-3);
   }
 
-  html[data-skin] .main .view :is(.view > .page-header, .tr-normal > .page-header) .page-actions .kbd {
+  html[data-skin] .main .view :is(.view > .page-header) .page-actions .kbd {
     display: none;
   }
 }
@@ -122,4 +139,120 @@ html[data-skin] .main .view :is(.view > .page-header, .tr-normal > .page-header)
    scroll into empty padding. :where keeps the docked timer's own padding (shell.css) stronger. */
 html[data-skin] .main .view:where([data-feature="calendar"]) {
   padding-bottom: var(--space-4);
+}
+
+/* ==========================================================================
+   Touch layer: the parts that have to beat the templates (the rest is in components.css)
+   ========================================================================== */
+
+@media (pointer: coarse) {
+  /* 44px to a finger (40px for the small, packed controls: small buttons, dropdown buttons,
+     choice bars), as minimums, so a template's own --btn-h or height never takes one under it */
+  html[data-skin] .btn {
+    min-height: 44px;
+  }
+
+  html[data-skin] .btn--icon {
+    min-width: 44px;
+  }
+
+  html[data-skin] :is(.btn--sm, .dd-btn) {
+    min-height: 40px;
+  }
+
+  html[data-skin] .btn--sm.btn--icon {
+    min-width: 40px;
+  }
+
+  html[data-skin] .seg-btn,
+  html[data-skin] .seg .seg-btn {
+    min-height: 40px;
+  }
+
+  html[data-skin] :is(.input, .select) {
+    min-height: 44px;
+  }
+
+  html[data-skin] :is(.dd-item, .ctx-item) {
+    min-height: 44px;
+  }
+
+  html[data-skin] .tip-ok {
+    min-height: 40px;
+  }
+
+  html[data-skin] .page-tip-ok {
+    min-height: 32px;
+  }
+
+  html[data-skin] .toast-action {
+    min-height: 40px;
+    padding-inline: 12px;
+  }
+
+  /* A tick box answers to a 44px square centred on it, whatever its size and border (an inset
+     from the box fell short by the border: 42px in Simple, 38px in Brutalist). The target is
+     ui.checkButton's .check-hit (and the Calendar's day-list check's); templates draw on the
+     check's ::before / ::after, never on this */
+  html[data-skin] .check-hit {
+    inset: auto;
+    top: 50%;
+    left: 50%;
+    width: max(44px, 100%);
+    height: max(44px, 100%);
+    translate: -50% -50%;
+  }
+
+  /* The same square for the Calendar's own small checks in a list of 44px rows (its agenda, the
+     Unscheduled tray, a day's "+N more" list, its day's habits; Home's Today & next): their
+     target is their ::after (calendar.css; no template draws there), an inset that measured 32px
+     on Home and 42px on a habit. The week grid's packed chips keep their smaller one. */
+  html[data-skin] :is(.cal-ag-items, .cal-tray, .cal-pop-list, .hm-up-items) .cal-task-check::after,
+  html[data-skin] .cal-hcheck::after {
+    inset: auto;
+    top: 50%;
+    left: 50%;
+    width: 44px;
+    height: 44px;
+    translate: -50% -50%;
+  }
+
+  /* A dialog's body that takes the first focus so no keyboard pops up (Task details) is where
+     the focus lands, not a control: no ring around the whole form (Search hands the ring on) */
+  html[data-skin] .modal :is(div, section, form)[tabindex="-1"]:not([role]):focus-visible {
+    outline: none;
+  }
+
+  /* Color dots big enough for a finger (the right-click menu, dialogs, the color pop-up) */
+  html[data-skin] .cc-swatch,
+  html[data-skin] .cc-picker--compact .cc-swatch {
+    width: 32px;
+    height: 32px;
+  }
+
+  /* Key hints mean nothing without a keyboard */
+  html[data-skin] :is(.lo-hint, .ctx-kbd, .sidebar-search-kbd, .btn .kbd, .dd-item .kbd) {
+    display: none !important;
+  }
+}
+
+/* ==========================================================================
+   A danger confirmation is the dialog's main button (ui.confirmDialog: Delete, Discard, Clear):
+   filled in the "late" color, its words in the page's color. Cancel keeps the first focus.
+   ========================================================================== */
+
+html[data-skin] .btn.btn--danger.btn--danger-fill {
+  border-style: solid;
+  border-color: var(--alert);
+  background: var(--alert);
+  color: var(--bg);
+  font-weight: 600;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  html[data-skin] .btn.btn--danger.btn--danger-fill:hover {
+    border-color: var(--alert);
+    background: color-mix(in srgb, var(--alert) 86%, var(--text));
+    color: var(--bg);
+  }
 }

@@ -1,7 +1,7 @@
 // LIFE/OS — your own colors for a template, the pure part (tools/tests/palette.test.js).
 //
 // Every template names its two or three main colors (PALETTE_SLOTS): its background, its text
-// and, in most, an accent (Old Money's brass, Brutalist's highlight, Coquette's ribbon …).
+// and, in most, an accent (Old Money's brass, Brutalist's highlight, Atelier's rosewood …).
 // You can change them per template and per mode, and Reset brings the template's own back:
 //   settings.palettes = { 'oldmoney:light': { bg: '#f2eee5', accent: '#9a7a3d' }, … }
 // Only the colors you changed are kept (per device, like the rest of settings). The page gets
@@ -15,12 +15,13 @@ const slot = (key, label, cssVar) => Object.freeze({ key, label, cssVar });
 /** Per template: the colors you can change, in order. cssVar: where its own value is read. */
 export const PALETTE_SLOTS = Object.freeze({
   simple: Object.freeze([slot('bg', 'Background', '--bg'), slot('text', 'Text', '--text'), slot('accent', 'Accent', '--accent')]),
-  hud: Object.freeze([slot('bg', 'Background', '--bg'), slot('text', 'Signal', '--text')]),
+  // (Mission Control's text is its one bright color: called Accent, the plain word for it)
+  hud: Object.freeze([slot('bg', 'Background', '--bg'), slot('text', 'Accent', '--text')]),
   brutalist: Object.freeze([slot('bg', 'Paper', '--bg'), slot('text', 'Ink', '--text'), slot('accent', 'Highlight', '--bru-hi')]),
   terminal: Object.freeze([slot('bg', 'Screen', '--bg'), slot('text', 'Phosphor', '--text')]),
   oldmoney: Object.freeze([slot('bg', 'Paper', '--bg'), slot('text', 'Ink', '--text'), slot('accent', 'Brass', '--om-brass')]),
-  coquette: Object.freeze([slot('bg', 'Background', '--bg'), slot('text', 'Ink', '--text'), slot('accent', 'Ribbon', '--accent')]),
-  y2k: Object.freeze([slot('bg', 'Background', '--bg'), slot('text', 'Text', '--text'), slot('accent', 'Glitter', '--accent')]),
+  coquette: Object.freeze([slot('bg', 'Background', '--bg'), slot('text', 'Ink', '--text'), slot('accent', 'Accent', '--accent')]),
+  y2k: Object.freeze([slot('bg', 'Background', '--bg'), slot('text', 'Text', '--text'), slot('accent', 'Accent', '--accent')]),
   minimal: Object.freeze([slot('bg', 'Paper', '--bg'), slot('text', 'Ink', '--text')]),
 });
 

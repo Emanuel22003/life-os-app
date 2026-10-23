@@ -60,6 +60,53 @@
   letter-spacing: 0.08em;
 }
 
+/* ---- Search (⌘K), near the top of the sidebar: a quiet field that opens js/command.js ---- */
+.sidebar-search {
+  /* never squeezed when a tall template's sidebar runs out of room (the sidebar scrolls instead) */
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  height: 36px;
+  /* closer to the brand than the sidebar's own gap */
+  margin-top: calc(var(--space-3) * -1);
+  padding: 0 var(--space-2) 0 var(--space-3);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text-3);
+  font-size: var(--fs-sm);
+  text-align: left;
+  transition: border-color var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+}
+
+.sidebar-search > .icon {
+  flex: none;
+}
+
+.sidebar-search-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidebar-search-kbd {
+  flex: none;
+  min-width: 0;
+  padding: 0 5px;
+  letter-spacing: 0;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .sidebar-search:hover {
+    border-color: var(--text-3);
+    color: var(--text-2);
+  }
+}
+
 .nav {
   display: flex;
   flex-direction: column;
@@ -87,9 +134,11 @@
     border-color var(--dur-fast) var(--ease);
 }
 
-.nav-item:hover {
-  color: var(--text);
-  background: var(--surface-2);
+@media (hover: hover) and (pointer: fine) {
+  .nav-item:hover {
+    color: var(--text);
+    background: var(--surface-2);
+  }
 }
 
 .nav-item[aria-current="page"] {
@@ -156,6 +205,24 @@
   color: var(--accent-ink);
 }
 
+/* "Needs you today" as a dot, where there is no room for a count: the icon rail, the phone tab
+   bar and its More (the count is in the link's name and tooltip). It sits on the icon's corner,
+   ringed in the bar's own color so it never runs into the icon's lines. */
+.nav-dot {
+  display: none;
+  position: absolute;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 2px var(--bg-elev);
+  pointer-events: none;
+}
+
+.nav-dot[hidden] {
+  display: none !important;
+}
+
 .sidebar-foot {
   margin-top: auto;
   display: flex;
@@ -207,7 +274,27 @@
   flex: none;
 }
 
-/* Appearance (template picker) + the quick light/dark toggle beside it */
+/* Settings and Appearance: named rows (Settings is more than a gear), the light/dark toggle
+   beside Appearance. A long word in a wide template ends in "…", never under the toggle. */
+.sidebar-foot .sidebar-link {
+  width: 100%;
+  min-width: 0;
+  justify-content: flex-start;
+}
+
+/* One size for the rows (the plain templates set Appearance's in css/skins/simple.css) */
+[data-plain] .sidebar-foot .sidebar-link {
+  font-size: var(--fs-sm);
+}
+
+.sidebar-link-label,
+.sidebar-foot .install-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .appearance-row {
   display: flex;
   align-items: center;
@@ -218,6 +305,10 @@
   flex: 1 1 auto;
   min-width: 0;
   justify-content: flex-start;
+}
+
+.appearance-row .theme-toggle {
+  flex: none;
 }
 
 /* ---- Legal: Privacy · Business details, one click away on every page ----
@@ -339,9 +430,12 @@
   z-index: var(--z-nav);
 }
 
+/* The crumbs ("LIFE/OS / Tasks") said the page's name a third time, after the sidebar's highlight
+   and the page's own title: out of sight. A template that wants them as part of its look (a shell
+   prompt) shows them again with display: flex. */
 .crumbs {
   grid-column: 1;
-  display: flex;
+  display: none;
   align-items: center;
   gap: var(--space-2);
   min-width: 0;
@@ -432,14 +526,8 @@
   white-space: nowrap;
 }
 
-.topbar .theme-toggle-mobile,
-.topbar .settings-toggle-mobile,
-.topbar .install-toggle-mobile {
-  display: none;
-}
-
-/* With the centre widget showing, a narrower bar keeps only the module name in the crumbs
-   (it truncates last), so nothing slides under the widget */
+/* With the centre widget showing, a narrower bar keeps only the module name in the crumbs (when a
+   template shows them; it truncates last), so nothing slides under the widget */
 @media (max-width: 1100px) {
   .topbar:has(.topbar-center > :not([hidden])) .crumbs > :not(.crumb-current) {
     display: none;
@@ -461,8 +549,59 @@
   position: relative;
   scroll-behavior: smooth;
   /* Tabbing scrolls the next control into view with room around it, so its focus ring is never
-     cut off by the edge of the page (WCAG 2.4.7) */
-  scroll-padding-block: var(--space-4) var(--space-6);
+     cut off by the edge of the page (WCAG 2.4.7), nor hidden (2.4.11) under a page's bar that
+     stays on top while it scrolls (--sticky-top), one that stays at the bottom (--sticky-bottom)
+     or the phone's docked timer (--dock-room) */
+  scroll-padding-block: calc(var(--space-4) + var(--sticky-top, 0px)) calc(var(--space-6) + var(--dock-room, 0px) + var(--sticky-bottom, 0px));
+}
+
+/* A bar that stays at the bottom: its height and the gap under it. Training's live workout
+   (Finish and Discard: 54px desktop, 62px phone, 116px with its rest timer on a row of its own;
+   training.css), so Tab never leaves the next set's fields under it */
+.main:has(> .view .tr-sess-bar) {
+  --sticky-bottom: 64px;
+}
+
+@media (max-width: 640px) {
+  .main:has(> .view .tr-sess-bar) {
+    --sticky-bottom: 72px;
+  }
+
+  .main:has(> .view .tr-sess-bar > .tr-rest:not([hidden])) {
+    --sticky-bottom: 128px;
+  }
+}
+
+/* Pages with a bar that stays at the top of .main while the page scrolls: its height */
+@media (max-width: 1099px) {
+  .main:has(> .view .st-index) {
+    --sticky-top: 60px; /* Settings: the jump menu (the side column from 1100px) */
+  }
+}
+
+@media (max-width: 640px) {
+  .main:has(> .nt-view[data-layout="list"][data-pane="list"]) {
+    --sticky-top: 60px; /* Notes on a phone: the search row over the list */
+  }
+}
+
+/* A row another page or Search just brought into view (habitsApi.reveal …): a short wash of the
+   accent so the eye finds it, then the row's own background again */
+.lo-found {
+  animation: lo-found 1.4s var(--ease-out);
+}
+
+@keyframes lo-found {
+  0%,
+  35% {
+    background-color: color-mix(in srgb, var(--accent) 22%, transparent);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lo-found {
+    animation: none;
+  }
 }
 
 /* The page takes focus only from "Skip to content" (js/app.js), for a moment: the next Tab goes
@@ -559,6 +698,19 @@
   font-size: var(--fs-sm);
 }
 
+/* The page's live status on the title row ('3 today · 2 overdue'): quiet, one line, cut short
+   when the row is full (ui.pageHeader stat; css/compact.css places it) */
+.page-stat {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .page-actions {
   margin-left: auto;
   display: flex;
@@ -587,22 +739,45 @@
   .nav-label,
   .nav-index,
   .nav-heading,
+  .sidebar-search-label,
+  .sidebar .sidebar-search-kbd,
   .sidebar-foot .sys-status span:not(.sys-dot):not(.sr-only):not(.sys-app),
-  .sidebar-foot .appearance-label,
+  .sidebar-foot .sidebar-link-label,
   .sidebar-foot .install-label {
     display: none;
   }
 
-  /* Collapsed: Appearance and the light/dark toggle stack as two icon buttons */
+  /* Search: the magnifier alone */
+  .sidebar-search {
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    margin-inline: auto;
+    padding: 0;
+  }
+
+  /* Collapsed: Settings, Appearance and the light/dark toggle stack as icon buttons */
   .appearance-row {
     flex-direction: column;
   }
 
+  .sidebar-foot .sidebar-link,
   .appearance-row .appearance-btn {
     flex: none;
     width: var(--btn-h);
     padding: 0;
     justify-content: center;
+  }
+
+  /* Counts become dots on the icon's corner (the number is in the link's name and tooltip) */
+  .nav-item .nav-badge {
+    display: none;
+  }
+
+  .nav-item .nav-dot {
+    display: block;
+    top: 7px;
+    left: calc(50% + 6px);
   }
 
   /* Collapsed: the APP tag stacks under the status dot */
@@ -622,15 +797,6 @@
   .nav-item {
     justify-content: center;
     padding: 0;
-  }
-
-  .nav-badge {
-    position: absolute;
-    top: 3px;
-    right: 3px;
-    min-width: 0;
-    padding: 0 4px;
-    font-size: 9px;
   }
 
   .sidebar-foot {
@@ -670,7 +836,7 @@
 @media (max-width: 640px) {
   .shell {
     grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: var(--topbar-h) minmax(0, 1fr) calc(var(--tabbar-h) + env(safe-area-inset-bottom));
+    grid-template-rows: auto minmax(0, 1fr) calc(var(--tabbar-h) + env(safe-area-inset-bottom));
     grid-template-areas:
       "topbar"
       "main"
@@ -681,21 +847,43 @@
     display: none;
   }
 
-  /* The centre widget docks above the tab bar (js/app.js moves it): the bar is one row again */
+  /* The top bar on a phone holds only a top-bar widget (Mission Control's, Brutalist's and
+     Terminal's LIFE ticker), in a slim row. Its buttons are in More, the phone shows the time,
+     and the page's own title row says where you are; without a widget (the plain templates)
+     there is no bar at all and the page starts at the top. */
   .topbar {
     display: flex;
+    height: 36px;
     padding: 0 var(--space-4);
+  }
+
+  [data-plain] .topbar,
+  .topbar:not(:has(.topbar-widget)) {
+    display: none;
+  }
+
+  [data-plain] .shell > .main,
+  .shell:not(:has(.topbar-widget)) > .main {
+    padding-top: env(safe-area-inset-top, 0px);
   }
 
   .topbar-end {
     flex: 1 1 auto;
     min-width: 0;
+    gap: var(--space-3);
   }
 
-  .topbar,
-  .topbar-end,
+  .topbar-end {
+    justify-content: flex-start;
+  }
+
+  .topbar-widgets {
+    margin-left: 0;
+    min-width: 0;
+  }
+
   .topbar-meta {
-    gap: var(--space-3);
+    display: none;
   }
 
   /* The dock spans the screen (so the widget may use its width) but lets clicks through */
@@ -712,11 +900,18 @@
     pointer-events: auto;
   }
 
+  /* The Pomodoro page shows the same time in its dial: no second timer over its settings */
+  .shell:has(> .main > .view[data-feature="pomodoro"]) > .topbar-center {
+    display: none;
+  }
+
   /* Room for the docked timer (44px tall) under the last content and under the toasts. The
      legal links end every page, so the room goes under them (an open note, which hides them,
      keeps it itself: css/features/notes.css). */
   .shell:has(> .topbar-center > :not([hidden])) .main {
     --legal-room: calc(var(--legal-h) + 56px);
+    /* (and Tab never leaves a control under it: .main's scroll-padding) */
+    --dock-room: 56px;
   }
 
   .shell:has(> .topbar-center > :not([hidden])) .page-legal {
@@ -727,67 +922,35 @@
     bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom) + var(--space-3) + 52px);
   }
 
-  .topbar-date {
-    display: none;
+  /* A page's own bar at the bottom (Training's live workout: Finish and Discard, the rest timer)
+     keeps its buttons in sight: toasts ("Rest is over", an Undo) sit above it, wherever it is,
+     stuck to the bottom or at the end of the page (where the page's last 20px and the 40px legal
+     links are under it): its height and gap (.main's --sticky-bottom above) plus those 60px */
+  body:has(.main > .view .tr-sess-bar) {
+    --toast-lift: 132px;
   }
 
-  /* The tab bar already names the module on phones: the crumbs shrink to it,
-     and step aside entirely when a top-bar widget (the LIFE ticker) needs the room. */
-  .crumbs > :not(.crumb-current) {
-    display: none;
+  body:has(.main > .view .tr-sess-bar > .tr-rest:not([hidden])) {
+    --toast-lift: 188px;
   }
 
-  .topbar:has(.topbar-widget) .crumbs {
-    display: none;
+  body:has(.main > .view .tr-sess-bar) .toast-stack {
+    bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom) + var(--space-3) + var(--toast-lift));
   }
 
-  .topbar:has(.topbar-widget) .topbar-widgets {
-    margin-left: 0;
-    min-width: 0;
-  }
-
-  .topbar:has(.topbar-widget) .topbar-meta {
-    margin-left: auto;
-  }
-
-  .topbar .theme-toggle-mobile,
-  .topbar .settings-toggle-mobile,
-  .topbar .install-toggle-mobile,
-  .topbar-sys {
-    display: inline-flex;
-  }
-
-  /* The icon buttons at the end sit closer together, leaving the room to the LIFE ticker */
-  .topbar-meta .btn--icon:not([hidden]) + .btn--icon {
-    margin-left: calc(var(--space-1) - var(--space-3));
+  body:has(.shell > .topbar-center > :not([hidden])):has(.main > .view .tr-sess-bar) .toast-stack {
+    bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom) + var(--space-3) + 52px + var(--toast-lift));
   }
 
   .view {
-    padding: var(--space-5) var(--space-4) var(--space-8);
+    padding: var(--space-3) var(--space-4) var(--space-8);
   }
 
-  .page-header {
-    flex-wrap: wrap;
-    align-items: flex-start;
-    gap: var(--space-4);
-  }
-
-  .page-title {
-    font-size: var(--fs-2xl);
-  }
-
-  .page-actions {
-    margin-left: 0;
-    width: 100%;
-    justify-content: flex-start;
-  }
-
+  /* ---- Tab bar: four pages of your choice and More, under their own names ---- */
   .tabbar {
     grid-area: tabbar;
     display: grid;
-    grid-auto-flow: column;
-    /* Six equal tabs on a 375px phone: a long label shrinks, it never widens the bar */
-    grid-auto-columns: minmax(0, 1fr);
+    grid-template-columns: repeat(var(--tabs, 5), minmax(0, 1fr));
     border-top: 1px solid var(--line);
     background: color-mix(in srgb, var(--bg-elev) 88%, transparent);
     backdrop-filter: blur(14px);
@@ -802,12 +965,17 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 4px;
+    gap: 3px;
+    min-width: 0;
     color: var(--text-3);
     font-family: var(--font-mono);
     font-size: var(--fs-2xs);
-    letter-spacing: calc(0.12em * var(--label-tracking));
+    letter-spacing: calc(0.08em * var(--label-tracking));
     text-transform: var(--label-case);
+  }
+
+  .tab > .icon {
+    flex: none;
   }
 
   /* The tab bar runs to the screen's edges: a tab's ring sits just inside it (WCAG 2.4.7) */
@@ -823,11 +991,14 @@
     white-space: nowrap;
   }
 
-  .tab[aria-current="page"] {
+  /* More is "current" while one of its pages (or Settings) is open */
+  .tab[aria-current="page"],
+  .tab--more.is-current {
     color: var(--text);
   }
 
-  .tab[aria-current="page"]::before {
+  .tab[aria-current="page"]::before,
+  .tab--more.is-current::before {
     content: "";
     position: absolute;
     top: -1px;
@@ -838,21 +1009,197 @@
     box-shadow: 0 0 12px var(--glow-c);
   }
 
-  /* Six tabs are ~62px wide on a phone: the badge stays inside its tab ("25m", "2/5") */
-  /* A count is never cut ('0/12' must not read '0/1'): it may reach a little past its tab */
-  .tab .nav-badge {
-    position: absolute;
-    top: 8px;
-    left: calc(50% + 4px);
-    right: auto;
-    max-width: none;
-    margin: 0;
-    min-width: 0;
-    padding: 0 2px;
-    overflow: visible;
-    font-size: 9px;
-    letter-spacing: -0.02em;
-    white-space: nowrap;
+  /* Needs you today: a dot on the icon's corner (the count is in the tab's name) */
+  .tab .nav-dot {
+    display: block;
+    top: 9px;
+    left: calc(50% + 7px);
+  }
+}
+
+/* ---- More (the phone tab bar's last tab): the other pages, then Search, Settings, Appearance,
+   light / dark and Edit tabs. A dialog: a sheet from the bottom on a phone (components.css). ---- */
+.more-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.more-pages {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
+  gap: var(--space-2);
+}
+
+.more-page {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 84px;
+  padding: var(--space-3) var(--space-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  text-align: center;
+}
+
+.more-page[aria-current="page"] {
+  border-color: var(--line-strong);
+  background: var(--surface-3);
+  font-weight: 600;
+}
+
+.more-page.is-soon {
+  color: var(--text-3);
+}
+
+.more-page-label {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.more-page .more-page-count,
+.more-page .nav-soon {
+  display: inline-block;
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  margin: 0;
+}
+
+.more-list {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--line);
+}
+
+.more-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  min-height: 48px;
+  padding: 0 var(--space-2);
+  border-bottom: 1px solid var(--line);
+  color: var(--text);
+  font-size: var(--fs-md);
+  text-align: left;
+}
+
+.more-row-icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 24px;
+  color: var(--text-2);
+}
+
+.more-row-label {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.more-row-hint {
+  flex: none;
+  color: var(--text-3);
+  font-size: var(--fs-sm);
+}
+
+.more-row[aria-current="page"] {
+  font-weight: 600;
+}
+
+.more-status {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0 var(--space-2);
+  min-height: 36px;
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+  text-align: left;
+}
+
+.more-status .sys-app {
+  margin-left: 0;
+}
+
+.more-tabs-lead,
+.more-tabs-note {
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+}
+
+.more-tabs {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--line);
+}
+
+.more-tab {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 48px;
+  padding: 0 var(--space-2);
+  border-bottom: 1px solid var(--line);
+  cursor: pointer;
+}
+
+.more-tab-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: var(--fs-md);
+}
+
+.more-tab.is-full .more-tab-label {
+  color: var(--text-3);
+}
+
+.more-tab .check[aria-disabled="true"] {
+  opacity: 0.55;
+}
+
+.more-tab-pos {
+  flex: none;
+  min-width: 22px;
+  color: var(--text-3);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  text-align: right;
+}
+
+.more-foot {
+  display: contents;
+}
+
+.more-sheet .modal-foot:has(> .more-foot:empty) {
+  display: none;
+}
+
+.more-sheet .modal-body {
+  padding-bottom: calc(var(--space-5) + env(safe-area-inset-bottom, 0px));
+}
+
+.more-page:active,
+.more-row:active,
+.more-tab:active {
+  background: var(--surface-2);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .more-page:hover,
+  .more-row:hover,
+  .more-tab:hover {
+    background: var(--surface-2);
   }
 }
 

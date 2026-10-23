@@ -4,22 +4,160 @@
    switch, so every template styles them already.
    ========================================================================== */
 
+/* ---- Layout: the section index and the cards ----
+   Wide screens (>= 1100px): the index is a column on the left that stays in view while the
+   cards scroll. Narrower: one jump menu at the top that stays in view (the column hides). */
+.st-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-4);
+}
+
 .st-cards {
   display: grid;
   gap: var(--space-5);
   max-width: 760px;
+  min-width: 0;
 }
 
+/* The bar runs edge to edge: out over the page's side padding (css/shell.css .view: 32px, 20px
+   up to 900px wide, 16px on a phone) */
+.st-index {
+  --st-bleed: var(--space-7);
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  margin-inline: calc(-1 * var(--st-bleed));
+  padding: var(--space-2) var(--st-bleed);
+  border-bottom: 1px solid var(--line);
+  background: color-mix(in srgb, var(--bg) 90%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+@media (max-width: 900px) {
+  .st-index {
+    --st-bleed: var(--space-5);
+  }
+}
+
+@media (max-width: 640px) {
+  .st-index {
+    --st-bleed: var(--space-4);
+  }
+}
+
+.st-index-list {
+  display: none;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.st-jump .dd-btn {
+  max-width: 100%;
+}
+
+/* A jump lands the card's heading under the sticky menu, not behind it */
+.st-card {
+  scroll-margin-top: 64px;
+}
+
+@media (min-width: 1100px) {
+  .st-layout {
+    grid-template-columns: 196px minmax(0, 1fr);
+    gap: var(--space-7);
+    align-items: start;
+  }
+
+  .st-index {
+    top: var(--space-4);
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  .st-index-list {
+    display: grid;
+    gap: 2px;
+  }
+
+  .st-jump {
+    display: none;
+  }
+
+  .st-card {
+    scroll-margin-top: var(--space-4);
+  }
+}
+
+.st-index-link {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  min-height: 34px;
+  padding: 6px var(--space-3);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text-2);
+  font: inherit;
+  font-size: var(--fs-sm);
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+}
+
+.st-index-link > .icon {
+  flex: none;
+  color: var(--text-3);
+}
+
+.st-index-link:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+/* Where you are: the section in view */
+.st-index-link[aria-current] {
+  background: var(--surface-2);
+  color: var(--text);
+  font-weight: 600;
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+.st-index-link[aria-current] > .icon {
+  color: var(--text);
+}
+
+.st-index-link:focus-visible {
+  outline: 2px solid var(--line-focus);
+  outline-offset: -2px;
+}
+
+/* ---- A section ---- */
 .st-card {
   display: grid;
   padding: var(--space-2) var(--space-5);
 }
 
-.st-card-title {
+/* The section's name: clearly above its rows (18px over 15px), in the template's own text face */
+.st-root .st-card-title {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin: var(--space-4) 0 var(--space-1);
+  gap: var(--space-2);
+  margin: var(--space-4) 0 var(--space-2);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: var(--fs-lg);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.25;
+  text-transform: none;
 }
 
 .st-card-title > .icon {
@@ -27,12 +165,23 @@
   color: var(--text-2);
 }
 
+/* Focus lands here after a jump (for the keyboard and screen readers); no ring for a click */
+.st-card-title:focus {
+  outline: none;
+}
+
+.st-card-title:focus-visible {
+  outline: 2px solid var(--line-focus);
+  outline-offset: 4px;
+}
+
 .st-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: var(--space-3) var(--space-5);
-  padding: var(--space-4) 0;
+  min-height: 44px;
+  padding: 14px 0;
   border-top: 1px solid var(--line);
 }
 
@@ -40,12 +189,12 @@
   border-top: 0;
 }
 
-/* A switch that belongs to the one above it (Color coding → Sections, Tasks, …) */
 /* A row whose control needs the width (the color swatches): the control goes under the text */
 .st-row--wide {
   grid-template-columns: minmax(0, 1fr);
 }
 
+/* A switch that belongs to the one above it (Color coding → Sections, Tasks, …) */
 .st-row--sub {
   padding-left: var(--space-5);
   padding-block: var(--space-3);
@@ -79,20 +228,36 @@
   display: none;
 }
 
+/* The template in use, on the button that changes it ("Simple ›") */
+.st-value {
+  white-space: nowrap;
+}
+
+.st-template-btn .st-chev {
+  margin-right: -4px;
+  color: var(--text-3);
+}
+
 .st-select {
   width: auto;
   min-width: 170px;
   height: 34px;
 }
 
-/* The switch alone (its label is the row title) */
+/* The switch alone (its label is the row title): the drawn track stays its size, the button
+   around it is a 44px target (WCAG 2.5.5) */
 .st-switch {
-  padding: 4px 0;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  margin-block: -8px;
+  padding: 0;
 }
 
-.st-switch:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
+/* Off reads as off in every template: the empty track keeps a visible edge (3:1, like a
+   field's); on, the template's fill says it */
+.st-switch:not([aria-checked="true"]) .pm-switch-track {
+  box-shadow: inset 0 0 0 1px var(--field-line);
 }
 
 .st-row-control a.btn {
@@ -106,17 +271,54 @@
   color: var(--text);
 }
 
+/* ---- Phones: the control stays on the title's line (a switch, a button, the page picker) and
+   the explanation runs the full width under both (beside a button it was a column of five
+   short lines); a wide control (a three-way choice, the colors) goes under the text ---- */
 @media (max-width: 640px) {
   .st-card {
     padding: var(--space-1) var(--space-4);
   }
 
   .st-row {
-    grid-template-columns: minmax(0, 1fr);
+    gap: 0 var(--space-3);
+  }
+
+  .st-row-text {
+    display: contents;
+  }
+
+  .st-row-title {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .st-row-hint {
+    grid-column: 1 / -1;
+    grid-row: 2;
   }
 
   .st-row-control {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .st-row--stack {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* (Minimal keeps a three-way choice on the title's line: its words fit there, and its rows
+     stay two columns, css/skins/minimal.css) */
+  html:not([data-skin="minimal"]) .st-row--stack .st-row-control,
+  .st-row--wide .st-row-control {
+    grid-column: 1 / -1;
+    grid-row: 3;
     justify-content: flex-start;
+    margin-top: var(--space-2);
+  }
+
+  .st-select {
+    min-width: 0;
+    max-width: 150px;
   }
 }
 

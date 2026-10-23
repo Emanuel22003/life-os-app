@@ -15,7 +15,7 @@
 // A free trial's first payment is the day it ends. Paused and cancelled subscriptions cost nothing.
 // Totals are kept per currency: LIFE/OS doesn't convert between currencies.
 
-import { dateKey, parseKey, shiftKey, diffDays } from '../ui.js';
+import { dateKey, parseKey, shiftKey, diffDays, formatDay, WEEKDAYS_SHORT } from '../ui.js';
 
 export const UNITS = Object.freeze(['week', 'month', 'year']);
 export const STATUSES = Object.freeze(['active', 'trial', 'paused', 'cancelled']);
@@ -399,6 +399,25 @@ export function totals(subs) {
     paused: subs.filter((s) => s.status === 'paused').length,
     cancelled: subs.filter((s) => s.status === 'cancelled').length,
   };
+}
+
+/**
+ * The page's one-line summary (the stat beside its title): what the active subscriptions cost
+ * per month and per year (per currency, biggest first) and the next payment, a free trial's
+ * first one included. { month, year, next: { sub, date, inDays, trialEnd } | null, live }
+ * (live: active subscriptions and free trials).
+ */
+export function summary(subs, today) {
+  const t = totals(subs);
+  return { month: t.month, year: t.year, next: upcoming(subs, today, 400)[0] ?? null, live: t.active + t.trials };
+}
+
+/** A payment's day in a few letters: 'today', 'tomorrow', 'Thu' within the week, else 'Thu 29 Oct'. */
+export function shortWhen(date, today) {
+  const n = diffDays(today, date);
+  if (n === 0) return 'today';
+  if (n === 1) return 'tomorrow';
+  return n > 1 && n < 7 ? WEEKDAYS_SHORT[parseKey(date).getDay()] : formatDay(date);
 }
 
 /** What cancelled subscriptions would have cost per month, per currency (what you save). */

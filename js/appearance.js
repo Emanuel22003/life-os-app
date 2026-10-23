@@ -132,7 +132,9 @@ export function openAppearance({ onClose } = {}) {
       h(
         'div',
         { class: 'skin-card-text' },
-        h('span', { class: 'skin-card-name', id: nameId }, s.name),
+        // "In use" in words on the chosen card, not only its ring and tick (shown by CSS while
+        // the card is checked; the radio's own state says it to a screen reader)
+        h('span', { class: 'skin-card-head' }, h('span', { class: 'skin-card-name', id: nameId }, s.name), h('span', { class: 'skin-card-current', 'aria-hidden': 'true' }, 'In use')),
         h('span', { class: 'skin-card-desc', id: descId }, s.description),
       ),
       h('span', { class: 'skin-card-mark', 'aria-hidden': 'true' }, icon('check', { size: 14, stroke: 2.5 })),

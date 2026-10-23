@@ -3,6 +3,10 @@
 //
 // - menuPosition()      where the menu goes: at the pointer, flipped near the right / bottom edge,
 //                       always inside the viewport
+// - submenuPosition()   where a submenu goes: beside its item, on the left when the right is full
+// - normalizeActions()  a module's own menu actions (Complete, Priority ▸ …), checked and cleaned
+// - menuEntries()       the menu's order: the module's actions, Edit / Rename, Duplicate / Copy /
+//                       Paste, the colors, then Delete last behind a line
 // - stepIndex()         arrow keys / Home / End over the menu items, skipping disabled ones
 // - actionForKey()      ⌘/Ctrl + C · V · D and Delete / Backspace -> the menu action they stand for
 // - makeClip() / readClip() / pasteMode()   the in-app clipboard and what a paste target does with it
@@ -45,6 +49,105 @@ export function menuPosition({ x, y, width, height, viewW, viewH, margin = 8, al
   const h = place(finite(x), finite(altX, finite(x)), w, finite(viewW), margin);
   const v = place(finite(y), finite(altY, finite(y)), hgt, finite(viewH), margin);
   return { left: Math.round(h.pos), top: Math.round(v.pos), flipX: h.flipped, flipY: v.flipped };
+}
+
+/**
+ * Where a submenu's top-left corner goes: to the right of the menu it hangs from, its first item
+ * level with the item that opened it; on the left of the menu when the right has no room; pinned
+ * inside the viewport (over the menu) when neither side fits (a phone).
+ *   item   { top, bottom } of the item that opens it
+ *   menu   { left, right } of the menu that item is in
+ *   pad    the submenu's own top padding, so its first item lines up with the item
+ * -> { left, top, flipX, flipY }
+ */
+export function submenuPosition({ item, menu, width, height, viewW, viewH, pad = 4, overlap = 4, margin = 8 } = {}) {
+  const it = isObject(item) ? item : {};
+  const m = isObject(menu) ? menu : {};
+  return menuPosition({
+    x: finite(m.right) - overlap,
+    altX: finite(m.left) + overlap,
+    y: finite(it.top) - pad,
+    altY: finite(it.bottom) + pad,
+    width,
+    height,
+    viewW,
+    viewH,
+    margin,
+  });
+}
+
+/* ==========================================================================
+   The menu's entries
+   ========================================================================== */
+
+/** The built-in actions, in the groups the menu shows them in (Delete is always last). */
+export const BUILTIN_GROUPS = Object.freeze([Object.freeze(['edit', 'rename']), Object.freeze(['duplicate', 'copy', 'paste'])]);
+/** Listed only when the target has them; the others are always listed (greyed out when unavailable). */
+export const OPTIONAL_BUILTINS = Object.freeze(['edit', 'rename']);
+const MAX_DEPTH = 3;
+
+/**
+ * A module's own actions for a target, cleaned: [{ id, label, icon, kbd, run, disabled, checked,
+ * children }] (or { separator: true }). An entry needs a label and either run() or children; one
+ * whose children all drop out is disabled. Separators at the ends or doubled are dropped. Submenus
+ * go at most three levels deep. Anything else (not an array, junk entries) is ignored.
+ */
+export function normalizeActions(list, depth = 0) {
+  if (!Array.isArray(list) || depth >= MAX_DEPTH) return [];
+  const out = [];
+  for (const a of list) {
+    if (!isObject(a)) continue;
+    if (a.separator) {
+      if (out.length && !out[out.length - 1].separator) out.push({ separator: true });
+      continue;
+    }
+    const label = typeof a.label === 'string' ? a.label.trim() : '';
+    if (!label) continue;
+    const hasChildren = Array.isArray(a.children);
+    const children = hasChildren ? normalizeActions(a.children, depth + 1) : null;
+    const run = typeof a.run === 'function' ? a.run : null;
+    if (!run && !hasChildren) continue;
+    const empty = hasChildren && !children.some((c) => !c.separator);
+    out.push({
+      id: a.id == null ? label : String(a.id),
+      label,
+      icon: typeof a.icon === 'string' && a.icon ? a.icon : null,
+      kbd: typeof a.kbd === 'string' && a.kbd ? a.kbd : null,
+      run: hasChildren ? null : run,
+      disabled: !!a.disabled || empty,
+      checked: typeof a.checked === 'boolean' ? a.checked : null,
+      children: hasChildren && !empty ? children : null,
+    });
+  }
+  while (out.length && out[out.length - 1].separator) out.pop();
+  return out;
+}
+
+/**
+ * The menu's order, as entries:
+ *   { type: 'action', action }   the module's own (first)
+ *   { type: 'builtin', id }       edit · rename, then duplicate · copy · paste
+ *   { type: 'colors' }            the swatch row (it draws its own line above it)
+ *   { type: 'builtin', id: 'delete' }  always last, after a line
+ *   { type: 'sep' }               a line between the groups
+ * `can` says which optional built-ins (edit, rename) the target has; the others are always listed.
+ */
+export function menuEntries({ actions = [], can = {}, colors = false } = {}) {
+  const groups = [];
+  const own = (Array.isArray(actions) ? actions : []).map((a) => (a && a.separator ? { type: 'sep' } : { type: 'action', action: a }));
+  if (own.length) groups.push(own);
+  for (const group of BUILTIN_GROUPS) {
+    const ids = group.filter((id) => !OPTIONAL_BUILTINS.includes(id) || (can && can[id]));
+    if (ids.length) groups.push(ids.map((id) => ({ type: 'builtin', id })));
+  }
+  if (colors) groups[groups.length - 1].push({ type: 'colors' });
+  groups.push([{ type: 'builtin', id: 'delete' }]);
+  const out = [];
+  groups.forEach((g, i) => {
+    if (i) out.push({ type: 'sep' });
+    out.push(...g);
+  });
+  return out;
 }
 
 /* ==========================================================================

@@ -20,6 +20,8 @@
 
 .cal {
   container: cal / inline-size;
+  /* The "+N more" list is placed over its day, inside the calendar */
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
@@ -55,8 +57,24 @@
 }
 
 /* ==========================================================================
-   Toolbar
+   Toolbar: the page's one title row
+   The month (week, day) on screen is the page's visible heading, with the buttons at the end
+   of its row. The page header above keeps the page's name for screen readers (sr-only) and
+   takes no room at all; its explanation tip shows under the title row (.cal-tips).
    ========================================================================== */
+
+html[data-skin] .main .view.cal-page > .page-header.cal-page-header {
+  min-height: 0;
+  margin-bottom: 0;
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+html[data-skin] .main .view.cal-page > .page-header.cal-page-header::after,
+.cal-page-header .page-kicker,
+.cal-page-header .page-actions:empty {
+  display: none;
+}
 
 .cal-toolbar {
   display: flex;
@@ -65,12 +83,34 @@
   gap: var(--space-3) var(--space-4);
 }
 
+/* The page's badge before the period, as on every page's title */
+.cal-page-ib {
+  flex: none;
+  margin-right: var(--space-1);
+}
+
+/* Add task and New event end the row */
+.cal-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-left: var(--space-2);
+}
+
 .cal-nav {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  flex: 1 1 auto;
-  min-width: 0;
+  /* Basis 0: the buttons stay on the period's row and the period gives way first (its week or
+     day line drops under the month); never below its month in full: then the buttons wrap */
+  flex: 1 1 0;
+  min-width: auto;
+}
+
+/* The month would be cut short beside the buttons (calendar.js fitTitle): they take a row of
+   their own under it */
+.cal-toolbar.is-tight > .cal-nav {
+  flex-basis: 100%;
 }
 
 /* The period: the month large with its year lighter, then the exact week or day, smaller */
@@ -89,6 +129,7 @@
 
 .cal-title-main {
   min-width: 0;
+  max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -173,6 +214,17 @@
   display: none;
 }
 
+/* While a task is dragged the chip is a place to drop it (its date goes): dashed, then lit */
+.cal.is-task-drag .cal-tray-toggle {
+  border-style: dashed;
+  border-color: var(--line-focus);
+}
+
+.cal.is-task-drag .cal-tray-toggle.is-drop {
+  background: var(--accent-soft);
+  box-shadow: 0 0 0 2px var(--accent);
+}
+
 /* ---- Tips under the toolbar: how to start, the look key (each with its own ✓) ---- */
 
 .cal-tips {
@@ -246,6 +298,19 @@
   border-radius: 1px;
 }
 
+/* Habits by a date: dots in the week and day, a thin bar in the month (the sample on screen) */
+.cal-legend-hbar {
+  flex: none;
+  width: 20px;
+  height: 3px;
+  margin: 0;
+}
+
+.cal[data-view="month"] .cal-legend-hb,
+.cal:not([data-view="month"]) .cal-legend-hbar {
+  display: none;
+}
+
 /* ==========================================================================
    Layout: view + Unscheduled tray
    ========================================================================== */
@@ -270,20 +335,17 @@
   order: -1;
 }
 
+/* Closed (the default), the calendar has the whole width; opened from its chip, the tray sits
+   beside it where there is room (a drawer the days make way for), above it on a phone */
 @container cal (min-width: 960px) {
-  .cal:not([data-view="day"]) .cal-layout {
+  .cal.is-tray-open:not([data-view="day"]) .cal-layout {
     grid-template-columns: minmax(0, 1fr) 248px;
   }
 
-  .cal:not([data-view="day"]) .cal-tray {
-    display: flex;
+  .cal.is-tray-open:not([data-view="day"]) .cal-tray {
     order: 0;
     position: sticky;
     top: var(--space-4);
-  }
-
-  .cal-tray-toggle {
-    display: none;
   }
 }
 
@@ -356,10 +418,16 @@
   transition: box-shadow var(--dur-fast) var(--ease), opacity var(--dur-fast) var(--ease);
 }
 
-.cal-ev:hover,
 .cal-ev:focus-visible {
   box-shadow: var(--glow-strong);
   z-index: 2;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .cal-ev:hover {
+    box-shadow: var(--glow-strong);
+    z-index: 2;
+  }
 }
 
 .cal-ev:focus-visible {
@@ -386,6 +454,11 @@
   overflow: hidden;
   text-overflow: ellipsis;
   font-weight: 500;
+}
+
+/* Title first ("Lunch with Ola 12:00"): the time after it, never squeezed out */
+.cal-ev.is-title-first .cal-ev-title {
+  flex: 0 1 auto;
 }
 
 .cal-ev-rep {
@@ -476,8 +549,10 @@
   transition: border-color var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease);
 }
 
-.cal-task:hover {
-  border-color: var(--text-3);
+@media (hover: hover) and (pointer: fine) {
+  .cal-task:hover {
+    border-color: var(--text-3);
+  }
 }
 
 .cal-task.is-overdue {
@@ -509,9 +584,11 @@
   opacity: 0;
 }
 
-.cal-task-check:hover {
-  border-color: var(--text);
-  box-shadow: var(--glow);
+@media (hover: hover) and (pointer: fine) {
+  .cal-task-check:hover {
+    border-color: var(--text);
+    box-shadow: var(--glow);
+  }
 }
 
 .cal-task-check[aria-checked="true"] {
@@ -536,6 +613,44 @@
 
 .cal-task.pri-high .cal-task-title {
   font-weight: 600;
+}
+
+/* Priority on a chip is a short bar at its end, not a letter (the title gets the room; the word
+   is in its tooltip and name): High solid, Medium lighter, Low dotted. No color: red means late.
+   The day's lists (roomy rows) keep the flag and letter. */
+.cal-task > .cal-pri,
+.cal-tltask > .cal-pri {
+  display: none;
+}
+
+.cal-task:is(.pri-high, .pri-med, .pri-low) {
+  padding-right: 9px;
+}
+
+.cal-task:is(.pri-high, .pri-med, .pri-low)::after,
+.cal-tltask:is(.pri-high, .pri-med, .pri-low)::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  right: 2px;
+  bottom: 3px;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--text);
+  pointer-events: none;
+}
+
+.cal-task.pri-med::after,
+.cal-tltask.pri-med::after {
+  background: var(--text-3);
+}
+
+.cal-task.pri-low::after,
+.cal-tltask.pri-low::after {
+  width: 0;
+  border-right: 2px dotted var(--text-3);
+  border-radius: 0;
+  background: none;
 }
 
 /* Priority letter badge (H / M / L): a small square, same look in every view */
@@ -576,9 +691,11 @@
   color: var(--text-3);
 }
 
-.cal-task-sched:hover {
-  background: var(--surface-3);
-  color: var(--text);
+@media (hover: hover) and (pointer: fine) {
+  .cal-task-sched:hover {
+    background: var(--surface-3);
+    color: var(--text);
+  }
 }
 
 /* ==========================================================================
@@ -724,8 +841,10 @@
 
 .cal-wrow {
   position: relative;
-  grid-template-rows: 26px repeat(var(--cal-slots, 3), var(--cal-slot)) 18px;
+  /* The "+N more" row takes what is left, so the rows fill the screen (calendar.js monthFit) */
+  grid-template-rows: 26px repeat(var(--cal-slots, 3), var(--cal-slot)) minmax(18px, 1fr);
   row-gap: 2px;
+  min-height: var(--cal-row-h, 0);
   border-bottom: 1px solid var(--line);
 }
 
@@ -758,9 +877,11 @@
   transition: opacity var(--dur-fast) var(--ease);
 }
 
-.cal-wknum:hover {
-  background: var(--accent);
-  color: var(--accent-ink);
+@media (hover: hover) and (pointer: fine) {
+  .cal-wknum:hover {
+    background: var(--accent);
+    color: var(--accent-ink);
+  }
 }
 
 .cal-wrow:hover .cal-wknum-go,
@@ -768,9 +889,11 @@
   opacity: 1;
 }
 
-.cal-wrow:hover .cal-wknum:not(:hover) {
-  color: var(--text);
-  background: var(--surface-2);
+@media (hover: hover) and (pointer: fine) {
+  .cal-wrow:hover .cal-wknum:not(:hover) {
+    color: var(--text);
+    background: var(--surface-2);
+  }
 }
 
 .cal-cell {
@@ -790,8 +913,10 @@
   background-image: repeating-linear-gradient(-45deg, var(--surface-2) 0 1px, transparent 1px 7px);
 }
 
-.cal-cell:hover {
-  background-color: var(--surface-2);
+@media (hover: hover) and (pointer: fine) {
+  .cal-cell:hover {
+    background-color: var(--surface-2);
+  }
 }
 
 .cal-cell.is-selected {
@@ -839,9 +964,11 @@
   transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
 }
 
-button.cal-date:hover {
-  background: var(--surface-3);
-  color: var(--text);
+@media (hover: hover) and (pointer: fine) {
+  button.cal-date:hover {
+    background: var(--surface-3);
+    color: var(--text);
+  }
 }
 
 /* Days of the months around: fainter than this month's, still readable (--text-3 is the
@@ -877,13 +1004,27 @@ button.cal-date:hover {
   opacity: 1;
 }
 
-.cal-cell-add:hover {
-  background: var(--accent);
-  color: var(--accent-ink);
+@media (hover: hover) and (pointer: fine) {
+  .cal-cell-add:hover {
+    background: var(--accent);
+    color: var(--accent-ink);
+  }
 }
 
 .cal-cell .cal-hb {
   margin-left: auto;
+}
+
+/* A day's habits in the month: a short bar at the end of its date row (done of planned) */
+.cal-cell-head .cal-cell-hbar {
+  flex: none;
+  width: 28px;
+  height: 3px;
+  margin: 0 0 0 auto;
+}
+
+.cal-cell-head .cal-cell-hbar.is-future {
+  opacity: 0.5;
 }
 
 /* Month cells stay quiet: the habits icon is gray there (a whole grid of colored icons is noise),
@@ -926,7 +1067,7 @@ button.cal-date:hover {
 .cal-more {
   z-index: 1;
   justify-self: start;
-  align-self: center;
+  align-self: start;
   display: inline-flex;
   align-items: center;
   gap: 3px;
@@ -934,7 +1075,7 @@ button.cal-date:hover {
   height: 16px;
   padding: 0 4px;
   border-radius: var(--radius-xs);
-  font-size: 9px;
+  font-size: var(--fs-2xs);
   color: var(--text-2);
   white-space: nowrap;
   overflow: hidden;
@@ -957,9 +1098,62 @@ button.cal-date:hover {
   border-radius: 1px;
 }
 
-.cal-more:hover {
-  background: var(--surface-3);
-  color: var(--text);
+@media (hover: hover) and (pointer: fine) {
+  .cal-more:hover {
+    background: var(--surface-3);
+    color: var(--text);
+  }
+}
+
+/* ---- "+N more": the day's whole list, over its cell (calendar.js openDayPop) ---- */
+
+.cal-pop {
+  position: absolute;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  max-height: min(70dvh, 520px);
+  padding: var(--space-3);
+  overflow-y: auto;
+  border-color: var(--line-strong);
+  background: var(--surface-solid);
+  box-shadow: var(--shadow-sm);
+  --cal-slot: 26px;
+}
+
+.cal-pop-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.cal-pop-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  margin: 0;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+
+.cal-pop-close {
+  margin-left: auto;
+}
+
+.cal-pop-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.cal-pop-list :is(.cal-ev, .cal-task) {
+  font-size: var(--fs-sm);
+}
+
+.cal-pop-open {
+  align-self: flex-start;
 }
 
 /* ---- Phone month: compact cells with markers ---- */
@@ -1167,8 +1361,10 @@ button.cal-date:hover {
   transition: background var(--dur-fast) var(--ease);
 }
 
-button.cal-dh-btn:hover {
-  background: var(--surface-3);
+@media (hover: hover) and (pointer: fine) {
+  button.cal-dh-btn:hover {
+    background: var(--surface-3);
+  }
 }
 
 .cal-dh-num {
@@ -1225,8 +1421,10 @@ button.cal-dh-btn:hover {
   cursor: cell;
 }
 
-.cal-ad-col:hover {
-  background: var(--surface);
+@media (hover: hover) and (pointer: fine) {
+  .cal-ad-col:hover {
+    background: var(--surface);
+  }
 }
 
 .cal-ad-col.is-today {
@@ -1236,6 +1434,45 @@ button.cal-dh-btn:hover {
 .cal-wk-allday > .cal-ev,
 .cal-wk-allday > .cal-task {
   margin: 0 3px;
+}
+
+/* A week's all-day chips may take two lines (a 130px day cut every title to a stub); the lane's
+   rows grow with them (calendar.views fillAllday) */
+.cal-week .cal-wk-allday > .cal-task {
+  align-items: flex-start;
+  height: auto;
+  min-height: var(--cal-slot);
+  padding-top: 4px;
+  padding-bottom: 4px;
+}
+
+.cal-week .cal-wk-allday > .cal-task .cal-task-check {
+  margin-top: 1px;
+}
+
+.cal-week .cal-wk-allday > .cal-task .cal-task-title {
+  display: -webkit-box;
+  line-height: 1.25;
+  white-space: normal;
+  /* Between words only (no "Perform-ance"); what doesn't fit in two lines ends in "…" */
+  overflow-wrap: normal;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.cal-week .cal-wk-allday > .cal-ev.is-allday:not(.cont-l):not(.cont-r) {
+  height: auto;
+  min-height: var(--cal-slot);
+  padding-block: 4px;
+  line-height: 1.25;
+  white-space: normal;
+}
+
+.cal-week .cal-wk-allday > .cal-ev.is-allday:not(.cont-l):not(.cont-r) .cal-ev-title {
+  display: -webkit-box;
+  overflow-wrap: normal;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .cal-wk-allday > .cal-ev.cont-l {
@@ -1280,6 +1517,8 @@ button.cal-dh-btn:hover {
 .cal-tl-col {
   position: relative;
   min-width: 0;
+  /* Each day column knows its width: a narrow one keeps a one-line block's title, not its time */
+  container: cal-col / inline-size;
   border-left: 1px solid var(--line);
   background-image: linear-gradient(var(--line) 1px, transparent 1px), linear-gradient(var(--grid-line) 1px, transparent 1px);
   background-size: 100% var(--cal-hour, 48px), 100% calc(var(--cal-hour, 48px) / 2);
@@ -1323,13 +1562,19 @@ button.cal-dh-btn:hover {
   transition: box-shadow var(--dur-fast) var(--ease);
 }
 
-.cal-tlev:hover,
 .cal-tlev:focus-visible {
   z-index: 3;
   box-shadow: var(--glow-strong);
   /* Hugging the block: a block in the last column sits 2px from the timeline's edge, which cuts
      off a ring drawn further out (WCAG 2.4.7) */
   outline-offset: 0;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .cal-tlev:hover {
+    z-index: 3;
+    box-shadow: var(--glow-strong);
+  }
 }
 
 /* Fixed line boxes: timedBlock() clamps the title (--cal-lines) to the lines that fit, and no
@@ -1350,13 +1595,99 @@ button.cal-dh-btn:hover {
   overflow: hidden;
   font-weight: 600;
   line-height: 14px;
-  /* A word wider than a narrow column breaks (hyphenated where the browser can) instead of
-     being cut off mid-letter */
-  overflow-wrap: anywhere;
-  hyphens: auto;
+  /* Words break between words; only one wider than the whole column breaks inside (no
+     hyphen-split "pic-tures") */
+  overflow-wrap: break-word;
+  hyphens: manual;
   display: -webkit-box;
   -webkit-line-clamp: var(--cal-lines, 3);
   -webkit-box-orient: vertical;
+}
+
+/* A one-line block in a narrow day column: the title gets the room (its time is where it sits,
+   in its tooltip and its name) */
+@container cal-col (max-width: 110px) {
+  :is(.cal-tlev, .cal-tltask).is-short .cal-tlev-time {
+    display: none;
+  }
+}
+
+/* ---- Bands: a long block of time behind the column's other events (calendar.logic isBand) ----
+   A faint wash and a spine the whole column wide, its name and time on one line at its top.
+   Only that line and the bottom edge take the pointer: the hours under it stay free to click or
+   drag across for a new event. Its own look classes are not the event looks, so no template
+   paints it as a solid block. */
+.cal-tl .cal-tl-col > .cal-tlev.is-band {
+  z-index: 0;
+  padding: 2px 6px 0 8px;
+  border: 1px solid color-mix(in srgb, var(--cc, var(--text)) 14%, transparent);
+  border-left: 3px solid var(--cc, var(--text-2));
+  border-radius: var(--radius-xs);
+  background: color-mix(in srgb, var(--cc, var(--text)) 6%, transparent);
+  box-shadow: none;
+  color: var(--text);
+  pointer-events: none;
+}
+
+.cal-tl .cal-tl-col > .cal-tlev.is-band.cal-band--hatched {
+  background: repeating-linear-gradient(-45deg, color-mix(in srgb, var(--cc, var(--text)) 10%, transparent) 0 2px, transparent 2px 8px);
+}
+
+.cal-tl .cal-tl-col > .cal-tlev.is-band.cal-band--solid,
+.cal-tl .cal-tl-col > .cal-tlev.is-band.cal-band--ink {
+  background: color-mix(in srgb, var(--cc, var(--text)) 9%, transparent);
+}
+
+.cal-band-label {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 6px;
+  max-width: 100%;
+  min-width: 0;
+  padding-right: 2px;
+  pointer-events: auto;
+  cursor: grab;
+}
+
+.cal-band-label .cal-tlev-title {
+  display: block;
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.cal-band-label .cal-tlev-time {
+  flex: none;
+  color: var(--text-2);
+}
+
+/* A band that is over fades with the rest of the past (0.7): its hours go to the ink, or the
+   faded gray falls under 4.5:1 (Atelier and Pearl light 3.6:1, Pearl dark 4.2:1; WCAG 1.4.3).
+   Minimal grays the past itself, without the fade. */
+.cal-tlev.is-band.is-past:not(:where([data-skin="minimal"] *)) .cal-band-label .cal-tlev-time {
+  color: var(--text);
+}
+
+.cal-tlev.is-band .cal-tlev-resize {
+  pointer-events: auto;
+}
+
+.cal-tlev.is-band:focus-visible,
+.cal-tlev.is-band:hover {
+  z-index: 0;
+}
+
+.cal-tlev.is-band:focus-visible {
+  outline: 2px solid var(--line-focus);
+  outline-offset: -2px;
+}
+
+/* An event over a band starts a little in (the band's spine shows beside it) */
+.cal-tlev.is-over-band:not(:hover, :focus-visible) {
+  box-shadow: -2px 0 0 var(--surface-solid);
 }
 
 .cal-tlev.is-narrow {
@@ -1492,8 +1823,10 @@ button.cal-dh-btn:hover {
   bottom: 3px;
 }
 
-/* Right-aligned: event text starts at the left, so the chip covers as little of it as it can */
+/* Right-aligned: event text starts at the left, so the chip covers as little of it as it can.
+   Each cell is its day column's width, and knows it (a narrow one drops the chip's word) */
 .cal-edge-cell {
+  container: cal-edge / inline-size;
   display: flex;
   justify-content: flex-end;
   min-width: 0;
@@ -1521,9 +1854,11 @@ button.cal-dh-btn:hover {
   overflow: hidden;
 }
 
-.cal-edge:hover {
-  border-color: var(--text-3);
-  color: var(--text);
+@media (hover: hover) and (pointer: fine) {
+  .cal-edge:hover {
+    border-color: var(--text-3);
+    color: var(--text);
+  }
 }
 
 .cal-edge-arrow {
@@ -1646,9 +1981,11 @@ button.cal-dh-btn:hover {
   transition: color var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease);
 }
 
-.cal-ad-add:hover {
-  background: var(--surface-2);
-  color: var(--text);
+@media (hover: hover) and (pointer: fine) {
+  .cal-ad-add:hover {
+    background: var(--surface-2);
+    color: var(--text);
+  }
 }
 
 .cal-ad-add:focus-visible {
@@ -1722,8 +2059,10 @@ button.cal-dh-btn:hover {
   transition: background var(--dur-fast) var(--ease);
 }
 
-.cal-plan-toggle:hover {
-  background: var(--surface-2);
+@media (hover: hover) and (pointer: fine) {
+  .cal-plan-toggle:hover {
+    background: var(--surface-2);
+  }
 }
 
 .cal-plan-toggle:focus-visible {
@@ -1970,9 +2309,11 @@ button.cal-dh-btn:hover {
   opacity: 0;
 }
 
-.cal-hcheck:not(:disabled):hover {
-  border-color: var(--text);
-  box-shadow: var(--glow);
+@media (hover: hover) and (pointer: fine) {
+  .cal-hcheck:not(:disabled):hover {
+    border-color: var(--text);
+    box-shadow: var(--glow);
+  }
 }
 
 .cal-hcheck[aria-checked="true"] {
@@ -2067,8 +2408,10 @@ button.cal-dh-btn:hover {
   border-radius: var(--radius-xs);
 }
 
-.cal-ag-date:hover {
-  background: var(--surface-3);
+@media (hover: hover) and (pointer: fine) {
+  .cal-ag-date:hover {
+    background: var(--surface-3);
+  }
 }
 
 .cal-ag-day.is-past .cal-dh-num {
@@ -2492,6 +2835,8 @@ html.cal-vt::view-transition {
 
   .cal-nav {
     flex-basis: 100%;
+    /* A phone's own row: a long period ends in "…" rather than pushing past the screen */
+    min-width: 0;
   }
 
   .cal-title {
@@ -2511,13 +2856,90 @@ html.cal-vt::view-transition {
   }
 }
 
+/* A week's narrow day (240px and under: a 7-day week below about a 1900px screen): the chip is
+   "▲ 1", its arrow and count on a little less padding (its name still says "1 earlier event
+   on …"), so it covers no more than the end of a long first line under it */
+@container cal-edge (max-width: 240px) {
+  .cal-edge {
+    padding-inline: 5px;
+  }
+
+  .cal-edge-word {
+    display: none;
+  }
+}
+
+/* …and a band's time goes on a line under its name there: on one line, a band from the first
+   hour in view had its time under that chip ("Work 0") */
+@container cal-col (max-width: 240px) {
+  .cal-band-label .cal-tlev-time {
+    flex-basis: 100%;
+  }
+}
+
+/* The title row stays one row as long as it can (calendar.js fitTitle moves the buttons under
+   the month only when they still don't fit). Below about 1320px of calendar (a 1512px screen)
+   Show and Unscheduled are their icons and counts (their names stay on them); below 1180px
+   Add task is its icon too and the page's badge goes (the menu says where you are) */
+@container cal (max-width: 1320px) {
+  .cal-tray-word,
+  .cal-show-dd:not(:where([data-skin="minimal"] *)) .dd-label {
+    display: none;
+  }
+}
+
+@container cal (max-width: 1180px) {
+  .cal-nav > .cal-page-ib,
+  .cal-actions .cal-addtask-btn > span,
+  .cal-actions .kbd {
+    display: none;
+  }
+
+  .cal-actions .cal-addtask-btn {
+    width: var(--btn-h, 36px);
+    padding: 0;
+    justify-content: center;
+  }
+}
+
+/* (Minimal says the views and Show in words, without icons: it keeps the words) */
+@container cal (max-width: 860px) {
+  .cal-zoom-btn:not(:where([data-skin="minimal"] *)) > span {
+    display: none;
+  }
+}
+
 /* A narrow calendar (a phone): one row of navigation, one row of compact menus: the view, what
-   shows, and the Unscheduled tray as an icon with its count */
+   shows, the Unscheduled tray as an icon with its count, then Add task and New event as icons */
 @container cal (max-width: 600px) {
   .cal-controls {
     flex-wrap: nowrap;
     width: 100%;
     min-width: 0;
+  }
+
+  /* The tab bar already says where you are: the period gets the room */
+  .cal-nav > .cal-page-ib {
+    display: none;
+  }
+
+  /* Show is its eye and its count here (its name stays on the button), so the view keeps its word */
+  .cal-show-dd:not(:where([data-skin="minimal"] *)) .dd-label {
+    display: none;
+  }
+
+  .cal-actions {
+    margin-left: 0;
+  }
+
+  .cal-actions .btn {
+    width: var(--btn-h, 36px);
+    padding: 0;
+    justify-content: center;
+  }
+
+  .cal-actions .btn > span {
+    display: none;
   }
 
   .cal-zoom {
@@ -2575,25 +2997,58 @@ html.cal-vt::view-transition {
     height: 24px;
   }
 
-  .cal-trow-check::after,
+  /* Every check answers to a 44px square centred on it, every row in a list is 44px tall. A
+     day-list check is a `.check`: its reach is its own span.check-hit (css/compact.css), so
+     a template's tick on its ::before / ::after can't shrink it. A habit's check reaches out
+     with its ::after (css/compact.css restates this square to beat the templates) */
   .cal-hcheck::after {
     content: "";
     position: absolute;
-    inset: -8px;
+    inset: auto;
+    top: 50%;
+    left: 50%;
+    width: max(44px, 100%);
+    height: max(44px, 100%);
+    translate: -50% -50%;
   }
 
-  .cal-ag-items .cal-task-check::after,
-  .cal-tray .cal-task-check::after {
-    inset: -9px;
+  .cal-trow,
+  .cal-hrow,
+  .cal-plan-toggle,
+  :is(.cal-ag-items, .cal-tray, .cal-pop-list) :is(.cal-task, .cal-ev) {
+    min-height: 44px;
+  }
+
+  :is(.cal-ag-items, .cal-tray, .cal-pop-list) .cal-task {
+    height: auto;
+  }
+
+  :is(.cal-ag-items, .cal-tray, .cal-pop-list) .cal-task-check::after {
+    inset: -16px -12px;
+  }
+
+  /* The grids keep their rows; their chips get a little taller and their checks a finger's reach */
+  .cal-week .cal-wk-allday > :is(.cal-task, .cal-ev) {
+    min-height: 32px;
+  }
+
+  .cal-wk-allday .cal-task-check::after,
+  .cal-tltask .cal-task-check::after {
+    inset: -11px;
+  }
+
+  .cal-more {
+    height: 28px;
+    padding-inline: 8px;
   }
 
   .cal-task-sched {
-    width: 32px;
-    height: 32px;
+    width: 44px;
+    height: 44px;
   }
 
   .cal-link {
-    padding-block: 8px;
+    padding-block: 12px;
   }
 
   .cal-month.is-compact {
@@ -2641,10 +3096,16 @@ html.cal-vt::view-transition {
   transition: box-shadow var(--dur-fast) var(--ease), opacity var(--dur-fast) var(--ease);
 }
 
-.cal-tltask:hover,
 .cal-tltask:focus-within {
   z-index: 3;
   box-shadow: var(--glow-strong);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .cal-tltask:hover {
+    z-index: 3;
+    box-shadow: var(--glow-strong);
+  }
 }
 
 .cal-tltask.pri-high {

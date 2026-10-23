@@ -69,7 +69,20 @@
   --border-w-sm: 2px;
   --counter-style: decimal;
 
-  /* The one accent: hazard yellow, always with black on it */
+  /* Page tops (css/compact.css places them): a big condensed title inside the shared cap, the
+     3px rule under it and room for the tape that hangs off that rule */
+  --page-title-size: 40px;
+  --page-title-size-phone: 30px;
+  --page-header-pb: 12px;
+  --page-header-mb: 22px;
+
+  /* A field's edge is full ink, like every other edge here */
+  --field-line: var(--text);
+
+  /* The one accent: hazard yellow, always with black on it. It marks the one current or main
+     thing in a part of the screen (the open page, the main button, the open note, today, the
+     running timer); picked choices get an ink bar under them, done things are solid ink,
+     planned ones a dashed ink outline, a switch that is on a solid ink slab. */
   --bru-hi: #ffe600;
   --bru-on-hi: #000000;
   /* The hard drop: offset, no blur. --bru-drop is the size used by panels. */
@@ -100,7 +113,9 @@
 
   --accent: #ffffff;
   --accent-ink: #000000;
-  --accent-soft: rgba(255, 230, 0, 0.3);
+  /* The features' soft wash (a done set, a drop target, a link under the pointer): a gray tint,
+     not a weak yellow (that went olive on black and spent the yellow on nothing in particular) */
+  --accent-soft: rgba(255, 255, 255, 0.16);
 
   /* Hover/focus "glows" become hard offset drops */
   --glow: 4px 4px 0 var(--text);
@@ -143,9 +158,10 @@
 
   --accent: #000000;
   --accent-ink: #ffffff;
-  --accent-soft: #fff27a;
+  --accent-soft: rgba(0, 0, 0, 0.09);
 
-  --scrim: rgba(255, 230, 0, 0.72);
+  /* Ink, not yellow: a dialog keeps its yellow head as the one bright thing */
+  --scrim: rgba(0, 0, 0, 0.5);
   --hatch: rgba(0, 0, 0, 0.3);
 
   --bru-track: #000000;
@@ -244,9 +260,11 @@
   transition: none;
 }
 
-[data-skin="brutalist"] .nav-item:hover {
-  background: transparent;
-  border-color: var(--text);
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="brutalist"] .nav-item:hover {
+    background: transparent;
+    border-color: var(--text);
+  }
 }
 
 [data-skin="brutalist"] .nav-item[aria-current="page"] {
@@ -282,10 +300,102 @@
   color: var(--bru-hi);
 }
 
+/* "Needs you today" where there is no room for a count (the icon rail, the phone tab bar, More):
+   a square ink stamp beside the icon's top corner, never over its lines */
+[data-skin="brutalist"] .nav-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 0;
+  background: var(--text);
+  box-shadow: 0 0 0 2px var(--bg);
+}
+
+/* Search (⌘K): a field slab under the brand, its words in the menu's heavy caps */
+[data-skin="brutalist"] .sidebar-search {
+  height: 38px;
+  border: 3px solid var(--text);
+  border-radius: 0;
+  background: var(--bg);
+  color: var(--text-2);
+  font-size: var(--fs-xs);
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+[data-skin="brutalist"] .sidebar-search > .icon {
+  color: var(--text);
+}
+
+[data-skin="brutalist"] .sidebar-search-kbd {
+  border-bottom-width: 3px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="brutalist"] .sidebar-search:hover {
+    border-color: var(--text);
+    color: var(--text);
+    box-shadow: 3px 3px 0 var(--text);
+  }
+}
+
 [data-skin="brutalist"] .sidebar-foot {
+  gap: var(--space-2);
+  padding: 10px;
   border: 3px solid var(--text);
   background: var(--bg);
   box-shadow: 4px 4px 0 var(--text);
+}
+
+/* Settings and Appearance: rows in the menu's caps, tight enough that "APPEARANCE" keeps all its
+   letters beside the light/dark square */
+[data-skin="brutalist"] .sidebar-foot .sidebar-link {
+  gap: 6px;
+  padding-inline: 6px;
+  font-size: 11px;
+  letter-spacing: 0.01em;
+}
+
+/* Settings while it's the page open: the menu's yellow block (nothing else in the sidebar says so) */
+[data-skin="brutalist"] .sidebar-foot .settings-btn[aria-current="page"] {
+  border-color: #000000;
+  background: var(--bru-hi);
+  color: var(--bru-on-hi);
+  box-shadow: 3px 3px 0 var(--bru-ink);
+}
+
+[data-skin="brutalist"] .appearance-row {
+  gap: 4px;
+}
+
+[data-skin="brutalist"] .appearance-row .theme-toggle {
+  width: var(--btn-h);
+  padding: 0;
+}
+
+/* A short window (a 13" laptop at 800px): a lower brand, menu rows and gaps, so the menu, Search,
+   Settings, Appearance and the legal links all show without scrolling the sidebar */
+@media (min-width: 901px) and (max-height: 880px) {
+  [data-skin="brutalist"] .sidebar {
+    gap: 14px;
+    padding-block: var(--space-4);
+  }
+
+  [data-skin="brutalist"] .sidebar-search {
+    margin-top: -6px;
+  }
+
+  [data-skin="brutalist"] .nav {
+    gap: 4px;
+  }
+
+  [data-skin="brutalist"] .nav-item {
+    height: 40px;
+  }
+
+  [data-skin="brutalist"] .nav-heading {
+    margin-bottom: 6px;
+  }
 }
 
 [data-skin="brutalist"] .sys-dot {
@@ -302,7 +412,7 @@
   color: var(--text);
 }
 
-/* Topbar */
+/* Topbar (its crumbs stay hidden here, as in shell.css) */
 [data-skin="brutalist"] .topbar {
   background: var(--bg);
   border-bottom: 3px solid var(--text);
@@ -310,17 +420,10 @@
   -webkit-backdrop-filter: none;
 }
 
-[data-skin="brutalist"] .crumbs .crumb-current {
-  color: var(--text);
-}
-
-[data-skin="brutalist"] .crumb-sep {
-  color: var(--text-3);
-}
-
 [data-skin="brutalist"] .clock {
   font-family: var(--font-display);
   font-size: 26px;
+  font-weight: 400;
   line-height: 1;
   letter-spacing: 0.02em;
 }
@@ -342,26 +445,25 @@
   font-weight: 700;
 }
 
-[data-skin="brutalist"] a:not([class]):hover {
-  background: var(--bru-hi);
-  color: var(--bru-on-hi);
+/* Under the pointer a plain link turns to an inverted ink slab (yellow is kept for what is current) */
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="brutalist"] a:not([class]):hover {
+    background: var(--text);
+    color: var(--bg);
+  }
 }
 
-/* Collapsed sidebar (icons only): the count badges become corner stickers, off the icon */
+/* Collapsed sidebar (icons only): the dot sits off the icon's top corner */
 @media (max-width: 900px) {
-  [data-skin="brutalist"] .nav-badge {
-    top: -8px;
-    right: -10px;
-    z-index: 1;
-    min-width: 0;
-    padding: 0 3px;
-    border-width: 2px;
-    font-size: 9px;
-    line-height: 13px;
+  [data-skin="brutalist"] .nav-item .nav-dot {
+    top: 5px;
+    left: calc(50% + 11px);
   }
 
-  [data-skin="brutalist"] .nav-item[aria-current="page"] .nav-badge {
-    border-color: var(--bru-ink);
+  /* The rail's Search square: the rail's width inside its 3px rule (the shared 40px ran 3px past
+     it and gave the rail a sideways scrollbar) */
+  [data-skin="brutalist"] .sidebar-search {
+    width: 100%;
   }
 
   [data-skin="brutalist"] .clock {
@@ -369,7 +471,8 @@
   }
 }
 
-/* Page header: giant condensed title over a 3px rule with a hazard-tape tick */
+/* Page header: a big condensed title over a 3px rule with a hazard-tape tick (in ink: the
+   page's main button is its one yellow) */
 [data-skin="brutalist"] .page-header {
   border-bottom: 3px solid var(--text);
   padding-bottom: var(--space-5);
@@ -381,36 +484,85 @@
   bottom: -9px;
   width: 120px;
   height: 15px;
-  background: repeating-linear-gradient(-45deg, var(--bru-on-hi) 0 7px, var(--bru-hi) 7px 14px);
+  background: repeating-linear-gradient(-45deg, var(--text) 0 6px, var(--bg) 6px 12px);
   border: 3px solid var(--text);
 }
 
-[data-skin="brutalist"] .page-kicker {
-  align-self: flex-start;
-  padding: 3px 8px;
-  background: var(--text);
-  color: var(--bg);
-  font-size: 12px;
-}
-
-[data-skin="brutalist"] .page-kicker .crumb-sep {
-  color: inherit;
-  opacity: 0.6;
-}
-
+/* (a page's own title is sized by --page-title-size in css/compact.css; this is the rest: the
+   Appearance previews, the boot error) */
 [data-skin="brutalist"] .page-title {
   font-weight: 400;
-  font-size: clamp(56px, 7vw, 88px);
+  font-size: 40px;
   line-height: 0.88;
   letter-spacing: 0;
   text-transform: uppercase;
   overflow-wrap: anywhere;
 }
 
+/* The page's icon beside its title: a square ink-framed stamp, not a soft tinted tile */
+[data-skin="brutalist"] .page-title > .page-ib {
+  --ib-c: var(--text);
+  border: 3px solid var(--text);
+  border-radius: 0;
+  background: var(--bg);
+  color: var(--text);
+}
+
+/* The live status on the title row: the menu's heavy caps, its numbers full ink */
+[data-skin="brutalist"] .page-stat {
+  color: var(--text-2);
+  font-size: var(--fs-xs);
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+[data-skin="brutalist"] .page-stat :is(strong, b) {
+  color: var(--text);
+  font-weight: 900;
+}
+
 [data-skin="brutalist"] .page-subtitle {
   color: var(--text-2);
   font-size: var(--fs-md);
   font-weight: 500;
+}
+
+/* Tips (ui.tip): a dashed ink frame; "✓ Got it" a small blunt stamp */
+[data-skin="brutalist"] .tip {
+  border: 3px dashed var(--text);
+  border-radius: 0;
+  background: var(--bg);
+  color: var(--text-2);
+  font-weight: 500;
+}
+
+[data-skin="brutalist"] .tip-icon {
+  color: var(--text);
+}
+
+[data-skin="brutalist"] :is(.tip-ok, .page-tip-ok) {
+  border: 2px solid var(--text);
+  border-radius: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  box-shadow: 2px 2px 0 var(--text);
+}
+
+[data-skin="brutalist"] :is(.tip-ok, .page-tip-ok):active {
+  transform: translate(2px, 2px);
+  box-shadow: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="brutalist"] :is(.tip-ok, .page-tip-ok):hover {
+    border-color: var(--text);
+    background: var(--surface-2);
+  }
 }
 
 /* Install dialog: big blunt step numbers */
@@ -433,10 +585,6 @@
 }
 
 @media (max-width: 640px) {
-  [data-skin="brutalist"] .page-title {
-    font-size: 52px;
-  }
-
   [data-skin="brutalist"] .tabbar {
     background: var(--bg);
     border-top: 3px solid var(--text);
@@ -451,31 +599,21 @@
     font-size: 11px;
   }
 
-  [data-skin="brutalist"] .tab[aria-current="page"] {
+  /* The open page, and More while one of its pages is open: the yellow block */
+  [data-skin="brutalist"] :is(.tab[aria-current="page"], .tab--more.is-current) {
     background: var(--bru-hi);
     color: var(--bru-on-hi);
-    box-shadow: inset 0 0 0 3px var(--text);
+    box-shadow: inset 0 0 0 3px var(--bru-on-hi);
   }
 
-  [data-skin="brutalist"] .tab[aria-current="page"]::before {
+  [data-skin="brutalist"] :is(.tab[aria-current="page"], .tab--more.is-current)::before {
     display: none;
   }
 
-  /* Count stickers beside the icon, not over it */
-  [data-skin="brutalist"] .tab .nav-badge {
+  /* The dot beside the icon's top corner, clear of its lines */
+  [data-skin="brutalist"] .tab .nav-dot {
     top: 7px;
-    right: auto;
-    left: calc(50% + 11px);
-    padding: 0 3px;
-    border-width: 2px;
-    font-size: 9px;
-    line-height: 12px;
-  }
-
-  [data-skin="brutalist"] .tab[aria-current="page"] .nav-badge {
-    background: var(--bru-on-hi);
-    border-color: var(--bru-on-hi);
-    color: var(--bru-hi);
+    left: calc(50% + 12px);
   }
 
   /* The top bar has to hold the LIFE ticker, the clock and three icon buttons in 343px:
@@ -492,6 +630,116 @@
   [data-skin="brutalist"] .topbar-meta {
     gap: var(--space-2);
   }
+
+  /* The page top's main button: smaller caps on a phone, so the title and its status keep their
+     words beside it ("FINANCE" next to ADD SUBSCRIPTION) */
+  [data-skin="brutalist"] .page-header .page-actions .btn {
+    font-size: var(--fs-xs);
+    letter-spacing: 0.01em;
+  }
+
+  /* The status beside a phone's title: in the text's own case (caps are a third wider) */
+  [data-skin="brutalist"] .page-header .page-stat {
+    font-weight: 700;
+    letter-spacing: 0;
+    text-transform: none;
+  }
+}
+
+/* More (the phone tab bar's last tab): the other pages as ink-framed tiles on a drop (the open one
+   is the yellow block), then the rows ruled in ink, their names in the menu's caps */
+[data-skin="brutalist"] .more-page {
+  border: 3px solid var(--text);
+  background: var(--bg);
+  box-shadow: 4px 4px 0 var(--text);
+  font-weight: 800;
+  font-size: var(--fs-xs);
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+[data-skin="brutalist"] .more-page:active {
+  transform: translate(4px, 4px);
+  box-shadow: none;
+}
+
+[data-skin="brutalist"] .more-page[aria-current="page"] {
+  border-color: #000000;
+  background: var(--bru-hi);
+  box-shadow: 4px 4px 0 var(--bru-ink);
+  font-weight: 900;
+}
+
+[data-skin="brutalist"] .more-page.is-soon {
+  border-style: dashed;
+  box-shadow: none;
+  color: var(--text-2);
+}
+
+/* Its "Idea" stamp: a small tab tucked into the tile's corner (in the shared corner spot, at this
+   template's wide caps, it lay over the heart icon) */
+[data-skin="brutalist"] .more-page .nav-soon {
+  top: 0;
+  right: 0;
+  padding: 0 4px;
+  border-width: 0 0 2px 2px;
+  border-style: dashed;
+  border-color: var(--text-2);
+  font-size: 10px;
+  letter-spacing: 0.02em;
+  line-height: 14px;
+}
+
+[data-skin="brutalist"] .more-list,
+[data-skin="brutalist"] .more-tabs {
+  border-top: 3px solid var(--text);
+}
+
+[data-skin="brutalist"] .more-row,
+[data-skin="brutalist"] .more-tab {
+  border-bottom: 2px solid var(--text);
+}
+
+[data-skin="brutalist"] .more-row-label,
+[data-skin="brutalist"] .more-tab-label {
+  font-size: var(--fs-sm);
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+[data-skin="brutalist"] .more-row-icon {
+  color: var(--text);
+}
+
+/* Settings while it's the page open: the same yellow as an open page's tile */
+[data-skin="brutalist"] .more-row[aria-current="page"] {
+  background: var(--bru-hi);
+  box-shadow: inset 0 0 0 3px #000000;
+}
+
+[data-skin="brutalist"] .more-row-hint {
+  color: var(--text-2);
+}
+
+[data-skin="brutalist"] .more-tab.is-full .more-tab-label {
+  color: var(--text-2);
+}
+
+/* The tab's place in the bar: an ink stamp */
+[data-skin="brutalist"] .more-tab-pos:not(:empty) {
+  min-width: 22px;
+  padding: 1px 4px;
+  background: var(--text);
+  color: var(--bg);
+  font-weight: 700;
+  text-align: center;
+}
+
+[data-skin="brutalist"] .more-tabs-lead,
+[data-skin="brutalist"] .more-tabs-note {
+  color: var(--text-2);
+  font-weight: 500;
 }
 
 /* ==========================================================================
@@ -521,10 +769,13 @@
   transition: transform 60ms linear, box-shadow 60ms linear, background 60ms linear, color 60ms linear;
 }
 
-[data-skin="brutalist"] .btn:hover {
-  background: var(--bru-hi);
-  border-color: var(--text);
-  color: var(--bru-on-hi);
+/* Under the pointer a button lifts off its drop; only the main button is yellow */
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="brutalist"] .btn:hover {
+    background: var(--surface-2);
+    border-color: var(--text);
+    color: var(--text);
+  }
 }
 
 [data-skin="brutalist"] .btn:active {
@@ -538,12 +789,14 @@
   color: var(--bru-on-hi);
 }
 
-[data-skin="brutalist"] .btn--primary:hover {
-  background: var(--bru-hi);
-  border-color: var(--text);
-  color: var(--bru-on-hi);
-  transform: translate(-2px, -2px);
-  box-shadow: calc(var(--bru-press) + 2px) calc(var(--bru-press) + 2px) 0 var(--text);
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="brutalist"] .btn--primary:hover {
+    background: var(--bru-hi);
+    border-color: var(--text);
+    color: var(--bru-on-hi);
+    transform: translate(-2px, -2px);
+    box-shadow: calc(var(--bru-press) + 2px) calc(var(--bru-press) + 2px) 0 var(--text);
+  }
 }
 
 [data-skin="brutalist"] .btn--primary:active {
@@ -558,10 +811,12 @@
   box-shadow: none;
 }
 
-[data-skin="brutalist"] .btn--ghost:hover {
-  background: var(--bru-hi);
-  border-color: var(--text);
-  color: var(--bru-on-hi);
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="brutalist"] .btn--ghost:hover {
+    background: var(--surface-2);
+    border-color: var(--text);
+    color: var(--text);
+  }
 }
 
 [data-skin="brutalist"] .btn--ghost:active {
@@ -574,10 +829,12 @@
   color: var(--text);
 }
 
-[data-skin="brutalist"] .btn--danger:hover {
-  background: var(--text);
-  border-color: var(--text);
-  color: var(--bg);
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="brutalist"] .btn--danger:hover {
+    background: var(--text);
+    border-color: var(--text);
+    color: var(--bg);
+  }
 }
 
 [data-skin="brutalist"] .btn--sm {
@@ -595,6 +852,32 @@
   box-shadow: none;
 }
 
+/* A danger confirmation (Delete, Discard, Clear): a solid ink slab on its drop (compact.css fills
+   it with --alert, which is ink here: no red in this template). `.btn.btn` outranks compact.css's
+   html[data-skin] rule. */
+[data-skin="brutalist"] .btn.btn.btn--danger.btn--danger-fill {
+  border-color: var(--text);
+  background: var(--text);
+  color: var(--bg);
+  font-weight: 800;
+  /* its drop drawn as an outlined block (an ink drop would melt into the ink slab) */
+  box-shadow: var(--bru-press) var(--bru-press) 0 var(--bg), var(--bru-press) var(--bru-press) 0 2px var(--text);
+}
+
+[data-skin="brutalist"] .btn.btn.btn--danger.btn--danger-fill:active {
+  box-shadow: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="brutalist"] .btn.btn.btn--danger.btn--danger-fill:hover {
+    border-color: var(--text);
+    background: var(--text);
+    color: var(--bg);
+    transform: translate(-2px, -2px);
+    box-shadow: calc(var(--bru-press) + 2px) calc(var(--bru-press) + 2px) 0 var(--bg), calc(var(--bru-press) + 2px) calc(var(--bru-press) + 2px) 0 2px var(--text);
+  }
+}
+
 /* Fields */
 [data-skin="brutalist"] .input,
 [data-skin="brutalist"] .textarea,
@@ -608,15 +891,19 @@
   font-weight: 500;
 }
 
+/* A placeholder is lighter and thinner than a typed value, so an example never reads as filled in */
 [data-skin="brutalist"] .input::placeholder,
 [data-skin="brutalist"] .textarea::placeholder {
-  color: var(--text-3);
+  color: var(--text-4);
+  font-weight: 400;
 }
 
-[data-skin="brutalist"] .input:hover,
-[data-skin="brutalist"] .textarea:hover,
-[data-skin="brutalist"] .select:hover {
-  border-color: var(--text);
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="brutalist"] .input:hover,
+  [data-skin="brutalist"] .textarea:hover,
+  [data-skin="brutalist"] .select:hover {
+    border-color: var(--text);
+  }
 }
 
 [data-skin="brutalist"] .input:focus,
@@ -659,12 +946,13 @@
   color: var(--text);
 }
 
-/* Checkbox: a heavy square that fills yellow with a fat black tick */
+/* Checkbox: a heavy square; ticked, a solid ink block with a fat paper tick (done is solid ink
+   everywhere in this template: tasks, habits, sets, steps) */
 [data-skin="brutalist"] .check {
   --size: 22px;
   border: 3px solid var(--text);
   background: var(--bg);
-  color: var(--bru-on-hi);
+  color: var(--bg);
 }
 
 [data-skin="brutalist"] .check svg {
@@ -676,15 +964,18 @@
   transform: scale(0.4);
 }
 
-[data-skin="brutalist"] .check:hover {
-  border-color: var(--text);
-  box-shadow: 3px 3px 0 var(--text);
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="brutalist"] .check:hover {
+    border-color: var(--text);
+    box-shadow: 3px 3px 0 var(--text);
+  }
 }
 
 [data-skin="brutalist"] .check[aria-checked="true"],
 [data-skin="brutalist"] .check.is-checked {
-  background: var(--bru-hi);
+  background: var(--text);
   border-color: var(--text);
+  color: var(--bg);
 }
 
 [data-skin="brutalist"] .check[aria-checked="true"] svg,
@@ -717,24 +1008,23 @@
   border-left: 3px solid var(--text);
 }
 
-[data-skin="brutalist"] .seg-btn:hover {
-  color: var(--text);
-  text-decoration: underline;
-  text-decoration-thickness: 2px;
-  text-underline-offset: 3px;
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="brutalist"] .seg-btn:hover {
+    background: var(--surface-2);
+    color: var(--text);
+  }
 }
 
+/* The picked cell: a fat ink bar under its words, the words in the heaviest cut. The same bar
+   marks every picked choice in this template (filters, views, tabs, chips, toggles), light and
+   dark alike; yellow stays for the one current thing. */
 [data-skin="brutalist"] .seg-btn[aria-pressed="true"],
 [data-skin="brutalist"] .seg-btn[aria-selected="true"] {
-  background: var(--bru-hi);
-  color: var(--bru-on-hi);
+  background: var(--bg);
+  color: var(--text);
+  font-weight: 900;
   text-decoration: none;
-}
-
-/* On white paper the yellow cell alone is 1.3:1, too faint to say which is picked (WCAG 1.4.11 /
-   1.4.1): it stands on a thick ink bar (at night the yellow on black says it, 15:1) */
-[data-skin="brutalist"][data-theme="light"] :is(.seg-btn[aria-pressed="true"], .seg-btn[aria-selected="true"], .cal-ed-seg-opt.is-on) {
-  box-shadow: inset 0 -4px 0 var(--text);
+  box-shadow: inset 0 -5px 0 var(--text);
 }
 
 /* A segmented control in a form field keeps its own width (stretched, its slab shows an empty tail) */
@@ -771,7 +1061,7 @@
   border-style: dashed;
 }
 
-/* Progress: an outlined bar that fills yellow */
+/* Progress: an outlined bar that fills with ink (what is done is ink) */
 [data-skin="brutalist"] .progress {
   height: 14px;
   border: 2px solid var(--text);
@@ -779,8 +1069,8 @@
 }
 
 [data-skin="brutalist"] .progress-fill {
-  background: var(--bru-hi);
-  box-shadow: 2px 0 0 var(--text);
+  background: var(--text);
+  box-shadow: none;
 }
 
 [data-skin="brutalist"] .meter {
@@ -820,9 +1110,11 @@
   line-height: 1;
 }
 
-/* Empty state */
+/* Empty state (ui.emptyState, the one pattern on every page): a dashed ink frame, the icon an
+   ink-framed stamp on its drop; its one action is the yellow */
 [data-skin="brutalist"] .empty {
   border: 3px dashed var(--text);
+  border-radius: 0;
   background: var(--bg);
   color: var(--text-2);
 }
@@ -831,8 +1123,9 @@
   width: 52px;
   height: 52px;
   border: 3px solid var(--text);
-  background: var(--bru-hi);
-  color: var(--bru-on-hi);
+  border-radius: 0;
+  background: var(--bg);
+  color: var(--text);
   box-shadow: 4px 4px 0 var(--text);
 }
 
@@ -849,6 +1142,48 @@
   color: var(--text-2);
 }
 
+/* Color swatches (Color coding in a task, an event, a menu; the Colors row in Settings): square
+   chips in an ink frame; the picked one stands on a hard drop */
+[data-skin="brutalist"] :is(.cc-swatch, .pal-swatch, .cc-dot, .cc-btn-dot),
+[data-skin="brutalist"] .pal-swatch::-webkit-color-swatch {
+  border-radius: 0;
+}
+
+/* The color button's own chip (a note's or event's color): square, "none" a dashed ink square */
+[data-skin="brutalist"] .cc-btn-dot.is-none {
+  border: 2px dashed var(--text-2);
+}
+
+[data-skin="brutalist"] .cc-swatch,
+[data-skin="brutalist"] .cc-swatch:not(.cc-swatch--none),
+[data-skin="brutalist"][data-theme="light"] .cc-swatch:not(.cc-swatch--none) {
+  border: 2px solid var(--text);
+}
+
+[data-skin="brutalist"] .cc-swatch--none {
+  border-style: dashed;
+}
+
+[data-skin="brutalist"] .cc-swatch[aria-checked="true"] {
+  box-shadow: 3px 3px 0 var(--text);
+  transform: translate(-1px, -1px);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="brutalist"] .cc-swatch:hover {
+    transform: translate(-1px, -1px);
+    box-shadow: 3px 3px 0 var(--text);
+  }
+}
+
+[data-skin="brutalist"] .pal-swatch {
+  border: 3px solid var(--text);
+}
+
+[data-skin="brutalist"] .pal-slot.is-custom .pal-swatch {
+  box-shadow: 3px 3px 0 var(--text);
+}
+
 /* Keys */
 [data-skin="brutalist"] .kbd {
   min-width: 20px;
@@ -860,17 +1195,12 @@
   font-weight: 700;
 }
 
-[data-skin="brutalist"] .divider::after {
-  height: 3px;
-  background: var(--text);
-}
-
-/* Toasts: inverted slab on a yellow drop */
+/* Toasts: an inverted slab on an outlined paper drop; its one action (Undo) is the yellow */
 [data-skin="brutalist"] .toast {
   border: 3px solid var(--text);
   background: var(--text);
   color: var(--bg);
-  box-shadow: 6px 6px 0 var(--bru-hi), 6px 6px 0 3px var(--bg);
+  box-shadow: 6px 6px 0 var(--bg), 6px 6px 0 3px var(--text);
   font-weight: 700;
 }
 
@@ -884,10 +1214,12 @@
   font-size: 12px;
 }
 
-[data-skin="brutalist"] .toast-action:hover {
-  background: var(--bg);
-  border-color: var(--bg);
-  color: var(--text);
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="brutalist"] .toast-action:hover {
+    background: var(--bg);
+    border-color: var(--bg);
+    color: var(--text);
+  }
 }
 
 /* Context menu (right-click): an ink-bordered slab on a hard drop, condensed caps, the lit item
@@ -922,20 +1254,42 @@
   color: var(--text);
 }
 
-[data-skin="brutalist"] .ctx-item:not([aria-disabled="true"]):is(:hover, :focus) {
+[data-skin="brutalist"] .ctx-item:not([aria-disabled="true"]):focus {
   background: var(--bru-hi);
   color: var(--bru-on-hi);
   box-shadow: none;
 }
 
-[data-skin="brutalist"] .ctx-item:not([aria-disabled="true"]):is(:hover, :focus) .ctx-icon {
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="brutalist"] .ctx-item:not([aria-disabled="true"]):hover {
+    background: var(--bru-hi);
+    color: var(--bru-on-hi);
+    box-shadow: none;
+  }
+}
+
+[data-skin="brutalist"] .ctx-item:not([aria-disabled="true"]):focus .ctx-icon {
   color: var(--bru-on-hi);
 }
 
-[data-skin="brutalist"] .ctx-item:not([aria-disabled="true"]):is(:hover, :focus) .ctx-kbd {
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="brutalist"] .ctx-item:not([aria-disabled="true"]):hover .ctx-icon {
+    color: var(--bru-on-hi);
+  }
+}
+
+[data-skin="brutalist"] .ctx-item:not([aria-disabled="true"]):focus .ctx-kbd {
   border-color: var(--bru-on-hi);
   background: var(--bru-hi);
   color: var(--bru-on-hi);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="brutalist"] .ctx-item:not([aria-disabled="true"]):hover .ctx-kbd {
+    border-color: var(--bru-on-hi);
+    background: var(--bru-hi);
+    color: var(--bru-on-hi);
+  }
 }
 
 /* (as strong as the lit rule above: weaker, its "no shadow" won, and on white paper the yellow
@@ -951,6 +1305,130 @@
 
 [data-skin="brutalist"] .ctx-item[aria-disabled="true"] .ctx-label {
   text-decoration: line-through 2px;
+}
+
+/* Between the groups (the page's own actions · edit · copy · Delete): a fat ink bar */
+[data-skin="brutalist"] .ctx-sep {
+  height: 5px;
+  margin: 0;
+  background: var(--text);
+}
+
+[data-skin="brutalist"] .ctx-sub-mark {
+  color: var(--text);
+}
+
+/* The item whose submenu is showing: a gray slab with an ink bar on the side the submenu opens */
+[data-skin="brutalist"] .ctx-menu .ctx-item.is-open {
+  background: var(--surface-2);
+  color: var(--text);
+  box-shadow: inset -6px 0 0 var(--text);
+}
+
+[data-skin="brutalist"] .ctx-menu.is-flip-x .ctx-item.is-open {
+  box-shadow: inset 6px 0 0 var(--text);
+}
+
+[data-skin="brutalist"] .ctx-item.is-checked .ctx-icon {
+  color: var(--text);
+}
+
+/* Delete, alone at the end: lit, an inverted ink slab (the base's --alert is the ink itself
+   here, which on the yellow slab vanished at night) */
+[data-skin="brutalist"] .ctx-menu .ctx-item.ctx-item--delete:not([aria-disabled="true"]):focus,
+[data-skin="brutalist"] .ctx-menu .ctx-item.ctx-item--delete:not([aria-disabled="true"]):focus .ctx-icon {
+  background: var(--text);
+  color: var(--bg);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="brutalist"] .ctx-menu .ctx-item.ctx-item--delete:not([aria-disabled="true"]):hover,
+  [data-skin="brutalist"] .ctx-menu .ctx-item.ctx-item--delete:not([aria-disabled="true"]):hover .ctx-icon {
+    background: var(--text);
+    color: var(--bg);
+  }
+}
+
+[data-skin="brutalist"] .ctx-menu .ctx-item.ctx-item--delete:not([aria-disabled="true"]):focus-visible {
+  box-shadow: inset 0 0 0 3px var(--bg), inset 0 0 0 5px var(--text);
+}
+
+/* …and its key stamp inverted with it (the lit items' yellow stamp sat inside the ink slab) */
+[data-skin="brutalist"] .ctx-menu .ctx-item.ctx-item--delete:not([aria-disabled="true"]):focus .ctx-kbd {
+  border-color: var(--bg);
+  background: var(--text);
+  color: var(--bg);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="brutalist"] .ctx-menu .ctx-item.ctx-item--delete:not([aria-disabled="true"]):hover .ctx-kbd {
+    border-color: var(--bg);
+    background: var(--text);
+    color: var(--bg);
+  }
+}
+
+/* Dropdown menus (ui.dropdown): the same slab as the right-click menu, in the text face */
+[data-skin="brutalist"] .dd-menu {
+  gap: 0;
+  padding: 0;
+  border: 3px solid var(--text);
+  border-radius: 0;
+  background: var(--bg);
+  box-shadow: 6px 6px 0 var(--text);
+}
+
+[data-skin="brutalist"] .dd-item {
+  border-radius: 0;
+  font-weight: 600;
+}
+
+[data-skin="brutalist"] .dd-item + .dd-item {
+  border-top: 2px solid var(--text);
+}
+
+[data-skin="brutalist"] .dd-sep {
+  height: 5px;
+  margin: 0;
+  background: var(--text);
+}
+
+[data-skin="brutalist"] .dd-sep + .dd-item {
+  border-top: 0;
+}
+
+/* The picked choice: the heaviest cut beside its tick */
+[data-skin="brutalist"] .dd-item[aria-checked="true"] {
+  font-weight: 900;
+}
+
+/* The lit item (arrow keys or the pointer): the menu's one yellow */
+[data-skin="brutalist"] .dd-item:focus-visible {
+  background: var(--bru-hi);
+  color: var(--bru-on-hi);
+  box-shadow: inset 0 0 0 3px var(--bru-on-hi);
+}
+
+[data-skin="brutalist"] .dd-item:focus-visible :is(.dd-mark, .dd-hint, .icon) {
+  color: var(--bru-on-hi);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="brutalist"] .dd-item:not(:disabled):hover {
+    background: var(--bru-hi);
+    color: var(--bru-on-hi);
+  }
+
+  [data-skin="brutalist"] .dd-item:not(:disabled):hover :is(.dd-mark, .dd-hint, .icon) {
+    color: var(--bru-on-hi);
+  }
+}
+
+[data-skin="brutalist"] .dd-count {
+  border-radius: 0;
+  background: var(--text);
+  color: var(--bg);
+  font-weight: 700;
 }
 
 /* Modal: a slab with a yellow title bar */
@@ -975,10 +1453,12 @@
   color: var(--bru-on-hi);
 }
 
-[data-skin="brutalist"] .modal-head .btn--ghost:hover {
-  background: var(--bru-on-hi);
-  border-color: var(--bru-on-hi);
-  color: var(--bru-hi);
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="brutalist"] .modal-head .btn--ghost:hover {
+    background: var(--bru-on-hi);
+    border-color: var(--bru-on-hi);
+    color: var(--bru-hi);
+  }
 }
 
 [data-skin="brutalist"] .modal-title {
@@ -993,6 +1473,105 @@
   border-top: 3px solid var(--text);
 }
 
+/* Phones: every dialog is a sheet from the bottom, the screen's width. The offset drop would only
+   run off the screen as a band: the sheet stands on its 3px top rule, the yellow head under it.
+   Search comes down from the top: its rule is at the bottom. */
+@media (max-width: 640px) {
+  [data-skin="brutalist"] .modal-root > .modal {
+    border-width: 3px 0 0;
+    box-shadow: none;
+  }
+
+  [data-skin="brutalist"] .modal-root.cmd-root > .modal.cmd-modal {
+    border-width: 0 0 3px;
+    box-shadow: none;
+  }
+}
+
+/* Search (⌘K): the field is the head (no yellow bar here: the lit row is the one yellow), a 3px
+   rule under it; groups open with ink caps; the lit row is a yellow slab with an ink edge */
+[data-skin="brutalist"] .cmd-field {
+  border-bottom: 3px solid var(--text);
+  color: var(--text);
+}
+
+[data-skin="brutalist"] .cmd-input {
+  font-weight: 700;
+  caret-color: var(--text);
+}
+
+[data-skin="brutalist"] .cmd-input::placeholder {
+  color: var(--text-3);
+  font-weight: 500;
+}
+
+[data-skin="brutalist"] .cmd-group {
+  color: var(--text);
+  font-weight: 900;
+}
+
+[data-skin="brutalist"] .cmd-item {
+  border-radius: 0;
+}
+
+[data-skin="brutalist"] .cmd-item[aria-selected="true"] {
+  background: var(--bru-hi);
+  box-shadow: inset 0 0 0 3px #000000;
+}
+
+[data-skin="brutalist"] .cmd-item[aria-selected="true"] :is(.cmd-meta, .cmd-enter) {
+  color: #000000;
+}
+
+/* The letters that matched: an ink bar under them, the heaviest cut */
+[data-skin="brutalist"] .cmd-hit {
+  font-weight: 900;
+  text-decoration-thickness: 3px;
+  text-underline-offset: 3px;
+}
+
+[data-skin="brutalist"] .cmd-title {
+  font-weight: 600;
+}
+
+[data-skin="brutalist"] .cmd-meta {
+  color: var(--text-2);
+}
+
+[data-skin="brutalist"] .cmd-foot {
+  border-top: 3px solid var(--text);
+  color: var(--text-2);
+}
+
+[data-skin="brutalist"] .cmd-none {
+  font-weight: 700;
+}
+
+/* The shortcuts sheet: pages as ruled sections, their names in the menu's caps */
+[data-skin="brutalist"] .cmd-keys-head {
+  font-weight: 900;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+[data-skin="brutalist"] .cmd-keys-page {
+  border-top: 3px solid var(--text);
+}
+
+[data-skin="brutalist"] .cmd-keys-page > summary::before {
+  border-right-width: 3px;
+  border-bottom-width: 3px;
+}
+
+[data-skin="brutalist"] .cmd-keys-here {
+  color: var(--text-2);
+  font-weight: 700;
+}
+
+[data-skin="brutalist"] .cmd-keys-text {
+  color: var(--text-2);
+}
+
 /* ==========================================================================
    Appearance picker (page) and the preview card (shadow root)
    ========================================================================== */
@@ -1003,9 +1582,11 @@
   transition: none;
 }
 
-[data-skin="brutalist"] .skin-card:hover {
-  border-color: var(--text);
-  background: var(--surface-2);
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="brutalist"] .skin-card:hover {
+    border-color: var(--text);
+    background: var(--surface-2);
+  }
 }
 
 [data-skin="brutalist"] .skin-card[aria-checked="true"] {
@@ -1063,80 +1644,6 @@
    Tasks
    ========================================================================== */
 
-/* Overdue stat: the one yellow warning block on the page */
-[data-skin="brutalist"] .tk-stat.is-alert {
-  background: var(--bru-hi);
-  border-color: var(--text);
-  color: var(--bru-on-hi);
-}
-
-[data-skin="brutalist"] .tk-stat.is-alert .tk-stat-idx,
-[data-skin="brutalist"] .tk-stat.is-alert .label,
-[data-skin="brutalist"] .tk-stat.is-alert .tk-stat-sub {
-  color: var(--bru-on-hi);
-}
-
-[data-skin="brutalist"] .tk-stat::after {
-  width: 8px;
-  height: 8px;
-  background: var(--text-4);
-}
-
-[data-skin="brutalist"] .tk-stat.is-alert::after {
-  box-shadow: none;
-  background: var(--bru-on-hi);
-  animation: brutalist-blink 1s steps(1) infinite;
-}
-
-[data-skin="brutalist"] button.tk-stat:hover {
-  background: var(--surface-2);
-  border-color: var(--text);
-}
-
-[data-skin="brutalist"] button.tk-stat.is-alert:hover {
-  background: var(--bru-hi);
-}
-
-[data-skin="brutalist"] button.tk-stat:active {
-  transform: translate(var(--bru-drop), var(--bru-drop));
-  box-shadow: none;
-}
-
-[data-skin="brutalist"] .tk-stat-sub {
-  color: var(--text-2);
-}
-
-[data-skin="brutalist"] .tk-stat.is-zero .tk-stat-value {
-  color: var(--text-3);
-}
-
-[data-skin="brutalist"] .tk-stat--progress.is-complete {
-  border-color: var(--text);
-  box-shadow: var(--shadow-hard);
-  background: var(--bru-hi);
-  color: var(--bru-on-hi);
-}
-
-[data-skin="brutalist"] .tk-stat--progress.is-complete .label,
-[data-skin="brutalist"] .tk-stat--progress.is-complete .tk-prog-ratio,
-[data-skin="brutalist"] .tk-stat--progress.is-complete .tk-overall-pct {
-  color: var(--bru-on-hi);
-}
-
-[data-skin="brutalist"] .tk-prog-ratio,
-[data-skin="brutalist"] .tk-overall-pct {
-  font-weight: 700;
-  color: var(--text);
-}
-
-[data-skin="brutalist"] .tk-progress {
-  height: 16px;
-}
-
-[data-skin="brutalist"] .tk-meter .meter-tick {
-  height: 8px;
-}
-
 /* Command bar */
 [data-skin="brutalist"] .tk-command:focus-within {
   border-color: var(--text);
@@ -1154,6 +1661,7 @@
 [data-skin="brutalist"] .tk-prompt {
   font-family: var(--font-display);
   font-size: 30px;
+  font-weight: 400;
   margin-top: 0;
   color: var(--text);
 }
@@ -1186,15 +1694,18 @@
   opacity: 1;
 }
 
+/* What the add box understood (!h, #section, a date): ink stamps */
 [data-skin="brutalist"] .tk-token {
   border-color: var(--text);
-  background: var(--bru-hi);
-  color: var(--bru-on-hi);
+  background: var(--text);
+  color: var(--bg);
 }
 
-[data-skin="brutalist"] .tk-token:hover {
-  background: var(--bg);
-  color: var(--text);
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="brutalist"] .tk-token:hover {
+    background: var(--bg);
+    color: var(--text);
+  }
 }
 
 /* Rows */
@@ -1206,17 +1717,31 @@
   border-top-color: transparent;
 }
 
-[data-skin="brutalist"] .tk-row:hover,
 [data-skin="brutalist"] .tk-row.is-editing {
   background: var(--surface-2);
 }
 
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="brutalist"] .tk-row:hover {
+    background: var(--surface-2);
+  }
+}
+
+/* (the ring is the inset frame alone: the template's thick outline came back on top of it, 2px out
+   over the rows around it, because tasks.css's "outline: none" is no stronger than the ring rule) */
 [data-skin="brutalist"] .tk-row:focus-visible {
+  outline: none;
   background: var(--surface-2);
   box-shadow: inset 0 0 0 3px var(--text);
 }
 
-/* Priority: a fat bar beside the title (high: yellow block, med: ink, low: ink dashes) */
+/* The details dialog focuses its body first (so a screen reader starts at the top): no ring around
+   the whole form */
+[data-skin="brutalist"] .tk-detail:focus-visible {
+  outline: none;
+}
+
+/* Priority: a fat ink bar beside the title (high: solid, med: dashes, low: a thin dashed rule) */
 [data-skin="brutalist"] .tk-row::before {
   top: 0;
   bottom: 0;
@@ -1226,16 +1751,16 @@
 }
 
 [data-skin="brutalist"] .tk-row[data-priority="high"]::before {
-  background: var(--bru-hi);
-  box-shadow: inset -2px 0 0 var(--text);
-}
-
-[data-skin="brutalist"] .tk-row[data-priority="med"]::before {
   background: var(--text);
 }
 
+[data-skin="brutalist"] .tk-row[data-priority="med"]::before {
+  background: repeating-linear-gradient(180deg, var(--text) 0 5px, transparent 5px 8px);
+}
+
 [data-skin="brutalist"] .tk-row[data-priority="low"]::before {
-  background: repeating-linear-gradient(180deg, var(--text) 0 4px, transparent 4px 7px);
+  width: 3px;
+  background: repeating-linear-gradient(180deg, var(--text) 0 3px, transparent 3px 7px);
 }
 
 /* No light sweep: a done row just gets struck through */
@@ -1243,35 +1768,15 @@
   display: none;
 }
 
-[data-skin="brutalist"] .tk-idx {
-  font-family: var(--font-mono);
-  font-weight: 700;
-  color: var(--text-3);
-}
-
-[data-skin="brutalist"] .tk-row:hover .tk-idx,
-[data-skin="brutalist"] .tk-row:focus-visible .tk-idx {
+/* Late: the grip column is ink hazard tape */
+[data-skin="brutalist"] .tk-row.is-overdue .tk-grip {
+  background: repeating-linear-gradient(-45deg, var(--text) 0 4px, transparent 4px 9px);
   color: var(--text);
 }
 
-[data-skin="brutalist"] .tk-row.is-overdue .tk-grip {
-  background: repeating-linear-gradient(-45deg, var(--bru-hi) 0 5px, var(--bru-on-hi) 5px 10px);
-  color: var(--bru-on-hi);
-}
-
-/* The grip itself on a yellow label: black on the black stripes was invisible (WCAG 1.4.11) */
+/* The grip itself on a paper label: ink on the ink stripes would vanish (WCAG 1.4.11) */
 [data-skin="brutalist"] .tk-row.is-overdue .tk-grip-icon {
-  background: var(--bru-hi);
-}
-
-[data-skin="brutalist"] .tk-row.is-overdue .tk-idx {
-  padding: 0 2px;
-  background: var(--bru-hi);
-  color: var(--bru-on-hi);
-}
-
-[data-skin="brutalist"] .tk-check::before {
-  border: 3px solid var(--text);
+  background: var(--bg);
 }
 
 [data-skin="brutalist"] .tk-title-line {
@@ -1310,9 +1815,10 @@
   font-weight: 900;
 }
 
-/* The overdue alert icon is the blinking yellow light */
+/* The overdue alert icon blinks in the stamp's own paper (yellow stays for what is current; on the
+   white stamp at night a yellow icon was 1.1:1, gone) */
 [data-skin="brutalist"] .tk-due-tag--overdue .tk-chip-icon {
-  color: var(--bru-hi);
+  color: var(--bg);
   animation: brutalist-blink 1s steps(1) infinite;
 }
 
@@ -1355,9 +1861,11 @@
   color: var(--text);
 }
 
-[data-skin="brutalist"] .tk-done-toggle:hover {
-  background: var(--bru-hi);
-  color: var(--bru-on-hi);
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="brutalist"] .tk-done-toggle:hover {
+    background: var(--surface-2);
+    color: var(--text);
+  }
 }
 
 [data-skin="brutalist"] .tk-done-count {
@@ -1385,23 +1893,144 @@
   font-weight: 700;
 }
 
+/* Smart order: each group opens with an ink stamp (Overdue · Today · Upcoming · No date) on a
+   3px rule; the count beside it in mono */
+[data-skin="brutalist"] .tk-group + .tk-group {
+  border-top: 3px solid var(--text);
+}
+
+[data-skin="brutalist"] .tk-group-head {
+  gap: 8px;
+  padding: var(--space-3) var(--space-3) var(--space-2);
+  color: var(--text);
+  font-size: var(--fs-xs);
+  font-weight: 900;
+}
+
+[data-skin="brutalist"] .tk-group-head > span:not(.tk-group-count) {
+  padding: 2px 6px;
+  background: var(--text);
+  color: var(--bg);
+}
+
+[data-skin="brutalist"] .tk-group-icon {
+  color: var(--text);
+}
+
+[data-skin="brutalist"] .tk-group-count {
+  color: var(--text-2);
+  font-family: var(--font-mono);
+  font-weight: 700;
+}
+
+/* Under a heading the first row needs no rule: the stamp is the rule */
+[data-skin="brutalist"] .tk-group .tk-row:first-child {
+  border-top-color: transparent;
+}
+
+/* The header's status ("3 today · 2 overdue · 17% done"): the overdue count an ink stamp */
+[data-skin="brutalist"] .tk-sum-n {
+  font-weight: 900;
+  color: var(--text);
+}
+
+[data-skin="brutalist"] .tk-sum--overdue .tk-sum-n {
+  padding: 0 4px;
+  background: var(--text);
+  color: var(--bg);
+}
+
+/* The details dialog: hints are sentences, in the text face, not shouted captions */
+[data-skin="brutalist"] .tk-field-hint {
+  color: var(--text-2);
+  font-family: var(--font-sans);
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+[data-skin="brutalist"] .tk-more-sum {
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+/* Links in a task's notes (the row, the details dialog): the template's link, a fat full-ink
+   underline in the heavy cut; under the pointer an inverted ink slab */
+[data-skin="brutalist"] .tk-link {
+  text-decoration-color: currentColor;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
+  font-weight: 700;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="brutalist"] .tk-link:hover {
+    background: var(--text);
+    color: var(--bg);
+    text-decoration-color: var(--bg);
+  }
+}
+
+/* The task whose page is open: the open note's yellow block (its inks re-pointed in "Yellow
+   blocks"), not the gray a row under the pointer gets */
+[data-skin="brutalist"] .tk-root .tk-row.is-open {
+  background: var(--bru-hi);
+}
+
+[data-skin="brutalist"] .tk-row.is-open:not(:focus-visible) {
+  box-shadow: none;
+}
+
+/* A task's page (the panel from the right): a note's page in this template. The title is the
+   note title's heavy grotesk (Anton has one weight: the shared 600 made a fake bold of it), 3px
+   ink under its bar, the fat bar under its tools, the hint at its foot a sentence */
+[data-skin="brutalist"] .tk-page-head {
+  border-bottom: 3px solid var(--text);
+}
+
+/* Inside the yellow open row, a focused check or button gets a black ring (white on yellow was
+   1.27:1 at night); the row's own ring is drawn on the page, so it keeps the usual color */
+[data-skin="brutalist"] .tk-row.is-open > * {
+  --line-focus: #000000;
+}
+
+[data-skin="brutalist"] .tk-page-title {
+  font-family: var(--font-sans);
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+
+[data-skin="brutalist"] .tk-page-tools {
+  border-bottom: 2px solid var(--text);
+}
+
+[data-skin="brutalist"] .tk-page-meta:focus-visible {
+  box-shadow: inset 0 0 0 3px var(--line-focus);
+}
+
+[data-skin="brutalist"] .tk-page-view:focus-visible {
+  box-shadow: 0 0 0 3px var(--line-focus);
+}
+
+/* A picture dragged over the page: the 3px dashed hole every drop target here gets */
+[data-skin="brutalist"] .tk-page.is-drop .tk-page-scroll {
+  outline: 3px dashed var(--text);
+}
+
+[data-skin="brutalist"] .tk-page-foot {
+  font-family: var(--font-sans);
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
 /* ==========================================================================
    Notes
    ========================================================================== */
-
-[data-skin="brutalist"] .nt-stats {
-  border: 3px solid var(--text);
-  background: var(--bg);
-  box-shadow: 4px 4px 0 var(--text);
-}
-
-[data-skin="brutalist"] .nt-stat + .nt-stat {
-  border-left: 3px solid var(--text);
-}
-
-[data-skin="brutalist"] .nt-stat .stat-value {
-  font-size: 34px;
-}
 
 [data-skin="brutalist"] .nt-list-head,
 [data-skin="brutalist"] .nt-list-meta,
@@ -1433,9 +2062,11 @@
   border: 3px solid transparent;
 }
 
-[data-skin="brutalist"] .nt-item:hover {
-  background: var(--surface-2);
-  border-color: var(--text);
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="brutalist"] .nt-item:hover {
+    background: var(--surface-2);
+    border-color: var(--text);
+  }
 }
 
 /* The open note: a yellow block */
@@ -1453,23 +2084,20 @@
 }
 
 [data-skin="brutalist"] .nt-item[aria-current="true"] .nt-item-excerpt,
-[data-skin="brutalist"] .nt-item[aria-current="true"] .nt-item-date,
 [data-skin="brutalist"] .nt-item[aria-current="true"] .nt-item-time,
 [data-skin="brutalist"] .nt-item[aria-current="true"] .label,
 [data-skin="brutalist"] .nt-item[aria-current="true"] svg {
   color: var(--bru-on-hi);
 }
 
-[data-skin="brutalist"] .nt-item-index {
-  border: 2px solid var(--text);
-  font-weight: 700;
-  color: var(--text);
+/* No index column ("01", "02"…, a counter like the one Tasks dropped): the title leads and gets
+   the room (in a 1280px window the list column cut it to "Hook: frien…") */
+[data-skin="brutalist"] .nt-item {
+  grid-template-columns: minmax(0, 1fr);
 }
 
-[data-skin="brutalist"] .nt-item[aria-current="true"] .nt-item-index {
-  background: var(--bru-on-hi);
-  border-color: var(--bru-on-hi);
-  color: var(--bru-hi);
+[data-skin="brutalist"] .nt-item-index {
+  display: none;
 }
 
 /* The section tag stays quiet beside the title: icon and name, no box */
@@ -1478,8 +2106,10 @@
   color: var(--text-2);
 }
 
-[data-skin="brutalist"] .nt-item:hover .nt-item-tag {
-  color: var(--text);
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="brutalist"] .nt-item:hover .nt-item-tag {
+    color: var(--text);
+  }
 }
 
 [data-skin="brutalist"] .nt-item[aria-current="true"] .nt-item-tag,
@@ -1493,9 +2123,11 @@
   box-shadow: inset 0 -2px 0 var(--bru-on-hi);
 }
 
-[data-skin="brutalist"] .nt-search-clear:hover {
-  background: var(--bru-hi);
-  color: var(--bru-on-hi);
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="brutalist"] .nt-search-clear:hover {
+    background: var(--surface-2);
+    color: var(--text);
+  }
 }
 
 [data-skin="brutalist"] .nt-kbd-inv {
@@ -1506,12 +2138,21 @@
 }
 
 /* Editor */
-[data-skin="brutalist"] .nt-pin[aria-pressed="true"],
-[data-skin="brutalist"] .nt-pin[aria-pressed="true"]:hover {
-  background: var(--bru-hi);
+/* Pinned: the pressed look of this template, an ink frame with the fat bar under it */
+[data-skin="brutalist"] .nt-pin[aria-pressed="true"] {
+  background: var(--bg);
   border-color: var(--text);
-  color: var(--bru-on-hi);
-  box-shadow: 3px 3px 0 var(--bru-ink);
+  color: var(--text);
+  box-shadow: inset 0 -5px 0 var(--text);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="brutalist"] .nt-pin[aria-pressed="true"]:hover {
+    background: var(--surface-2);
+    border-color: var(--text);
+    color: var(--text);
+    box-shadow: inset 0 -5px 0 var(--text);
+  }
 }
 
 [data-skin="brutalist"] .nt-title {
@@ -1602,10 +2243,12 @@
   font-weight: 700;
 }
 
-[data-skin="brutalist"] .nt-prose a:hover {
-  background: var(--bru-hi);
-  color: var(--bru-on-hi);
-  text-decoration-color: var(--bru-on-hi);
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="brutalist"] .nt-prose a:hover {
+    background: var(--text);
+    color: var(--bg);
+    text-decoration-color: var(--bg);
+  }
 }
 
 [data-skin="brutalist"] .nt-prose code {
@@ -1647,7 +2290,7 @@
   top: -6px;
   width: 64px;
   height: 15px;
-  background: repeating-linear-gradient(-45deg, var(--bru-on-hi) 0 6px, var(--bru-hi) 6px 12px);
+  background: repeating-linear-gradient(-45deg, var(--text) 0 6px, var(--bg) 6px 12px);
   border: 3px solid var(--text);
 }
 
@@ -1673,17 +2316,19 @@
 }
 
 [data-skin="brutalist"] .nt-task-box::after {
-  border-color: var(--bru-on-hi);
+  border-color: var(--bg);
   border-width: 0 0 3px 3px;
 }
 
-[data-skin="brutalist"] .nt-task-box:hover {
-  border-color: var(--text);
-  box-shadow: 3px 3px 0 var(--text);
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="brutalist"] .nt-task-box:hover {
+    border-color: var(--text);
+    box-shadow: 3px 3px 0 var(--text);
+  }
 }
 
 [data-skin="brutalist"] .nt-task-box:checked {
-  background: var(--bru-hi);
+  background: var(--text);
   border-color: var(--text);
 }
 
@@ -1694,9 +2339,7 @@
 }
 
 [data-skin="brutalist"] .nt-rail-sep::after {
-  width: 24px;
-  height: 3px;
-  background: var(--bru-hi);
+  display: none;
 }
 
 [data-skin="brutalist"] .nt-rail-item {
@@ -1705,17 +2348,21 @@
   font-weight: 600;
 }
 
-[data-skin="brutalist"] .nt-rail-item:hover {
-  background: transparent;
-  border-color: var(--text);
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="brutalist"] .nt-rail-item:hover {
+    background: transparent;
+    border-color: var(--text);
+  }
 }
 
+/* The section the list shows is a picked filter: an ink frame with the fat bar under it (the
+   open note is the list's yellow) */
 [data-skin="brutalist"] .nt-rail-item[aria-current="true"] {
-  background: var(--bru-hi);
+  background: var(--bg);
   border-color: var(--text);
-  color: var(--bru-on-hi);
-  font-weight: 800;
-  box-shadow: 3px 3px 0 var(--bru-ink);
+  color: var(--text);
+  font-weight: 900;
+  box-shadow: inset 0 -5px 0 var(--text);
 }
 
 /* Icon squares: full ink, and the highlight's ink on the open row */
@@ -1724,7 +2371,7 @@
 }
 
 [data-skin="brutalist"] .nt-rail-item[aria-current="true"] .ib.nt-rail-ib {
-  --ib-c: var(--bru-on-hi);
+  --ib-c: var(--text);
 }
 
 [data-skin="brutalist"] .nt-rail-count {
@@ -1734,9 +2381,9 @@
 }
 
 [data-skin="brutalist"] .nt-rail-item[aria-current="true"] .nt-rail-count {
-  background: var(--bru-on-hi);
-  border-color: var(--bru-on-hi);
-  color: var(--bru-hi);
+  background: var(--text);
+  border-color: var(--text);
+  color: var(--bg);
 }
 
 [data-skin="brutalist"] .nt-rename {
@@ -1782,11 +2429,13 @@
   font-weight: 600;
 }
 
-[data-skin="brutalist"] .nt-suggest-chip:hover {
-  border-style: solid;
-  border-color: var(--text);
-  background: var(--bru-hi);
-  color: var(--bru-on-hi);
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="brutalist"] .nt-suggest-chip:hover {
+    border-style: solid;
+    border-color: var(--text);
+    background: var(--surface-2);
+    color: var(--text);
+  }
 }
 
 [data-skin="brutalist"] .nt-suggest-chip.is-custom {
@@ -1801,9 +2450,11 @@
   font-weight: 700;
 }
 
-[data-skin="brutalist"] .nt-chip:hover {
-  border-color: var(--text);
-  background: var(--surface-2);
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="brutalist"] .nt-chip:hover {
+    border-color: var(--text);
+    background: var(--surface-2);
+  }
 }
 
 [data-skin="brutalist"] .nt-chip-count {
@@ -1812,10 +2463,11 @@
 }
 
 [data-skin="brutalist"] .nt-chip[aria-current="true"] {
-  background: var(--bru-hi);
+  background: var(--bg);
   border-color: var(--text);
-  color: var(--bru-on-hi);
-  box-shadow: 3px 3px 0 var(--bru-ink);
+  color: var(--text);
+  font-weight: 900;
+  box-shadow: inset 0 -5px 0 var(--text);
 }
 
 [data-skin="brutalist"] .nt-chip[aria-current="true"] .nt-chip-count {
@@ -1841,11 +2493,19 @@
   font-weight: 700;
 }
 
-[data-skin="brutalist"] .nt-move:hover,
 [data-skin="brutalist"] .nt-move[aria-expanded="true"] {
   border-color: var(--text);
-  background: var(--bru-hi);
-  color: var(--bru-on-hi);
+  background: var(--bg);
+  color: var(--text);
+  box-shadow: inset 0 -4px 0 var(--text);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="brutalist"] .nt-move:hover {
+    border-color: var(--text);
+    background: var(--surface-2);
+    color: var(--text);
+  }
 }
 
 [data-skin="brutalist"] .nt-move.is-unsorted {
@@ -1873,15 +2533,26 @@
   border-top: 2px solid var(--text);
 }
 
-[data-skin="brutalist"] .nt-menu-item:hover,
 [data-skin="brutalist"] .nt-menu-item:focus-visible {
   background: var(--bru-hi);
   color: var(--bru-on-hi);
 }
 
-[data-skin="brutalist"] .nt-menu-item:hover .nt-menu-icon,
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="brutalist"] .nt-menu-item:hover {
+    background: var(--bru-hi);
+    color: var(--bru-on-hi);
+  }
+}
+
 [data-skin="brutalist"] .nt-menu-item:focus-visible .nt-menu-icon {
   color: var(--bru-on-hi);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="brutalist"] .nt-menu-item:hover .nt-menu-icon {
+    color: var(--bru-on-hi);
+  }
 }
 
 [data-skin="brutalist"] .nt-menu-item:focus-visible {
@@ -1927,20 +2598,19 @@
   border: 3px solid var(--text);
 }
 
-[data-skin="brutalist"] .nt-choice:hover {
-  border-color: var(--text);
-  background: var(--surface-2);
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="brutalist"] .nt-choice:hover {
+    border-color: var(--text);
+    background: var(--surface-2);
+  }
 }
 
+/* The picked answer: an ink frame with the fat bar under it */
 [data-skin="brutalist"] .nt-choice:has(.nt-choice-input:checked) {
   border-color: var(--text);
-  background: var(--bru-hi);
-  color: var(--bru-on-hi);
-  box-shadow: 4px 4px 0 var(--bru-ink);
-}
-
-[data-skin="brutalist"] .nt-choice:has(.nt-choice-input:checked) * {
-  color: var(--bru-on-hi);
+  background: var(--bg);
+  color: var(--text);
+  box-shadow: inset 0 -5px 0 var(--text);
 }
 
 [data-skin="brutalist"] .nt-choice--danger {
@@ -1969,11 +2639,21 @@
   width: 10px;
   height: 10px;
   border-radius: 0;
-  background: var(--bru-on-hi);
+  background: var(--text);
 }
 
 [data-skin="brutalist"] .nt-choice-input:checked {
-  border-color: var(--bru-on-hi);
+  border-color: var(--text);
+  background: var(--bg);
+}
+
+/* On the inverted danger slab the box is paper-framed */
+[data-skin="brutalist"] .nt-choice--danger .nt-choice-input:checked {
+  border-color: var(--bg);
+  background: var(--text);
+}
+
+[data-skin="brutalist"] .nt-choice--danger .nt-choice-input:checked::after {
   background: var(--bg);
 }
 
@@ -2008,6 +2688,14 @@
   letter-spacing: 0.02em;
 }
 
+/* A phone's day list head holds the date beside the count, the streak and +: caps without their
+   tracking keep "TODAY · FRI 23 OCT" whole */
+@media (max-width: 640px) {
+  [data-skin="brutalist"] .hb-dl-title {
+    letter-spacing: 0;
+  }
+}
+
 [data-skin="brutalist"] .hb-ro-frac {
   font-family: var(--font-display);
   font-size: 18px;
@@ -2021,10 +2709,12 @@
   color: var(--text);
 }
 
-[data-skin="brutalist"] .hb-sel:hover {
-  border-color: var(--text);
-  background: var(--surface-2);
-  color: var(--text);
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="brutalist"] .hb-sel:hover {
+    border-color: var(--text);
+    background: var(--surface-2);
+    color: var(--text);
+  }
 }
 
 [data-skin="brutalist"] .hb-sel.is-future {
@@ -2048,30 +2738,25 @@
   border-radius: 0;
 }
 
-/* Today: a yellow notch on the top edge; the picked day is the yellow block */
+/* Today: a yellow notch riding the top edge (above the weekday, never on it); the picked day
+   is a picked choice: the ink frame with the fat bar under it */
 [data-skin="brutalist"] .hb-sel.is-today::before {
-  top: -3px;
-  height: 6px;
+  top: -5px;
+  height: 7px;
   border-radius: 0;
   background: var(--bru-hi);
-  box-shadow: inset 0 0 0 2px var(--text);
+  box-shadow: inset 0 0 0 2px var(--bru-on-hi);
 }
 
 [data-skin="brutalist"] .hb-sel[aria-checked="true"] {
-  background: var(--bru-hi);
+  background: var(--bg);
   border-color: var(--text);
-  color: var(--bru-on-hi);
-  box-shadow: 4px 4px 0 var(--bru-ink);
+  color: var(--text);
+  box-shadow: inset 0 -5px 0 var(--text);
 }
 
-[data-skin="brutalist"] .hb-sel[aria-checked="true"] .hb-sel-date {
-  color: var(--bru-on-hi);
-}
-
-[data-skin="brutalist"] .hb-sel[aria-checked="true"].is-today::before {
-  top: 3px;
-  background: var(--bru-on-hi);
-  box-shadow: none;
+[data-skin="brutalist"] .hb-sel[aria-checked="true"] :is(.hb-sel-date, .hb-sel-wd) {
+  color: var(--text);
 }
 
 /* Overview tables (week, history) and the day list: ruled like the week plan */
@@ -2106,16 +2791,19 @@
   color: var(--text);
 }
 
-[data-skin="brutalist"] .hb-mx-colbtn:hover {
-  background: var(--bru-hi);
-  border-color: var(--text);
-  color: var(--bru-on-hi);
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="brutalist"] .hb-mx-colbtn:hover {
+    background: var(--surface-2);
+    border-color: var(--text);
+    color: var(--text);
+  }
 }
 
-/* Today: a yellow notch on the top edge */
+/* Today: a yellow notch on the top edge, clear of the weekday under it (6px tall from -4px it
+   still touched the tops of "FRI" on a phone) */
 [data-skin="brutalist"] .hb-mx-th.is-today .hb-mx-colbtn::before {
-  top: -2px;
-  height: 6px;
+  top: -5px;
+  height: 5px;
   border-radius: 0;
   background: var(--bru-hi);
   box-shadow: inset 0 0 0 2px var(--text);
@@ -2182,12 +2870,14 @@
   color: var(--text-2);
 }
 
+/* Bonus (done on a day off): done, solid ink, with a paper rule inside it */
 [data-skin="brutalist"] .hb-day[data-state="bonus"],
 [data-skin="brutalist"] .hb-swatch[data-s="bonus"],
 [data-skin="brutalist"] .hb-row.is-bonus .hb-row-check {
-  background: repeating-linear-gradient(-45deg, var(--bru-hi) 0 3px, var(--bru-on-hi) 3px 6px);
+  background: var(--text);
   border-color: var(--text);
-  color: var(--bru-on-hi);
+  color: var(--bg);
+  box-shadow: inset 0 0 0 2px var(--bg);
 }
 
 [data-skin="brutalist"] .hb-day[data-state="bonus"] {
@@ -2223,13 +2913,11 @@
   background: none;
 }
 
-[data-skin="brutalist"] .hb-day:not([aria-disabled="true"]):hover {
-  border-color: var(--text);
-  box-shadow: 3px 3px 0 var(--text);
-}
-
-[data-skin="brutalist"] .hb-mx-td.is-today > .hb-day[data-state="done"] {
-  box-shadow: 3px 3px 0 var(--bru-hi), 3px 3px 0 2px var(--text);
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="brutalist"] .hb-day:not([aria-disabled="true"]):hover {
+    border-color: var(--text);
+    box-shadow: 3px 3px 0 var(--text);
+  }
 }
 
 /* The day list's checks: square and heavy */
@@ -2246,9 +2934,11 @@
   font-weight: 800;
 }
 
-[data-skin="brutalist"] .hb-fold:hover {
-  background: var(--bru-hi);
-  color: var(--bru-on-hi);
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="brutalist"] .hb-fold:hover {
+    background: var(--surface-2);
+    color: var(--text);
+  }
 }
 
 [data-skin="brutalist"] .hb-arch-list {
@@ -2306,10 +2996,12 @@
   color: var(--text);
 }
 
-[data-skin="brutalist"] .hb-plan-colbtn:hover {
-  background: var(--bru-hi);
-  border-color: var(--text);
-  color: var(--bru-on-hi);
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="brutalist"] .hb-plan-colbtn:hover {
+    background: var(--surface-2);
+    border-color: var(--text);
+    color: var(--text);
+  }
 }
 
 [data-skin="brutalist"] .hb-plan-wd {
@@ -2318,8 +3010,8 @@
 }
 
 [data-skin="brutalist"] .hb-plan-th.is-today .hb-plan-colbtn::before {
-  top: -2px;
-  height: 6px;
+  top: -5px;
+  height: 5px;
   border-radius: 0;
   background: var(--bru-hi);
   box-shadow: inset 0 0 0 2px var(--text);
@@ -2349,37 +3041,46 @@
   font-weight: 700;
 }
 
-[data-skin="brutalist"] .hb-plan-row:hover > td {
-  background: var(--surface-2);
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="brutalist"] .hb-plan-row:hover > td {
+    background: var(--surface-2);
+  }
 }
 
-[data-skin="brutalist"] .hb-plan-row:hover > td.is-today {
-  background: var(--surface-3);
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="brutalist"] .hb-plan-row:hover > td.is-today {
+    background: var(--surface-3);
+  }
 }
 
+/* The plan is a plan, not a check-in: a day off is a square ink dot, a planned day the dashed ink
+   outline with a thin tick (as a planned day looks on Check in) */
 [data-skin="brutalist"] .hb-plan-cell {
-  border: 2px solid var(--text);
-  background: var(--bg);
+  border: 2px solid transparent;
+  background: linear-gradient(var(--text-2), var(--text-2)) center / 5px 5px no-repeat;
 }
 
-[data-skin="brutalist"] .hb-plan-cell:hover {
-  border-color: var(--text);
-  box-shadow: 3px 3px 0 var(--text);
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="brutalist"] .hb-plan-cell:hover {
+    border-color: var(--text);
+    box-shadow: 3px 3px 0 var(--text);
+  }
 }
 
 [data-skin="brutalist"] .hb-plan-cell[aria-pressed="true"] {
-  background: var(--bru-hi);
-  border-color: var(--text);
-  color: var(--bru-on-hi);
-  box-shadow: 3px 3px 0 var(--bru-ink);
+  border: 2px dashed var(--text);
+  background: var(--bg);
+  color: var(--text);
+  box-shadow: none;
 }
 
 [data-skin="brutalist"] .hb-plan-cell.is-draft {
-  border-style: dashed;
+  border: 2px dashed var(--text-3);
+  background: none;
 }
 
 [data-skin="brutalist"] .hb-plan-cell.is-draft[aria-pressed="true"] {
-  background: repeating-linear-gradient(-45deg, var(--bru-hi) 0 4px, var(--bg) 4px 8px);
+  background: repeating-linear-gradient(-45deg, var(--hatch) 0 2px, transparent 2px 6px), var(--bg);
   border-color: var(--text);
   color: var(--text);
   box-shadow: none;
@@ -2407,16 +3108,19 @@
   font-weight: 800;
 }
 
-[data-skin="brutalist"] .hb-wd:hover {
-  border-color: var(--text);
-  background: var(--surface-2);
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="brutalist"] .hb-wd:hover {
+    border-color: var(--text);
+    background: var(--surface-2);
+  }
 }
 
 [data-skin="brutalist"] .hb-wd[aria-pressed="true"] {
-  background: var(--bru-hi);
+  background: var(--bg);
   border-color: var(--text);
-  color: var(--bru-on-hi);
-  box-shadow: 3px 3px 0 var(--bru-ink);
+  color: var(--text);
+  font-weight: 900;
+  box-shadow: inset 0 -5px 0 var(--text);
 }
 
 [data-skin="brutalist"] .hb-wd:disabled {
@@ -2443,11 +3147,13 @@
   background: var(--bg);
 }
 
+/* The LIFE symbol: an inverted ink stamp (the chart's own yellow is its area, the open page's the
+   menu's) */
 [data-skin="brutalist"] .hbt-sym,
 [data-skin="brutalist"] .hbt-tk-sym {
   border: 2px solid var(--text);
-  background: var(--bru-hi);
-  color: var(--bru-on-hi);
+  background: var(--text);
+  color: var(--bg);
   font-family: var(--font-sans);
   font-weight: 900;
 }
@@ -2717,7 +3423,7 @@
   font-weight: 700;
 }
 
-/* No index yet: the symbol drops its yellow (gray on yellow would fail contrast) */
+/* No index yet: the symbol is only a dashed outline */
 [data-skin="brutalist"] .hbt-ticker.is-empty .hbt-tk-sym {
   border-style: dashed;
   border-color: var(--text-2);
@@ -2742,20 +3448,13 @@
   }
 }
 
-[data-skin="brutalist"] .hbt-ticker:hover {
-  border-color: var(--text);
-  background: var(--bru-hi);
-  color: var(--bru-on-hi);
-  box-shadow: 3px 3px 0 var(--text);
-}
-
-[data-skin="brutalist"] .hbt-ticker:hover .hbt-tk-price,
-[data-skin="brutalist"] .hbt-ticker:hover .hbt-tk-chg {
-  color: var(--bru-on-hi);
-}
-
-[data-skin="brutalist"] .hbt-ticker:hover .hbt-spark-line {
-  stroke: var(--bru-on-hi);
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="brutalist"] .hbt-ticker:hover {
+    border-color: var(--text);
+    background: var(--surface-2);
+    color: var(--text);
+    box-shadow: 3px 3px 0 var(--text);
+  }
 }
 
 [data-skin="brutalist"] .hbt-tk-dot {
@@ -2806,21 +3505,24 @@
    ========================================================================== */
 
 [data-skin="brutalist"] .hbi-table-btn[aria-pressed="true"] {
-  background: var(--bru-hi);
+  background: var(--bg);
   border-color: var(--text);
-  color: var(--bru-on-hi);
+  color: var(--text);
+  box-shadow: inset 0 -5px 0 var(--text), var(--bru-press) var(--bru-press) 0 var(--text);
 }
 
-[data-skin="brutalist"] .hbi-table-btn[aria-pressed="true"]:hover {
-  box-shadow: 5px 5px 0 var(--text);
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="brutalist"] .hbi-table-btn[aria-pressed="true"]:hover {
+    box-shadow: inset 0 -5px 0 var(--text), 5px 5px 0 var(--text);
+  }
 }
 
 [data-skin="brutalist"] .hbi-tile::before {
   top: -3px;
   width: 40px;
   height: 6px;
-  background: var(--bru-hi);
-  box-shadow: inset 0 0 0 2px var(--text);
+  background: var(--text);
+  box-shadow: none;
   opacity: 1;
 }
 
@@ -2840,15 +3542,6 @@
 
 [data-skin="brutalist"] .hbi-tile.is-up .hbi-dir {
   text-shadow: none;
-}
-
-[data-skin="brutalist"] .hbi-card-title {
-  font-family: var(--font-display);
-  font-size: 26px;
-  font-weight: 400;
-  letter-spacing: 0.01em;
-  text-transform: uppercase;
-  line-height: 1;
 }
 
 [data-skin="brutalist"] .hbi-card-index {
@@ -3055,13 +3748,10 @@
   font-weight: 700;
 }
 
-[data-skin="brutalist"] .hbi-table tbody tr:hover {
-  background: var(--bru-hi);
-  color: var(--bru-on-hi);
-}
-
-[data-skin="brutalist"] .hbi-table tbody tr:hover > * {
-  color: var(--bru-on-hi);
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="brutalist"] .hbi-table tbody tr:hover {
+    background: var(--surface-2);
+  }
 }
 
 /* Ranking */
@@ -3069,8 +3759,10 @@
   border-top: 2px solid var(--text);
 }
 
-[data-skin="brutalist"] .hbi-rank-row:hover {
-  background: var(--surface-2);
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="brutalist"] .hbi-rank-row:hover {
+    background: var(--surface-2);
+  }
 }
 
 [data-skin="brutalist"] .hbi-rank-pos {
@@ -3080,8 +3772,8 @@
 
 [data-skin="brutalist"] .hbi-rank-row:first-child .hbi-rank-pos {
   padding: 0 3px;
-  background: var(--bru-hi);
-  color: var(--bru-on-hi);
+  background: var(--text);
+  color: var(--bg);
 }
 
 [data-skin="brutalist"] .hbi-rank-text {
@@ -3103,15 +3795,15 @@
    ========================================================================== */
 
 [data-skin="brutalist"] .nav-item[aria-current="page"],
+[data-skin="brutalist"] .tab[aria-current="page"],
+[data-skin="brutalist"] .tab--more.is-current,
+[data-skin="brutalist"] .more-page[aria-current="page"],
+[data-skin="brutalist"] .more-row[aria-current="page"],
+[data-skin="brutalist"] .sidebar-foot .settings-btn[aria-current="page"],
 [data-skin="brutalist"] .nt-item[aria-current="true"],
-[data-skin="brutalist"] .nt-rail-item[aria-current="true"],
-[data-skin="brutalist"] .nt-chip[aria-current="true"],
+[data-skin="brutalist"] .tk-row.is-open,
 [data-skin="brutalist"] .nt-srow.is-drop .nt-rail-item,
 [data-skin="brutalist"] .nt-drag-ghost.is-armed,
-[data-skin="brutalist"] .nt-choice:not(.nt-choice--danger):has(.nt-choice-input:checked),
-[data-skin="brutalist"] .hb-sel[aria-checked="true"],
-[data-skin="brutalist"] .tk-stat.is-alert,
-[data-skin="brutalist"] .tk-stat--progress.is-complete,
 [data-skin="brutalist"] .skin-card[aria-checked="true"],
 [data-skin="brutalist"] .nt-card[aria-current="true"],
 [data-skin="brutalist"] .nt-lift.is-armed .nt-card,
@@ -3120,19 +3812,17 @@
 [data-skin="brutalist"] .nt-col.is-drop > .nt-col-head,
 [data-skin="brutalist"] .nt-col.is-drop > .nt-col-strip,
 [data-skin="brutalist"] .cal-month:not(.is-compact) .cal-cell.is-today .cal-cell-head,
-[data-skin="brutalist"] button.cal-dh-btn:hover,
-[data-skin="brutalist"] .cal-ag-date:hover,
-[data-skin="brutalist"] .cal-ed-style.is-on,
-[data-skin="brutalist"] .cal-ed-scope-opt:not(.cal-ed-scope-opt--danger):hover,
 [data-skin="brutalist"] .cal-ed-scope-opt:not(.cal-ed-scope-opt--danger):focus-visible,
 [data-skin="brutalist"] .cal-ed-notice,
 [data-skin="brutalist"] [data-drop-tray].is-drop,
 [data-skin="brutalist"] .hm-day.is-today .hm-day-head,
 [data-skin="brutalist"] .hm-pomo[data-status="running"] .hm-pomo-digits,
-[data-skin="brutalist"] .hm-graph-avg,
-[data-skin="brutalist"] .pm-preset[aria-pressed="true"],
-[data-skin="brutalist"] .pm-timer[data-status="running"] .pm-dial-phase,
-[data-skin="brutalist"] .pm-mini[data-status="running"][data-phase="focus"] {
+[data-skin="brutalist"] .pm-mini[data-status="running"][data-phase="focus"],
+[data-skin="brutalist"] .cmd-item[aria-selected="true"],
+[data-skin="brutalist"] .tr-ex[aria-pressed="true"],
+[data-skin="brutalist"] .tr-rest.is-running,
+[data-skin="brutalist"] .tr-pick-opt[aria-selected="true"],
+[data-skin="brutalist"] .hm-train-live {
   --text: #000000;
   --text-2: #000000;
   --text-3: #262626;
@@ -3144,17 +3834,57 @@
   /* "Paper" inside is the yellow itself, so outlined swatches and labels read as outlines */
   --bg: #ffe600;
   --surface-solid: #ffe600;
+  /* A button's fill under the pointer inside the block: a deeper yellow (the page's gray was near
+     black at night, under black words) */
+  --surface-2: #e6cf00;
+  --surface-3: #d1bc00;
+  /* A page's icon takes its tone from --mod-* (css/icons.css, resolved at the root: light gray at
+     night, which vanished on the yellow): ink inside a yellow block */
+  --mod-home: #000000;
+  --mod-tasks: #000000;
+  --mod-notes: #000000;
+  --mod-habits: #000000;
+  --mod-calendar: #000000;
+  --mod-pomodoro: #000000;
+  --mod-training: #000000;
+  --mod-finance: #000000;
+  --mod-health: #000000;
+  --mod-settings: #000000;
   color: #000000;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="brutalist"] .cal-ed-scope-opt:not(.cal-ed-scope-opt--danger):hover {
+    --text: #000000;
+    --text-2: #000000;
+    --text-3: #262626;
+    --text-4: #3d3d3d;
+    --line: #000000;
+    --line-strong: #000000;
+    --accent: #000000;
+    --accent-ink: #ffe600;
+    /* "Paper" inside is the yellow itself, so outlined swatches and labels read as outlines */
+    --bg: #ffe600;
+    --surface-solid: #ffe600;
+    /* A page's icon takes its tone from --mod-* (css/icons.css, resolved at the root: light gray at
+       night, which vanished on the yellow): ink inside a yellow block */
+    --mod-home: #000000;
+    --mod-tasks: #000000;
+    --mod-notes: #000000;
+    --mod-habits: #000000;
+    --mod-calendar: #000000;
+    --mod-pomodoro: #000000;
+    --mod-training: #000000;
+    --mod-finance: #000000;
+    --mod-health: #000000;
+    --mod-settings: #000000;
+    color: #000000;
+  }
 }
 
 /* ==========================================================================
    Notes: board layout
    ========================================================================== */
-
-/* The slim board header still gets a big blunt title */
-[data-skin="brutalist"] .nt-view[data-layout="board"] .page-title {
-  font-size: 48px;
-}
 
 [data-skin="brutalist"] .nt-board-head {
   border-bottom: 3px solid var(--text);
@@ -3187,14 +3917,11 @@
   color: var(--text);
 }
 
-[data-skin="brutalist"] .nt-pager-chip:hover {
-  background: var(--bru-hi);
-  color: var(--bru-on-hi);
-}
-
-[data-skin="brutalist"] .nt-pager-chip:hover svg,
-[data-skin="brutalist"] .nt-pager-chip:hover .nt-chip-count {
-  color: var(--bru-on-hi);
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="brutalist"] .nt-pager-chip:hover {
+    background: var(--surface-2);
+    color: var(--text);
+  }
 }
 
 [data-skin="brutalist"] .nt-pager.is-docking .nt-pager-label {
@@ -3237,10 +3964,7 @@
 }
 
 [data-skin="brutalist"] .nt-col-head::after {
-  bottom: -3px;
-  width: 28px;
-  height: 3px;
-  background: var(--bru-hi);
+  display: none;
 }
 
 /* The column's icon square in full ink */
@@ -3305,28 +4029,23 @@
   color: var(--text-2);
 }
 
-[data-skin="brutalist"] .nt-col-new:hover {
-  border-style: solid;
-  border-color: var(--text);
-  background: var(--bru-hi);
-  color: var(--bru-on-hi);
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="brutalist"] .nt-col-new:hover {
+    border-style: solid;
+    border-color: var(--text);
+    background: var(--surface-2);
+    color: var(--text);
+  }
 }
 
 [data-skin="brutalist"] .nt-col.is-collapsed > .nt-col-strip {
   color: var(--text);
 }
 
-[data-skin="brutalist"] .nt-col-strip:hover {
-  background: var(--bru-hi);
-}
-
-[data-skin="brutalist"] .nt-col-strip:hover :is(.nt-col-stripname, .nt-col-count) {
-  border-color: var(--bru-on-hi);
-  color: var(--bru-on-hi);
-}
-
-[data-skin="brutalist"] .nt-col-strip:hover .ib.nt-col-ib {
-  --ib-c: var(--bru-on-hi);
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="brutalist"] .nt-col-strip:hover {
+    background: var(--surface-2);
+  }
 }
 
 [data-skin="brutalist"] .nt-col-addsection {
@@ -3334,11 +4053,13 @@
   color: var(--text);
 }
 
-[data-skin="brutalist"] .nt-col-addsection:hover {
-  border-style: solid;
-  border-color: var(--text);
-  background: var(--bru-hi);
-  color: var(--bru-on-hi);
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="brutalist"] .nt-col-addsection:hover {
+    border-style: solid;
+    border-color: var(--text);
+    background: var(--surface-2);
+    color: var(--text);
+  }
 }
 
 [data-skin="brutalist"] .nt-col-addsection-label {
@@ -3354,11 +4075,13 @@
   transition: none;
 }
 
-[data-skin="brutalist"] .nt-card:hover {
-  border-color: var(--text);
-  background: var(--bg);
-  color: var(--text);
-  box-shadow: 4px 4px 0 var(--text);
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="brutalist"] .nt-card:hover {
+    border-color: var(--text);
+    background: var(--bg);
+    color: var(--text);
+    box-shadow: 4px 4px 0 var(--text);
+  }
 }
 
 [data-skin="brutalist"] .nt-card.is-pressing {
@@ -3392,11 +4115,19 @@
   color: var(--text);
 }
 
-[data-skin="brutalist"] .nt-card-menu:hover,
 [data-skin="brutalist"] .nt-card-menu[aria-expanded="true"] {
-  background: var(--bru-hi);
-  border-color: #000000;
-  color: var(--bru-on-hi);
+  background: var(--bg);
+  border-color: var(--text);
+  color: var(--text);
+  box-shadow: inset 0 -4px 0 var(--text);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="brutalist"] .nt-card-menu:hover {
+    background: var(--surface-2);
+    border-color: var(--text);
+    color: var(--text);
+  }
 }
 
 /* Dragging a card */
@@ -3530,10 +4261,46 @@
   outline: 3px solid var(--line-focus);
 }
 
+/* The month and its buttons keep one row in a 1280px window: the wide caps make Month · Week ·
+   Day words only (their icons go where the shared calendar hides Add task's word) */
+@container cal (max-width: 1180px) {
+  [data-skin="brutalist"] .cal-zoom-btn > .icon {
+    display: none;
+  }
+}
+
+/* A phone: Today is its word (the period beside it keeps all its letters); the view and Show
+   pickers share their row with the tray and add buttons, so their caps drop the tracking and a
+   little padding ("MONTH" read "MON…") */
+@container cal (max-width: 600px) {
+  [data-skin="brutalist"] .cal-today-btn > .icon {
+    display: none;
+  }
+
+  [data-skin="brutalist"] .cal-controls .dd-btn {
+    padding-inline: 8px;
+    letter-spacing: 0;
+  }
+}
+
+/* "+N more" in a month cell: the whole day over its cell, a slab on the hard drop */
+[data-skin="brutalist"] .cal-pop {
+  border: 3px solid var(--text);
+  background: var(--bg);
+  box-shadow: var(--bru-drop) var(--bru-drop) 0 var(--text);
+}
+
+[data-skin="brutalist"] .cal-pop-head {
+  padding-bottom: var(--space-2);
+  border-bottom: 3px solid var(--text);
+}
+
+/* The Unscheduled chip, open: pressed (the fat ink bar under it) */
 [data-skin="brutalist"] .cal-tray-toggle[aria-expanded="true"] {
-  background: var(--bru-hi);
+  background: var(--bg);
   border-color: var(--text);
-  color: var(--bru-on-hi);
+  color: var(--text);
+  box-shadow: inset 0 -5px 0 var(--text);
 }
 
 [data-skin="brutalist"] .cal-legend-ev,
@@ -3655,14 +4422,24 @@
   background: var(--text);
 }
 
-[data-skin="brutalist"] .cal-ev:hover,
 [data-skin="brutalist"] .cal-ev:focus-visible {
   box-shadow: 3px 3px 0 var(--text);
 }
 
-[data-skin="brutalist"] .cal-tlev:hover,
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="brutalist"] .cal-ev:hover {
+    box-shadow: 3px 3px 0 var(--text);
+  }
+}
+
 [data-skin="brutalist"] .cal-tlev:focus-visible {
   box-shadow: 5px 5px 0 var(--text);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="brutalist"] .cal-tlev:hover {
+    box-shadow: 5px 5px 0 var(--text);
+  }
 }
 
 [data-skin="brutalist"] .cal-ev:focus-visible,
@@ -3677,9 +4454,30 @@
 }
 
 /* The thick ring fits inside where a scrolling or framed box would cut off its outer edge: the
-   choice bars, the week's day heads, the habit grid's names and days, the notes list */
-[data-skin="brutalist"] :is(.seg .seg-btn, .hm-day-head, .hb-mx-name, .hb-mx-colbtn, .nt-item, .nt-card):focus-visible {
+   choice bars, the week's day heads, the habit grid's names and days, the notes list, Training's
+   exercise list (a sideways scroller on a phone) */
+[data-skin="brutalist"] :is(.seg .seg-btn, .hm-day-head, .hb-mx-name, .hb-mx-colbtn, .nt-item, .nt-card, .tr-ex, .hb-bar-nav .btn, .cal-edge):focus-visible {
   outline-offset: -3px;
+}
+
+[data-skin="brutalist"] .tr-ex[aria-pressed="true"]:focus-visible {
+  outline-color: var(--bru-on-hi);
+}
+
+/* Inside the page top's status line (it clips anything outside its one line): "Now: …" shows its
+   focus as an inverted ink slab instead of a ring */
+[data-skin="brutalist"] .page-stat .hm-next:focus-visible {
+  outline: none;
+  background: var(--text);
+  color: var(--bg);
+}
+
+/* The phone's top strip holds the ticker flush under the screen's edge: its ring goes inside */
+@media (max-width: 640px) {
+  [data-skin="brutalist"] .topbar .hbt-ticker:focus-visible {
+    outline: none;
+    box-shadow: inset 0 0 0 3px var(--text);
+  }
 }
 
 /* The open note is a yellow block: its ring inside it is ink */
@@ -3687,9 +4485,14 @@
   outline-color: var(--bru-on-hi);
 }
 
-/* A block in the timeline's last column sits 2px from its edge: one pixel of the ring goes inside */
+/* A block in the timeline's last column sits 2px from its edge: one pixel of the ring goes inside.
+   A band fills its column to the scroller's edge: its whole ring goes inside it. */
 [data-skin="brutalist"] .cal-tlev:focus-visible {
   outline-offset: -1px;
+}
+
+[data-skin="brutalist"] .cal-tl .cal-tl-col > .cal-tlev.is-band:focus-visible {
+  outline-offset: -3px;
 }
 
 [data-skin="brutalist"] .cal-tlev-resize::after {
@@ -3712,9 +4515,11 @@
   transition: none;
 }
 
-[data-skin="brutalist"] .cal-task:hover {
-  border-color: var(--text);
-  box-shadow: 3px 3px 0 var(--text);
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="brutalist"] .cal-task:hover {
+    border-color: var(--text);
+    box-shadow: 3px 3px 0 var(--text);
+  }
 }
 
 [data-skin="brutalist"] .cal-task.is-overdue {
@@ -3724,6 +4529,42 @@
 
 [data-skin="brutalist"] .cal-task.pri-high .cal-task-title {
   font-weight: 800;
+}
+
+/* A task with a time, on the week or day timeline: the same 2px ink chip as in the all-day lane (the
+   shared 1px frame with a 3px left edge read as a thin event spine: tasks never carry one here) */
+[data-skin="brutalist"] .cal-tltask {
+  border: 2px solid var(--text);
+  background: var(--bg);
+  transition: none;
+}
+
+/* (a half-hour chip: the heavier frame leaves no room for the padding, its line sits centred like a
+   short event's) */
+[data-skin="brutalist"] .cal-tltask.is-short {
+  align-items: center;
+  padding-block: 0;
+}
+
+[data-skin="brutalist"] .cal-tltask.is-short .cal-task-check {
+  margin-top: 0;
+}
+
+[data-skin="brutalist"] .cal-tltask .cal-tlev-title {
+  font-weight: 600;
+}
+
+[data-skin="brutalist"] .cal-tltask.pri-high .cal-tlev-title {
+  font-weight: 800;
+}
+
+[data-skin="brutalist"] .cal-tltask.is-done {
+  border-color: var(--text-3);
+}
+
+/* The priority bar at a chip's end: square like everything else */
+[data-skin="brutalist"] :is(.cal-task, .cal-tltask)::after {
+  border-radius: 0;
 }
 
 [data-skin="brutalist"] .cal-task-check {
@@ -3740,14 +4581,17 @@
   height: 15px;
 }
 
-[data-skin="brutalist"] .cal-task-check:hover {
-  border-color: var(--text);
-  box-shadow: 2px 2px 0 var(--text);
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="brutalist"] .cal-task-check:hover {
+    border-color: var(--text);
+    box-shadow: 2px 2px 0 var(--text);
+  }
 }
 
 [data-skin="brutalist"] .cal-task-check[aria-checked="true"] {
-  background: var(--bru-hi);
+  background: var(--text);
   border-color: var(--text);
+  color: var(--bg);
 }
 
 [data-skin="brutalist"] .cal-task.is-done,
@@ -3766,9 +4610,11 @@
   color: var(--text);
 }
 
-[data-skin="brutalist"] .cal-task-sched:hover {
-  background: var(--bru-hi);
-  color: var(--bru-on-hi);
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="brutalist"] .cal-task-sched:hover {
+    background: var(--surface-2);
+    color: var(--text);
+  }
 }
 
 /* H / M / L: stamps sized to their chip (the shared .tag is taller) */
@@ -3820,8 +4666,9 @@
 }
 
 [data-skin="brutalist"] .cal-hb-dot.is-bonus {
-  background: var(--bru-hi);
+  background: var(--text);
   border-color: var(--text);
+  box-shadow: inset 0 0 0 1px var(--bg);
 }
 
 [data-skin="brutalist"] .cal-hb.is-perfect .cal-hb-dot.is-done {
@@ -3835,23 +4682,25 @@
 
 [data-skin="brutalist"] .cal-hb.is-perfect .cal-hb-n {
   padding: 0 2px;
-  background: var(--bru-hi);
-  color: var(--bru-on-hi);
+  background: var(--text);
+  color: var(--bg);
 }
 
 /* ==========================================================================
    Calendar: month
    ========================================================================== */
 
+/* Its 3px frame is a 1px border and a 2px ring outside it: calendar.js sizes the month's rows to the
+   window from the shared 1px frame and 31px header, so the heavier edges take no extra height */
 [data-skin="brutalist"] .cal-month {
-  border: 3px solid var(--text);
+  border: 1px solid var(--text);
   background: var(--bg);
-  box-shadow: var(--shadow-hard);
+  box-shadow: 0 0 0 2px var(--text), calc(var(--bru-drop) + 2px) calc(var(--bru-drop) + 2px) 0 var(--text);
 }
 
 /* Weekday header: an inverted ink band */
 [data-skin="brutalist"] .cal-mhead {
-  border-bottom: 3px solid var(--text);
+  border-bottom: 1px solid var(--text);
   background: var(--text);
 }
 
@@ -3882,8 +4731,10 @@
   background-image: repeating-linear-gradient(-45deg, var(--surface-3) 0 2px, transparent 2px 9px);
 }
 
-[data-skin="brutalist"] .cal-cell:hover {
-  background-color: var(--surface-2);
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="brutalist"] .cal-cell:hover {
+    background-color: var(--surface-2);
+  }
 }
 
 [data-skin="brutalist"] .cal-cell.is-selected {
@@ -3929,14 +4780,18 @@
   box-shadow: inset 0 0 0 2px var(--text);
 }
 
-[data-skin="brutalist"] button.cal-date:hover {
-  background: var(--bru-hi);
-  color: var(--bru-on-hi);
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="brutalist"] button.cal-date:hover {
+    background: var(--text);
+    color: var(--bg);
+  }
 }
 
-[data-skin="brutalist"] .cal-cell.is-today button.cal-date:hover {
-  background: var(--bg);
-  color: var(--text);
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="brutalist"] .cal-cell.is-today button.cal-date:hover {
+    background: var(--bg);
+    color: var(--text);
+  }
 }
 
 [data-skin="brutalist"] .cal-wknum {
@@ -3945,24 +4800,30 @@
   transition: none;
 }
 
-[data-skin="brutalist"] .cal-wknum:hover {
-  background: var(--bru-hi);
-  color: var(--bru-on-hi);
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="brutalist"] .cal-wknum:hover {
+    background: var(--text);
+    color: var(--bg);
+  }
 }
 
-[data-skin="brutalist"] .cal-wrow:hover .cal-wknum:not(:hover) {
-  background: var(--surface-2);
-  color: var(--text);
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="brutalist"] .cal-wrow:hover .cal-wknum:not(:hover) {
+    background: var(--surface-2);
+    color: var(--text);
+  }
 }
 
 [data-skin="brutalist"] .cal-cell-add {
   color: var(--text);
 }
 
-[data-skin="brutalist"] .cal-cell-add:hover {
-  background: var(--bru-hi);
-  color: var(--bru-on-hi);
-  box-shadow: inset 0 0 0 2px #000000;
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="brutalist"] .cal-cell-add:hover {
+    background: var(--text);
+    color: var(--bg);
+    box-shadow: none;
+  }
 }
 
 [data-skin="brutalist"] .cal-more {
@@ -3971,13 +4832,15 @@
   color: var(--text);
 }
 
-[data-skin="brutalist"] .cal-more:hover {
-  background: var(--bru-hi);
-  color: var(--bru-on-hi);
-}
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="brutalist"] .cal-more:hover {
+    background: var(--text);
+    color: var(--bg);
+  }
 
-[data-skin="brutalist"] .cal-more:hover .cal-more-task {
-  color: var(--bru-on-hi);
+  [data-skin="brutalist"] .cal-more:hover .cal-more-task {
+    color: var(--bg);
+  }
 }
 
 [data-skin="brutalist"] .cal-more-box {
@@ -4040,12 +4903,19 @@
   background: var(--text);
 }
 
+/* The legend's sample of that bar: its own small width (the shared .cal-hbar's 70% loads later
+   in calendar.css and stretched the sample across the tip, squeezing the words beside it) */
+[data-skin="brutalist"] .cal-hbar.cal-legend-hbar {
+  width: 22px;
+  margin: 0;
+}
+
 [data-skin="brutalist"] .cal-hbar.is-perfect {
   box-shadow: none;
 }
 
 [data-skin="brutalist"] .cal-hbar.is-perfect .cal-hbar-fill {
-  background: var(--bru-hi);
+  background: var(--text);
 }
 
 [data-skin="brutalist"] .cal-minilegend {
@@ -4085,10 +4955,12 @@
   transition: none;
 }
 
-[data-skin="brutalist"] button.cal-dh-btn:hover,
-[data-skin="brutalist"] .cal-ag-date:hover {
-  background: var(--bru-hi);
-  box-shadow: inset 0 0 0 2px #000000;
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="brutalist"] button.cal-dh-btn:hover,
+  [data-skin="brutalist"] .cal-ag-date:hover {
+    background: var(--surface-2);
+    box-shadow: inset 0 0 0 2px var(--text);
+  }
 }
 
 [data-skin="brutalist"] .cal-dh-num {
@@ -4128,9 +5000,23 @@
   border-left: 2px solid var(--text);
 }
 
-[data-skin="brutalist"] .cal-ad-col:hover,
 [data-skin="brutalist"] .cal-ad-col.is-today {
   background: var(--surface-2);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="brutalist"] .cal-ad-col:hover {
+    background: var(--surface-2);
+  }
+}
+
+/* The calendar fits the window: calendar.js leaves 12px under the timeline or month (FIT.margin),
+   so the page's room under it is that, less 2px for the fit's rounding (the display title's row
+   is not a whole number of pixels), not compact.css's 16px (which scrolled the page 4–5px) */
+@media (min-width: 641px) {
+  [data-skin="brutalist"] .main .view.cal-page {
+    padding-bottom: 10px;
+  }
 }
 
 [data-skin="brutalist"] .cal-tl-hour {
@@ -4151,6 +5037,45 @@
 [data-skin="brutalist"] .cal-day-tl .cal-tl-col.is-today,
 [data-skin="brutalist"] .cal-day-tl .cal-tl-col.is-selected {
   background-color: transparent;
+}
+
+/* A band (a long block behind the column, "Work 09–17"): a dashed ink frame over sparse hatching
+   with the fat ink spine, its name a paper label at the top; never a slab, the hours stay free */
+[data-skin="brutalist"] .cal-tl .cal-tl-col > .cal-tlev.is-band {
+  border: 2px dashed var(--cc, var(--text));
+  border-left: 6px solid var(--cc, var(--text));
+  background: repeating-linear-gradient(-45deg, var(--hatch) 0 1px, transparent 1px 9px);
+  color: var(--text);
+}
+
+[data-skin="brutalist"] .cal-tl .cal-tl-col > .cal-tlev.is-band:is(.cal-band--solid, .cal-band--ink) {
+  background: repeating-linear-gradient(-45deg, var(--hatch) 0 2px, transparent 2px 7px);
+}
+
+[data-skin="brutalist"] .cal-tl .cal-tl-col > .cal-tlev.is-band.cal-band--outline {
+  background: none;
+}
+
+[data-skin="brutalist"] .cal-band-label {
+  width: fit-content;
+  padding: 0 3px;
+  background: var(--bg);
+}
+
+[data-skin="brutalist"] .cal-band-label .cal-tlev-title {
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+[data-skin="brutalist"] .cal-band-label .cal-tlev-time {
+  color: var(--text);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="brutalist"] .cal-tlev.is-band:hover {
+    box-shadow: none;
+  }
 }
 
 /* Drag-to-create: a yellow block with a dashed ink frame */
@@ -4175,10 +5100,12 @@
   color: var(--text);
 }
 
-[data-skin="brutalist"] .cal-edge:hover {
-  border-color: var(--text);
-  background: var(--bru-hi);
-  color: var(--bru-on-hi);
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="brutalist"] .cal-edge:hover {
+    border-color: var(--text);
+    background: var(--surface-2);
+    color: var(--text);
+  }
 }
 
 /* Now: an ink rule, a yellow diamond and a yellow time stamp */
@@ -4228,17 +5155,15 @@
 }
 
 [data-skin="brutalist"] .cal-plan-title {
-  font-family: var(--font-display);
-  font-size: 22px;
-  font-weight: 400;
-  line-height: 1.05;
-  letter-spacing: 0.01em;
   color: var(--text);
 }
 
-[data-skin="brutalist"] .cal-plan-count {
+/* (a number in the display face at its one weight: the shared 700 made a fake bold of it; the
+   word "Hidden" keeps the caption face) */
+[data-skin="brutalist"] .cal-plan-count:not(.is-word) {
   font-family: var(--font-display);
   font-size: 22px;
+  font-weight: 400;
   line-height: 1;
 }
 
@@ -4253,9 +5178,11 @@
   text-decoration-thickness: 2px;
 }
 
-[data-skin="brutalist"] .cal-link:hover {
-  background: var(--bru-hi);
-  color: var(--bru-on-hi);
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="brutalist"] .cal-link:hover {
+    background: var(--text);
+    color: var(--bg);
+  }
 }
 
 [data-skin="brutalist"] .cal-plan-donelink {
@@ -4268,8 +5195,10 @@
   background: var(--bg);
 }
 
-[data-skin="brutalist"] .cal-trow:hover {
-  box-shadow: 3px 3px 0 var(--text);
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="brutalist"] .cal-trow:hover {
+    box-shadow: 3px 3px 0 var(--text);
+  }
 }
 
 [data-skin="brutalist"] .cal-trow.is-overdue {
@@ -4284,13 +5213,18 @@
   font-weight: 800;
 }
 
-[data-skin="brutalist"] .cal-trow-title:hover {
-  text-decoration-color: currentColor;
-  text-decoration-thickness: 2px;
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="brutalist"] .cal-trow-title:hover {
+    text-decoration-color: currentColor;
+    text-decoration-thickness: 2px;
+  }
 }
 
+/* (the date in caps without the caption tracking: the day panel is narrow, the task's name needs
+   the room more) */
 [data-skin="brutalist"] .cal-trow-due {
   color: var(--text-2);
+  letter-spacing: 0;
 }
 
 [data-skin="brutalist"] .cal-add-input {
@@ -4301,11 +5235,13 @@
   --btn-h: 40px;
 }
 
-[data-skin="brutalist"] .cal-hrow:hover {
-  background: var(--surface-2);
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="brutalist"] .cal-hrow:hover {
+    background: var(--surface-2);
+  }
 }
 
-/* Habit checks stay round (round means habit), heavy ring, yellow when done */
+/* Habit checks stay round (round means habit), heavy ring, solid ink when done */
 [data-skin="brutalist"] .cal-hcheck {
   width: 22px;
   height: 22px;
@@ -4314,14 +5250,17 @@
   color: var(--bru-on-hi);
 }
 
-[data-skin="brutalist"] .cal-hcheck:not(:disabled):hover {
-  border-color: var(--text);
-  box-shadow: 2px 2px 0 var(--text);
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="brutalist"] .cal-hcheck:not(:disabled):hover {
+    border-color: var(--text);
+    box-shadow: 2px 2px 0 var(--text);
+  }
 }
 
 [data-skin="brutalist"] .cal-hcheck[aria-checked="true"] {
-  background: var(--bru-hi);
+  background: var(--text);
   border-color: var(--text);
+  color: var(--bg);
   box-shadow: none;
 }
 
@@ -4354,13 +5293,18 @@
 /* Phone week: agenda days; today carries the yellow drop */
 [data-skin="brutalist"] .cal-ag-day.is-today {
   border-color: var(--text);
-  box-shadow: var(--bru-drop) var(--bru-drop) 0 var(--bru-hi), var(--bru-drop) var(--bru-drop) 0 3px var(--text);
+  box-shadow: var(--bru-drop) var(--bru-drop) 0 var(--text);
 }
 
+/* (the date beside it is today's yellow: the word is an ink stamp, not a second yellow) */
 [data-skin="brutalist"] .cal-ag-today.tag--solid {
-  background: var(--bru-hi);
+  background: var(--text);
   border-color: var(--text);
-  color: var(--bru-on-hi);
+  color: var(--bg);
+}
+
+[data-skin="brutalist"] .cal-ag-today.tag--solid .icon {
+  color: var(--bg);
 }
 
 [data-skin="brutalist"] .cal-ag-empty {
@@ -4403,7 +5347,7 @@
 }
 
 [data-skin="brutalist"] .cal-sheet-box.is-done {
-  background: var(--bru-hi);
+  background: var(--text);
   border-color: var(--text);
 }
 
@@ -4417,9 +5361,11 @@
 }
 
 [data-skin="brutalist"] .cal-sheet-quick .btn.is-current {
-  background: var(--bru-hi);
+  background: var(--bg);
   border-color: var(--text);
-  color: var(--bru-on-hi);
+  color: var(--text);
+  font-weight: 900;
+  box-shadow: inset 0 -5px 0 var(--text), var(--bru-press) var(--bru-press) 0 var(--text);
 }
 
 [data-skin="brutalist"] .cal-sheet-date {
@@ -4486,9 +5432,11 @@
   background: var(--bg);
 }
 
-[data-skin="brutalist"] .cal-ed-switch:hover .cal-ed-switch-track {
-  border-color: var(--text);
-  box-shadow: 2px 2px 0 var(--text);
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="brutalist"] .cal-ed-switch:hover .cal-ed-switch-track {
+    border-color: var(--text);
+    box-shadow: 2px 2px 0 var(--text);
+  }
 }
 
 [data-skin="brutalist"] .cal-ed-switch-thumb {
@@ -4500,28 +5448,37 @@
   background: var(--text);
 }
 
+/* On: a solid ink slab, the paper thumb at the right end (off: paper, the ink thumb at the left) */
 [data-skin="brutalist"] .cal-ed-switch[aria-checked="true"] .cal-ed-switch-track {
-  background: var(--bru-hi);
+  background: var(--text);
   border-color: var(--text);
   box-shadow: 2px 2px 0 var(--text);
 }
 
 [data-skin="brutalist"] .cal-ed-switch[aria-checked="true"] .cal-ed-switch-thumb {
   transform: translateX(16px);
-  background: var(--bru-on-hi);
+  background: var(--bg);
 }
 
-/* Radio segments: the picked option is the yellow cell */
+/* Radio segments: the picked option has the fat ink bar */
 [data-skin="brutalist"] .cal-ed-seg-opt.is-on {
-  background: var(--bru-hi);
-  color: var(--bru-on-hi);
+  background: var(--bg);
+  color: var(--text);
+  font-weight: 900;
   text-decoration: none;
+  box-shadow: inset 0 -5px 0 var(--text);
 }
 
 [data-skin="brutalist"] .cal-ed-seg-opt:has(.cal-ed-radio:focus-visible),
 [data-skin="brutalist"] .cal-ed-style:has(.cal-ed-radio:focus-visible) {
   outline: 3px solid var(--line-focus);
   outline-offset: 2px;
+}
+
+/* (a repeat option fills its bar, which clips what's outside it: the ring goes inside, like every
+   choice bar's here) */
+[data-skin="brutalist"] .cal-ed-seg-opt:has(.cal-ed-radio:focus-visible) {
+  outline-offset: -3px;
 }
 
 @media (max-width: 640px) {
@@ -4551,16 +5508,19 @@
   transition: none;
 }
 
-[data-skin="brutalist"] .cal-ed-wd:hover {
-  border-color: var(--text);
-  box-shadow: 3px 3px 0 var(--text);
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="brutalist"] .cal-ed-wd:hover {
+    border-color: var(--text);
+    box-shadow: 3px 3px 0 var(--text);
+  }
 }
 
 [data-skin="brutalist"] .cal-ed-wd[aria-pressed="true"] {
-  background: var(--bru-hi);
+  background: var(--bg);
   border-color: var(--text);
-  color: var(--bru-on-hi);
-  box-shadow: 3px 3px 0 var(--text);
+  color: var(--text);
+  font-weight: 900;
+  box-shadow: inset 0 -5px 0 var(--text);
 }
 
 [data-skin="brutalist"] .cal-ed-summary {
@@ -4575,15 +5535,18 @@
   transition: none;
 }
 
-[data-skin="brutalist"] .cal-ed-style:hover {
-  border-color: var(--text);
-  box-shadow: 3px 3px 0 var(--text);
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="brutalist"] .cal-ed-style:hover {
+    border-color: var(--text);
+    box-shadow: 3px 3px 0 var(--text);
+  }
 }
 
+/* The picked look: its card on the drop, the fat ink bar along its foot */
 [data-skin="brutalist"] .cal-ed-style.is-on {
-  border-color: #000000;
-  background: var(--bru-hi);
-  box-shadow: 4px 4px 0 var(--bru-ink);
+  border-color: var(--text);
+  background: var(--bg);
+  box-shadow: inset 0 -5px 0 var(--text), 4px 4px 0 var(--text);
 }
 
 [data-skin="brutalist"] .cal-ed-swatch,
@@ -4617,11 +5580,18 @@
   transition: none;
 }
 
-[data-skin="brutalist"] .cal-ed-scope-opt:hover,
 [data-skin="brutalist"] .cal-ed-scope-opt:focus-visible {
   border-color: #000000;
   background: var(--bru-hi);
   box-shadow: 4px 4px 0 var(--bru-ink);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="brutalist"] .cal-ed-scope-opt:hover {
+    border-color: #000000;
+    background: var(--bru-hi);
+    box-shadow: 4px 4px 0 var(--bru-ink);
+  }
 }
 
 [data-skin="brutalist"] .cal-ed-scope-opt:focus-visible {
@@ -4636,10 +5606,16 @@
   border: 3px solid var(--text);
 }
 
-[data-skin="brutalist"] .cal-ed-scope-opt:hover .cal-ed-scope-mark,
 [data-skin="brutalist"] .cal-ed-scope-opt:focus-visible .cal-ed-scope-mark {
   background: var(--text);
   border-color: var(--text);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="brutalist"] .cal-ed-scope-opt:hover .cal-ed-scope-mark {
+    background: var(--text);
+    border-color: var(--text);
+  }
 }
 
 [data-skin="brutalist"] .cal-ed-scope-name {
@@ -4657,23 +5633,42 @@
   border-style: dashed;
 }
 
-[data-skin="brutalist"] .cal-ed-scope-opt--danger:hover,
 [data-skin="brutalist"] .cal-ed-scope-opt--danger:focus-visible {
   border-style: solid;
   border-color: var(--text);
   background: var(--text);
-  box-shadow: 4px 4px 0 var(--bru-hi);
+  box-shadow: 4px 4px 0 var(--bg), 4px 4px 0 2px var(--text);
 }
 
-[data-skin="brutalist"] .cal-ed-scope-opt--danger:hover :is(.cal-ed-scope-name, .cal-ed-scope-sub),
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="brutalist"] .cal-ed-scope-opt--danger:hover {
+    border-style: solid;
+    border-color: var(--text);
+    background: var(--text);
+    box-shadow: 4px 4px 0 var(--bg), 4px 4px 0 2px var(--text);
+  }
+}
+
 [data-skin="brutalist"] .cal-ed-scope-opt--danger:focus-visible :is(.cal-ed-scope-name, .cal-ed-scope-sub) {
   color: var(--bg);
 }
 
-[data-skin="brutalist"] .cal-ed-scope-opt--danger:hover .cal-ed-scope-mark,
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="brutalist"] .cal-ed-scope-opt--danger:hover :is(.cal-ed-scope-name, .cal-ed-scope-sub) {
+    color: var(--bg);
+  }
+}
+
 [data-skin="brutalist"] .cal-ed-scope-opt--danger:focus-visible .cal-ed-scope-mark {
-  background: var(--bru-hi);
+  background: var(--bg);
   border-color: var(--bg);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="brutalist"] .cal-ed-scope-opt--danger:hover .cal-ed-scope-mark {
+    background: var(--bg);
+    border-color: var(--bg);
+  }
 }
 
 /* ==========================================================================
@@ -4689,20 +5684,17 @@
   font-weight: 700;
 }
 
-[data-skin="brutalist"] .hm-next:hover {
-  background: var(--bru-hi);
-  border-color: var(--text);
-  color: var(--bru-on-hi);
-}
-
-[data-skin="brutalist"] .hm-next:hover svg {
-  color: var(--bru-on-hi);
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="brutalist"] .hm-next:hover {
+    background: var(--surface-2);
+    border-color: var(--text);
+    color: var(--text);
+  }
 }
 
 [data-skin="brutalist"] .hm-card-title,
 [data-skin="brutalist"] .hm-card-title svg,
-[data-skin="brutalist"] .hm-more,
-[data-skin="brutalist"] .hm-count {
+[data-skin="brutalist"] .hm-more {
   color: var(--text);
 }
 
@@ -4712,18 +5704,217 @@
   font-weight: 800;
 }
 
-[data-skin="brutalist"] .hm-more:hover {
-  background: var(--bru-hi);
-  color: var(--bru-on-hi);
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="brutalist"] .hm-more:hover {
+    background: var(--text);
+    color: var(--bg);
+  }
 }
 
-[data-skin="brutalist"] .hm-week-title {
+/* A card's title (this week, Start here, Timer settings, an Insights chart, a Settings section, a
+   day's list): the display face at one size, caps. A widget's own small head stays a caption. */
+[data-skin="brutalist"] :is(.hm-week-title, .hm-start-title, .pm-card-title, .hbi-card-title, .cal-plan-title, .cal-pop-title, .tr-detail-title),
+[data-skin="brutalist"] .st-root .st-card-title {
   font-family: var(--font-display);
-  font-size: 30px;
+  font-size: 22px;
   font-weight: 400;
   letter-spacing: 0.01em;
-  line-height: 1;
+  line-height: 1.05;
   text-transform: uppercase;
+}
+
+/* Display numerals are one weight (Anton 400): never a made-up bold */
+[data-skin="brutalist"] :is(.hm-gl-value, .hm-clock-time, .input.tr-sess-title, .fn-avatar) {
+  font-weight: 400;
+}
+
+/* Start here (a first visit): three big steps; the first one still to do is the yellow, a done one
+   is struck through beside a solid ink square with its tick */
+[data-skin="brutalist"] .hm-start-title {
+  white-space: nowrap;
+}
+
+[data-skin="brutalist"] .hm-start-count {
+  padding: 2px 5px;
+  background: var(--text);
+  color: var(--bg);
+  font-family: var(--font-sans);
+  font-size: var(--fs-2xs);
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+[data-skin="brutalist"] .hm-start-btn {
+  border: 3px solid var(--text);
+  background: var(--bg);
+  box-shadow: 4px 4px 0 var(--text);
+  transition: transform 60ms linear, box-shadow 60ms linear;
+}
+
+[data-skin="brutalist"] .hm-start-btn:active {
+  transform: translate(4px, 4px);
+  box-shadow: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="brutalist"] .hm-start-btn:hover {
+    border-color: var(--text);
+    background: var(--surface-2);
+  }
+}
+
+[data-skin="brutalist"] .hm-start-step:not(.is-done) .hm-start-btn {
+  --text: #000000;
+  --text-2: #000000;
+  --text-3: #262626;
+  --bg: #ffe600;
+  border-color: #000000;
+  background: var(--bru-hi);
+  box-shadow: 4px 4px 0 var(--bru-ink);
+  color: #000000;
+}
+
+/* Its page icon in ink: the tile takes its tone from --mod-* (resolved at the root: light gray at
+   night, which vanished on the yellow). Only the first step still to do; the ones after it keep
+   their tone on paper. */
+[data-skin="brutalist"] .hm-start-step:not(.is-done):not(.hm-start-step:not(.is-done) ~ .hm-start-step) .hm-start-btn .ib {
+  --ib-c: #000000;
+}
+
+/* (only the first step still to do: the ones after it are paper again) */
+[data-skin="brutalist"] .hm-start-step:not(.is-done) ~ .hm-start-step .hm-start-btn {
+  --text: var(--bru-ink);
+  --text-2: inherit;
+  --text-3: inherit;
+  --bg: inherit;
+  border-color: var(--bru-ink);
+  background: transparent;
+  box-shadow: 4px 4px 0 var(--bru-ink);
+  color: var(--bru-ink);
+}
+
+[data-skin="brutalist"] .hm-start-step:not(.is-done) ~ .hm-start-step .hm-start-text span {
+  color: var(--bru-ink);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="brutalist"] .hm-start-step:not(.is-done) ~ .hm-start-step .hm-start-btn:hover {
+    background: var(--surface-2);
+  }
+}
+
+[data-skin="brutalist"] .hm-start-mark {
+  width: 28px;
+  height: 28px;
+  border: 3px solid currentColor;
+  border-radius: 0;
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 400;
+  color: inherit;
+}
+
+[data-skin="brutalist"] .hm-start-text strong {
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+[data-skin="brutalist"] .hm-start-text span,
+[data-skin="brutalist"] .hm-start-go {
+  color: inherit;
+}
+
+[data-skin="brutalist"] .hm-start-step.is-done .hm-start-mark {
+  border-color: var(--text);
+  background: var(--text);
+  color: var(--bg);
+}
+
+[data-skin="brutalist"] .hm-start-step.is-done .hm-start-text strong {
+  color: var(--text-2);
+  text-decoration-color: var(--text);
+  text-decoration-thickness: 3px;
+}
+
+/* Today & next: no frame of its own inside the card; each day opens with a ruled head, today's
+   word the yellow stamp */
+[data-skin="brutalist"] .hm-days[data-view="agenda"] {
+  border: 0;
+  background: none;
+}
+
+[data-skin="brutalist"] .hm-up-head {
+  padding: 2px 0 4px;
+  border-bottom: 3px solid var(--text);
+  color: var(--text-2);
+}
+
+[data-skin="brutalist"] .hm-up-head > .icon {
+  color: var(--text);
+}
+
+[data-skin="brutalist"] .hm-up-when {
+  font-weight: 900;
+}
+
+[data-skin="brutalist"] .hm-up-date {
+  color: var(--text-2);
+}
+
+[data-skin="brutalist"] .hm-up-day.is-today .hm-up-when {
+  padding: 1px 5px;
+  background: var(--bru-hi);
+  color: #000000;
+  box-shadow: inset 0 0 0 2px #000000;
+}
+
+[data-skin="brutalist"] .hm-up-day.is-past .hm-up-when {
+  color: var(--text-2);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="brutalist"] .hm-up-head:hover .hm-up-when {
+    text-decoration-color: currentColor;
+    text-decoration-thickness: 2px;
+  }
+}
+
+/* "+2 more", "3 earlier events", "+7 more" (habits): small blunt caps, not a typewriter whisper */
+[data-skin="brutalist"] :is(.hm-up-more, .hm-up-earlier, .hm-list-more) {
+  padding: 2px 4px;
+  border-radius: 0;
+  font-family: var(--font-sans);
+  font-size: var(--fs-2xs);
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--text);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="brutalist"] :is(.hm-up-more, .hm-up-earlier, .hm-list-more):hover {
+    background: var(--text);
+    color: var(--bg);
+  }
+}
+
+[data-skin="brutalist"] :is(.hm-up-none, .hm-up-rest, .hm-up-foot-note) {
+  color: var(--text-2);
+}
+
+[data-skin="brutalist"] .hm-habits-line {
+  color: var(--text);
+  font-weight: 700;
+}
+
+/* A workout going on (the Training widget): the current thing, a yellow block */
+[data-skin="brutalist"] .hm-train-live {
+  border: 3px solid #000000;
+  background: var(--bru-hi);
+  box-shadow: 4px 4px 0 var(--bru-ink);
 }
 
 [data-skin="brutalist"] .hm-days {
@@ -4742,8 +5933,10 @@
   border-right: 0;
 }
 
-[data-skin="brutalist"] .hm-day:hover {
-  background: var(--surface-2);
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="brutalist"] .hm-day:hover {
+    background: var(--surface-2);
+  }
 }
 
 [data-skin="brutalist"] .hm-day.is-weekend {
@@ -4765,7 +5958,7 @@
    light ring color, which nearly matches the yellow at night (1.3:1, WCAG 2.4.7) */
 [data-skin="brutalist"] .modal-head :focus-visible,
 [data-skin="brutalist"] .hm-day.is-today .hm-day-head:focus-visible,
-[data-skin="brutalist"] .tab[aria-current="page"]:focus-visible {
+[data-skin="brutalist"] :is(.tab[aria-current="page"], .tab--more.is-current):focus-visible {
   outline-color: var(--bru-on-hi);
 }
 
@@ -4801,6 +5994,118 @@
   font-weight: 900;
 }
 
+/* The month in the calendar card: the Calendar's month in small, an inverted ink band of weekdays
+   over a grid ruled in ink; today's number the yellow block in an ink ring (as on the Calendar's
+   week and phone month); events square chips with a fat spine, tasks heavy square boxes, the
+   habits an outlined bar that fills with ink */
+[data-skin="brutalist"] .hm-days[data-view="month"] {
+  gap: 0;
+}
+
+[data-skin="brutalist"] .hm-mhead {
+  border: 3px solid var(--text);
+  border-bottom: 0;
+  background: var(--text);
+}
+
+[data-skin="brutalist"] .hm-mhead span {
+  padding-block: 2px;
+  color: var(--bg);
+  font-weight: 900;
+}
+
+[data-skin="brutalist"] .hm-mgrid {
+  gap: 2px;
+  border: 3px solid var(--text);
+  border-top-width: 1px;
+  background: var(--text);
+}
+
+[data-skin="brutalist"] .hm-mcell {
+  transition: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="brutalist"] .hm-mcell:hover {
+    background: var(--surface-2);
+  }
+}
+
+[data-skin="brutalist"] .hm-mcell:focus-visible {
+  outline-width: 3px;
+  outline-offset: -3px;
+}
+
+[data-skin="brutalist"] .hm-mcell.is-today {
+  box-shadow: none;
+}
+
+[data-skin="brutalist"] .hm-mnum {
+  font-weight: 700;
+}
+
+[data-skin="brutalist"] .hm-mcell.is-today .hm-mnum {
+  background: var(--bru-hi);
+  color: #000000;
+  box-shadow: inset 0 0 0 2px #000000;
+}
+
+[data-skin="brutalist"] .hm-mi {
+  border-radius: 0;
+  font-weight: 700;
+}
+
+[data-skin="brutalist"] .hm-mi--ev {
+  --mi: var(--cc, var(--text));
+  box-shadow: inset 3px 0 0 var(--mi);
+}
+
+[data-skin="brutalist"] .hm-mi--task::before {
+  border-width: 2px;
+  border-radius: 0;
+}
+
+[data-skin="brutalist"] .hm-mmore {
+  font-weight: 700;
+  color: var(--text-2);
+}
+
+[data-skin="brutalist"] .hm-mhab {
+  height: 6px;
+  border: 2px solid var(--text);
+  border-radius: 0;
+  background: var(--bg);
+}
+
+[data-skin="brutalist"] .hm-mhab-fill,
+[data-skin="brutalist"] .hm-mhab.is-perfect .hm-mhab-fill {
+  background: var(--text);
+}
+
+[data-skin="brutalist"] .hm-mhab.is-future {
+  border-style: dashed;
+  background: transparent;
+  box-shadow: none;
+}
+
+/* A narrow month (dots instead of titles): events short ink bars, tasks small square boxes, as the
+   Calendar marks a phone's month */
+@container hm-week (max-width: 520px) {
+  [data-skin="brutalist"] .hm-mi--ev,
+  [data-skin="brutalist"] .hm-mi--ev.is-solid {
+    width: 10px;
+    height: 4px;
+    border-radius: 0;
+  }
+
+  [data-skin="brutalist"] .hm-mi--task {
+    width: 8px;
+    height: 8px;
+    border-width: 2px;
+    border-radius: 0;
+  }
+}
+
 /* The Pomodoro widget: one giant number; running, it sits on a yellow block */
 [data-skin="brutalist"] .hm-pomo-digits {
   width: fit-content;
@@ -4830,14 +6135,15 @@
   background: var(--bg);
 }
 
+/* The bar fills with ink (a break with ink stripes); only the running digits go yellow */
 [data-skin="brutalist"] .hm-pomo-fill {
   border-radius: 0;
-  background: var(--bru-hi);
+  background: var(--text);
   box-shadow: none;
 }
 
 [data-skin="brutalist"] .hm-pomo:not([data-phase="focus"]) .hm-pomo-fill {
-  background: repeating-linear-gradient(-45deg, var(--text) 0 3px, var(--bru-hi) 3px 7px);
+  background: repeating-linear-gradient(-45deg, var(--text) 0 3px, transparent 3px 7px);
   box-shadow: none;
 }
 
@@ -4869,6 +6175,24 @@
 [data-skin="brutalist"] .hm-empty-text strong {
   font-weight: 900;
   text-transform: uppercase;
+}
+
+/* In half a phone the stacked button keeps its words on one line ("ADD A / HABIT" broke in two):
+   smaller caps without tracking, no + */
+@container hm-widget (max-width: 320px) {
+  [data-skin="brutalist"] .hm-empty {
+    padding: 10px;
+  }
+
+  [data-skin="brutalist"] .hm-empty > .btn {
+    padding-inline: 6px;
+    font-size: var(--fs-xs);
+    letter-spacing: 0;
+  }
+
+  [data-skin="brutalist"] .hm-empty > .btn > .icon {
+    display: none;
+  }
 }
 
 /* The graph: hard black bars, today in yellow, rest days a thick dashed floor */
@@ -4911,7 +6235,8 @@
 
 [data-skin="brutalist"] .hm-graph-avg {
   padding: 1px 6px;
-  background: var(--bru-hi);
+  background: var(--text);
+  color: var(--bg);
 }
 
 /* The Today strip: ink rules between the tiles, a tile lights up hazard yellow under the pointer */
@@ -4924,13 +6249,11 @@
   border-radius: 0;
 }
 
-[data-skin="brutalist"] .hm-gl:hover {
-  background: var(--bru-hi);
-  color: var(--bru-on-hi);
-}
-
-[data-skin="brutalist"] .hm-gl:hover :is(.hm-gl-label, .hm-gl-sub, .hm-gl-alert) {
-  color: var(--bru-on-hi);
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="brutalist"] .hm-gl:hover {
+    background: var(--surface-2);
+    color: var(--text);
+  }
 }
 
 /* A narrow calendar beside its way back ("This month"): the wide capitals take the view icon's room */
@@ -4945,11 +6268,6 @@
    ========================================================================== */
 
 [data-skin="brutalist"] .pm-card-title {
-  font-family: var(--font-display);
-  font-size: 26px;
-  font-weight: 400;
-  letter-spacing: 0.01em;
-  line-height: 1;
   color: var(--text);
 }
 
@@ -4969,8 +6287,10 @@
   color: var(--text);
 }
 
+/* Running, the phase is an ink stamp: the ring is the yellow */
 [data-skin="brutalist"] .pm-timer[data-status="running"] .pm-dial-phase {
-  background: var(--bru-hi);
+  background: var(--text);
+  color: var(--bg);
 }
 
 [data-skin="brutalist"] .pm-dial-round {
@@ -4997,6 +6317,12 @@
   stroke-dasharray: 10 5;
 }
 
+/* Yellow only while it runs: set up or paused, the time left is a paper stripe in the ink band
+   (Start, the page's main button, is then its one yellow) */
+[data-skin="brutalist"] .pm-timer:not([data-status="running"]) .pm-ring .ring-fill {
+  stroke: var(--bg);
+}
+
 [data-skin="brutalist"] .pm-tick::before {
   width: 2px;
   background: var(--text);
@@ -5014,15 +6340,34 @@
   box-shadow: 3px 3px 0 var(--text);
 }
 
-[data-skin="brutalist"] .pm-preset:hover {
-  border-color: var(--text);
-  background: var(--surface-2);
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="brutalist"] .pm-preset:hover {
+    border-color: var(--text);
+    background: var(--surface-2);
+  }
 }
 
+/* The preset in use: picked (the fat ink bar under it) */
 [data-skin="brutalist"] .pm-preset[aria-pressed="true"] {
-  border-color: var(--bru-ink);
-  background: var(--bru-hi);
-  box-shadow: 4px 4px 0 var(--bru-ink);
+  border-color: var(--text);
+  background: var(--bg);
+  color: var(--text);
+  box-shadow: inset 0 -5px 0 var(--text), 3px 3px 0 var(--text);
+}
+
+[data-skin="brutalist"] .pm-preset[aria-pressed="true"] .pm-preset-sub {
+  opacity: 1;
+}
+
+/* What the timer is set to, beside "Set up": an ink stamp; the fold's own chevron turns */
+[data-skin="brutalist"] .pm-setup-chip {
+  background: var(--bg);
+  border-color: var(--text);
+  color: var(--text);
+}
+
+[data-skin="brutalist"] .pm-setup-btn.is-open {
+  box-shadow: inset 0 -5px 0 var(--text);
 }
 
 [data-skin="brutalist"] .pm-preset-name {
@@ -5063,13 +6408,15 @@
   background: var(--text);
 }
 
+/* Switches (here, Settings, the event editor): on is a solid ink slab with its paper thumb at the
+   right end, off is a paper slab with its ink thumb at the left; the same at night */
 [data-skin="brutalist"] .pm-switch[aria-checked="true"] .pm-switch-track {
-  border-color: var(--bru-ink);
-  background: var(--bru-hi);
+  border-color: var(--text);
+  background: var(--text);
 }
 
 [data-skin="brutalist"] .pm-switch[aria-checked="true"] .pm-switch-thumb {
-  background: var(--bru-on-hi);
+  background: var(--bg);
   transform: translate(20px, -50%);
 }
 
@@ -5113,9 +6460,11 @@
   line-height: 1;
 }
 
-[data-skin="brutalist"] .pm-mini-btn:hover {
-  background: var(--text);
-  color: var(--bg);
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="brutalist"] .pm-mini-btn:hover {
+    background: var(--text);
+    color: var(--bg);
+  }
 }
 
 [data-skin="brutalist"] .pm-mini[data-status="running"][data-phase="focus"] {
@@ -5156,16 +6505,16 @@
     font-size: 72px;
   }
 
-  /* Six tabs at 375px: a tighter label so CALENDAR still fits */
+  /* Home's page top on a phone: Quick note is an icon block as wide as Customize beside it (36px
+     next to 40px showed as a step between the two hard drops); outranks home.css's phone rule */
+  [data-skin="brutalist"] .main .view.hm-page > .page-header .page-actions .hm-quick.btn.btn--primary {
+    width: 40px;
+  }
+
+  /* Five tabs at 375px: a tighter label so CALENDAR and POMODORO still fit */
   [data-skin="brutalist"] .tab {
     font-size: 10px;
     letter-spacing: 0;
-  }
-
-  /* Six tabs: the stickers stay inside their tab */
-  [data-skin="brutalist"] .tab .nav-badge {
-    left: calc(50% + 4px);
-    max-width: calc(50% - 5px);
   }
 }
 
@@ -5189,13 +6538,374 @@
 }
 
 /* ==========================================================================
+   Training: square, ink-framed; the picked exercise and a running rest are the
+   yellow; a done set is the solid ink check (the shared .check)
+   ========================================================================== */
+
+[data-skin="brutalist"] .tr-section-title,
+[data-skin="brutalist"] .tr-section-title > svg {
+  color: var(--text);
+  font-weight: 900;
+}
+
+[data-skin="brutalist"] .tr-card-when {
+  color: var(--text-2);
+  font-weight: 800;
+}
+
+[data-skin="brutalist"] .tr-card-title {
+  font-weight: 800;
+}
+
+/* Exercises (Progress): ink-framed slabs; the one on the graph is the yellow block */
+[data-skin="brutalist"] .tr-ex {
+  border: 3px solid var(--text);
+  border-radius: 0;
+  background: var(--bg);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="brutalist"] .tr-ex:hover {
+    border-color: var(--text);
+    background: var(--surface-2);
+  }
+}
+
+[data-skin="brutalist"] .tr-ex[aria-pressed="true"] {
+  border-color: #000000;
+  background: var(--bru-hi);
+  box-shadow: 4px 4px 0 var(--bru-ink);
+}
+
+[data-skin="brutalist"] .tr-ex-name {
+  font-weight: 800;
+}
+
+[data-skin="brutalist"] .tr-ex-meta {
+  color: var(--text-2);
+}
+
+/* The figures over the graph: display numerals */
+[data-skin="brutalist"] .tr-kpi-value {
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 400;
+  line-height: 1.05;
+  letter-spacing: 0.01em;
+}
+
+[data-skin="brutalist"] .tr-kpi-sub {
+  color: var(--text-2);
+}
+
+/* The graph: a quiet dashed grid, a fat ink line with square joints, records as yellow points */
+[data-skin="brutalist"] .tr-plot {
+  border-radius: 0;
+}
+
+[data-skin="brutalist"] .tr-grid line {
+  stroke: var(--heat-1);
+  stroke-dasharray: 2 4;
+}
+
+[data-skin="brutalist"] .tr-axis {
+  font-family: var(--font-sans);
+  font-weight: 700;
+  fill: var(--text-2);
+}
+
+[data-skin="brutalist"] .tr-line {
+  stroke: var(--text);
+  stroke-width: 3;
+  stroke-linejoin: miter;
+  stroke-linecap: square;
+}
+
+[data-skin="brutalist"] .tr-dot {
+  fill: var(--bg);
+  stroke: var(--text);
+  stroke-width: 3;
+}
+
+[data-skin="brutalist"] .tr-dot.is-record {
+  fill: var(--bru-hi);
+  stroke: var(--text);
+}
+
+[data-skin="brutalist"] .tr-cross {
+  stroke: var(--text);
+  stroke-width: 2;
+}
+
+[data-skin="brutalist"] .tr-tip {
+  border: 3px solid var(--text);
+  border-radius: 0;
+  background: var(--bg);
+  box-shadow: 6px 6px 0 var(--text);
+}
+
+/* The live workout: its live mark a blinking ink square; the session's name in the display face */
+[data-skin="brutalist"] .tr-live-dot {
+  border-radius: 0;
+  background: var(--text);
+  animation: brutalist-blink 1s steps(1) infinite;
+}
+
+[data-skin="brutalist"] .input.tr-sess-title {
+  text-transform: uppercase;
+  letter-spacing: 0.01em;
+}
+
+[data-skin="brutalist"] .input.tr-sess-title:focus {
+  box-shadow: inset 0 -3px 0 var(--text);
+}
+
+[data-skin="brutalist"] .tr-sess-clock {
+  font-family: var(--font-display);
+  font-weight: 400;
+}
+
+[data-skin="brutalist"] .tr-sess-set.is-done .tr-set-n {
+  font-weight: 900;
+}
+
+/* The rest between sets: an ink frame; running, the yellow block with the countdown at display
+   size (the thing you watch between sets); over, an inverted ink slab */
+[data-skin="brutalist"] .tr-rest {
+  border: 3px solid var(--text);
+  border-radius: 0;
+  background: var(--bg);
+}
+
+[data-skin="brutalist"] .tr-rest.is-running {
+  border-color: #000000;
+  background: var(--bru-hi);
+}
+
+[data-skin="brutalist"] .tr-rest-time {
+  font-family: var(--font-display);
+  font-size: 26px;
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: 0.02em;
+}
+
+[data-skin="brutalist"] .tr-rest.is-over {
+  border-color: var(--text);
+  background: var(--text);
+  color: var(--bg);
+}
+
+/* While the rest runs it is the bar's one yellow: Finish workout waits beside it as a paper button
+   (two yellow slabs side by side, stacked on a phone, gave the eye no first stop) */
+[data-skin="brutalist"] .tr-sess-bar:has(.tr-rest.is-running) .tr-sess-actions .btn--primary {
+  background: var(--bg);
+  color: var(--text);
+}
+
+/* Type-ahead: the list a slab on a drop; the option Enter takes is the yellow */
+[data-skin="brutalist"] .tr-pick-list {
+  border: 3px solid var(--text);
+  border-radius: 0;
+  background: var(--bg);
+  box-shadow: 6px 6px 0 var(--text);
+}
+
+[data-skin="brutalist"] .tr-pick-opt {
+  border-radius: 0;
+}
+
+[data-skin="brutalist"] .tr-pick-opt + .tr-pick-opt {
+  border-top: 2px solid var(--text);
+}
+
+[data-skin="brutalist"] .tr-pick-opt[aria-selected="true"] {
+  background: var(--bru-hi);
+  box-shadow: inset 0 0 0 3px #000000;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="brutalist"] .tr-pick-opt:not([aria-selected="true"]):hover {
+    background: var(--surface-2);
+  }
+}
+
+[data-skin="brutalist"] .tr-pick-name {
+  font-weight: 700;
+}
+
+/* The workout pill in the top bar (any page): a square ink block on a small drop */
+[data-skin="brutalist"] .tr-live {
+  border: 2px solid var(--text);
+  border-radius: 0;
+  background: var(--bg);
+  box-shadow: 3px 3px 0 var(--text);
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="brutalist"] .tr-live:hover {
+    border-color: var(--text);
+    background: var(--surface-2);
+  }
+}
+
+[data-skin="brutalist"] .tr-live-time {
+  color: var(--text);
+  font-weight: 700;
+}
+
+/* ==========================================================================
+   Finance: square avatars, ink rules, category bars as outlined meters
+   ========================================================================== */
+
+[data-skin="brutalist"] .fn-root .fn-avatar {
+  border: 3px solid var(--text);
+  border-radius: 0;
+  background: var(--bg);
+  color: var(--text);
+}
+
+[data-skin="brutalist"].cc-pages .fn-root .fn-avatar {
+  color: var(--mod-finance);
+}
+
+[data-skin="brutalist"] .fn-row,
+[data-skin="brutalist"] .fn-up {
+  border-top: 2px solid var(--text);
+}
+
+[data-skin="brutalist"] .fn-name {
+  font-weight: 800;
+}
+
+[data-skin="brutalist"] .fn-sum-total {
+  font-weight: 900;
+}
+
+[data-skin="brutalist"] .fn-up-when {
+  color: var(--text-2);
+}
+
+[data-skin="brutalist"] .fn-cat-bar {
+  height: 10px;
+  border: 2px solid var(--text);
+  background: var(--bg);
+}
+
+[data-skin="brutalist"] .fn-cat-fill {
+  background: var(--text);
+}
+
+/* ==========================================================================
+   Settings: the section index's place is a picked choice (ink frame, fat bar
+   under it); the phone's jump bar is solid paper on a 3px rule; rows ruled in ink
+   ========================================================================== */
+
+[data-skin="brutalist"] .st-index-link {
+  border: 3px solid transparent;
+  border-radius: 0;
+  color: var(--text);
+  font-weight: 600;
+}
+
+[data-skin="brutalist"] .st-index-link > .icon {
+  color: var(--text);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="brutalist"] .st-index-link:hover {
+    border-color: var(--text);
+    background: transparent;
+  }
+}
+
+[data-skin="brutalist"] .st-index-link[aria-current] {
+  border-color: var(--text);
+  background: var(--bg);
+  color: var(--text);
+  font-weight: 900;
+  box-shadow: inset 0 -5px 0 var(--text);
+}
+
+@media (max-width: 1099px) {
+  [data-skin="brutalist"] .st-index {
+    border-bottom: 3px solid var(--text);
+    background: var(--bg);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}
+
+[data-skin="brutalist"] .st-row {
+  border-top: 2px solid var(--text);
+}
+
+[data-skin="brutalist"] .st-card-title + .st-row {
+  border-top: 0;
+}
+
+[data-skin="brutalist"] .st-card-title > .icon {
+  color: var(--text);
+}
+
+/* Health (an idea, nothing to press): its caption full ink */
+[data-skin="brutalist"] .hl-ideas-title {
+  color: var(--text);
+}
+
+/* ==========================================================================
+   Touch: no drop left behind by a tap
+   ========================================================================== */
+
+/* Some shared :hover rules (habits, calendar, notes, the ticker) are not behind a hover media query
+   and draw --glow, which here is a hard 4px ink drop: on a phone the last habit cell, plan cell,
+   check or event you tapped kept that drop (and a frame) until the next tap. On a touch screen a
+   hover adds nothing; a focused item keeps its ring. */
+@media (hover: none), (pointer: coarse) {
+  [data-skin="brutalist"] .hb-day:not([aria-disabled="true"]):not([data-state="bonus"]):hover,
+  [data-skin="brutalist"] .hb-plan-cell:hover,
+  [data-skin="brutalist"] .cal-task-check:hover,
+  [data-skin="brutalist"] .cal-hcheck:not(:disabled):hover,
+  [data-skin="brutalist"] .nt-task-box:hover,
+  [data-skin="brutalist"] :is(.cal-ev, .cal-tltask):not(:focus-visible, :focus-within, .is-dragging):hover,
+  [data-skin="brutalist"] .cal-tlev:not(:focus-visible, .is-dragging):hover {
+    box-shadow: none;
+  }
+
+  /* A day off in the plan is a dot with no frame: a tap that just switched it off leaves no box */
+  [data-skin="brutalist"] .hb-plan-cell:not([aria-pressed="true"], .is-draft):hover {
+    border-color: transparent;
+  }
+
+  [data-skin="brutalist"] .hbt-ticker:not(:focus-visible):hover {
+    border-color: var(--text);
+    background: var(--bg);
+    box-shadow: none;
+  }
+
+  /* The calendar's shared hovers paint an ink fill under this skin's own word colors: a week
+     number or a cell's + you tapped stayed an ink square with ink words in it (unreadable), and a
+     phone week's day number kept a gray tile */
+  [data-skin="brutalist"] :is(.cal-wknum, .cal-cell-add, .cal-ag-date):hover {
+    background: transparent;
+  }
+
+  [data-skin="brutalist"] .cal-wknum:hover {
+    color: var(--text-2);
+  }
+}
+
+/* ==========================================================================
    Motion and forced colors
    ========================================================================== */
 
 /* No blinking, flashing or lifting for people who asked for less motion */
 @media (prefers-reduced-motion: reduce) {
-  [data-skin="brutalist"] .tk-stat.is-alert::after,
   [data-skin="brutalist"] .tk-due-tag--overdue .tk-chip-icon,
+  [data-skin="brutalist"] .tr-live-dot,
   [data-skin="brutalist"] .hbt-status.is-live::before,
   [data-skin="brutalist"] .hbt-ticker.is-live .hbt-tk-dot,
   [data-skin="brutalist"] .hbt-price.is-flash-up,
@@ -5204,9 +6914,14 @@
     animation: none;
   }
 
-  [data-skin="brutalist"] .btn--primary:hover,
   [data-skin="brutalist"] .tk-row.is-dragging {
     transform: none;
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    [data-skin="brutalist"] .btn--primary:hover {
+      transform: none;
+    }
   }
 }
 
@@ -5222,7 +6937,6 @@
       .nt-rail-item[aria-current="true"],
       .nt-chip[aria-current="true"],
       .nt-card[aria-current="true"],
-      .nt-icon-opt[aria-checked="true"],
       .hb-sel[aria-checked="true"],
       .hb-plan-cell[aria-pressed="true"],
       .hb-wd[aria-pressed="true"],
@@ -5230,7 +6944,12 @@
       .cal-ed-seg-opt.is-on,
       .cal-ed-style.is-on,
       .skin-card[aria-checked="true"],
-      .tk-stat.is-alert,
+      .tab--more.is-current,
+      .more-page[aria-current="page"],
+      .cmd-item[aria-selected="true"],
+      .tr-ex[aria-pressed="true"],
+      .pm-preset[aria-pressed="true"],
+      .st-index-link[aria-current],
       .cal-cell.is-today
     ) {
     outline: 3px solid Highlight;

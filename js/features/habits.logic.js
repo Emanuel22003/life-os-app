@@ -38,13 +38,16 @@ export const PRESETS = Object.freeze([
   { id: 'weekdays', label: 'Weekdays', days: Object.freeze([1, 2, 3, 4, 5]) },
   { id: 'weekends', label: 'Weekends', days: Object.freeze([0, 6]) },
 ]);
-/** The Today tab's overviews: the week matrix (default), one day as a list, the last weeks. */
+/** The Check in tab's overviews: the week matrix (default), one day as a list, the last weeks. */
 export const VIEWS = Object.freeze(['week', 'day', 'history']);
 export const NAME_MAX = 80;
 export const RATE_WINDOW = 30;
 export const HEAT_WEEKS = 16;
-/** Weeks in the Today tab's History overview (habits × weeks fits a phone). */
+/** Most weeks in the Check in tab's History overview (a phone shows HISTORY_WEEKS_PHONE). */
 export const HISTORY_WEEKS = 12;
+export const HISTORY_WEEKS_PHONE = 8;
+/** History never shows fewer weeks than this, however new the habits are. */
+export const HISTORY_WEEKS_MIN = 4;
 
 /* ==========================================================================
    Day numbers
@@ -276,7 +279,7 @@ export function reindex(items) {
 }
 
 /**
- * The Today tab's overview, kept per device ('view' never syncs): 'week' | 'day' | 'history'.
+ * The Check in tab's overview, kept per device ('view' never syncs): 'week' | 'day' | 'history'.
  * Older copies saved 'week' or 'history' (the card toggle), which stay as they are; anything
  * else falls back to the week matrix.
  */
@@ -285,7 +288,32 @@ export function normalizeView(raw) {
 }
 
 /**
- * Normalize the whole store value: { items: Habit[] sorted by order, view }.
+ * The overview to show. A view the user picked (saved on this device) always wins; with none
+ * saved, a touch screen (coarse pointer) opens on the Day list, whose rows are big enough to tap,
+ * and a mouse on the Week matrix.
+ */
+export function pickView(saved, { coarse = false } = {}) {
+  return VIEWS.includes(saved) ? saved : coarse ? 'day' : 'week';
+}
+
+/**
+ * How many weeks History shows: from the week the oldest habit started (so a new account isn't a
+ * row of blank columns), at least HISTORY_WEEKS_MIN and at most `max`.
+ */
+export function historyWeeks(items, today, max = HISTORY_WEEKS) {
+  const cap = Number.isFinite(max) ? Math.max(HISTORY_WEEKS_MIN, Math.floor(max)) : HISTORY_WEEKS;
+  let first = null;
+  for (const hb of Array.isArray(items) ? items : []) {
+    if (hb && isValidKey(hb.createdAt) && hb.createdAt <= today && (first === null || hb.createdAt < first)) first = hb.createdAt;
+  }
+  if (!first || !isValidKey(today)) return HISTORY_WEEKS_MIN;
+  const weeks = Math.round((toDayNum(weekStart(today)) - toDayNum(weekStart(first))) / 7) + 1;
+  return Math.min(cap, Math.max(HISTORY_WEEKS_MIN, weeks));
+}
+
+/**
+ * Normalize the whole store value: { items: Habit[] sorted by order, view? }. `view` stays only
+ * when it is one the user picked (pickView decides what an unsaved one shows).
  * Returns `raw` itself when nothing needed fixing.
  */
 export function normalizeState(raw, today) {
@@ -315,10 +343,13 @@ export function normalizeState(raw, today) {
   );
   if (sorted.some((it, i) => it !== items[i])) changed = true;
 
-  const view = normalizeView(src.view);
-  if (view !== src.view) changed = true;
-
-  return changed ? { ...src, items: sorted, view } : raw;
+  // A view nobody picked stays unset (the device decides); a broken one is dropped
+  const badView = 'view' in src && !VIEWS.includes(src.view);
+  if (badView) changed = true;
+  if (!changed) return raw;
+  const next = { ...src, items: sorted };
+  if (badView) delete next.view;
+  return next;
 }
 
 /* ==========================================================================

@@ -78,6 +78,37 @@ function keyFormUrl(owner) {
 const externalLink = (href, label, cls = 'btn btn--sm') => h('a', { class: cls, href, target: '_blank', rel: 'noopener noreferrer' }, label, icon('external', { size: 14 }));
 const inlineLink = (href, label) => h('a', { href, target: '_blank', rel: 'noopener noreferrer' }, label);
 
+/**
+ * A field's own error line, right under it: shown with the field marked invalid (aria-invalid,
+ * described by the message), focused and scrolled into view; typing in the field clears it.
+ * Returns { el, show(text), clear() }.
+ */
+function fieldError(input) {
+  const el = h('p', { class: 'sync-field-error', id: `${input.id}-error`, role: 'alert', hidden: true });
+  const clear = () => {
+    if (el.hidden) return;
+    el.hidden = true;
+    el.textContent = '';
+    input.removeAttribute('aria-invalid');
+    input.removeAttribute('aria-describedby');
+  };
+  input.addEventListener('input', clear);
+  return {
+    el,
+    clear,
+    show(text) {
+      el.textContent = text;
+      el.hidden = false;
+      input.setAttribute('aria-invalid', 'true');
+      input.setAttribute('aria-describedby', el.id);
+      input.focus({ preventScroll: true });
+      // The field and its message, together in view (a phone's dialog scrolls)
+      (input.closest('li, .field') ?? input).scrollIntoView({ block: 'nearest', behavior: 'auto' });
+      el.scrollIntoView({ block: 'nearest', behavior: 'auto' });
+    },
+  };
+}
+
 /* ---- The dialog ---- */
 
 let open = null; // the dialog while it's showing: one at a time
@@ -154,7 +185,15 @@ export function openSyncPanel() {
       // Empty: Connect uses the key's own account (checkKey), <login>/life-os-data
       placeholder: `your-name/${DATA_REPO}`,
     });
+    // A field's problem shows right under it (not at the end of a long dialog, out of sight)
+    const keyError = fieldError(keyInput);
+    const repoError = fieldError(repoInput);
+    const more = h('details', { class: 'sync-more' }, h('summary', null, 'Different repository'), h('div', { class: 'field' }, h('label', { class: 'label', for: repoInput.id }, 'GitHub repository'), repoInput, repoError.el));
     const message = h('p', { class: 'sync-msg', role: 'status', 'aria-live': 'polite' });
+    const say = (text) => {
+      message.textContent = text;
+      if (text) message.scrollIntoView({ block: 'nearest' });
+    };
     const connectBtn = h('button', { type: 'button', class: 'btn btn--primary', onClick: onConnect }, 'Connect');
 
     show(
@@ -182,10 +221,11 @@ export function openSyncPanel() {
             null,
             h('label', { class: 'sync-step-title', for: keyInput.id }, 'Paste the key here'),
             keyInput,
+            keyError.el,
             h('p', { class: 'sync-hint' }, `It’s saved in this browser on this ${isComputer() ? 'computer' : 'device'} and only ever sent to GitHub. With `,h('b', null, 'Only select repositories'), ' → ', h('code', null, DATA_REPO), ', it can open only that repository.'),
           ),
         ),
-        h('details', { class: 'sync-more' }, h('summary', null, 'Different repository'), h('div', { class: 'field' }, h('label', { class: 'label', for: repoInput.id }, 'GitHub repository'), repoInput)),
+        more,
         // What Connect sends where, said before it is clicked (nothing is sent until then)
         h(
           'p',
@@ -206,29 +246,29 @@ export function openSyncPanel() {
     async function onConnect() {
       if (busy) return;
       const token = cleanToken(keyInput.value);
-      if (!token) {
-        message.textContent = keyInput.value.trim() ? 'That doesn’t look like a GitHub key. It starts with github_pat_.' : 'Paste the key from GitHub first.';
-        keyInput.focus();
-        return;
-      }
+      say('');
+      if (!token) return keyError.show(keyInput.value.trim() ? 'That doesn’t look like a GitHub key. It starts with github_pat_.' : 'Paste the key from GitHub first.');
       const typedRepo = repoInput.value.trim();
       if (typedRepo && !parseRepo(typedRepo)) {
-        message.textContent = 'Write the repository as name/repository, for example you/life-os-data.';
-        return;
+        more.open = true;
+        return repoError.show('Write the repository as name/repository, for example you/life-os-data.');
       }
       busy = true;
       connectBtn.disabled = true;
       try {
-        message.textContent = 'Checking the key…';
+        say('Checking the key…');
         const { login } = await checkKey(token);
         const repo = parseRepo(typedRepo)?.full ?? `${login}/${DATA_REPO}`;
-        message.textContent = 'Looking at your repository…';
+        say('Looking at your repository…');
         const counts = await inspect({ token, repo });
         const plan = firstSyncPlan(counts.local, counts.remote);
         if (plan === 'ask') showChoice({ token, repo, login, counts });
         else await finish({ token, repo, login, mode: plan, counts });
       } catch (err) {
-        message.textContent = err.kind === 'auth' ? 'GitHub doesn’t accept this key. Copy it again, or make a new one.' : problem(err.kind).join('. ');
+        if (err.kind === 'auth') {
+          say('');
+          keyError.show('GitHub doesn’t accept this key. Copy it again, or make a new one.');
+        } else say(problem(err.kind).join('. '));
       } finally {
         busy = false;
         if (connectBtn.isConnected) connectBtn.disabled = false;
@@ -343,27 +383,28 @@ export function openSyncPanel() {
     const nodes = [h('p', { class: 'sync-hint' }, text)];
     if (kind === 'auth' || kind === 'other-account') {
       const config = syncConfig();
-      const input = h('input', { class: 'input sync-key', type: 'password', autocomplete: 'off', spellcheck: 'false', placeholder: 'New key: github_pat_…', 'aria-label': 'New sync key' });
+      const input = h('input', { class: 'input sync-key', id: `sync-rekey-${uid()}`, type: 'password', autocomplete: 'off', spellcheck: 'false', placeholder: 'New key: github_pat_…', 'aria-label': 'New sync key' });
+      const inputError = fieldError(input);
       const message = h('p', { class: 'sync-msg', role: 'status', 'aria-live': 'polite' });
       const save = async () => {
         const token = cleanToken(input.value);
-        if (!token) {
-          message.textContent = 'That doesn’t look like a GitHub key. It starts with github_pat_.';
-          return;
-        }
+        message.textContent = '';
+        if (!token) return inputError.show(input.value.trim() ? 'That doesn’t look like a GitHub key. It starts with github_pat_.' : 'Paste the new key from GitHub first.');
         message.textContent = 'Checking the key…';
         try {
           await replaceKey(token);
           message.textContent = '';
         } catch (err) {
-          message.textContent = err.kind === 'auth' ? 'GitHub doesn’t accept this key either.' : problem(err.kind).join('. ');
+          message.textContent = '';
+          if (err.kind === 'auth') inputError.show('GitHub doesn’t accept this key either.');
+          else message.textContent = problem(err.kind).join('. ');
         }
       };
       input.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') save();
       });
       nodes.push(
-        h('div', { class: 'sync-rekey' }, externalLink(keyFormUrl(config?.login), 'Make a new key'), input, h('button', { type: 'button', class: 'btn btn--sm', onClick: save }, 'Save key')),
+        h('div', { class: 'sync-rekey' }, externalLink(keyFormUrl(config?.login), 'Make a new key'), input, h('button', { type: 'button', class: 'btn btn--sm', onClick: save }, 'Save key'), inputError.el),
         message,
       );
     } else if (kind === 'access' || kind === 'not-found') {

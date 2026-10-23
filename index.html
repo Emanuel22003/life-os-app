@@ -34,7 +34,7 @@
         }
       } catch (e) {}
       (function () {
-        var SKIN_BOOT = {"simple": {"font": "fonts/simple.css", "dark": "#111111", "light": "#f7f7f5", "plain": true}, "minimal": {"font": "fonts/minimal.css", "dark": "#0d0d0d", "light": "#ffffff", "plain": true}, "hud": {"font": "fonts/hud.css", "dark": "#060606", "light": "#f4f4f4"}, "brutalist": {"font": "fonts/brutalist.css", "dark": "#000000", "light": "#ffffff"}, "terminal": {"font": "fonts/terminal.css", "dark": "#050a05", "light": "#e9f2e1"}, "oldmoney": {"font": "fonts/oldmoney.css", "dark": "#141311", "light": "#f2eee5", "plain": true}, "coquette": {"font": "fonts/coquette.css", "dark": "#26141c", "light": "#fdf3f3", "plain": true}, "y2k": {"font": "fonts/y2k.css", "dark": "#140a26", "light": "#fff0fa", "plain": true}};
+        var SKIN_BOOT = {"simple": {"font": "fonts/simple.css", "dark": "#111111", "light": "#f7f7f5", "plain": true}, "minimal": {"font": "fonts/minimal.css", "dark": "#0d0d0d", "light": "#ffffff", "plain": true}, "hud": {"font": "fonts/hud.css", "dark": "#060606", "light": "#f4f4f4"}, "brutalist": {"font": "fonts/brutalist.css", "dark": "#000000", "light": "#ffffff"}, "terminal": {"font": "fonts/terminal.css", "dark": "#050a05", "light": "#e9f2e1"}, "oldmoney": {"font": "fonts/oldmoney.css", "dark": "#141311", "light": "#f2eee5", "plain": true}, "coquette": {"font": "fonts/coquette.css", "dark": "#1e1714", "light": "#f7f2ec", "plain": true}, "y2k": {"font": "fonts/y2k.css", "dark": "#15131f", "light": "#f3f1f6", "plain": true}};
         var root = document.documentElement;
         var skin = 'simple';
         var theme = 'dark';
@@ -105,8 +105,11 @@
     <link rel="stylesheet" href="css/features/finance.css" />
     <link rel="stylesheet" href="css/features/health.css" />
     <link rel="stylesheet" href="css/features/settings.css" />
+    <!-- Search (⌘K, js/command.js): before the templates, so they can restyle it -->
+    <link rel="stylesheet" href="css/command.css" />
     <!-- Templates (Appearance): after every feature stylesheet; Mission Control is the base above -->
     <link rel="stylesheet" href="css/skins/simple.css" />
+    <link rel="stylesheet" href="css/skins/hud.css" />
     <link rel="stylesheet" href="css/skins/brutalist.css" />
     <link rel="stylesheet" href="css/skins/terminal.css" />
     <link rel="stylesheet" href="css/skins/oldmoney.css" />

@@ -1,4 +1,5 @@
-// LIFE/OS — the right-click menu: Edit… · Rename · Copy · Paste · Delete · Duplicate, for every module.
+// LIFE/OS — the right-click menu: the module's own actions, then Edit… · Rename · Duplicate · Copy ·
+// Paste, the colors, and Delete last behind a line, for every module.
 //
 // The shell installs it once (installContextMenu(main) in js/app.js). It opens on a right-click
 // over an item or a blank part of the page; text fields, links and selected text keep the
@@ -21,20 +22,34 @@
 //     pasteText(text)           // plain text from the system clipboard (Tasks, Notes)
 //     remove()                  // the module's own delete (confirmation, Undo)
 //     duplicate()               // copy + paste next to the original
-//     edit()                    // optional: open the item's own editor ("Edit…", listed first)
+//     edit()                    // optional: open the item's own editor ("Edit…")
 //     rename()                  // optional: change its name in place or in a small dialog ("Rename")
 //     can: { copy, paste, delete, duplicate }             // false greys out an action it has
 //     color: { kind, value, set(id | null) }               // optional: a row of color swatches
-//   }                                                      // (shown while that kind's colors are on)
+//                                                          // (shown while that kind's colors are on)
+//     actions: [                // optional: the module's own actions, listed FIRST (Complete,
+//       { id, label,            //   Today, Priority ▸, Move to ▸ …)
+//         icon?, kbd?,          //   a ui.js icon name; a key hint shown on the right ('Space')
+//         run(),                //   what it does (the module's own write, toast and Undo)
+//         disabled?,            //   greyed out
+//         checked?,             //   true / false: a choice that shows a ✓ (Priority ▸ High)
+//         children?: [ … ] },   //   the same shape: a submenu (opens on hover, →, Enter or a tap)
+//       { separator: true },    //   a line between groups of actions
+//     ],
+//   }
+//
+// The order is fixed (contextmenu.logic.js menuEntries): the module's actions, Edit… · Rename,
+// Duplicate · Copy · Paste, the colors, then Delete last behind a line. Submenu keys: → (or Enter)
+// opens one on its first item, ← or Esc closes it again, ↑ ↓ Home End and first letters move inside.
 //
 // Providers are asked newest first; the first target wins. Every mutation stays in the module
 // (its store helpers, normalization, Undo toast): this file only routes the action and keeps the
 // in-app clipboard ({ kind, snapshot, text } in memory and sessionStorage, so it survives a
 // route change), plus the plain text on the system clipboard.
 
-import { h, icon, registerIcon, toast, isTyping, modalOpen, reducedMotion } from './ui.js';
+import { h, icon, registerIcon, toast, isTyping, modalOpen, reducedMotion, uid } from './ui.js';
 import { colorPicker } from './colors.js';
-import { menuPosition, stepIndex, shortcutLabels, actionForKey, isMenuKey, makeClip, readClip, pasteMode, sameText } from './contextmenu.logic.js';
+import { menuPosition, submenuPosition, menuEntries, normalizeActions, stepIndex, shortcutLabels, actionForKey, isMenuKey, makeClip, readClip, pasteMode, sameText } from './contextmenu.logic.js';
 
 registerIcon('ctx-copy', '<rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1"/>');
 registerIcon('ctx-paste', '<path d="M9 4H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-2"/><rect x="9" y="2" width="6" height="4" rx="1"/><path d="M9 13h6M9 17h4"/>');
@@ -44,15 +59,20 @@ registerIcon('ctx-duplicate', '<rect x="8" y="8" width="13" height="13" rx="2"/>
 
 const IS_MAC = /Mac|iPhone|iPad|iPod/.test(globalThis.navigator?.platform || globalThis.navigator?.userAgent || '');
 const KEYS = shortcutLabels(IS_MAC);
-const ITEMS = Object.freeze([
-  // Shown only on items that have them (the others are always listed, greyed out when unavailable)
-  { action: 'edit', label: 'Edit…', icon: 'ctx-edit', optional: true },
-  { action: 'rename', label: 'Rename', icon: 'ctx-rename', optional: true },
-  { action: 'copy', label: 'Copy', icon: 'ctx-copy' },
-  { action: 'paste', label: 'Paste', icon: 'ctx-paste' },
-  { action: 'delete', label: 'Delete', icon: 'trash' },
-  { action: 'duplicate', label: 'Duplicate', icon: 'ctx-duplicate' },
-]);
+// The built-in actions (their order and grouping: menuEntries in contextmenu.logic.js). Edit and
+// Rename show only on items that have them; the others are always listed, greyed out when unavailable.
+const BUILTINS = Object.freeze({
+  edit: { label: 'Edit…', icon: 'ctx-edit' },
+  rename: { label: 'Rename', icon: 'ctx-rename' },
+  duplicate: { label: 'Duplicate', icon: 'ctx-duplicate' },
+  copy: { label: 'Copy', icon: 'ctx-copy' },
+  paste: { label: 'Paste', icon: 'ctx-paste' },
+  delete: { label: 'Delete', icon: 'trash' },
+});
+// A pointer resting on an item opens its submenu, or closes another one, after this long (so a
+// diagonal move into an open submenu doesn't close it on the way)
+const HOVER_OPEN_MS = 120;
+const HOVER_CLOSE_MS = 260;
 const CLIP_KEY = 'lifeos:clipboard';
 // Right-clicks here keep the browser's menu: text fields (spellcheck, copy / paste text), links
 const NATIVE = 'input:not([type="checkbox"]):not([type="radio"]):not([type="button"]):not([type="submit"]):not([type="reset"]):not([type="range"]):not([type="color"]):not([type="file"]), textarea, select, [contenteditable]:not([contenteditable="false"]), a[href]';
@@ -218,37 +238,72 @@ async function run(t, action) {
 
 /* ==========================================================================
    The menu
+   A menu is a stack of panels: the menu itself and, while one is open, the submenu of one of its
+   items (and that one's, a level deeper). Each panel is { el, items, parent, parentItem, sub }.
    ========================================================================== */
 
 let scope = null; // the element right-clicks are handled in (the shell's <main>)
-let menu = null; // { el, items, target, providerId, returnTo, cleanup }
+let menu = null; // { el, root, target, providerId, returnTo, cleanup, contains(node) }
 let swallowUntil = 0; // a keyboard open: ignore the browser's own contextmenu event right after
 
+/** Run one of the module's own actions (closing the menu first, as the built-ins do). */
+async function runAction(action) {
+  try {
+    await action.run?.();
+  } catch (err) {
+    console.error(`[contextmenu] "${action.id}" failed`, err);
+    toast('That didn’t work. Nothing was changed.');
+  }
+}
+
+/** One row of a panel: an icon, the label, a key hint or a ▸ for a submenu. */
+function itemButton({ cls, label, iconName, kbd, keys, enabled, checked = null, sub = false }) {
+  const role = checked === null ? 'menuitem' : 'menuitemradio';
+  return h(
+    'button',
+    {
+      type: 'button',
+      role,
+      class: ['ctx-item', cls, sub && 'ctx-item--sub', checked && 'is-checked'],
+      tabindex: '-1',
+      'aria-disabled': enabled ? null : 'true',
+      'aria-checked': checked === null ? null : String(checked),
+      'aria-haspopup': sub ? 'menu' : null,
+      'aria-expanded': sub ? 'false' : null,
+      'aria-keyshortcuts': keys ?? null,
+    },
+    h('span', { class: 'ctx-icon', 'aria-hidden': 'true' }, checked ? icon('check', { size: 14, stroke: 2 }) : iconName ? icon(iconName, { size: 15 }) : null),
+    h('span', { class: 'ctx-label' }, label),
+    sub
+      ? h('span', { class: 'ctx-sub-mark', 'aria-hidden': 'true' }, icon('chevron-right', { size: 13 }))
+      : kbd
+        ? h('span', { class: 'kbd ctx-kbd lo-hint', 'aria-hidden': 'true' }, kbd)
+        : null,
+  );
+}
+
+/** A panel's element and items for a list of module actions (a submenu, or the menu's first group). */
+function actionItems(actions, el) {
+  const items = [];
+  for (const a of actions) {
+    if (a.separator) {
+      el.append(h('div', { class: 'ctx-sep', role: 'separator' }));
+      continue;
+    }
+    const btn = itemButton({ cls: 'ctx-item--own', label: a.label, iconName: a.icon, kbd: a.kbd, enabled: !a.disabled, checked: a.checked, sub: !!a.children });
+    el.append(btn);
+    items.push({ kind: 'own', action: a, label: a.label, enabled: !a.disabled, btn, children: a.children });
+  }
+  return items;
+}
 
 function openMenu(t, at, { keyboard = false } = {}) {
   closeMenu({ restore: false });
   const can = abilities(t);
   const returnTo = document.activeElement instanceof HTMLElement && document.activeElement !== document.body ? document.activeElement : null;
-
-  const items = ITEMS.filter((spec) => !spec.optional || can[spec.action]).map((spec) => {
-    const enabled = can[spec.action];
-    const btn = h(
-      'button',
-      {
-        type: 'button',
-        role: 'menuitem',
-        class: ['ctx-item', `ctx-item--${spec.action}`],
-        tabindex: '-1',
-        'aria-disabled': enabled ? null : 'true',
-        'aria-keyshortcuts': ariaKeys(spec.action) ?? null,
-        dataset: { action: spec.action },
-      },
-      h('span', { class: 'ctx-icon', 'aria-hidden': 'true' }, icon(spec.icon, { size: 15 })),
-      h('span', { class: 'ctx-label' }, spec.label),
-      KEYS[spec.action] ? h('span', { class: 'kbd ctx-kbd lo-hint', 'aria-hidden': 'true' }, KEYS[spec.action]) : null,
-    );
-    return { ...spec, enabled, btn };
-  });
+  const actions = normalizeActions(t.actions);
+  // Color coding: a row of swatches before Delete (arrow keys reach them too)
+  const color = t.color && document.documentElement.classList.contains(`cc-${t.color.kind}`) ? t.color : null;
 
   const el = h('div', {
     class: ['ctx-menu', 'hud', reducedMotion() && 'is-still'],
@@ -257,21 +312,37 @@ function openMenu(t, at, { keyboard = false } = {}) {
     'aria-label': t.label ? `Actions: ${t.label}` : 'Actions',
     'aria-orientation': 'vertical',
   });
-  el.append(...items.map((it) => it.btn));
-  // Color coding: a row of swatches under the actions (arrow keys reach them too)
-  const color = t.color && document.documentElement.classList.contains(`cc-${t.color.kind}`) ? t.color : null;
-  if (color) {
-    const picker = colorPicker({ value: color.value, label: 'Color', compact: true });
-    picker.buttons.forEach((btn) => {
-      btn.setAttribute('role', 'menuitemradio');
-      btn.tabIndex = -1;
-      items.push({ action: 'color', label: btn.title, enabled: true, btn, color: btn.dataset.swatch === 'none' ? null : btn.dataset.swatch });
-    });
-    el.append(h('div', { class: 'ctx-colors', role: 'group', 'aria-label': 'Color' }, picker.el));
+  const items = [];
+  // The module's own actions come first, one entry each (their own separators included): build
+  // them together, then the rest of the entries after them
+  const entries = menuEntries({ actions, can, colors: !!color });
+  if (actions.length) items.push(...actionItems(actions, el));
+  for (const entry of entries.slice(actions.length)) {
+    if (entry.type === 'sep') {
+      el.append(h('div', { class: 'ctx-sep', role: 'separator' }));
+    } else if (entry.type === 'builtin') {
+      const spec = BUILTINS[entry.id];
+      const enabled = can[entry.id];
+      const btn = itemButton({ cls: `ctx-item--${entry.id}`, label: spec.label, iconName: spec.icon, kbd: KEYS[entry.id], keys: ariaKeys(entry.id), enabled });
+      btn.dataset.action = entry.id;
+      el.append(btn);
+      items.push({ kind: 'builtin', action: entry.id, label: spec.label, enabled, btn });
+    } else if (entry.type === 'colors') {
+      const picker = colorPicker({ value: color.value, label: 'Color', compact: true });
+      const checked = picker.buttons.find((b) => b.getAttribute('aria-checked') === 'true') ?? picker.buttons[0];
+      picker.buttons.forEach((btn) => {
+        btn.setAttribute('role', 'menuitemradio');
+        btn.tabIndex = -1;
+        // ↑ ↓ treat the row as one stop (its picked swatch); ← → move along it (colorPicker)
+        items.push({ kind: 'color', label: btn.title, enabled: true, stop: btn === checked, btn, color: btn.dataset.swatch === 'none' ? null : btn.dataset.swatch });
+      });
+      el.append(h('div', { class: 'ctx-colors', role: 'group', 'aria-label': 'Color' }, picker.el));
+    }
   }
+  const root = { el, items, parent: null, parentItem: null, sub: null };
+
   el.style.visibility = 'hidden';
   document.body.append(el);
-
   // Place it (measured while hidden, by layout size: the opening animation scales it): at the
   // pointer, flipped near the edges, inside the window
   const pos = menuPosition({ ...at, width: el.offsetWidth, height: el.offsetHeight, viewW: document.documentElement.clientWidth || window.innerWidth, viewH: document.documentElement.clientHeight || window.innerHeight });
@@ -281,49 +352,157 @@ function openMenu(t, at, { keyboard = false } = {}) {
   el.classList.toggle('is-flip-y', pos.flipY);
   el.style.visibility = '';
 
-  const state = { el, items, target: t, providerId: t.providerId, returnTo, cleanup: null };
+  const panels = () => {
+    const out = [];
+    for (let p = root; p; p = p.sub) out.push(p);
+    return out;
+  };
+  const state = {
+    el,
+    root,
+    target: t,
+    providerId: t.providerId,
+    returnTo,
+    cleanup: null,
+    contains: (node) => panels().some((p) => p.el.contains(node)),
+    panels,
+  };
   menu = state;
 
-  const focusAt = (i) => {
-    const it = items[i];
-    if (it) it.btn.focus({ preventScroll: true });
+  let hoverTimer = 0;
+  let hoverFor = null; // what the pending timer is for: an item (to open its submenu) or 'close'
+  const clearHover = () => {
+    clearTimeout(hoverTimer);
+    hoverTimer = 0;
   };
-  const current = () => items.findIndex((it) => it.btn === document.activeElement);
+  const later = (fn, ms) => {
+    clearHover();
+    hoverTimer = setTimeout(() => {
+      hoverTimer = 0;
+      fn();
+    }, ms);
+  };
 
-  function activate(it) {
+  // Up / Down stop at each enabled item; the color row counts once (its picked swatch)
+  const stops = (panel) => panel.items.map((it) => it.enabled && (it.kind !== 'color' || it.stop));
+  const current = (panel) => panel.items.findIndex((it) => it.btn === document.activeElement);
+  const focusItem = (it) => it?.btn.focus({ preventScroll: true });
+
+  /** Close `panel`'s open submenu (and anything under it). */
+  function closeSub(panel) {
+    const sub = panel.sub;
+    if (!sub) return;
+    closeSub(sub);
+    panel.sub = null;
+    sub.el.remove();
+    sub.parentItem.btn.setAttribute('aria-expanded', 'false');
+    sub.parentItem.btn.removeAttribute('aria-controls');
+    sub.parentItem.btn.classList.remove('is-open');
+  }
+
+  /** Open the submenu of `item` (in `panel`); `focus`: onto its first item (keyboard, a tap). */
+  function openSub(panel, item, { focus = false } = {}) {
+    if (!item?.enabled || !item.children) return;
+    if (panel.sub?.parentItem === item) {
+      if (focus) focusItem(panel.sub.items[stepIndex(stops(panel.sub), -1, 'Home')]);
+      return;
+    }
+    closeSub(panel);
+    const id = `ctx-sub-${uid()}`;
+    const subEl = h('div', {
+      class: ['ctx-menu', 'ctx-submenu', 'hud', 'is-still'],
+      id,
+      role: 'menu',
+      tabindex: '-1',
+      'aria-label': item.label,
+      'aria-orientation': 'vertical',
+    });
+    const sub = { el: subEl, items: actionItems(item.children, subEl), parent: panel, parentItem: item, sub: null };
+    item.btn.setAttribute('aria-expanded', 'true');
+    item.btn.setAttribute('aria-controls', id);
+    item.btn.classList.add('is-open');
+    subEl.style.visibility = 'hidden';
+    document.body.append(subEl);
+    const r = item.btn.getBoundingClientRect();
+    const m = panel.el.getBoundingClientRect();
+    const p = submenuPosition({
+      item: { top: r.top, bottom: r.bottom },
+      menu: { left: m.left, right: m.right },
+      width: subEl.offsetWidth,
+      height: subEl.offsetHeight,
+      viewW: document.documentElement.clientWidth || window.innerWidth,
+      viewH: document.documentElement.clientHeight || window.innerHeight,
+      pad: parseFloat(getComputedStyle(subEl).paddingTop) || 4,
+    });
+    subEl.style.left = `${p.left}px`;
+    subEl.style.top = `${p.top}px`;
+    subEl.style.visibility = '';
+    panel.sub = sub;
+    wire(sub);
+    if (focus) focusItem(sub.items[stepIndex(stops(sub), -1, 'Home')]);
+  }
+
+  function activate(panel, it) {
     if (!it?.enabled) return;
+    if (it.children) {
+      openSub(panel, it, { focus: true });
+      return;
+    }
     const target = state.target;
     closeMenu();
-    if (it.action === 'color') {
+    if (it.kind === 'color') {
       try {
         target.color.set(it.color);
       } catch (err) {
         console.error('[contextmenu] color failed', err);
         toast('That didn’t work. Nothing was changed.');
       }
-      return;
+    } else if (it.kind === 'own') {
+      runAction(it.action);
+    } else {
+      run(target, it.action);
     }
-    run(target, it.action);
   }
 
-  function onKeydown(e) {
+  /** Back from a submenu to the item that opened it. */
+  function backTo(panel) {
+    const parent = panel.parent;
+    if (!parent) return false;
+    const item = panel.parentItem;
+    closeSub(parent);
+    focusItem(item);
+    return true;
+  }
+
+  function onKeydown(panel, e) {
     // Everything typed while the menu is open is the menu's: no page shortcut fires behind it
     e.stopPropagation();
-    // The swatch row moves with the arrows itself
-    if (e.isComposing || e.defaultPrevented) return;
-    const nav = stepIndex(
-      items.map((it) => it.enabled),
-      current(),
-      e.key,
-    );
+    if (e.isComposing) return;
+    const at = current(panel);
+    const onSwatch = panel.items[at]?.kind === 'color';
+    // The swatch row moves with ← → Home End itself (colorPicker); ↑ ↓ leave it
+    if (onSwatch && ['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) return;
     if (['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(e.key)) {
       e.preventDefault();
-      if (nav >= 0) focusAt(nav);
+      // From inside the color row, step from its stop
+      const from = onSwatch ? panel.items.findIndex((it) => it.kind === 'color' && it.stop) : at;
+      const nav = stepIndex(stops(panel), from, e.key);
+      if (nav >= 0) focusItem(panel.items[nav]);
+      return;
+    }
+    if (e.key === 'ArrowRight') {
+      e.preventDefault();
+      if (panel.items[at]?.children) openSub(panel, panel.items[at], { focus: true });
+      return;
+    }
+    if (e.key === 'ArrowLeft') {
+      e.preventDefault();
+      backTo(panel);
       return;
     }
     if (e.key === 'Escape') {
       e.preventDefault();
-      closeMenu();
+      if (!backTo(panel)) closeMenu();
       return;
     }
     if (e.key === 'Tab') {
@@ -333,67 +512,99 @@ function openMenu(t, at, { keyboard = false } = {}) {
     }
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
-      activate(items[current()]);
+      activate(panel, panel.items[at]);
       return;
     }
     if (isMenuKey(e)) {
       e.preventDefault();
       return;
     }
-    const shortcut = actionForKey(e, IS_MAC);
+    // ⌘C · ⌘V · ⌘D · Delete: the built-ins, from the menu itself (not from a submenu)
+    const shortcut = panel === root ? actionForKey(e, IS_MAC) : null;
     if (shortcut) {
       e.preventDefault();
-      activate(items.find((it) => it.action === shortcut));
+      activate(panel, panel.items.find((it) => it.kind === 'builtin' && it.action === shortcut));
       return;
     }
     // Typeahead: the first enabled item whose label starts with the letter (repeats cycle)
     if (e.key.length === 1 && !e.metaKey && !e.ctrlKey && !e.altKey) {
       const ch = e.key.toLowerCase();
-      const from = current();
-      for (let step = 1; step <= items.length; step++) {
-        const it = items[(from + step + items.length) % items.length];
-        if (it.enabled && it.label.toLowerCase().startsWith(ch)) {
+      const n = panel.items.length;
+      for (let step = 1; step <= n; step++) {
+        const it = panel.items[(at + step + n) % n];
+        if (it.enabled && it.kind !== 'color' && it.label.toLowerCase().startsWith(ch)) {
           e.preventDefault();
-          it.btn.focus({ preventScroll: true });
+          focusItem(it);
           return;
         }
       }
     }
   }
 
-  el.addEventListener('keydown', onKeydown);
-  el.addEventListener('click', (e) => {
-    const btn = e.target.closest('.ctx-item, .cc-swatch');
-    const it = btn && items.find((x) => x.btn === btn);
-    if (it) activate(it);
-  });
-  // The pointer and the keyboard share one highlight: hovering an item focuses it
-  el.addEventListener('pointermove', (e) => {
-    const btn = e.target.closest('.ctx-item, .cc-swatch');
-    const it = btn && items.find((x) => x.btn === btn);
-    if (it?.enabled && document.activeElement !== btn) btn.focus({ preventScroll: true });
-    else if (it && !it.enabled && document.activeElement !== el) el.focus({ preventScroll: true });
-  });
-  el.addEventListener('pointerleave', () => {
-    if (el.contains(document.activeElement) && document.activeElement !== el) el.focus({ preventScroll: true });
-  });
-  el.addEventListener('contextmenu', (e) => e.preventDefault());
+  /** Keys, clicks and the pointer for one panel. */
+  function wire(panel) {
+    const find = (target) => {
+      const btn = target.closest?.('.ctx-item, .cc-swatch');
+      return btn ? panel.items.find((x) => x.btn === btn) : null;
+    };
+    panel.el.addEventListener('keydown', (e) => onKeydown(panel, e));
+    panel.el.addEventListener('click', (e) => {
+      const it = find(e.target);
+      if (!it) return;
+      clearHover();
+      // A tap on an open submenu's item closes it again
+      if (it.children && panel.sub?.parentItem === it) closeSub(panel);
+      else activate(panel, it);
+    });
+    // The pointer and the keyboard share one highlight: hovering an item focuses it. Resting on an
+    // item with a submenu opens it; resting on another closes the open one.
+    panel.el.addEventListener('pointermove', (e) => {
+      if (e.pointerType === 'touch') return;
+      const it = find(e.target);
+      if (it?.enabled && document.activeElement !== it.btn) focusItem(it);
+      else if (it && !it.enabled && document.activeElement !== panel.el) panel.el.focus({ preventScroll: true });
+      if (!it) return;
+      if (it.children && panel.sub?.parentItem !== it) {
+        if (hoverFor !== it) later(() => openSub(panel, it), HOVER_OPEN_MS);
+        hoverFor = it;
+      } else if (!it.children && panel.sub) {
+        if (hoverFor !== 'close') later(() => closeSub(panel), HOVER_CLOSE_MS);
+        hoverFor = 'close';
+      } else {
+        clearHover();
+        hoverFor = null;
+      }
+    });
+    panel.el.addEventListener('pointerenter', () => {
+      // Arrived in the submenu: keep it open
+      if (panel.parent) {
+        clearHover();
+        hoverFor = null;
+      }
+    });
+    panel.el.addEventListener('pointerleave', (e) => {
+      if (panel.el.contains(document.activeElement) && document.activeElement !== panel.el && !state.contains(e.relatedTarget)) panel.el.focus({ preventScroll: true });
+    });
+    panel.el.addEventListener('contextmenu', (e) => e.preventDefault());
+  }
+
+  wire(root);
 
   // Close on a press outside, scroll, resize, leaving the window or the page
   const onPointerDown = (e) => {
-    if (!el.contains(e.target)) closeMenu({ restore: false });
+    if (!state.contains(e.target)) closeMenu({ restore: false });
   };
   // A scroll event already on its way when the menu opened (the frame after a wheel or a
   // scrollIntoView) is not a reason to close it
   const openedAt = performance.now();
   const onScroll = (e) => {
-    if (!el.contains(e.target) && performance.now() - openedAt > 150) closeMenu({ restore: false });
+    if (!state.contains(e.target) && performance.now() - openedAt > 150) closeMenu({ restore: false });
   };
   const onResize = () => closeMenu({ restore: false });
   const onBlur = () => closeMenu({ restore: false });
   const onRoute = () => closeMenu({ restore: false });
   const onFocusIn = (e) => {
-    if (!el.contains(e.target)) closeMenu({ restore: false });
+    if (!state.contains(e.target)) closeMenu({ restore: false });
   };
   document.addEventListener('pointerdown', onPointerDown, true);
   window.addEventListener('scroll', onScroll, true);
@@ -403,6 +614,7 @@ function openMenu(t, at, { keyboard = false } = {}) {
   window.addEventListener('lifeos:skin', onRoute);
   document.addEventListener('focusin', onFocusIn);
   state.cleanup = () => {
+    clearHover();
     document.removeEventListener('pointerdown', onPointerDown, true);
     window.removeEventListener('scroll', onScroll, true);
     window.removeEventListener('resize', onResize);
@@ -413,12 +625,8 @@ function openMenu(t, at, { keyboard = false } = {}) {
   };
 
   // Keyboard: straight onto the first action. Pointer: the menu itself (arrows start from there)
-  const first = stepIndex(
-    items.map((it) => it.enabled),
-    -1,
-    'Home',
-  );
-  if (keyboard && first >= 0) focusAt(first);
+  const first = stepIndex(stops(root), -1, 'Home');
+  if (keyboard && first >= 0) focusItem(items[first]);
   else el.focus({ preventScroll: true });
 }
 
@@ -428,8 +636,9 @@ function closeMenu({ restore = true } = {}) {
   if (!m) return;
   menu = null;
   m.cleanup?.();
-  const hadFocus = m.el.contains(document.activeElement);
-  m.el.remove();
+  const panels = m.panels();
+  const hadFocus = panels.some((p) => p.el.contains(document.activeElement));
+  panels.forEach((p) => p.el.remove());
   if (restore || hadFocus) {
     const back = m.returnTo?.isConnected ? m.returnTo : m.target.el?.isConnected && m.target.el.tabIndex >= 0 ? m.target.el : null;
     if (back && (restore || document.activeElement === document.body)) back.focus({ preventScroll: true });
@@ -473,7 +682,7 @@ function focusedTarget() {
 }
 
 function onContextMenu(e) {
-  if (menu?.el.contains(e.target)) return;
+  if (menu?.contains(e.target)) return;
   // A page claimed this press for itself (the Notes board lifting a card by a long press)
   if (e.defaultPrevented) return;
   if (performance.now() < swallowUntil) {

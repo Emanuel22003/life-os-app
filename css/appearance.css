@@ -32,14 +32,16 @@
     box-shadow var(--dur-fast) var(--ease);
 }
 
-.skin-card:hover {
-  border-color: var(--line-strong);
-  background: var(--surface-2);
+@media (hover: hover) and (pointer: fine) {
+  .skin-card:hover {
+    border-color: var(--line-strong);
+    background: var(--surface-2);
+  }
 }
 
 .skin-card[aria-checked="true"] {
   border-color: var(--accent);
-  box-shadow: 0 0 0 1px var(--accent);
+  box-shadow: 0 0 0 2px var(--accent);
 }
 
 .skin-card:focus-visible {
@@ -72,10 +74,35 @@
   padding: 0 var(--space-2);
 }
 
+.skin-card-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px var(--space-2);
+  min-width: 0;
+}
+
 .skin-card-name {
   font-size: var(--fs-sm);
   font-weight: 600;
   color: var(--text);
+}
+
+/* The chosen template says so in words, next to its name */
+.skin-card-current {
+  display: none;
+  padding: 0 6px;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  line-height: 16px;
+  white-space: nowrap;
+}
+
+.skin-card[aria-checked="true"] .skin-card-current {
+  display: inline-block;
 }
 
 .skin-card-desc {
@@ -117,15 +144,50 @@
   margin-top: var(--space-4);
 }
 
+.appearance-mode > .label,
 .appearance-colors > .label {
   flex: none;
   min-width: 48px;
+}
+
+.appearance-colors > .label {
   padding-top: 7px;
+}
+
+/* An icon never squeezes to a sliver in a tight button */
+.appearance-mode .seg-btn > svg {
+  flex: none;
+}
+
+/* A big screen shows all eight templates at once: four in a row */
+@media (min-width: 1100px) and (min-height: 700px) {
+  .modal.appearance-modal {
+    width: min(940px, 100%);
+  }
+
+  .appearance-modal .skin-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 480px) {
   .skin-grid {
     gap: var(--space-2);
+  }
+
+  /* Light · Dark · System fit beside "Mode" as words; the sun and moon go */
+  .appearance-mode .seg-btn > svg {
+    display: none;
+  }
+
+  /* Two small previews side by side: the description's first two lines (the rest would be a
+     column of five; a screen reader still reads it all) */
+  .skin-card-desc {
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
   }
 
   .skin-card {

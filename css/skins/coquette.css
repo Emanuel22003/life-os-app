@@ -1,185 +1,258 @@
 /* ==========================================================================
-   LIFE/OS — skin: Coquette (data-skin="coquette")
-   Blush pink and cream on faint pink gingham by day, rosé night (wine, blush, pink) by dark,
-   with polka dots. Page titles in a script hand over a string of pearls, Playfair Display for
-   headings and numbers, Lora for text. Soft round shapes, pill buttons, a little heart in every
-   ticked box, dialogs with a stitched inner seam, a pink satin bow as the crest above the menu
-   and behind the pages (coquette-bow.webp, a watercolor generated with Yapper).
+   LIFE/OS — skin: Atelier (data-skin="coquette"; the id stays, so a saved choice carries over)
+   Editorial and warm, like a fashion house's website: ivory paper and ink with a rosewood
+   accent and nude and sand tints by day; espresso, champagne and rose gold by night. Upright
+   Playfair Display for titles, card titles and big figures (its italic only as a rare small
+   accent: the word "Today"), Inter for everything you read, small spaced capitals for one- or
+   two-word captions. Fine 1px warm lines, lots of air, small corners (4–8px), almost no shadow.
+   No artwork, no ornaments: the type and the lines carry it.
 
-   A plain template: Simple underneath (css/skins/simple.css is scoped to [data-plain]); this
-   file restyles it. Its main colors (Appearance → Colors) are Background (--bg), Ink (--text) and
-   Ribbon (--accent): the gingham, dots, hearts and pills are drawn from them, so changing one
-   re-colors the template. Conventions as in the other skins (scope selectors, :where() kit).
+   One language for each kind of state, on every page:
+   - Picked, on, current (the open page, a chosen option, a segment, a chip, a preset, a weekday,
+     the selected day, the open note, task or section, Search's lit row): a faint rosewood wash and a
+     1px rosewood frame (5:1 or more against the paper, the track and the wash, WCAG 1.4.11), the
+     words in ink. The phone tab bar has no room for a frame: a rosewood rule over the tab.
+   - Done (a task, a habit, a set, a Start step, a checklist line, a done day): a filled rosewood
+     square with an ivory tick (the base's own done look, in this accent). Today, still to do, is
+     the same square as a rosewood outline.
+   - Switches: on is a rosewood track with an ivory knob at the right; off is a hollow track with
+     a 3:1 edge and a taupe knob at the left.
+   - Card and section titles: Playfair Display 18px, weight 500, upright, ink (16.5px on a
+     phone's half-width card).
+   - Figures: Playfair lining tabular figures for the big numbers (timers, stats, totals), Inter
+     tabular figures for counts in running text.
+   - Charts: past data as slim bars in a warm taupe (3:1 or more) under an ink trend line, today
+     and progress in rosewood.
+   - Late and Delete: the color-coding red (brick by day, a warm red by night) with Color coding on,
+     ink with the alert icon without it.
+
+   A plain template: Simple underneath (css/skins/simple.css is scoped to [data-plain], and this
+   template's scope carries it); this file restyles on top, loaded after it. Its main colors
+   (Appearance → Colors) are Background (--bg), Ink (--text) and Accent (--accent); every
+   decoration is drawn from them, so changing one re-colors the template. Conventions as in the
+   other skins: every selector starts at the skin scope, never :root / html / body (the scope is
+   also a <div> inside each Appearance preview); the shared kit uses .thing:where([data-skin] *)
+   so a feature's own rule still wins. Background-changing :hover rules sit in
+   @media (hover: hover) and (pointer: fine), so a tap never leaves a fill behind. The page top's
+   size and spacing come from css/compact.css through the --page-title-size / --page-header-*
+   tokens. Page tones (Color coding → Pages) are in css/icons.css.
    After changing --bg, update SKIN_BOOT (js/skins.js and index.html's head script).
+
+   Sections: tokens · page · shell · shared kit · pages (Home, Tasks, Notes, Habits, Insights,
+   Calendar, Pomodoro, Training, Finance, Health, Settings) · forced colors.
    ========================================================================== */
 
-/* ---- Rosé night (dark) and everything that doesn't change with the mode ---- */
+/* ==========================================================================
+   Tokens
+   ========================================================================== */
+
+/* ---- Night: espresso, champagne and rose gold (and everything that doesn't change) ---- */
 [data-skin="coquette"] {
-  --font-sans: "Lora", "Iowan Old Style", Georgia, serif;
-  --font-display: "Playfair Display", Didot, Georgia, serif;
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-display: "Playfair Display", "Didot", "Bodoni 72", Georgia, serif;
   --font-mono: var(--font-sans);
-  --cq-script: "Pinyon Script", "Snell Roundhand", "Apple Chancery", cursive;
 
   --fs-2xs: 12px;
-  --fs-xs: 13px;
-  --fs-sm: 14.5px;
-  --fs-md: 16px;
-  --fs-lg: 18.5px;
-  --fs-xl: 23px;
-  --fs-2xl: 30px;
-  --fs-3xl: 40px;
+  --fs-xs: 12.5px;
+  --fs-sm: 14px;
+  --fs-md: 15px;
+  --fs-lg: 18px;
+  --fs-xl: 22px;
+  --fs-2xl: 28px;
+  --fs-3xl: 34px;
 
-  --radius-xs: 8px;
-  --radius-sm: 12px;
-  --radius: 16px;
-  --radius-lg: 22px;
+  /* Small, tailored corners; round things (dots, avatars, switches, the timer) stay round */
+  --radius-xs: 3px;
+  --radius-sm: 4px;
+  --radius: 6px;
+  --radius-lg: 8px;
 
-  /* Captions as in Simple (sentence case); the .label class gets small spaced capitals below */
+  /* Feature captions read as quiet sentence-case Inter, as in Simple; the .label class itself gets
+     small spaced capitals below */
   --label-font: var(--font-sans);
   --label-size: var(--fs-xs);
   --label-weight: 500;
   --label-case: none;
   --label-tracking: 0;
 
-  /* Polka dots in the ribbon color */
-  --page-bg-image: radial-gradient(color-mix(in srgb, var(--accent) 11%, transparent) 1.7px, transparent 2.2px);
-  --page-bg-size: 24px 24px;
+  /* The page top (css/compact.css): an upright Playfair title, room for the hairline under it */
+  --page-title-size: clamp(30px, 2.7vw, 38px);
+  --page-title-size-phone: 27px;
+  --page-header-pb: 14px;
+  --page-header-mb: 22px;
 
-  --cq-rose: color-mix(in srgb, var(--accent) 70%, var(--text));
-  --cq-pearl: #fbf5f1;
-  --cq-pearl-shade: #dcc2ca;
-  --cq-art-alpha: 0.32;
-  --cq-heart: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 21s-7.6-4.6-9.7-9.5C.8 7.9 3.1 4.4 6.7 4.4c2.1 0 3.6 1.2 5.3 3.1 1.7-1.9 3.2-3.1 5.3-3.1 3.6 0 5.9 3.5 4.4 7.1C19.6 16.4 12 21 12 21Z'/%3E%3C/svg%3E");
+  --page-bg-image: none;
+  --page-bg-size: auto;
 
-  --simple-card-shadow: 0 6px 24px rgba(0, 0, 0, 0.28);
-  --simple-ring: 0 0 0 3px color-mix(in srgb, var(--accent) 38%, transparent);
+  /* Atelier's own: the picked wash and frame, the hairline under a title, the chart taupe */
+  --at-wash: color-mix(in srgb, var(--accent) 10%, transparent);
+  --at-frame: var(--accent);
+  --at-rule: var(--line-strong);
+  --at-taupe: #8e786d;
+
+  --simple-card-shadow: none;
+  --simple-ring: 0 0 0 3px color-mix(in srgb, var(--accent) 28%, transparent);
 
   color-scheme: dark;
 
-  --bg: #26141c;
-  --bg-elev: #2b1720;
-  --surface: rgba(55, 30, 41, 0.86);
-  --surface-2: #3b2130;
-  --surface-3: #47283a;
-  --surface-solid: #331b26;
-  --surface-solid-2: #3b2130;
+  --bg: #1e1714;
+  --bg-elev: #1e1714;
+  --surface: #251d19;
+  --surface-2: #2d2420;
+  --surface-3: #382d28;
+  --surface-solid: #251d19;
+  --surface-solid-2: #2b221e;
 
-  --line: rgba(248, 213, 224, 0.12);
-  --line-strong: rgba(248, 213, 224, 0.24);
-  --line-focus: #f2a5bd;
+  --line: rgba(234, 223, 210, 0.11);
+  --line-strong: rgba(234, 223, 210, 0.22);
+  --line-focus: var(--accent);
+  /* A field's edge: 3:1 on a card and on a tinted row too (a done set's weight field was 2.6:1
+     with the base's 40%, WCAG 1.4.11) */
+  --field-line: color-mix(in srgb, var(--text) 50%, transparent);
 
-  --text: #f9e4ea;
-  --text-2: #e5c3ce;
-  /* 4.5:1 also on a tag's rosé chip (WCAG 1.4.3; #c09aa8 was 4.4:1 there) */
-  --text-3: #c5a2af;
-  --text-4: #6e4a58;
+  --text: #eadfd2;
+  --text-2: #cbbcad;
+  /* 4.7:1 on the darkest tint (surface-3), 5.9:1 on a card (WCAG 1.4.3) */
+  --text-3: #a8978a;
+  --text-4: #5e4f47;
 
-  --accent: #f2a5bd;
-  --accent-ink: #2a1019;
-  --accent-soft: rgba(242, 165, 189, 0.16);
+  --accent: #c99a8b;
+  --accent-ink: #1e1714;
+  --accent-soft: rgba(201, 154, 139, 0.12);
 
   --glow: var(--simple-ring);
-  --glow-strong: 0 4px 18px rgba(0, 0, 0, 0.35);
-  --shadow: 0 22px 60px rgba(0, 0, 0, 0.5);
-  --shadow-sm: 0 6px 20px rgba(0, 0, 0, 0.3);
+  --glow-strong: none;
+  --shadow: 0 20px 56px rgba(0, 0, 0, 0.5);
+  --shadow-sm: 0 6px 20px rgba(0, 0, 0, 0.32);
 
   --grid-line: transparent;
-  --scrim: rgba(20, 8, 13, 0.62);
-  --hatch: rgba(248, 213, 224, 0.08);
+  --scrim: rgba(12, 9, 8, 0.62);
+  --hatch: rgba(234, 223, 210, 0.08);
 
-  --heat-0: rgba(242, 165, 189, 0.09);
-  --heat-1: rgba(242, 165, 189, 0.26);
-  --heat-2: rgba(242, 165, 189, 0.45);
-  --heat-3: rgba(242, 165, 189, 0.7);
-  --heat-4: #f2a5bd;
+  --heat-0: rgba(201, 154, 139, 0.1);
+  --heat-1: rgba(201, 154, 139, 0.24);
+  --heat-2: rgba(201, 154, 139, 0.44);
+  --heat-3: rgba(201, 154, 139, 0.7);
+  --heat-4: #c99a8b;
 
-  /* Color coding, sweet but readable: rose, peach, butter, sage, aqua, periwinkle, lavender, pink */
-  --cc-red: #ef8aa0;
-  --cc-orange: #f1ab7f;
-  --cc-yellow: #ecd27f;
-  --cc-green: #a3cfa2;
-  --cc-teal: #8fd1cc;
-  --cc-blue: #a9b8f2;
-  --cc-purple: #c9a8ee;
-  --cc-pink: #f7a9d0;
-  --cc-ink: #2a1019;
+  /* Color coding in muted editorial shades: a warm red, rust, ochre, sage, teal, slate, plum,
+     rose. 6.5:1 or more on the paper, 5:1 or more on their own wash. The red is also what is late
+     and what deletes (--alert): a true warm red, well apart from the rose gold (a coral read as a
+     pink primary button on a Delete confirmation) */
+  --cc-red: #f47a6e;
+  --cc-orange: #dda27e;
+  --cc-yellow: #d5b878;
+  --cc-green: #a9bd94;
+  --cc-teal: #92c0b9;
+  --cc-blue: #a3b6d0;
+  --cc-purple: #c2a8cf;
+  --cc-pink: #dca4b6;
+  --cc-ink: #1e1714;
 }
 
-/* ---- Blush (light) ---- */
+/* ---- Day: ivory, ink and rosewood, nude and sand tints ---- */
 [data-skin="coquette"][data-theme="light"] {
-  /* Gingham: two sets of soft stripes in the ribbon color */
-  --page-bg-image:
-    repeating-linear-gradient(0deg, color-mix(in srgb, var(--accent) 8%, transparent) 0 14px, transparent 14px 28px),
-    repeating-linear-gradient(90deg, color-mix(in srgb, var(--accent) 8%, transparent) 0 14px, transparent 14px 28px);
-  --page-bg-size: auto;
+  --at-taupe: #94796d;
 
-  --cq-art-alpha: 0.45;
-  --simple-card-shadow: 0 6px 24px color-mix(in srgb, var(--accent) 16%, transparent);
+  /* Restated by day: Simple's light block (two attributes, like this one) would otherwise bring
+     back its black focus ring, gray glow and card shadow */
+  --simple-card-shadow: none;
+  --simple-ring: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
+  --glow: var(--simple-ring);
+  --glow-strong: none;
+  --grid-line: transparent;
+  --line-focus: var(--accent);
 
   color-scheme: light;
 
-  --bg: #fdf3f3;
-  --bg-elev: #fff8f8;
-  --surface: rgba(255, 252, 252, 0.9);
-  --surface-2: #fbe7ec;
-  --surface-3: #f6d6df;
-  --surface-solid: #fffafa;
-  --surface-solid-2: #fdf0f2;
+  --bg: #f7f2ec;
+  --bg-elev: #f7f2ec;
+  --surface: #fcf9f5;
+  --surface-2: #f1eae2;
+  --surface-3: #e9e0d5;
+  --surface-solid: #fdfbf8;
+  --surface-solid-2: #f4eee7;
 
-  --line: rgba(140, 60, 85, 0.13);
-  --line-strong: rgba(140, 60, 85, 0.25);
-  --line-focus: #c95a7f;
+  --line: rgba(42, 31, 29, 0.11);
+  --line-strong: rgba(42, 31, 29, 0.22);
+  --field-line: color-mix(in srgb, var(--text) 56%, transparent);
 
-  --text: #4a2731;
-  --text-2: #6e4652;
-  /* 4.5:1 also on the blush of a picked row (WCAG 1.4.3; #8a6470 was 3.8:1 there) */
-  --text-3: #7b5964;
-  --text-4: #d4b4bf;
+  --text: #2a1f1d;
+  --text-2: #55463f;
+  /* 4.8:1 on the darkest tint (surface-3), 5.6:1 on the paper (WCAG 1.4.3) */
+  --text-3: #6e5d55;
+  --text-4: #c5b6aa;
 
-  --accent: #e58fab;
-  --accent-ink: #3d1d27;
-  --accent-soft: rgba(229, 143, 171, 0.16);
+  --accent: #8c4a55;
+  --accent-ink: #fdf8f3;
+  --accent-soft: rgba(140, 74, 85, 0.08);
 
-  --glow-strong: 0 4px 18px color-mix(in srgb, var(--accent) 22%, transparent);
-  --shadow: 0 22px 60px rgba(120, 40, 70, 0.16);
-  --shadow-sm: 0 6px 20px rgba(120, 40, 70, 0.1);
+  --shadow: 0 20px 56px rgba(42, 31, 29, 0.13);
+  --shadow-sm: 0 6px 20px rgba(42, 31, 29, 0.08);
 
-  --scrim: rgba(80, 30, 50, 0.24);
-  --hatch: rgba(140, 60, 85, 0.07);
+  --scrim: rgba(42, 31, 29, 0.3);
+  --hatch: rgba(42, 31, 29, 0.07);
 
-  --heat-0: rgba(229, 143, 171, 0.12);
-  --heat-1: rgba(229, 143, 171, 0.3);
-  --heat-2: rgba(229, 143, 171, 0.5);
-  --heat-3: rgba(217, 113, 143, 0.75);
-  --heat-4: #d9718f;
+  --heat-0: rgba(140, 74, 85, 0.07);
+  --heat-1: rgba(140, 74, 85, 0.18);
+  --heat-2: rgba(140, 74, 85, 0.36);
+  --heat-3: rgba(140, 74, 85, 0.62);
+  --heat-4: #8c4a55;
 
-  --cc-red: #cc5a7a;
-  --cc-orange: #d7865a;
-  --cc-yellow: #c4a03a;
-  --cc-green: #6b9a70;
-  --cc-teal: #4d9a97;
-  --cc-blue: #6a7ec6;
-  --cc-purple: #9672c4;
-  --cc-pink: #df76a6;
-  --cc-ink: #ffffff;
+  /* 5:1 or more on the paper and with ivory words on them, 4.5:1 on their own wash. The red is a
+     brick red, apart from the rosewood accent (late and delete never read as picked) */
+  --cc-red: #a5322e;
+  --cc-orange: #94512d;
+  --cc-yellow: #80621c;
+  --cc-green: #4f6744;
+  --cc-teal: #386663;
+  --cc-blue: #475e7c;
+  --cc-purple: #6b4d78;
+  --cc-pink: #924c66;
+  --cc-ink: #fdf8f3;
+}
+
+/* Your own Background or Ink (Appearance → Colors): the chart taupe is worked out from them, so it
+   keeps 3:1 on any paper (3.9:1 by day, 5.3:1 by night with the template's own two) */
+[data-skin="coquette"]:is([data-palette~="bg"], [data-palette~="text"]) {
+  --at-taupe: color-mix(in srgb, var(--text) 58%, var(--bg));
 }
 
 /* ==========================================================================
-   Page
+   Page: Inter, lining figures, small spaced capitals
    ========================================================================== */
 
 [data-skin="coquette"] .lo-page {
-  font-feature-settings: normal;
+  font-feature-settings: "cv11" 1;
+  font-variant-numeric: lining-nums;
+  letter-spacing: -0.003em;
+}
+
+[data-skin="coquette"] :is(h1, h2, h3, h4) {
   letter-spacing: 0;
 }
 
+[data-skin="coquette"] :is(.tnum, .mono) {
+  font-variant-numeric: lining-nums tabular-nums;
+}
+
+/* Small spaced capitals, for one- or two-word captions (field names, group heads) */
 [data-skin="coquette"] .label {
   font-family: var(--font-sans);
-  font-size: 10.5px;
+  font-size: 11px;
   font-weight: 600;
-  letter-spacing: 0.16em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--text-3);
+}
+
+/* Captions that are sentences (hints, notes, counts in words) stay in sentence case: tracked
+   capitals are slow to read for more than a word or two */
+[data-skin="coquette"] :is(.hb-f-hint, .hb-plan-note, .hb-plan-addhint, .hbi-card-sub, .tr-more, .tr-caption, .tr-routine-meta, .tr-ex-meta, .tk-kept, .tk-done-ago, .tk-page-foot, .nt-hints, .nt-strip-hint, .nt-meta, .nt-mg-sub, .hb-plan-summary, .hb-arch-meta, .hbi-tile-sub).label {
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
 }
 
 /* :where: as weak as base.css's ring, so a feature's own focus treatment still wins */
@@ -189,171 +262,245 @@
 }
 
 [data-skin="coquette"] ::selection {
-  background: color-mix(in srgb, var(--accent) 35%, transparent);
+  background: color-mix(in srgb, var(--accent) 26%, transparent);
 }
 
-[data-skin="coquette"] .main,
-[data-skin="coquette"] .sidebar {
+[data-skin="coquette"] :is(.main, .sidebar) {
   scrollbar-width: thin;
-  scrollbar-color: color-mix(in srgb, var(--accent) 50%, transparent) transparent;
-}
-
-/* The bow behind the page, in the lower right */
-[data-skin="coquette"] .main {
-  isolation: isolate;
-}
-
-[data-skin="coquette"] .main::before {
-  content: "";
-  position: fixed;
-  z-index: -1;
-  right: clamp(8px, 2vw, 48px);
-  bottom: clamp(16px, 4vh, 56px);
-  width: clamp(170px, 17vw, 300px);
-  aspect-ratio: 774 / 1100;
-  background: url("coquette-bow.webp") center / contain no-repeat;
-  opacity: var(--cq-art-alpha);
-  pointer-events: none;
-}
-
-@media (max-width: 640px) {
-  [data-skin="coquette"] .main::before {
-    width: 46vw;
-    right: 4vw;
-    bottom: calc(var(--tabbar-h) + 16px);
-  }
+  scrollbar-color: color-mix(in srgb, var(--text) 22%, transparent) transparent;
 }
 
 /* ==========================================================================
-   Shell: the bow as a crest, a soft menu with a heart on the open page
+   Shell: a wordmark over a menu of quiet words
    ========================================================================== */
 
 [data-skin="coquette"] .sidebar {
+  background: var(--bg-elev);
   border-right: 1px solid var(--line);
-  padding-top: 26px;
+  padding-top: 28px;
+  gap: 22px;
 }
 
+/* The wordmark: LIFE/OS in spaced Playfair capitals over a hairline, like a fashion house's */
 [data-skin="coquette"] .brand {
-  flex-direction: column;
-  align-items: center;
+  justify-content: center;
   height: auto;
-  gap: 0;
-  padding: 0 0 18px;
+  padding: 2px 0 20px;
   border-bottom: 1px solid var(--line);
-  text-align: center;
 }
 
 [data-skin="coquette"] .brand-mark {
   display: none;
 }
 
-[data-skin="coquette"] .brand::before {
-  content: "";
-  width: 64px;
-  aspect-ratio: 774 / 1100;
-  margin-bottom: 6px;
-  background: url("coquette-bow.webp") center / contain no-repeat;
-}
-
 [data-skin="coquette"] .brand-name {
   font-family: var(--font-display);
-  font-size: 22px;
-  font-style: italic;
+  font-size: 19px;
   font-weight: 500;
-  letter-spacing: 0.06em;
-  line-height: 1.1;
+  letter-spacing: 0.24em;
+  /* the tracking after the last letter would push it off centre */
+  margin-right: -0.24em;
+  line-height: 1;
+  text-transform: uppercase;
 }
 
-[data-skin="coquette"] .brand::after {
-  content: "est. 2026";
-  margin-top: 2px;
-  font-family: var(--cq-script);
-  font-size: 19px;
-  color: var(--cq-rose);
+/* Search: a quiet field under the wordmark */
+[data-skin="coquette"] .sidebar-search {
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-2);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="coquette"] .sidebar-search:hover {
+    border-color: var(--field-line);
+    background: var(--surface);
+    color: var(--text);
+  }
+}
+
+[data-skin="coquette"] .nav {
+  gap: 2px;
 }
 
 [data-skin="coquette"] .nav-item {
-  border-radius: var(--radius-pill);
-  font-size: 15px;
+  height: 38px;
+  border-radius: var(--radius-sm);
+  font-size: 14.5px;
+  color: var(--text-2);
 }
 
-[data-skin="coquette"] .nav-item:hover {
-  background: color-mix(in srgb, var(--accent) 10%, transparent);
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="coquette"] .nav-item:hover {
+    background: var(--surface-2);
+    color: var(--text);
+  }
 }
 
+/* Where you are: the picked look, the wash and the rosewood frame, ink words */
 [data-skin="coquette"] .nav-item[aria-current="page"] {
-  background: color-mix(in srgb, var(--accent) 22%, transparent);
+  background: var(--at-wash);
   color: var(--text);
-}
-
-/* The open page: a small heart in the ribbon color */
-[data-skin="coquette"] .nav-item[aria-current="page"]::before {
-  content: "";
-  position: absolute;
-  left: 2px;
-  top: 50%;
-  bottom: auto;
-  width: 9px;
-  height: 9px;
-  margin-top: -4.5px;
-  border: 0;
-  background: var(--cq-rose);
-  box-shadow: none;
-  -webkit-mask: var(--cq-heart) center / contain no-repeat;
-  mask: var(--cq-heart) center / contain no-repeat;
+  font-weight: 600;
+  box-shadow: inset 0 0 0 1px var(--at-frame);
 }
 
 [data-skin="coquette"] .nav-badge {
-  background: color-mix(in srgb, var(--accent) 22%, transparent);
-  color: var(--text);
-  font-family: var(--font-sans);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: var(--surface-3);
+  color: var(--text-2);
 }
 
 [data-skin="coquette"] .nav-item[aria-current="page"] .nav-badge {
+  background: transparent;
+  color: var(--text);
+}
+
+[data-skin="coquette"] .nav-dot {
   background: var(--accent);
-  color: var(--accent-ink);
 }
 
-/* A short window: a smaller bow, so the whole sidebar (down to the Privacy · Business details
-   line) fits without scrolling */
-@media (min-width: 901px) and (max-height: 860px) {
-  [data-skin="coquette"] .brand::before {
-    width: 42px;
+/* "Idea" (Health): a small hairline badge in spaced capitals, no dashes */
+[data-skin="coquette"] .nav-soon {
+  padding: 0 5px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-xs);
+  background: transparent;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  color: var(--text-3);
+}
+
+[data-skin="coquette"] .nav-item[aria-current="page"] .nav-soon {
+  border-color: var(--field-line);
+  color: var(--text);
+}
+
+[data-skin="coquette"] .sidebar-foot {
+  gap: 4px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+
+[data-skin="coquette"] .sidebar-foot .btn {
+  border-radius: var(--radius-sm);
+}
+
+/* Settings open: the menu's picked look */
+[data-skin="coquette"] .sidebar-foot .settings-btn[aria-current="page"] {
+  border-color: transparent;
+  background: var(--at-wash);
+  color: var(--text);
+  box-shadow: inset 0 0 0 1px var(--at-frame);
+}
+
+/* A short window (1280×800 and the like): closer rows, so the whole sidebar (down to the
+   Privacy · Business details line) fits without scrolling */
+@media (min-width: 901px) and (max-height: 880px) {
+  [data-skin="coquette"] .sidebar {
+    gap: 14px;
+    padding-top: 20px;
+    padding-bottom: 14px;
+  }
+
+  [data-skin="coquette"] .brand {
+    padding-bottom: 14px;
+  }
+
+  [data-skin="coquette"] .nav-item {
+    height: 36px;
+  }
+
+  [data-skin="coquette"] .sidebar-foot {
+    gap: 2px;
+    padding-top: 8px;
   }
 }
 
+/* The icon rail (tablets, narrow windows): the name has no room (the base hides it), so a small
+   Playfair monogram stands in for it (decoration: the alt text is empty). Slimmer sides, so the
+   40px buttons fit inside the rail (the base's 16px sides left 39px: a 1px sideways scroll). */
 @media (max-width: 900px) {
+  [data-skin="coquette"] .sidebar {
+    padding-inline: 12px;
+  }
+
+  [data-skin="coquette"] .brand {
+    padding-bottom: 14px;
+  }
+
   [data-skin="coquette"] .brand::before {
-    width: 34px;
-    margin-bottom: 0;
-  }
-
-  [data-skin="coquette"] .brand::after {
-    content: none;
-  }
-
-  [data-skin="coquette"] .nav-item[aria-current="page"]::before {
-    left: 1px;
+    content: "L/O";
+    content: "L/O" / "";
+    font-family: var(--font-display);
+    font-size: 16px;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    line-height: 1;
+    color: var(--text);
   }
 }
 
 [data-skin="coquette"] .topbar {
-  background: color-mix(in srgb, var(--bg) 86%, transparent);
+  background: color-mix(in srgb, var(--bg) 90%, transparent);
+  border-bottom: 1px solid var(--line);
 }
 
-[data-skin="coquette"] .crumbs {
-  font-family: var(--font-display);
-  font-style: italic;
-  font-size: 14px;
-  letter-spacing: 0.02em;
-  text-transform: none;
+/* ---- Phone tab bar: a rosewood rule over the open page (and over More while one of its pages
+   is open), the word in ink ---- */
+[data-skin="coquette"] .tabbar {
+  background: color-mix(in srgb, var(--bg) 94%, transparent);
+  border-top: 1px solid var(--line);
 }
 
-/* ---- Page header: a script title over a string of pearls ---- */
+@media (max-width: 640px) {
+  [data-skin="coquette"] :is(.tab[aria-current="page"], .tab--more.is-current) {
+    color: var(--text);
+    font-weight: 600;
+  }
+
+  [data-skin="coquette"] :is(.tab[aria-current="page"], .tab--more.is-current)::before {
+    top: 0;
+    left: 28%;
+    right: 28%;
+    height: 2px;
+    border-radius: 0 0 2px 2px;
+    background: var(--accent);
+    box-shadow: none;
+  }
+}
+
+/* ---- More (the phone tab bar's last tab) ---- */
+[data-skin="coquette"] .more-page {
+  border-color: var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+[data-skin="coquette"] .more-page[aria-current="page"] {
+  border-color: transparent;
+  background: var(--at-wash);
+  color: var(--text);
+  font-weight: 600;
+  box-shadow: inset 0 0 0 1px var(--at-frame);
+}
+
+[data-skin="coquette"] .more-row[aria-current="page"] .more-row-icon {
+  color: var(--accent);
+}
+
+[data-skin="coquette"] :is(.more-page, .more-row, .more-tab):active {
+  background: var(--surface-2);
+}
+
+/* ---- Page top: an upright Playfair title, its quiet stat, a hairline with a short rosewood
+   stroke at its start (size and spacing: the tokens above, css/compact.css) ---- */
 [data-skin="coquette"] .page-header {
   position: relative;
-  padding-bottom: 26px;
-  margin-bottom: 30px;
+  border-bottom: 0;
 }
 
 [data-skin="coquette"] .page-header::after {
@@ -363,210 +510,1240 @@
   right: 0;
   bottom: 0;
   width: auto;
-  height: 12px;
+  height: 1px;
   border: 0;
-  background: radial-gradient(circle at 36% 32%, #ffffff 0 1.3px, var(--cq-pearl) 2.4px, var(--cq-pearl-shade) 4.6px, color-mix(in srgb, var(--cq-pearl-shade) 80%, var(--text)) 5.3px, transparent 5.9px) 0 50% / 14px 12px repeat-x;
+  background: linear-gradient(to right, var(--accent) 0 44px, var(--at-rule) 44px);
+  box-shadow: none;
 }
 
 [data-skin="coquette"] .page-title {
-  font-family: var(--cq-script);
-  font-size: clamp(46px, 5vw, 64px);
-  font-weight: 400;
-  letter-spacing: 0;
-  line-height: 1.05;
+  font-family: var(--font-display);
+  font-weight: 500;
+  letter-spacing: -0.005em;
+  line-height: 1.08;
+}
+
+[data-skin="coquette"] .page-title > .page-ib {
+  border-radius: var(--radius-sm);
 }
 
 [data-skin="coquette"] .page-subtitle {
-  font-family: var(--font-display);
-  font-style: italic;
-  font-size: 16.5px;
   color: var(--text-2);
 }
 
+/* The live line beside the title ('3 today · 2 overdue'): quiet Inter, its figures in ink */
+[data-skin="coquette"] .page-stat {
+  color: var(--text-2);
+}
+
+[data-skin="coquette"] .page-stat :is(strong, b) {
+  font-weight: 600;
+  font-variant-numeric: lining-nums tabular-nums;
+  color: var(--text);
+}
+
 /* ==========================================================================
-   Shared kit: soft and round
+   Shared kit: hairlines, small corners, no shadow
    ========================================================================== */
 
 .panel:where([data-skin="coquette"] *) {
-  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  border: 1px solid var(--line);
   border-radius: var(--radius-lg);
-  box-shadow: var(--simple-card-shadow);
+  background: var(--surface);
+  box-shadow: none;
 }
 
-.btn:where([data-skin="coquette"] *) {
-  border-radius: var(--radius-pill);
+/* ---- One card title, everywhere: Playfair Display 18px, weight 500, upright, ink ----
+   (the notes rail's "Sections", the week plan's title, the Habits day list's "Today · Fri 23 Oct"
+   and the Calendar day plan's Tasks / Habits too: they head a card like the rest, so they are not
+   small capitals or bold Inter here) */
+[data-skin="coquette"] :is(.hm-card-title, .hm-week-title, .hm-start-title, .pm-card-title, .hbi-card-title, .hb-dl-title, .tr-section-title, .cal-pop-title, .cal-tray-title),
+[data-skin="coquette"] .fn-root .fn-panel-title,
+[data-skin="coquette"] .st-root .st-card-title,
+[data-skin="coquette"] .nt-rail-head > .label,
+[data-skin="coquette"] .hb-plan-title.label,
+[data-skin="coquette"] .cal-plan-title.label {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-style: normal;
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 1.25;
+  text-transform: none;
+  color: var(--text);
+}
+
+[data-skin="coquette"] :is(.tr-section-title, .st-root .st-card-title, .hb-plan-title) > :is(svg, .icon) {
+  color: var(--text-2);
+}
+
+/* Their small print (the week's dates, a card's range): quiet Inter */
+[data-skin="coquette"] :is(.hm-wt-sub, .hm-wt-year) {
   font-family: var(--font-sans);
-  font-weight: 600;
-  letter-spacing: 0.01em;
+  font-size: var(--fs-sm);
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--text-2);
+}
+
+/* ---- Figures: Playfair, lining and even (the big ones; a figure inside a line of words, such as
+   the page-top stat's, stays Inter like its words) ---- */
+[data-skin="coquette"] :is(.stat-value, .pm-digits, .hm-pomo-digits, .hm-gl-value, .hm-clock-time, .hbi-tile-value, .tr-kpi-value, .tr-rest-time, .cal-plan-count:not(.is-word)) {
+  font-family: var(--font-display);
+  font-style: normal;
+  font-weight: 500;
+  font-variant-numeric: lining-nums tabular-nums;
+  letter-spacing: 0;
+}
+
+/* Icon badges: a soft tint of their color, square-ish (icons.css rounds them by --radius-sm) */
+[data-skin="coquette"] .ib {
+  border-radius: var(--radius-sm);
+}
+
+/* ---- Buttons: Inter, small corners; primary in rosewood, the rest outlined or bare ---- */
+.btn:where([data-skin="coquette"] *) {
+  border-radius: var(--radius-sm);
+  font-family: var(--font-sans);
+  font-weight: 500;
+  letter-spacing: 0.005em;
+  box-shadow: none;
 }
 
 .btn--primary:where([data-skin="coquette"] *) {
   border-color: var(--accent);
   background: var(--accent);
   color: var(--accent-ink);
+  font-weight: 600;
 }
 
-.btn--primary:where([data-skin="coquette"] *):hover {
-  border-color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 86%, var(--text));
-  color: var(--accent-ink);
+@media (hover: hover) and (pointer: fine) {
+  .btn:where([data-skin="coquette"] *):hover {
+    border-color: var(--field-line);
+  }
+
+  .btn--ghost:where([data-skin="coquette"] *):hover {
+    border-color: transparent;
+    background: var(--surface-2);
+  }
+
+  .btn--primary:where([data-skin="coquette"] *):hover {
+    filter: none;
+    border-color: color-mix(in srgb, var(--accent) 86%, var(--text));
+    background: color-mix(in srgb, var(--accent) 86%, var(--text));
+    color: var(--accent-ink);
+  }
 }
 
+/* Destructive (outside a confirm, where it is filled: css/compact.css): the late color */
+.btn--danger:where([data-skin="coquette"] *) {
+  border-color: color-mix(in srgb, var(--alert) 45%, transparent);
+  background: transparent;
+  color: var(--alert);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .btn--danger:where([data-skin="coquette"] *):hover {
+    border-color: var(--alert);
+    background: color-mix(in srgb, var(--alert) 8%, transparent);
+    color: var(--alert);
+  }
+}
+
+/* ---- Segmented controls: a sand track; the picked segment lifts to paper with the frame ---- */
 [data-skin="coquette"] .seg {
-  border-radius: var(--radius-pill);
-  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  border: 0;
+  border-radius: var(--radius);
+  background: var(--surface-2);
 }
 
 [data-skin="coquette"] .seg .seg-btn {
-  border-radius: var(--radius-pill);
-}
-
-/* The picked pill wears a rosé edge: the cream pill alone was 1.1–1.4:1 against the blush track,
-   too faint to say which is picked (WCAG 1.4.11 / 1.4.1). Ribbon and ink mixed, 4:1 or more. */
-[data-skin="coquette"] .seg .seg-btn:is([aria-pressed="true"], [aria-selected="true"]) {
-  background: var(--surface-solid);
-  color: var(--text);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 50%, var(--text)), 0 1px 6px color-mix(in srgb, var(--accent) 30%, transparent);
-}
-
-/* The same edge on a dialog's picked option (a ribbon-pink cell, 2.1:1 on its track alone) */
-[data-skin="coquette"] .cal-ed-seg-opt.is-on {
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 50%, var(--text));
-}
-
-/* The phone tab bar's mark over the open page, in that deeper rosé on the light paper: the ribbon
-   pink was 2.2:1 there, too faint to mark it (WCAG 1.4.11) */
-[data-skin="coquette"][data-theme="light"] .tab[aria-current="page"]::before {
-  background: color-mix(in srgb, var(--accent) 50%, var(--text));
-}
-
-.tag:where([data-skin="coquette"] *) {
-  border: 0;
-  border-radius: var(--radius-pill);
-  background: color-mix(in srgb, var(--accent) 15%, transparent);
+  border-radius: var(--radius-sm);
   color: var(--text-2);
 }
 
-.tag--solid:where([data-skin="coquette"] *) {
-  background: var(--accent);
-  color: var(--accent-ink);
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="coquette"] .seg .seg-btn:not([aria-pressed="true"], [aria-selected="true"], .is-on):hover {
+    background: var(--surface-3);
+    color: var(--text);
+  }
 }
 
+/* ---- Picked: the wash and the rosewood frame, ink words ----
+   Segments, chips, presets, weekdays, the selected day, the editor's options and looks, the
+   tray chip, the routine dialog's exercises, the table switch, the quick-date buttons. */
+[data-skin="coquette"] .seg .seg-btn:is([aria-pressed="true"], [aria-selected="true"], .is-on),
+[data-skin="coquette"] .pm-preset[aria-pressed="true"],
+[data-skin="coquette"] .nt-chip[aria-current="true"],
+[data-skin="coquette"] .hb-wd[aria-pressed="true"],
+[data-skin="coquette"] .hb-sel[aria-checked="true"],
+[data-skin="coquette"] .cal-ed-seg-opt.is-on,
+[data-skin="coquette"] .cal-ed-wd[aria-pressed="true"],
+[data-skin="coquette"] .cal-ed-style.is-on,
+[data-skin="coquette"] .cal-tray-toggle[aria-expanded="true"],
+[data-skin="coquette"] .cal-sheet-quick .btn.is-current,
+[data-skin="coquette"] .tr-chip[aria-pressed="true"],
+[data-skin="coquette"] .tr-ex[aria-pressed="true"],
+[data-skin="coquette"] .hbi-table-btn[aria-pressed="true"],
+[data-skin="coquette"] .st-index-link[aria-current] {
+  border-color: transparent;
+  background: var(--at-wash);
+  color: var(--text);
+  box-shadow: inset 0 0 0 1px var(--at-frame);
+}
+
+/* On the sand track the wash would sink: the picked segment lifts to paper first */
+[data-skin="coquette"] .seg .seg-btn:is([aria-pressed="true"], [aria-selected="true"], .is-on) {
+  background: linear-gradient(var(--at-wash), var(--at-wash)), var(--surface-solid);
+  font-weight: 600;
+}
+
+[data-skin="coquette"] :is(.pm-preset[aria-pressed="true"], .hb-sel[aria-checked="true"]) :is(.pm-preset-sub, .hb-sel-wd, .hb-sel-date) {
+  color: var(--text);
+  opacity: 1;
+}
+
+/* (a picked option's icon stays in its own color or ink, never the accent fill's ink) */
+[data-skin="coquette"] :is(.hb-view-btn[aria-pressed="true"], .hb-tab[aria-selected="true"]) > svg {
+  color: var(--accent);
+}
+
+/* ---- Tags: hairline labels with small corners; solid is a nude fill ---- */
+.tag:where([data-skin="coquette"] *) {
+  border-color: var(--line-strong);
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--text-2);
+  font-weight: 500;
+}
+
+.tag--solid:where([data-skin="coquette"] *) {
+  border-color: transparent;
+  background: var(--surface-3);
+  color: var(--text);
+  font-weight: 600;
+}
+
+/* ---- Fields: paper with a 3:1 edge (WCAG 1.4.11), the accent when typing ---- */
 .input:where([data-skin="coquette"] *),
 .select:where([data-skin="coquette"] *),
 .textarea:where([data-skin="coquette"] *) {
+  border-color: var(--field-line);
+  border-radius: var(--radius-sm);
+  background-color: var(--surface-solid);
+}
+
+.input:where([data-skin="coquette"] *):focus,
+.select:where([data-skin="coquette"] *):focus,
+.textarea:where([data-skin="coquette"] *):focus {
+  border-color: var(--accent);
+  background-color: var(--surface-solid);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent);
+}
+
+.kbd:where([data-skin="coquette"] *) {
+  border-radius: var(--radius-xs);
+  font-family: var(--font-sans);
+}
+
+[data-skin="coquette"] .dd-count {
+  border-radius: var(--radius-xs);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- Done: a filled rosewood square with an ivory tick ----
+   Open: a 1.5px taupe square (5.6:1 on the paper). The base fills a ticked box with the accent and
+   draws the tick in --accent-ink, so tasks, habits, sets, Start steps and the Edit tabs list
+   all agree; the Calendar's and Home's own boxes follow below. */
+.check:where([data-skin="coquette"] *) {
+  border-width: 1.5px;
+  border-color: var(--text-3);
   border-radius: var(--radius-sm);
 }
 
-/* Ticked: a heart instead of the check mark */
-.check:where([data-skin="coquette"] *) {
+@media (hover: hover) and (pointer: fine) {
+  .check:where([data-skin="coquette"] *):hover {
+    border-color: var(--accent);
+    box-shadow: none;
+  }
+}
+
+[data-skin="coquette"] :is(.cal-task-check, .cal-hcheck) {
+  border-width: 1.5px;
+  border-color: var(--text-3);
+  border-radius: var(--radius-sm);
+}
+
+[data-skin="coquette"] :is(.check, .cal-task-check, .cal-hcheck):is([aria-checked="true"], .is-checked) {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-ink);
+  box-shadow: none;
+}
+
+/* A note's checklist in Preview: the same square */
+[data-skin="coquette"] .nt-task-box {
+  border-color: var(--text-3);
+  border-radius: var(--radius-sm);
+}
+
+[data-skin="coquette"] .nt-task-box:checked {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+
+/* ---- Switches: on = a rosewood track, ivory knob at the right; off = a hollow track with a 3:1
+   edge, a taupe knob at the left ---- */
+[data-skin="coquette"] :is(.pm-switch-track, .cal-ed-switch-track) {
+  width: 38px;
+  height: 22px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--field-line);
+}
+
+[data-skin="coquette"] :is(.pm-switch-thumb, .cal-ed-switch-thumb) {
   border-radius: 50%;
-  border-color: color-mix(in srgb, var(--accent) 70%, var(--text-3));
+  background: var(--text-3);
+  box-shadow: none;
 }
 
-.check:where([data-skin="coquette"] *)::after {
-  content: "";
-  position: absolute;
-  inset: 21%;
+[data-skin="coquette"] .pm-switch-thumb {
+  left: 4px;
+  width: 14px;
+  height: 14px;
+}
+
+[data-skin="coquette"] .cal-ed-switch-thumb {
+  top: 4px;
+  left: 4px;
+  width: 14px;
+  height: 14px;
+}
+
+[data-skin="coquette"] :is(.pm-switch[aria-checked="true"] .pm-switch-track, .cal-ed-switch[aria-checked="true"] .cal-ed-switch-track) {
+  background: var(--accent);
+  box-shadow: none;
+}
+
+[data-skin="coquette"] :is(.pm-switch[aria-checked="true"] .pm-switch-thumb, .cal-ed-switch[aria-checked="true"] .cal-ed-switch-thumb) {
   background: var(--accent-ink);
-  -webkit-mask: var(--cq-heart) center / contain no-repeat;
-  mask: var(--cq-heart) center / contain no-repeat;
-  opacity: 0;
-  transform: scale(0.4);
-  transition: opacity var(--dur-fast) var(--ease), transform var(--dur) var(--ease-out);
 }
 
-.check:where([data-skin="coquette"] *):is([aria-checked="true"], .is-checked) svg {
-  opacity: 0;
+[data-skin="coquette"] .pm-switch[aria-checked="true"] .pm-switch-thumb {
+  transform: translate(16px, -50%);
 }
 
-.check:where([data-skin="coquette"] *):is([aria-checked="true"], .is-checked)::after {
-  opacity: 1;
-  transform: none;
+[data-skin="coquette"] .cal-ed-switch[aria-checked="true"] .cal-ed-switch-thumb {
+  transform: translateX(16px);
 }
 
-/* Dialogs: a soft card with a stitched seam */
+/* (Settings rings an off track for the round templates: the edge is already drawn) */
+[data-skin="coquette"] .st-switch:not([aria-checked="true"]) .pm-switch-track {
+  box-shadow: inset 0 0 0 1px var(--field-line);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="coquette"] :is(.pm-switch:not([aria-checked="true"]):hover .pm-switch-track, .cal-ed-switch:not([aria-checked="true"]):hover .cal-ed-switch-track) {
+    box-shadow: inset 0 0 0 1px var(--text-2);
+  }
+}
+
+/* ---- Dialogs: a sheet of paper with a hairline edge; an upright Playfair title ---- */
 .modal:where([data-skin="coquette"] *) {
-  border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
-  border-radius: 26px;
-  outline: 1.5px dashed color-mix(in srgb, var(--accent) 60%, transparent);
-  outline-offset: -9px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface-solid);
+  box-shadow: var(--shadow);
+}
+
+.modal-root:where([data-skin="coquette"] *) {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.modal-head:where([data-skin="coquette"] *) {
+  padding-top: 26px;
+}
+
+/* One field-name style in every dialog: small spaced capitals over the field, no icon before them
+   (the task and event dialogs put one before each, the habit and subscription dialogs none) */
+[data-skin="coquette"] .modal :is(.label, label) > svg {
+  display: none;
 }
 
 .modal-title:where([data-skin="coquette"] *) {
-  font-family: var(--cq-script);
-  font-size: 40px;
-  font-weight: 400;
-  line-height: 1.1;
+  font-family: var(--font-display);
+  font-size: 26px;
+  font-weight: 500;
   letter-spacing: 0;
+  line-height: 1.15;
 }
 
-.toast:where([data-skin="coquette"] *) {
+@media (max-width: 640px) {
+  .modal-head:where([data-skin="coquette"] *) {
+    padding-top: 20px;
+  }
+
+  .modal-title:where([data-skin="coquette"] *) {
+    font-size: 23px;
+  }
+}
+
+/* ---- Toasts: a card of ink; Undo a small outlined button in the toast's own paper color ---- */
+.toast:where([data-skin="coquette"] *),
+.toast:where([data-skin="coquette"][data-theme="light"] *) {
   border: 0;
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius);
   background: var(--text);
   color: var(--bg);
+  box-shadow: var(--shadow-sm);
 }
 
-.toast-action:where([data-skin="coquette"] *) {
+.toast-action:where([data-skin="coquette"] *),
+.toast-action:where([data-skin="coquette"][data-theme="light"] *) {
+  border: 1px solid color-mix(in srgb, var(--bg) 45%, transparent);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--bg);
+  font-weight: 600;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .toast-action:where([data-skin="coquette"] *):hover,
+  .toast-action:where([data-skin="coquette"][data-theme="light"] *):hover {
+    border-color: var(--bg);
+    background: color-mix(in srgb, var(--bg) 14%, transparent);
+    color: var(--bg);
+  }
+}
+
+/* ---- Empty states: a hairline frame, a framed icon, a Playfair line ---- */
+.empty:where([data-skin="coquette"] *) {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: transparent;
+}
+
+.empty-icon:where([data-skin="coquette"] *) {
+  border-radius: 50%;
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--line-strong);
   color: var(--accent);
 }
 
 .empty-title:where([data-skin="coquette"] *) {
   font-family: var(--font-display);
-  font-style: italic;
+  font-size: 21px;
   font-weight: 500;
 }
 
+/* ---- Tips: a note in the margin, a rosewood rule at its left; "✓ Got it" a small outline ---- */
+[data-skin="coquette"] .tip {
+  border: 0;
+  border-left: 2px solid var(--accent);
+  border-radius: 0;
+  background: transparent;
+  padding-left: 12px;
+}
+
+[data-skin="coquette"] .tip-icon {
+  color: var(--accent);
+}
+
+[data-skin="coquette"] :is(.tip-ok, .page-tip-ok) {
+  border-color: var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: transparent;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="coquette"] :is(.tip-ok, .page-tip-ok):hover {
+    border-color: var(--field-line);
+    background: var(--surface-2);
+  }
+}
+
+/* ---- The right-click menu, its submenus and the dropdowns: paper with a hairline edge; the lit
+   item a sand fill; a hairline between groups; Delete in the late color ---- */
 [data-skin="coquette"] .ctx-menu {
+  --ctx-hi: var(--surface-2);
+  border: 1px solid var(--line-strong);
   border-radius: var(--radius);
-  border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+  background: var(--surface-solid);
+  box-shadow: var(--shadow-sm);
 }
 
 [data-skin="coquette"] .ctx-item {
   border-radius: var(--radius-sm);
 }
 
+[data-skin="coquette"] .ctx-menu .ctx-item.is-open {
+  background: var(--ctx-hi);
+}
+
+[data-skin="coquette"] .ctx-item:not([aria-disabled="true"]):focus-visible {
+  box-shadow: inset 0 0 0 1px var(--at-frame);
+}
+
+[data-skin="coquette"] .ctx-sep {
+  margin: 4px 8px;
+  background: var(--line);
+}
+
+[data-skin="coquette"] .ctx-item.is-checked .ctx-icon {
+  color: var(--accent);
+}
+
+[data-skin="coquette"] .dd-menu {
+  border-color: var(--line-strong);
+  border-radius: var(--radius);
+  background: var(--surface-solid);
+  box-shadow: var(--shadow-sm);
+}
+
+[data-skin="coquette"] .dd-item {
+  border-radius: var(--radius-sm);
+}
+
+[data-skin="coquette"] .dd-item:focus-visible {
+  background: var(--surface-2);
+  box-shadow: inset 0 0 0 1px var(--at-frame);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="coquette"] .dd-item:hover {
+    background: var(--surface-2);
+  }
+}
+
+[data-skin="coquette"] .dd-sep {
+  background: var(--line);
+}
+
+/* ---- Search (⌘K): a large quiet field; small capitals over each group; the lit result in the
+   picked look ---- */
+[data-skin="coquette"] .cmd-input {
+  font-size: 18px;
+}
+
+[data-skin="coquette"] .cmd-item {
+  border-radius: var(--radius-sm);
+}
+
+[data-skin="coquette"] .cmd-item[aria-selected="true"] {
+  background: var(--at-wash);
+  box-shadow: inset 0 0 0 1px var(--at-frame);
+}
+
+[data-skin="coquette"] .cmd-hit {
+  text-decoration-color: var(--accent);
+  text-decoration-thickness: 1.5px;
+}
+
+[data-skin="coquette"] .cmd-keys-head {
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 500;
+}
+
 /* ==========================================================================
    Pages
    ========================================================================== */
 
-[data-skin="coquette"] .stat-value,
-[data-skin="coquette"] .pm-time {
-  font-family: var(--font-display);
-  font-weight: 500;
-  letter-spacing: 0;
+/* ---- Home ---- */
+/* Today in the week: a rosewood rule on top and the date filled (the base), "Today" in a small
+   Playfair italic: the template's one italic accent */
+[data-skin="coquette"] .hm-day.is-today {
+  background: var(--surface);
+  box-shadow: inset 0 2px 0 var(--accent);
 }
 
+[data-skin="coquette"] .hm-day-num {
+  border-radius: var(--radius-sm);
+}
+
+[data-skin="coquette"] .hm-day-tag {
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-style: italic;
+  font-weight: 500;
+  color: var(--accent);
+}
+
+/* Today & next: each day's name as a small caption, today's in rosewood */
+[data-skin="coquette"] .hm-up-when {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-2);
+}
+
+[data-skin="coquette"] .hm-up-day.is-today .hm-up-when {
+  color: var(--accent);
+}
+
+/* The habits of the last two weeks: slim taupe bars, today's in rosewood */
+[data-skin="coquette"] .hm-bar-track {
+  border-radius: var(--radius-xs);
+}
+
+[data-skin="coquette"] .hm-bar-fill {
+  border-radius: var(--radius-xs);
+  background: var(--at-taupe);
+  box-shadow: none;
+}
+
+[data-skin="coquette"] .hm-bar.is-today .hm-bar-fill {
+  background: var(--accent);
+  box-shadow: none;
+}
+
+[data-skin="coquette"] .hm-bar.is-now .hm-bar-day {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* The calendar card's month: weekends a plain sand tint (no hatching), each day's habit bar
+   taupe, rosewood when every habit was done (the base) */
+[data-skin="coquette"] .hm-mcell.is-weekend {
+  background: var(--surface-solid-2);
+}
+
+[data-skin="coquette"] .hm-mhab-fill {
+  background: var(--at-taupe);
+}
+
+/* The Start card: numbered steps in fine squares, a done step filled like any tick */
+[data-skin="coquette"] .hm-start-btn {
+  border-color: var(--line);
+  border-radius: var(--radius);
+  background: transparent;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="coquette"] .hm-start-btn:hover {
+    border-color: var(--line-strong);
+    background: var(--surface-2);
+  }
+}
+
+[data-skin="coquette"] .hm-start-mark {
+  border-color: var(--text-3);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-display);
+  font-weight: 500;
+}
+
+[data-skin="coquette"] .hm-start-step.is-done .hm-start-mark {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+[data-skin="coquette"] :is(.hm-next, .hm-pomo, .hm-mini) {
+  box-shadow: none;
+}
+
+[data-skin="coquette"] .hm-pomo:not([data-phase="focus"]) .hm-pomo-fill {
+  background: var(--at-taupe);
+}
+
+/* On a phone the titles step down a little; a small widget (a half-width phone column, ~160px)
+   steps down again, so "Focus timer" fits beside its badge and chevron down to a 360px phone */
+@media (max-width: 640px) {
+  [data-skin="coquette"] :is(.hm-card-title, .hm-week-title) {
+    font-size: 16.5px;
+  }
+}
+
+@container hm-widget (max-width: 260px) {
+  [data-skin="coquette"] :is(.hm-card-title, .hm-week-title) {
+    font-size: 15px;
+    letter-spacing: -0.01em;
+  }
+}
+
+/* ---- Tasks ---- */
+/* The Smart order's headings: small capitals; late ones in the late color (the base) */
+[data-skin="coquette"] .tk-group-head {
+  gap: 8px;
+  padding: var(--space-3) var(--space-3) var(--space-1);
+}
+
+[data-skin="coquette"] .tk-group-count {
+  font-weight: 500;
+  letter-spacing: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The add bar is a field: a field's 3:1 edge (WCAG 1.4.11), paper inside */
+[data-skin="coquette"] .tk-command {
+  border-color: var(--field-line);
+  border-radius: var(--radius-lg);
+  background: var(--surface-solid);
+  box-shadow: none;
+}
+
+[data-skin="coquette"] .tk-command:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent);
+}
+
+[data-skin="coquette"] .tk-done-count {
+  border-radius: var(--radius-xs);
+}
+
+/* The task whose page is open: the picked look, like the open note (the base's sand fill and 2px
+   ink edge read as a fourth state); the keyboard's frame below still wins on it */
+[data-skin="coquette"] .tk-row.is-open {
+  background: var(--at-wash);
+  box-shadow: inset 0 0 0 1px var(--at-frame);
+}
+
+/* A row with the keyboard on it: one fine rosewood frame inside it (the template's ring outside
+   and Simple's 2px ring inside made a heavy double box) */
+[data-skin="coquette"] .tk-row:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 1.5px var(--line-focus);
+}
+
+/* A link in a task's or a note's words (a row's, the page's, the Details dialog's): underlined in
+   a soft rosewood, full rosewood when lit */
+[data-skin="coquette"] :is(.tk-link, .nt-prose a) {
+  text-decoration-color: color-mix(in srgb, var(--accent) 60%, transparent);
+}
+
+[data-skin="coquette"] :is(.tk-link, .nt-prose a):focus-visible {
+  text-decoration-color: var(--accent);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="coquette"] :is(.tk-link, .nt-prose a):hover {
+    text-decoration-color: var(--accent);
+  }
+}
+
+/* ---- A task's page (the panel from the right): paper on the base's hairline; beside the list on
+   a wide screen it needs no shadow, over the page (narrower) a soft one on the warm scrim. Its
+   title is the template's upright Playfair at its one weight; typing in it draws a rosewood
+   line ---- */
+[data-skin="coquette"] .tk-page {
+  box-shadow: var(--shadow-sm);
+}
+
+@media (min-width: 1100px) {
+  [data-skin="coquette"] .tk-page {
+    box-shadow: none;
+  }
+}
+
+[data-skin="coquette"] .tk-page-scrim {
+  background: var(--scrim);
+}
+
+[data-skin="coquette"] .tk-page-title {
+  font-weight: 500;
+  letter-spacing: 0;
+  font-variant-numeric: lining-nums;
+  border-bottom: 1px solid transparent;
+}
+
+[data-skin="coquette"] .tk-page-title:focus {
+  border-bottom-color: var(--accent);
+}
+
+[data-skin="coquette"] .tk-page-meta:focus-visible {
+  box-shadow: inset 0 0 0 1px var(--at-frame);
+}
+
+/* ---- Notes ---- */
 [data-skin="coquette"] .nt-title {
   font-family: var(--font-display);
-  font-style: italic;
-}
-
-[data-skin="coquette"] .hm-card-title,
-[data-skin="coquette"] .fn-root .fn-panel-title {
-  font-family: var(--font-display);
-  font-style: italic;
-  font-size: 17px;
   font-weight: 500;
   letter-spacing: 0;
-  text-transform: none;
+  font-variant-numeric: lining-nums;
 }
 
-[data-skin="coquette"] .fn-avatar {
-  border-color: color-mix(in srgb, var(--accent) 50%, transparent);
-  background: color-mix(in srgb, var(--accent) 18%, transparent);
+/* Typing in the title: a rosewood line under it shows where you are (a caret alone was all) */
+[data-skin="coquette"] .nt-title:focus {
+  box-shadow: inset 0 -1px 0 var(--accent);
+}
+
+[data-skin="coquette"] .nt-prose :is(h1, h2, h3) {
+  font-family: var(--font-display);
+  font-weight: 500;
+  letter-spacing: 0;
+}
+
+/* A quote: a fine rosewood rule at its left on the plain paper (no fading wash) */
+[data-skin="coquette"] .nt-prose blockquote {
+  border-left: 1px solid var(--accent);
+  background: none;
+}
+
+[data-skin="coquette"] .nt-prose ul > li::before {
+  background: var(--accent);
+}
+
+[data-skin="coquette"] :is(.nt-item, .nt-rail-item, .nt-menu, .nt-menu-item, .nt-hit, .nt-search .input) {
+  border-radius: var(--radius-sm);
+}
+
+[data-skin="coquette"] :is(.nt-col, .nt-card, .nt-drag-ghost) {
+  border-radius: var(--radius);
+}
+
+/* The open note (list and board) and the open section: the picked look */
+[data-skin="coquette"] :is(.nt-item, .nt-rail-item)[aria-current="true"] {
+  border-color: transparent;
+  background: var(--at-wash);
+  box-shadow: inset 0 0 0 1px var(--at-frame);
+}
+
+[data-skin="coquette"] .nt-card {
+  box-shadow: none;
+}
+
+[data-skin="coquette"] .nt-card[aria-current="true"] {
+  border-color: var(--at-frame);
+  box-shadow: inset 0 0 0 1px var(--at-frame);
+}
+
+/* Section chips (and More ▾): hairline labels, the open one in the picked look */
+[data-skin="coquette"] .nt-chip {
+  border-color: var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: transparent;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="coquette"] .nt-chip:not([aria-current="true"]):hover {
+    border-color: var(--field-line);
+    background: var(--surface-2);
+  }
+}
+
+[data-skin="coquette"] .nt-status {
+  border-radius: var(--radius-xs);
+}
+
+/* Small notes inside a page or dialog (a note shown elsewhere, the event editor's repeat banner):
+   a plain sand note on a hairline, no dashes or hatching */
+[data-skin="coquette"] :is(.nt-elsewhere, .cal-ed-banner, .cal-ed-notice) {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+
+[data-skin="coquette"] .nt-move {
+  border-radius: var(--radius-sm);
+}
+
+[data-skin="coquette"] .nt-pin[aria-pressed="true"] {
+  color: var(--accent);
+}
+
+/* ---- Habits: done is the rosewood square, today still to do its outline ----
+   Planned is a hairline square, missed a faint hatch on a 3:1 edge (the base), a bonus a soft
+   rosewood tint with the tick, a rest day a dot */
+[data-skin="coquette"] :is(.hb-day, .hb-plan-cell, .hb-mx-colbtn, .hb-plan-colbtn) {
+  border-radius: var(--radius-sm);
+}
+
+[data-skin="coquette"] :is(.hb-swatch, .hb-wk) {
+  border-radius: 2px;
+}
+
+[data-skin="coquette"] .hb-day[data-state="pending"] {
+  border: 1.5px solid var(--accent);
   color: var(--text);
-  font-style: italic;
+}
+
+[data-skin="coquette"] .hb-day[data-state="future"][data-planned="true"] {
+  border-color: var(--line-strong);
+}
+
+[data-skin="coquette"] .hb-day[data-state="done"].is-today,
+[data-skin="coquette"] .hb-mx-td.is-today > .hb-day[data-state="done"] {
+  box-shadow: none;
+}
+
+[data-skin="coquette"] .hb-day[data-state="bonus"],
+[data-skin="coquette"] .hb-swatch[data-s="bonus"],
+[data-skin="coquette"] .hb-row.is-bonus .hb-row-check {
+  border-color: transparent;
+  background: var(--heat-1);
+  color: var(--text);
+}
+
+/* Today's column head: a rosewood rule, its words in rosewood */
+[data-skin="coquette"] :is(.hb-mx-th, .hb-plan-th).is-today :is(.hb-mx-colbtn, .hb-plan-colbtn)::before {
+  background: var(--accent);
+  box-shadow: none;
+}
+
+[data-skin="coquette"] .hb-mx-th.is-today :is(.hb-mx-wd, .hb-mx-date) {
+  color: var(--accent);
+}
+
+/* The day strip: paper tiles; the picked day in the picked look; today's rule in rosewood; the
+   little done bar taupe (rosewood on the picked day) */
+[data-skin="coquette"] .hb-sel {
+  border-color: var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+[data-skin="coquette"] .hb-sel-fill {
+  background: var(--at-taupe);
+}
+
+[data-skin="coquette"] .hb-sel[aria-checked="true"] .hb-sel-fill {
+  background: var(--accent);
+}
+
+[data-skin="coquette"] .hb-sel[aria-checked="true"] .hb-sel-bar {
+  background: var(--line-strong);
+}
+
+[data-skin="coquette"] :is(.hb-sel.is-today, .hb-sel[aria-checked="true"].is-today)::before {
+  top: -1px;
+  height: 2px;
+  background: var(--accent);
+  box-shadow: none;
+}
+
+/* A habit's weekdays: seven hairline tiles, the picked ones in the picked look */
+[data-skin="coquette"] .hb-wd {
+  border-color: var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  box-shadow: none;
+  font-family: var(--font-sans);
+  color: var(--text-2);
+}
+
+/* The week plan's new-habit row: a day picked for the draft is the picked look too (Simple's
+   rosewood-tint fill read as a fourth state) */
+[data-skin="coquette"] .hb-plan-cell.is-draft[aria-pressed="true"] {
+  border-color: transparent;
+  background: var(--at-wash);
+  color: var(--text);
+  box-shadow: inset 0 0 0 1px var(--at-frame);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="coquette"] .hb-wd:not(:disabled):not([aria-pressed="true"]):hover {
+    border-color: var(--field-line);
+    background: var(--surface-2);
+    color: var(--text);
+  }
+}
+
+/* ---- Habits insights: Playfair figures, taupe columns, today's in rosewood (the trend line keeps
+   the base's quiet text-2 over them) ---- */
+[data-skin="coquette"] :is(.hbi-tile, .hbi-note, .hbi-plot, .hbi-tip) {
+  border-radius: var(--radius);
+}
+
+/* A day's column: a slim taupe bar, about 55% of its slot (full-width slabs made the chart a
+   brown block, and the trend line sank into them) */
+[data-skin="coquette"] :is(.hbi-col, .hbi-zero) {
+  fill: var(--at-taupe);
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  scale: 0.55 1;
+}
+
+/* The 7-day trend: an ink line over the bars (the base's text-2 was 2.2:1 on the taupe) */
+[data-skin="coquette"] .hbi-line--trend {
+  stroke: var(--text);
+}
+
+[data-skin="coquette"] .hbi-dot--trend {
+  fill: var(--text);
+}
+
+[data-skin="coquette"] :is(.hbi-swatch--trend, .hbi-key--trend) {
+  background: var(--text);
+}
+
+/* (the legend's and the tooltip's key for the columns, in the columns' taupe) */
+[data-skin="coquette"] :is(.hbi-swatch--col, .hbi-key--col) {
+  background: var(--at-taupe);
+}
+
+[data-skin="coquette"] .hbi-col--planned {
+  fill: var(--heat-1);
+}
+
+[data-skin="coquette"] :is(.hbi-col, .hbi-zero).is-pending {
+  fill: var(--accent);
+  fill-opacity: 0.55;
+}
+
+[data-skin="coquette"] .hbi-axis.is-today {
+  fill: var(--accent);
+}
+
+[data-skin="coquette"] .hbi-line {
+  stroke-width: 1.5;
+}
+
+[data-skin="coquette"] .hbi-rank-bar .progress-fill {
+  background: var(--at-taupe);
+  box-shadow: none;
+}
+
+/* ---- Calendar ---- */
+/* The month's name in Playfair, its year quieter */
+[data-skin="coquette"] .cal-title {
+  font-family: var(--font-display);
+  font-weight: 500;
+  letter-spacing: 0;
+}
+
+[data-skin="coquette"] .cal-title-main > * {
+  font-weight: 500;
+}
+
+/* The day plan (Day view): each layer's number beside its Playfair title, a Playfair figure */
+[data-skin="coquette"] .cal-plan-count:not(.is-word) {
+  font-size: 17px;
+}
+
+[data-skin="coquette"] :is(.cal-cell.is-today, .cal-dh.is-today)::before {
+  box-shadow: none;
+}
+
+[data-skin="coquette"] :is(.cal-cell.is-today .cal-date, .cal-dh.is-today .cal-dh-num) {
+  border-radius: var(--radius-sm);
+  box-shadow: none;
+}
+
+[data-skin="coquette"] :is(.cal-ev, .cal-tlev, .cal-task, .cal-tltask, .cal-trow, .cal-tray-empty) {
+  border-radius: var(--radius-sm);
+}
+
+/* A task's priority, the bar at a chip's end: a fine 2px rule, not a slab (High in ink, Medium
+   taupe; Low keeps its dotted line) */
+[data-skin="coquette"] :is(.cal-task, .cal-tltask):is(.pri-high, .pri-med)::after {
+  width: 2px;
+  border-radius: 1px;
+}
+
+[data-skin="coquette"] .cal-pop {
+  border-color: var(--line-strong);
+  border-radius: var(--radius);
+  background: var(--surface-solid);
+  box-shadow: var(--shadow-sm);
+}
+
+/* A block's place line: less faded than the base's 0.75, so it keeps 4.5:1 on every solid fill
+   (rosewood and each Color coding shade; it was 4.0–4.5:1) */
+[data-skin="coquette"] .cal-tlev-loc {
+  opacity: 0.9;
+}
+
+/* An outlined block keeps its edge in the week and the day */
+[data-skin="coquette"] .cal-tlev.cal-ev--outline {
+  border-color: var(--line-strong);
+}
+
+/* Long blocks of time (bands): a faint wash and a 2px spine in the event's color, or rosewood */
+[data-skin="coquette"] .cal-tl .cal-tl-col > .cal-tlev.is-band {
+  border-color: color-mix(in srgb, var(--cc, var(--accent)) 24%, transparent);
+  border-left: 2px solid var(--cc, var(--accent));
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--cc, var(--accent)) 7%, transparent);
+}
+
+/* A day's habits in the month: a fine taupe bar, rosewood when every habit is done */
+[data-skin="coquette"] .cal-hbar {
+  border-radius: 1px;
+}
+
+[data-skin="coquette"] .cal-hbar-fill {
+  background: var(--at-taupe);
+}
+
+[data-skin="coquette"] .cal-hbar.is-perfect {
+  box-shadow: none;
+}
+
+[data-skin="coquette"] .cal-hbar.is-perfect .cal-hbar-fill {
+  background: var(--accent);
+}
+
+[data-skin="coquette"] .cal-legend-hbar {
+  width: 20px;
+}
+
+/* ---- Pomodoro: Playfair digits on a fine rosewood ring; presets as paper cards ---- */
+[data-skin="coquette"] .pm-digits {
+  font-weight: 400;
+  letter-spacing: -0.01em;
+}
+
+[data-skin="coquette"] .pm-ring :is(.ring-track, .ring-fill) {
+  stroke-width: 3;
+}
+
+[data-skin="coquette"] .pm-ring .ring-track {
+  stroke: var(--surface-3);
+}
+
+[data-skin="coquette"] .pm-ring .ring-fill {
+  stroke: var(--accent);
+  filter: none;
+}
+
+[data-skin="coquette"] .pm-timer:not([data-phase="focus"]) .pm-ring .ring-fill {
+  stroke: var(--at-taupe);
+}
+
+[data-skin="coquette"] .pm-preset {
+  border-color: var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="coquette"] .pm-preset:not([aria-pressed="true"]):hover {
+    border-color: var(--line-strong);
+    background: var(--surface-2);
+  }
+}
+
+[data-skin="coquette"] .pm-mini {
+  border-color: var(--line-strong);
+  border-radius: var(--radius-pill);
+  box-shadow: var(--shadow-sm);
+}
+
+[data-skin="coquette"] .pm-mini[data-status="running"][data-phase="focus"] {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+/* ---- Training ---- */
+[data-skin="coquette"] .tr-detail-title {
+  font-family: var(--font-display);
+  font-weight: 500;
+}
+
+/* The workout's name: a Playfair title on a field's underline (with no line it didn't read as a
+   field to type in, WCAG 1.4.11); rosewood while typing */
+[data-skin="coquette"] .input.tr-sess-title {
+  border-bottom: 1px solid var(--field-line);
+  font-weight: 500;
+}
+
+[data-skin="coquette"] .input.tr-sess-title:focus {
+  border-bottom-color: var(--accent);
+  box-shadow: 0 1px 0 var(--accent);
+}
+
+/* "Workout in progress" (the page and the top bar): a rosewood dot; red is kept for what is late */
+[data-skin="coquette"] .tr-live-dot {
+  background: var(--accent);
+}
+
+[data-skin="coquette"] :is(.tr-sess-bar, .tr-live, .tr-plot, .tr-newex) {
+  border-radius: var(--radius-lg);
+}
+
+[data-skin="coquette"] .tr-sess-bar {
+  border-color: var(--line-strong);
+  box-shadow: var(--shadow-sm);
+}
+
+[data-skin="coquette"] :is(.tr-pick-list, .tr-pick-opt, .tr-rest) {
+  border-radius: var(--radius);
+}
+
+[data-skin="coquette"] .tr-pick-opt[aria-selected="true"] {
+  background: var(--at-wash);
+  box-shadow: inset 0 0 0 1px var(--at-frame);
+}
+
+[data-skin="coquette"] .tr-rest.is-running {
+  border-color: var(--accent);
+}
+
+[data-skin="coquette"] .tr-rest.is-over {
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+/* ---- Finance: Playfair panel titles, category bars in rosewood; the page-top total is the page
+   stat's Inter figure, as on every other page ---- */
+[data-skin="coquette"] .fn-cat-bar {
+  border-radius: 1px;
+}
+
+[data-skin="coquette"] .fn-cat-fill {
+  background: var(--accent);
+}
+
+/* The next payment is a soft nude chip (a solid one read as late) */
+[data-skin="coquette"] .fn-root .fn-meta .fn-next.tag--solid {
+  border-color: transparent;
+  background: var(--surface-3);
+  color: var(--text);
+}
+
+/* ---- Settings: Playfair section titles, the index in the picked look ---- */
+[data-skin="coquette"] .st-root .st-card-title {
+  margin-top: var(--space-5);
+}
+
+[data-skin="coquette"] .st-index-link {
+  border-radius: var(--radius-sm);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="coquette"] .st-index-link:not([aria-current]):hover {
+    background: var(--surface-2);
+  }
+}
+
+[data-skin="coquette"] .st-row-title {
+  font-weight: 500;
+}
+
+/* The jump bar (narrower windows): opaque paper, so the page's words never show through */
+@media (max-width: 1099px) {
+  [data-skin="coquette"] .st-index {
+    background: var(--bg);
+  }
+}
+
+/* ---- Health ---- */
+[data-skin="coquette"] .hl-ideas-title {
+  color: var(--text-2);
 }
 
 /* ==========================================================================
-   Forced colors: the bow is decoration
+   Forced colors: the frames are box-shadows, which forced-colors mode erases: an outline instead
    ========================================================================== */
 
 @media (forced-colors: active) {
-  [data-skin="coquette"] .main::before,
-  [data-skin="coquette"] .brand::before {
-    display: none;
+  [data-skin="coquette"] .page-header::after {
+    background: CanvasText;
+  }
+
+  [data-skin="coquette"] :is(.nav-item[aria-current="page"], .settings-btn[aria-current="page"], .more-page[aria-current="page"], .seg-btn[aria-pressed="true"], .seg-btn[aria-selected="true"], .seg-btn.is-on, .pm-preset[aria-pressed="true"], .nt-chip[aria-current="true"], .hb-wd[aria-pressed="true"], .hb-sel[aria-checked="true"], .cal-ed-seg-opt.is-on, .cal-ed-wd[aria-pressed="true"], .cal-ed-style.is-on, .cal-tray-toggle[aria-expanded="true"], .tr-chip[aria-pressed="true"], .tr-ex[aria-pressed="true"], .hbi-table-btn[aria-pressed="true"], .st-index-link[aria-current], .nt-item[aria-current="true"], .nt-rail-item[aria-current="true"], .nt-card[aria-current="true"], .cmd-item[aria-selected="true"], .tr-pick-opt[aria-selected="true"], .hb-plan-cell.is-draft[aria-pressed="true"]) {
+    outline: 2px solid Highlight;
+    outline-offset: -2px;
+  }
+
+  [data-skin="coquette"] :is(.pm-switch-track, .cal-ed-switch-track) {
+    border: 1px solid CanvasText;
   }
 }

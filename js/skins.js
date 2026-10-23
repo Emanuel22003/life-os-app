@@ -16,8 +16,8 @@ export const SKINS = Object.freeze(
     { id: 'brutalist', name: 'Brutalist', description: 'Loud black-and-white blocks, hard shadows, hazard-yellow accent.' },
     { id: 'terminal', name: 'Terminal', description: 'A retro computer terminal in phosphor green, all monospace.' },
     { id: 'oldmoney', name: 'Old Money', description: 'Ivory paper, black ink and brass, Bodoni titles, an engraving-style horse.', plain: true },
-    { id: 'coquette', name: 'Coquette', description: 'Blush pink and cream, a satin bow, pearls, hearts and a script hand.', plain: true },
-    { id: 'y2k', name: 'Y2K', description: 'Baby pink, lilac and blue, holographic shine, chrome butterflies, sparkles.', plain: true },
+    { id: 'coquette', name: 'Atelier', description: 'Editorial and warm: ivory and nude, a rosewood accent, serif titles, fine lines.', plain: true },
+    { id: 'y2k', name: 'Pearl', description: 'Modern and calm: pearl and lilac grey, frosted glass, a thin iridescent accent.', plain: true },
   ].map((skin) => Object.freeze(skin)),
 );
 
@@ -100,14 +100,14 @@ export const SKIN_BOOT = Object.freeze({
   }),
   coquette: Object.freeze({
     font: 'fonts/coquette.css',
-    dark: '#26141c',
-    light: '#fdf3f3',
+    dark: '#1e1714',
+    light: '#f7f2ec',
     plain: true,
   }),
   y2k: Object.freeze({
     font: 'fonts/y2k.css',
-    dark: '#140a26',
-    light: '#fff0fa',
+    dark: '#15131f',
+    light: '#f3f1f6',
     plain: true,
   }),
 });
@@ -144,11 +144,43 @@ export function formatCount(n, width = 2, skin = DEFAULT_SKIN) {
 }
 
 /**
+ * Mission Control's voice for the Habits page (Terminal speaks it too). The pages' own words are
+ * plain (the fallback passed to term()), and so are these two's sentences: their voice is only in
+ * the short labels (7D, ▲, pts). '{n}', '{name}', '{plan}' and '{range}' are filled in by the page
+ * (habits.js, habits.plan.js, habits.insights.js).
+ */
+const HABITS_HUD = Object.freeze({
+  'habits.subtitle': 'Plan each weekday. Check in daily. Track your streaks and LIFE index.',
+  // The voice is in the labels (7D, ▲ 46 pts); every sentence stays plain English
+  'habits.allDone.toast': 'All habits done. Perfect-day streak: {n}.',
+  'habits.nameLabel': 'Name',
+  'habits.nameRequired': 'Name required: give the habit a name.',
+  'habits.added': '“{name}” added · {plan}.',
+  'habits.starter': 'Or start with one of these',
+  'habits.empty.title': 'No habits yet',
+  'habits.empty.archived': 'All habits archived',
+  'habits.empty.text': 'Habits are small actions you plan on chosen weekdays. Check them off daily and LIFE/OS tracks streaks, completion and your LIFE index.',
+  'habits.range.7d': '7D',
+  'habits.range.30d': '30D',
+  'habits.range.90d': '90D',
+  'habits.range.all': 'ALL',
+  'habits.change.up': '▲',
+  'habits.change.down': '▼',
+  'habits.change.flat': '■',
+  'habits.change.unit': 'pts',
+  'habits.change.vs': 'vs prev {range}',
+  'habits.change.vsAll': 'vs prev period',
+  'habits.change.none': 'No data for the previous {range}',
+});
+
+/**
  * Skin-specific wording. ui.term(key, fallback) returns TERMS[activeSkin][key] when present,
  * otherwise the fallback (the wording every other skin keeps). Keys are '<area>.<thing>'.
  * Add entries here; never rely on a key existing (the fallback is always passed).
  */
 export const TERMS = Object.freeze({
+  hud: HABITS_HUD,
+  terminal: HABITS_HUD,
   simple: Object.freeze({
     'shell.status': 'Saved on this device',
     'shell.nav': 'Menu',
@@ -161,18 +193,8 @@ export const TERMS = Object.freeze({
     'tasks.empty.upcoming': 'Tasks with a due date after today show up here.',
     'tasks.empty.first': 'Write down anything on your mind: type it in the box above and press Enter.',
     'notes.subtitle': 'Ideas, plans and lists. Everything saves as you type.',
-    'habits.subtitle': 'Small things you do on chosen days. Tick them off as you go.',
-    'habits.section': 'Your habits',
+    // Home's habits card (the Habits page's own words are plain already, see HABITS_HUD)
     'habits.allDone': 'All habits done for today. Nice work!',
-    'habits.nameRequired': 'Give your habit a name.',
-    'habits.starter': 'Or start with one of these',
-    'habits.step2': 'Tick off',
-    'habits.step3': 'Keep going',
-    // Streaks count planned days only (habits.logic currentStreak): an unplanned tick is a bonus
-    'habits.step3.text': 'Each planned day you tick a habit off, its streak grows by one. A missed one starts it over.',
-    'habits.empty.title': 'No habits yet',
-    'habits.empty.archived': 'All habits are archived',
-    'habits.empty.text': 'A habit is something small you do on chosen days, like a walk or reading. Tick it off when it is done and LIFE/OS keeps your streak.',
     'calendar.subtitle': 'Your events, tasks and habits by month, week or day.',
     'pomodoro.subtitle': 'Work in focused blocks with short breaks in between. The timer keeps going while you use the rest of the app.',
     'calendar.addTask': 'Add a task for this day…',

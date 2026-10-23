@@ -40,6 +40,10 @@
   --fs-md: 14px;
   --fs-lg: 17px;
 
+  /* VT323 is a small face for its size: the page title takes the top of the cap (compact.css) */
+  --page-title-size: 42px;
+  --page-title-size-phone: 28px;
+
   --radius-xs: 0;
   --radius-sm: 0;
   --radius: 0;
@@ -282,14 +286,27 @@
   color: var(--text-2);
 }
 
-[data-skin="terminal"] .nav-item:hover {
-  color: var(--text);
-  background: var(--surface-2);
-  border-color: var(--line);
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="terminal"] .nav-item:not([aria-current="page"]):hover {
+    color: var(--text);
+    background: var(--surface-2);
+    border-color: var(--line);
+  }
 }
 
-/* Current module in inverse video */
+/* Current module in inverse video. Its icon is ink on the block too: the page colors
+   (icons.css, Color coding → Pages) are worked out on <html>, outside the block, so they are
+   re-pointed here, or the icon would vanish into the phosphor (1.2:1) */
 [data-skin="terminal"] .nav-item[aria-current="page"] {
+  --mod-home: currentColor;
+  --mod-tasks: currentColor;
+  --mod-notes: currentColor;
+  --mod-habits: currentColor;
+  --mod-calendar: currentColor;
+  --mod-pomodoro: currentColor;
+  --mod-training: currentColor;
+  --mod-finance: currentColor;
+  --mod-health: currentColor;
   color: var(--accent-ink);
   background: var(--accent);
   border-color: var(--accent);
@@ -342,24 +359,37 @@
   color: var(--accent-ink);
 }
 
-/* Icon rail (tablets): a compact count on the icon's corner, framed instead of bracketed */
-@media (min-width: 641px) and (max-width: 900px) {
-  [data-skin="terminal"] .nav-badge {
-    padding: 0 3px;
-    border: 1px solid var(--line-strong);
-    background: var(--bg);
-    font-size: 9px;
-    line-height: 1.3;
-  }
+/* "Needs you today" where there is no room for a count (icon rail, tab bar, More): a block
+   cursor on the icon's corner, not a round dot */
+[data-skin="terminal"] .nav-dot {
+  width: 6px;
+  height: 9px;
+  border-radius: 0;
+  box-shadow: 0 0 0 2px var(--bg-elev);
+}
 
-  [data-skin="terminal"] .nav-badge::before,
-  [data-skin="terminal"] .nav-badge::after {
-    content: none;
-  }
+[data-skin="terminal"] .nav-item[aria-current="page"] .nav-dot {
+  background: var(--accent-ink);
+  box-shadow: 0 0 0 2px var(--accent);
+}
 
-  [data-skin="terminal"] .nav-item[aria-current="page"] .nav-badge {
-    border-color: var(--accent-ink);
-    background: var(--accent);
+/* Search (⌘K) under the brand: a prompt line, "> Search_" with its key in brackets */
+[data-skin="terminal"] .sidebar-search {
+  border-style: dashed;
+  background: transparent;
+  color: var(--text-2);
+}
+
+[data-skin="terminal"] .sidebar-search-label::before {
+  content: "> ";
+  color: var(--text-3);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="terminal"] .sidebar-search:hover {
+    border-style: solid;
+    border-color: var(--text-2);
+    color: var(--text);
   }
 }
 
@@ -397,35 +427,8 @@
   -webkit-backdrop-filter: none;
 }
 
-/* Crumbs read as a shell prompt path: life/os:~/tasks $ */
-[data-skin="terminal"] .crumbs {
-  gap: 0;
-  text-transform: lowercase;
-  letter-spacing: 0;
-  font-size: var(--fs-sm);
-  color: var(--text-3);
-}
-
-[data-skin="terminal"] .crumbs .crumb-sep {
-  font-size: 0;
-  color: var(--text-3);
-}
-
-[data-skin="terminal"] .crumbs .crumb-sep::before {
-  content: ":~/";
-  font-size: var(--fs-sm);
-}
-
-[data-skin="terminal"] .crumbs .crumb-current {
-  color: var(--text);
-}
-
-[data-skin="terminal"] .crumbs::after {
-  content: "$";
-  flex: none;
-  margin-left: 0.6ch;
-  color: var(--text-2);
-}
+/* (No path in the top bar: the page title is the prompt, "> tasks_", so the page's name is said
+   once. The shell keeps .crumbs hidden.) */
 
 [data-skin="terminal"] .clock {
   font-family: var(--font-display);
@@ -438,7 +441,8 @@
   letter-spacing: 0.04em;
 }
 
-/* Page header: kicker as a path, title as a prompt with a blinking block cursor */
+/* Page header: the title as a prompt with a blinking block cursor ("> tasks_"), over a double
+   rule (no kicker: the page's name is said once) */
 [data-skin="terminal"] .page-header {
   border-bottom: var(--terminal-frame);
 }
@@ -447,31 +451,8 @@
   display: none;
 }
 
-[data-skin="terminal"] .page-kicker {
-  gap: 0.6ch;
-  text-transform: lowercase;
-  letter-spacing: 0;
-  font-size: var(--fs-xs);
-}
-
-[data-skin="terminal"] .page-kicker > span:first-child:not(:last-child)::before {
-  content: "[";
-}
-
-[data-skin="terminal"] .page-kicker > span:first-child:not(:last-child)::after {
-  content: "]";
-}
-
-[data-skin="terminal"] .page-kicker .crumb-sep {
-  display: none;
-}
-
-[data-skin="terminal"] .page-kicker > span:last-child::before {
-  content: "~/";
-}
-
 [data-skin="terminal"] .page-title {
-  font-size: 64px;
+  font-size: var(--page-title-size);
   font-weight: 400;
   letter-spacing: 0.01em;
   line-height: 0.8;
@@ -503,6 +484,17 @@
   content: "# ";
 }
 
+/* The page's live status on the title row: a status line, its numbers lit */
+[data-skin="terminal"] .page-stat {
+  font-size: var(--fs-xs);
+  color: var(--text-2);
+}
+
+[data-skin="terminal"] .page-stat strong {
+  font-weight: 600;
+  color: var(--text);
+}
+
 @keyframes terminal-blink {
   0%,
   49% {
@@ -522,7 +514,7 @@
    ========================================================================== */
 
 /* Defaults for the kit go through :where() so they weigh no more than the kit's own rules:
-   a feature's state rule (.tk-stat.is-alert, a pressed pin …) still wins over them. */
+   a feature's state rule (an overdue tag, a pressed pin …) still wins over them. */
 
 /* Panels: box-drawing frames (a double rule, like ╔═╗) */
 :where([data-skin="terminal"]) .panel {
@@ -536,41 +528,70 @@
   border-bottom-color: var(--line-strong);
 }
 
-/* Buttons: plain frames that invert on hover; primary is inverse video */
+/* Buttons: plain frames; primary is inverse video. A hovered frame lights up (solid edge, a
+   phosphor wash) but never turns into a block: inverse video is what a primary or a picked
+   thing looks like, so a hover must not look like one */
 :where([data-skin="terminal"]) .btn {
   font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
 
-[data-skin="terminal"] .btn:hover {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--accent-ink);
-  text-shadow: none;
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="terminal"] .btn:hover {
+    background: var(--surface-3);
+    border-color: var(--text);
+    color: var(--text);
+  }
+
+  [data-skin="terminal"] .btn--primary:hover {
+    background: var(--text);
+    border-color: var(--text);
+    color: var(--accent-ink);
+    box-shadow: var(--glow-strong);
+    text-shadow: none;
+  }
+
+  [data-skin="terminal"] .btn--danger:hover {
+    border-style: solid;
+    background: var(--text);
+    border-color: var(--text);
+    color: var(--accent-ink);
+    text-shadow: none;
+  }
 }
 
 [data-skin="terminal"] .btn:active {
   transform: none;
-  background: var(--text-2);
-  border-color: var(--text-2);
+  background: var(--surface-3);
+  border-color: var(--text);
 }
 
-[data-skin="terminal"] .btn--primary:hover {
-  background: var(--text);
-  border-color: var(--text);
-  box-shadow: var(--glow-strong);
+[data-skin="terminal"] .btn--primary:active {
+  background: var(--text-2);
+  border-color: var(--text-2);
 }
 
 :where([data-skin="terminal"]) .btn--danger {
   border-color: var(--text-2);
 }
 
-[data-skin="terminal"] .btn--danger:hover {
-  border-style: solid;
-  background: var(--text);
-  border-color: var(--text);
-  color: var(--accent-ink);
+/* A danger confirmation (Delete, Discard) is the dialog's main button: compact.css fills it in
+   the alert color, which is the phosphor ink here. Over the block runs the faint hatch of
+   everything late or missed here, with its "!", so it never reads as a plain primary button (the
+   stripes are a shade of the block's own ink, so its words keep their contrast) */
+[data-skin="terminal"] .btn--danger-fill {
+  text-shadow: none;
+}
+
+[data-skin="terminal"] .modal .btn.btn--danger.btn--danger-fill {
+  background-image: repeating-linear-gradient(-45deg, color-mix(in srgb, var(--bg) 16%, transparent) 0 2px, transparent 2px 6px);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="terminal"] .modal .btn.btn--danger.btn--danger-fill:hover {
+    background-image: repeating-linear-gradient(-45deg, color-mix(in srgb, var(--bg) 16%, transparent) 0 2px, transparent 2px 6px);
+  }
 }
 
 [data-skin="terminal"] .btn--danger:not(.btn--icon)::before {
@@ -610,16 +631,18 @@
   color: var(--text);
 }
 
-[data-skin="terminal"] .check:hover {
-  --check-ink: var(--text);
-  border-color: var(--text);
-  background:
-    linear-gradient(var(--text), var(--text)) left top / 5px 2px no-repeat,
-    linear-gradient(var(--text), var(--text)) left bottom / 5px 2px no-repeat,
-    linear-gradient(var(--text), var(--text)) right top / 5px 2px no-repeat,
-    linear-gradient(var(--text), var(--text)) right bottom / 5px 2px no-repeat,
-    var(--surface-2);
-  box-shadow: none;
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="terminal"] .check:hover {
+    --check-ink: var(--text);
+    border-color: var(--text);
+    background:
+      linear-gradient(var(--text), var(--text)) left top / 5px 2px no-repeat,
+      linear-gradient(var(--text), var(--text)) left bottom / 5px 2px no-repeat,
+      linear-gradient(var(--text), var(--text)) right top / 5px 2px no-repeat,
+      linear-gradient(var(--text), var(--text)) right bottom / 5px 2px no-repeat,
+      var(--surface-2);
+    box-shadow: none;
+  }
 }
 
 [data-skin="terminal"] .check[aria-checked="true"],
@@ -654,9 +677,17 @@
   font-size: var(--fs-xs);
 }
 
-[data-skin="terminal"] .seg-btn:hover {
-  color: var(--text);
-  background: var(--surface-3);
+/* Hovering a choice lights it; hovering the picked one keeps it picked, a shade brighter */
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="terminal"] .seg-btn:not([aria-pressed="true"], [aria-selected="true"]):hover {
+    color: var(--text);
+    background: var(--surface-3);
+  }
+
+  [data-skin="terminal"] .seg-btn:is([aria-pressed="true"], [aria-selected="true"]):hover {
+    background: var(--text);
+    color: var(--accent-ink);
+  }
 }
 
 /* Tags: bracketed words, [ TODAY ]; solid ones in inverse video */
@@ -916,6 +947,7 @@
 [data-skin="terminal"] .nt-item[aria-current="true"],
 [data-skin="terminal"] .nt-srow:not(.is-renaming):has(> .nt-rail-item[aria-current="true"]),
 [data-skin="terminal"] .nt-card-row:has(> .nt-card[aria-current="true"]),
+[data-skin="terminal"] .tk-row.is-open,
 [data-skin="terminal"] .nt-menu-item:is(:hover, :focus-visible),
 [data-skin="terminal"] .hm-day.is-today .hm-day-head,
 [data-skin="terminal"] .pm-preset[aria-pressed="true"],
@@ -939,6 +971,18 @@
   --glow-c: transparent;
   --glow-c-soft: transparent;
   --terminal-icon-glow: none;
+  /* Page icons in tinted squares (a section's icon in the rail …) take the block's ink too: their
+     colors (icons.css, Color coding → Pages) are worked out on <html>, outside the block (1.3:1) */
+  --mod-home: currentColor;
+  --mod-tasks: currentColor;
+  --mod-notes: currentColor;
+  --mod-habits: currentColor;
+  --mod-calendar: currentColor;
+  --mod-pomodoro: currentColor;
+  --mod-training: currentColor;
+  --mod-finance: currentColor;
+  --mod-health: currentColor;
+  --mod-settings: currentColor;
   color: var(--terminal-inv-ink);
   text-shadow: none;
 }
@@ -946,6 +990,9 @@
 /* A phosphor block takes its focus ring inside, in its ink: drawn outside, the flipped ink ring
    sat on the dark screen and vanished (1:1, WCAG 2.4.7) */
 [data-skin="terminal"] .nt-item[aria-current="true"]:focus-visible,
+[data-skin="terminal"] .tk-row.is-open:focus-visible,
+[data-skin="terminal"] .nt-rail-item[aria-current="true"]:focus-visible,
+[data-skin="terminal"] .nt-card[aria-current="true"]:focus-visible,
 [data-skin="terminal"] .hm-day.is-today .hm-day-head:focus-visible,
 [data-skin="terminal"] .pm-preset[aria-pressed="true"]:focus-visible {
   outline-offset: -3px;
@@ -955,22 +1002,15 @@
    Notes
    ========================================================================== */
 
-[data-skin="terminal"] .nt-stats {
-  border: 1px solid var(--line-strong);
-  border-radius: 0;
-}
-
-[data-skin="terminal"] .nt-stat .stat-value {
-  font-size: 30px;
-}
-
 /* ---- List: the open note in inverse video ---- */
 [data-skin="terminal"] .nt-item {
   border-radius: 0;
 }
 
-[data-skin="terminal"] .nt-item:hover {
-  border-color: var(--line);
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="terminal"] .nt-item:hover {
+    border-color: var(--line);
+  }
 }
 
 [data-skin="terminal"] .nt-item[aria-current="true"] {
@@ -1005,6 +1045,12 @@
 [data-skin="terminal"] .nt-rail-item[aria-current="true"] {
   background: var(--terminal-inv-bg);
   border-color: var(--terminal-inv-bg);
+}
+
+/* Edit / Delete sit on the open view's block: they take its phosphor as their own ground, so their
+   ink focus ring is drawn on the block, never on the dark rail */
+[data-skin="terminal"] .nt-srow:not(.is-renaming):has(> .nt-rail-item[aria-current="true"]) > .nt-srow-actions {
+  background: var(--terminal-inv-bg);
 }
 
 [data-skin="terminal"] .nt-rail-sep {
@@ -1135,11 +1181,13 @@
   text-decoration-color: var(--text-2);
 }
 
-[data-skin="terminal"] .nt-prose a:hover {
-  background: var(--accent);
-  color: var(--accent-ink);
-  text-decoration-color: currentColor;
-  text-shadow: none;
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="terminal"] .nt-prose a:hover {
+    background: var(--accent);
+    color: var(--accent-ink);
+    text-decoration-color: currentColor;
+    text-shadow: none;
+  }
 }
 
 /* Checklist boxes: [ ] / [x] like every other checkbox here */
@@ -1154,7 +1202,6 @@
     linear-gradient(var(--text-2), var(--text-2)) right bottom / 5px 2px no-repeat;
 }
 
-[data-skin="terminal"] .nt-task-box:hover,
 [data-skin="terminal"] .nt-task-box:checked {
   border-color: var(--text);
   background:
@@ -1163,6 +1210,18 @@
     linear-gradient(var(--text), var(--text)) right top / 5px 2px no-repeat,
     linear-gradient(var(--text), var(--text)) right bottom / 5px 2px no-repeat;
   box-shadow: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="terminal"] .nt-task-box:hover {
+    border-color: var(--text);
+    background:
+      linear-gradient(var(--text), var(--text)) left top / 5px 2px no-repeat,
+      linear-gradient(var(--text), var(--text)) left bottom / 5px 2px no-repeat,
+      linear-gradient(var(--text), var(--text)) right top / 5px 2px no-repeat,
+      linear-gradient(var(--text), var(--text)) right bottom / 5px 2px no-repeat;
+    box-shadow: none;
+  }
 }
 
 [data-skin="terminal"] .nt-task-box::after {
@@ -1223,39 +1282,36 @@
   display: none;
 }
 
-[data-skin="terminal"] .nt-col-title {
-  align-items: baseline;
-  gap: 0.6ch;
+/* Column names carry no brackets (they took the name's room; the icon square and the framed head
+   already say "column"). Monospace still runs wider than the other templates' faces, so a long
+   name takes a second line, as on a phone, instead of being cut ("TikTok scr…" at 1280px); the
+   head is tall enough for two, so the cards still start level. */
+[data-skin="terminal"] .nt-col-name {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  white-space: normal;
+  line-height: 1.1;
+  overflow-wrap: break-word;
+  /* room for the descenders of the last line (the p of "scripts"), kept out of the centring */
+  padding-bottom: 2px;
+  margin-bottom: -2px;
 }
 
-[data-skin="terminal"] .nt-col-title::before {
-  content: "[";
-  flex: none;
-  color: var(--text-3);
-}
-
-[data-skin="terminal"] .nt-col-title::after {
-  content: "]";
-  flex: none;
-  color: var(--text-3);
-}
-
-/* Phones: a monospaced name broken over two lines reads as noise: one line, cut. The icon
-   square tells the column, so the brackets step aside and leave the name their room */
-@media (max-width: 640px) {
-  [data-skin="terminal"] .nt-col-name {
-    display: block;
-    white-space: nowrap;
-  }
-
-  [data-skin="terminal"] .nt-col-head .nt-col-title::before,
-  [data-skin="terminal"] .nt-col-head .nt-col-title::after {
-    content: none;
+/* Every head the height of a two-line one, so the columns' cards start level (phones keep the
+   board's own fixed head height) */
+@media (min-width: 641px) {
+  [data-skin="terminal"] .nt-col-head {
+    min-height: 48px;
   }
 }
 
-[data-skin="terminal"] .nt-view[data-layout="board"] .page-title {
-  font-size: 44px;
+/* The sections strip's "More ▾" is a chip like its neighbours ("TikTok scripts", "Ideas"), not
+   a button: their case and spacing, not the buttons' capitals */
+[data-skin="terminal"] .nt-chips .nt-chip--more {
+  letter-spacing: 0;
+  text-transform: none;
 }
 
 [data-skin="terminal"] .nt-card {
@@ -1263,8 +1319,10 @@
   background: var(--surface-solid);
 }
 
-[data-skin="terminal"] .nt-card:hover {
-  border-color: var(--text-3);
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="terminal"] .nt-card:hover {
+    border-color: var(--text-3);
+  }
 }
 
 [data-skin="terminal"] .nt-card[aria-current="true"] {
@@ -1284,15 +1342,102 @@
 }
 
 /* ==========================================================================
-   Tasks: the stats keep their index numbers ("01 OPEN"), as the page title keeps its words
+   Card titles: one style on every page, the bracketed caption of Home's and Pomodoro's cards
+   ([ SUBSCRIPTIONS ], [ UNSCHEDULED ], [ COMPLETION ] …), words only, as in the page titles
    ========================================================================== */
 
-[data-skin="terminal"] .tk-stat-label > .tk-stat-ib {
+[data-skin="terminal"] :is(.fn-panel-title, .cal-tray-title, .cal-pop-title, .tr-section-title, .hbi-card-title, .hb-dl-title) {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  line-height: 1.3;
+  text-transform: uppercase;
+  color: var(--text);
+}
+
+[data-skin="terminal"] :is(.fn-panel-title, .cal-tray-title, .cal-pop-title > span, .tr-section-title > span, .hbi-card-title > span:last-child)::before {
+  content: "[ ";
+  color: var(--text-3);
+  white-space: pre;
+}
+
+[data-skin="terminal"] :is(.fn-panel-title, .cal-tray-title, .cal-pop-title > span, .tr-section-title > span, .hbi-card-title > span:last-child)::after {
+  content: " ]";
+  color: var(--text-3);
+  white-space: pre;
+}
+
+/* The day list's title is cut short on a phone ("TODAY · WED 21 O…"): its brackets sit on the
+   heading, around the cut words, so the ] is never cut away with them */
+[data-skin="terminal"] .hb-dl-title::before {
+  content: "[";
+  flex: none;
+  color: var(--text-3);
+}
+
+[data-skin="terminal"] .hb-dl-title::after {
+  content: "]";
+  flex: none;
+  color: var(--text-3);
+}
+
+/* A day's "+N more" title is a long date: two even lines, never a lone year */
+[data-skin="terminal"] .cal-pop-title {
+  text-wrap: balance;
+}
+
+[data-skin="terminal"] :is(.cal-pop-title, .tr-section-title) > .icon,
+[data-skin="terminal"] :is(.hbi-card-ic, .hb-dl-title-ic) {
   display: none;
 }
 
-[data-skin="terminal"] .tk-stat-label > .tk-stat-idx {
-  display: inline;
+/* ==========================================================================
+   Tasks: Smart group headings read like the menu's ("OVERDUE [03]")
+   ========================================================================== */
+
+[data-skin="terminal"] .tk-group-count::before {
+  content: "[";
+}
+
+[data-skin="terminal"] .tk-group-count::after {
+  content: "]";
+}
+
+/* A task's page (tasks.panel.js): a window docked on the right, its edge the box-drawing double
+   rule of every frame here, its bars dashed like a dialog's; the title in VT323 at its one weight
+   (600 drew a smeared fake bold), at the dialogs' title size. Its task in the list is the open
+   item: inverse video (the block above), as the open note in Notes. */
+[data-skin="terminal"] .tk-page {
+  border-left: var(--terminal-frame);
+  border-left-color: var(--text-2);
+  box-shadow: none;
+}
+
+[data-skin="terminal"] :is(.tk-page-head, .tk-page-tools) {
+  border-bottom: 1px dashed var(--line-strong);
+}
+
+[data-skin="terminal"] .tk-page-title {
+  font-size: 34px;
+  font-weight: 400;
+  line-height: 1.05;
+  letter-spacing: 0.02em;
+}
+
+[data-skin="terminal"] .tk-row.is-open {
+  background: var(--terminal-inv-bg);
+  box-shadow: none;
+}
+
+@media (max-width: 640px) {
+  [data-skin="terminal"] .tk-page {
+    border-left: 0;
+  }
+
+  [data-skin="terminal"] .tk-page-title {
+    font-size: 30px;
+  }
 }
 
 /* ==========================================================================
@@ -1313,7 +1458,6 @@
   color: var(--text);
 }
 
-[data-skin="terminal"] .cal-hcheck:not(:disabled):hover,
 [data-skin="terminal"] .cal-hcheck[aria-checked="true"] {
   border-color: var(--text);
   background:
@@ -1322,6 +1466,18 @@
     linear-gradient(var(--text), var(--text)) right top / 5px 2px no-repeat,
     linear-gradient(var(--text), var(--text)) right bottom / 5px 2px no-repeat;
   box-shadow: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="terminal"] .cal-hcheck:not(:disabled):hover {
+    border-color: var(--text);
+    background:
+      linear-gradient(var(--text), var(--text)) left top / 5px 2px no-repeat,
+      linear-gradient(var(--text), var(--text)) left bottom / 5px 2px no-repeat,
+      linear-gradient(var(--text), var(--text)) right top / 5px 2px no-repeat,
+      linear-gradient(var(--text), var(--text)) right bottom / 5px 2px no-repeat;
+    box-shadow: none;
+  }
 }
 
 [data-skin="terminal"] .cal-hcheck svg {
@@ -1354,8 +1510,22 @@
   letter-spacing: 0;
 }
 
-[data-skin="terminal"] .hm-next:hover {
-  border-style: solid;
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="terminal"] .hm-next:hover {
+    border-style: solid;
+  }
+}
+
+/* Today strip and the big clock: VT323 numerals (it has one weight: never a fake bold) */
+[data-skin="terminal"] :is(.hm-gl-value, .hm-clock-time) {
+  font-family: var(--font-display);
+  font-weight: 400;
+  letter-spacing: 0.02em;
+}
+
+[data-skin="terminal"] .hm-gl-value {
+  font-size: 30px;
+  line-height: 0.9;
 }
 
 [data-skin="terminal"] .hm-card-title {
@@ -1404,8 +1574,10 @@
   border-right: 0;
 }
 
-[data-skin="terminal"] .hm-day:hover {
-  background: var(--surface-2);
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="terminal"] .hm-day:hover {
+    background: var(--surface-2);
+  }
 }
 
 [data-skin="terminal"] .hm-day.is-weekend {
@@ -1437,18 +1609,65 @@
   color: var(--terminal-inv-bg);
 }
 
-/* Week chips are ~100px: the priority stays bracketed, without the inner spaces ([M]) */
-[data-skin="terminal"] .hm-day .cal-pri {
-  gap: 0;
-  padding: 0;
+
+/* First run, "Start here": titled like the week's card (VT323, words only), its steps framed
+   lines whose number sits in [ ] like a box to tick, [x] once done */
+[data-skin="terminal"] .hm-start-title {
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  line-height: 1;
 }
 
-[data-skin="terminal"] .hm-day-tag::before {
-  content: "<";
+[data-skin="terminal"] .hm-start-title > .hm-start-ib {
+  display: none;
 }
 
-[data-skin="terminal"] .hm-day-tag::after {
-  content: ">";
+[data-skin="terminal"] .hm-start-btn {
+  border-style: dashed;
+  border-radius: 0;
+  background: transparent;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="terminal"] .hm-start-btn:hover {
+    border-style: solid;
+    border-color: var(--text-2);
+    background: var(--surface-2);
+  }
+}
+
+[data-skin="terminal"] .hm-start-mark {
+  border: 0;
+  border-left: 2px solid var(--text-2);
+  border-right: 2px solid var(--text-2);
+  border-radius: 0;
+  background:
+    linear-gradient(var(--text-2), var(--text-2)) left top / 5px 2px no-repeat,
+    linear-gradient(var(--text-2), var(--text-2)) left bottom / 5px 2px no-repeat,
+    linear-gradient(var(--text-2), var(--text-2)) right top / 5px 2px no-repeat,
+    linear-gradient(var(--text-2), var(--text-2)) right bottom / 5px 2px no-repeat;
+  color: var(--text);
+}
+
+[data-skin="terminal"] .hm-start-step.is-done .hm-start-mark {
+  border-color: var(--text);
+  background:
+    linear-gradient(var(--text), var(--text)) left top / 5px 2px no-repeat,
+    linear-gradient(var(--text), var(--text)) left bottom / 5px 2px no-repeat,
+    linear-gradient(var(--text), var(--text)) right top / 5px 2px no-repeat,
+    linear-gradient(var(--text), var(--text)) right bottom / 5px 2px no-repeat;
+  color: var(--text);
+}
+
+[data-skin="terminal"] .hm-start-step.is-done .hm-start-mark svg {
+  filter: var(--terminal-icon-glow);
+}
+
+[data-skin="terminal"] .hm-start-step.is-done .hm-start-mark svg path {
+  d: path("M7 7l10 10M17 7 7 17");
+  stroke-linecap: square;
 }
 
 /* The Pomodoro widget: a VT323 readout with a "> focus_" prompt */
@@ -1544,9 +1763,10 @@
   color: var(--text-3);
 }
 
+/* Sized to sit inside the ring with room around it (at 140px the corners touched the stroke) */
 [data-skin="terminal"] .pm-digits {
   font-family: var(--font-display);
-  font-size: clamp(84px, 19vw, 140px);
+  font-size: clamp(72px, 15vw, 112px);
   font-weight: 400;
   letter-spacing: 0.02em;
   line-height: 0.8;
@@ -1589,8 +1809,10 @@
   background: transparent;
 }
 
-[data-skin="terminal"] .pm-preset:hover {
-  border-style: solid;
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="terminal"] .pm-preset:hover {
+    border-style: solid;
+  }
 }
 
 [data-skin="terminal"] .pm-preset[aria-pressed="true"] {
@@ -1599,43 +1821,57 @@
   background: var(--terminal-inv-bg);
 }
 
-/* Switches read as [on] / [off] */
-[data-skin="terminal"] .pm-switch-track {
-  width: 5ch;
-  height: auto;
-  border: 0;
+/* Switches read as [on] / [off], every one of them (Settings, Pomodoro, the event's All day):
+   off is a dashed frame around a dim [off], on an inverse block around [on] (as strong as
+   Settings' own off rim, and after it, so the frame replaces the rim) */
+[data-skin="terminal"] :is(.pm-switch, .cal-ed-switch) :is(.pm-switch-track, .cal-ed-switch-track) {
+  display: inline-grid;
+  place-items: center;
+  width: 7ch;
+  height: 24px;
+  border: 1px dashed var(--field-line);
   border-radius: 0;
   background: none;
+  box-shadow: none;
   font-family: var(--font-mono);
   font-size: var(--fs-sm);
-  line-height: 1.4;
-  text-align: center;
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: 0;
+  text-transform: none;
 }
 
-[data-skin="terminal"] .pm-switch-track::before {
+[data-skin="terminal"] :is(.pm-switch-track, .cal-ed-switch-track)::before {
   content: "[off]";
-  color: var(--text-3);
+  color: var(--text-2);
 }
 
-[data-skin="terminal"] .pm-switch-thumb {
+[data-skin="terminal"] :is(.pm-switch-thumb, .cal-ed-switch-thumb) {
   display: none;
 }
 
-[data-skin="terminal"] .pm-switch[aria-checked="true"] .pm-switch-track {
+[data-skin="terminal"] :is(.pm-switch, .cal-ed-switch)[aria-checked="true"] :is(.pm-switch-track, .cal-ed-switch-track) {
+  border-style: solid;
+  border-color: var(--terminal-inv-bg);
   background: var(--terminal-inv-bg);
+  box-shadow: none;
 }
 
-[data-skin="terminal"] .pm-switch[aria-checked="true"] .pm-switch-track::before {
+[data-skin="terminal"] :is(.pm-switch, .cal-ed-switch)[aria-checked="true"] :is(.pm-switch-track, .cal-ed-switch-track)::before {
   content: "[on]";
   color: var(--terminal-inv-ink);
+  text-shadow: none;
 }
 
-[data-skin="terminal"] .pm-switch:hover .pm-switch-track::before {
-  color: var(--text);
-}
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="terminal"] :is(.pm-switch, .cal-ed-switch):not([aria-checked="true"]):hover :is(.pm-switch-track, .cal-ed-switch-track) {
+    border-style: solid;
+    border-color: var(--text);
+  }
 
-[data-skin="terminal"] .pm-switch[aria-checked="true"]:hover .pm-switch-track::before {
-  color: var(--terminal-inv-ink);
+  [data-skin="terminal"] :is(.pm-switch, .cal-ed-switch):not([aria-checked="true"]):hover :is(.pm-switch-track, .cal-ed-switch-track)::before {
+    color: var(--text);
+  }
 }
 
 [data-skin="terminal"] .pm-switches,
@@ -1685,9 +1921,11 @@
   text-shadow: var(--terminal-text-glow);
 }
 
-[data-skin="terminal"] .pm-mini-btn:hover {
-  background: var(--accent);
-  color: var(--accent-ink);
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="terminal"] .pm-mini-btn:hover {
+    background: var(--surface-3);
+    color: var(--text);
+  }
 }
 
 [data-skin="terminal"] .pm-mini[data-status="running"][data-phase="focus"] {
@@ -1706,26 +1944,798 @@
   border-width: 1px;
 }
 
-@media (max-width: 640px) {
-  /* Six tabs: a compact framed count, as on the tablet icon rail (brackets don't fit) */
-  [data-skin="terminal"] .tab .nav-badge {
-    padding: 0 3px;
-    border: 1px solid var(--line-strong);
+/* The Pomodoro widget on Home is a second action beside the page's own (Quick note): a frame,
+   not a phosphor block, so the page keeps one bright button */
+[data-skin="terminal"] .hm-pomo .btn--primary {
+  border-color: var(--accent);
+  background: transparent;
+  color: var(--text);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="terminal"] .hm-pomo .btn--primary:hover {
+    background: var(--accent);
+    color: var(--accent-ink);
+  }
+}
+
+/* Pomodoro's "Set up ▾" line: the preset as a bracketed readout, the fold as a plain frame */
+[data-skin="terminal"] .pm-setup-chip {
+  letter-spacing: 0;
+}
+
+/* ==========================================================================
+   One language for state
+   - picked / on / open / lit: inverse video (a phosphor block, dark ink)
+   - ticked / done: [x];   still to do: [ ];   a day off: ·
+   - switches: [on] / [off]
+   The lists below join the inverse-video block of the kit (the token flip above), so counts,
+   icons and tags inside them re-ink themselves.
+   ========================================================================== */
+
+[data-skin="terminal"] .more-page[aria-current="page"],
+[data-skin="terminal"] .st-index-link[aria-current="location"],
+[data-skin="terminal"] .cmd-item[aria-selected="true"],
+[data-skin="terminal"] .dd-item:not(:disabled):focus-visible,
+[data-skin="terminal"] .tr-pick-opt[aria-selected="true"],
+[data-skin="terminal"] .tr-ex[aria-pressed="true"],
+[data-skin="terminal"] .sidebar-foot .settings-btn[aria-current="page"] {
+  --text: var(--terminal-inv-ink);
+  --text-2: var(--terminal-inv-ink-2);
+  --text-3: var(--terminal-inv-ink-3);
+  --text-4: var(--terminal-inv-line-strong);
+  --line: var(--terminal-inv-line);
+  --line-strong: var(--terminal-inv-line-strong);
+  --line-focus: var(--terminal-inv-ink);
+  --accent: var(--terminal-inv-ink);
+  --accent-ink: var(--terminal-inv-bg);
+  --surface-2: var(--terminal-inv-soft);
+  --surface-3: var(--terminal-inv-line);
+  --terminal-icon-glow: none;
+  /* the page icons (a search result's, a More tile's) in the block's ink, as above */
+  --mod-home: currentColor;
+  --mod-tasks: currentColor;
+  --mod-notes: currentColor;
+  --mod-habits: currentColor;
+  --mod-calendar: currentColor;
+  --mod-pomodoro: currentColor;
+  --mod-training: currentColor;
+  --mod-finance: currentColor;
+  --mod-health: currentColor;
+  --mod-settings: currentColor;
+  border-color: var(--terminal-inv-bg);
+  background: var(--terminal-inv-bg);
+  color: var(--terminal-inv-ink);
+  text-shadow: none;
+  box-shadow: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="terminal"] .dd-item:not(:disabled):hover {
+    --text: var(--terminal-inv-ink);
+    --text-2: var(--terminal-inv-ink-2);
+    --text-3: var(--terminal-inv-ink-3);
+    --terminal-icon-glow: none;
+    background: var(--terminal-inv-bg);
+    color: var(--terminal-inv-ink);
+    text-shadow: none;
+    box-shadow: none;
+  }
+}
+
+/* A phosphor block takes its focus ring inside, in its ink */
+[data-skin="terminal"] :is(.more-page[aria-current="page"], .st-index-link[aria-current="location"], .cmd-item[aria-selected="true"], .tr-ex[aria-pressed="true"], .sidebar-foot .settings-btn[aria-current="page"]):focus-visible {
+  outline-color: var(--terminal-inv-ink);
+  outline-offset: -3px;
+}
+
+/* ---- Dropdown menus: the same framed box as the right-click menu ---- */
+[data-skin="terminal"] .dd-menu {
+  border: var(--terminal-frame);
+  border-color: var(--text-2);
+  background: var(--surface-solid);
+  box-shadow: var(--shadow), 0 0 18px var(--glow-c-soft);
+}
+
+[data-skin="terminal"] .dd-item {
+  border-radius: 0;
+  font-family: var(--font-mono);
+}
+
+/* The picked choice: a prompt mark ">" (a list of options, one is current) */
+[data-skin="terminal"] .dd-item[role="menuitemradio"] .dd-mark > svg {
+  display: none;
+}
+
+[data-skin="terminal"] .dd-item[role="menuitemradio"][aria-checked="true"] .dd-mark::before {
+  content: ">";
+  font-weight: 700;
+}
+
+/* Several at once (Show ▾): [x] / [ ] like every other box */
+[data-skin="terminal"] .dd-item[role="menuitemcheckbox"] .dd-mark {
+  width: 3ch;
+}
+
+[data-skin="terminal"] .dd-item[role="menuitemcheckbox"] .dd-mark > svg {
+  display: none;
+}
+
+[data-skin="terminal"] .dd-item[role="menuitemcheckbox"] .dd-mark::before {
+  content: "[ ]";
+  color: var(--text-2);
+  white-space: pre;
+}
+
+[data-skin="terminal"] .dd-item[role="menuitemcheckbox"][aria-checked="true"] .dd-mark::before {
+  content: "[x]";
+  color: var(--text);
+  font-weight: 700;
+}
+
+[data-skin="terminal"] .dd-item.is-danger {
+  color: var(--alert);
+}
+
+[data-skin="terminal"] .dd-item.is-danger .dd-item-label::before {
+  content: "! ";
+  font-weight: 700;
+}
+
+[data-skin="terminal"] .dd-sep,
+[data-skin="terminal"] .ctx-sep {
+  height: 0;
+  border-top: 1px dashed var(--line-strong);
+  background: none;
+}
+
+/* ---- Right-click menu: Delete keeps its words on the lit block (the shared rule paints it in
+   the alert color, worked out outside the block: the phosphor ink would vanish into it) ---- */
+[data-skin="terminal"] .ctx-menu .ctx-item.ctx-item--delete:not([aria-disabled="true"]):is(:hover, :focus),
+[data-skin="terminal"] .ctx-menu .ctx-item.ctx-item--delete:not([aria-disabled="true"]):is(:hover, :focus) .ctx-icon {
+  color: var(--terminal-inv-ink);
+}
+
+[data-skin="terminal"] .ctx-item--delete .ctx-label::before {
+  content: "[! ";
+}
+
+/* A submenu's parent stays lit while its submenu is open: the same inverse block as a lit item
+   (a dim wash under it left the lit item's flipped ink, dark on dark, unreadable) */
+[data-skin="terminal"] .ctx-menu .ctx-item.is-open {
+  --text: var(--terminal-inv-ink);
+  --text-2: var(--terminal-inv-ink-2);
+  --text-3: var(--terminal-inv-ink-3);
+  --line: var(--terminal-inv-line);
+  --line-strong: var(--terminal-inv-line-strong);
+  --terminal-icon-glow: none;
+  background: var(--terminal-inv-bg);
+  color: var(--terminal-inv-ink);
+  text-shadow: none;
+  box-shadow: none;
+}
+
+/* The picked choice in a submenu (Priority ▸ None): the prompt mark ">", as in the dropdowns */
+[data-skin="terminal"] .ctx-item.is-checked .ctx-icon > svg {
+  display: none;
+}
+
+[data-skin="terminal"] .ctx-item.is-checked .ctx-icon::before {
+  content: ">";
+  font-family: var(--font-mono);
+  font-weight: 700;
+  line-height: 1;
+}
+
+/* ---- Search (⌘K): a prompt, the lit result in inverse video, [ GROUPS ] ---- */
+[data-skin="terminal"] .cmd-field {
+  border-bottom: 1px dashed var(--line-strong);
+}
+
+[data-skin="terminal"] .cmd-input {
+  font-family: var(--font-mono);
+}
+
+[data-skin="terminal"] .cmd-group::before {
+  content: "[ ";
+}
+
+[data-skin="terminal"] .cmd-group::after {
+  content: " ]";
+}
+
+[data-skin="terminal"] .cmd-item {
+  border-radius: 0;
+}
+
+[data-skin="terminal"] .cmd-hit {
+  background: var(--accent-soft);
+  color: inherit;
+  text-decoration: none;
+}
+
+[data-skin="terminal"] .cmd-item[aria-selected="true"] .cmd-hit {
+  background: transparent;
+  text-decoration: underline;
+}
+
+[data-skin="terminal"] .cmd-foot {
+  border-top: 1px dashed var(--line-strong);
+}
+
+/* The keyboard sheet: its block heads are captions like the cards' ([ EVERYWHERE ]); each page's
+   fold opens under a dashed rule (one rule per block: the head itself draws none) */
+[data-skin="terminal"] .cmd-keys-head {
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text);
+}
+
+[data-skin="terminal"] h3.cmd-keys-head::before {
+  content: "[ ";
+  color: var(--text-3);
+  white-space: pre;
+}
+
+[data-skin="terminal"] h3.cmd-keys-head::after {
+  content: " ]";
+  color: var(--text-3);
+  white-space: pre;
+}
+
+[data-skin="terminal"] .cmd-keys-here {
+  letter-spacing: 0;
+  text-transform: lowercase;
+}
+
+[data-skin="terminal"] .cmd-keys-page {
+  border-top: 1px dashed var(--line-strong);
+}
+
+/* ---- More (phone): page tiles as framed cells, the open one in inverse video ---- */
+[data-skin="terminal"] .more-page {
+  border-style: dashed;
+  border-color: var(--line-strong);
+  background: transparent;
+}
+
+[data-skin="terminal"] .more-page[aria-current="page"] {
+  border-style: solid;
+}
+
+/* Health's "Idea" tag sits in its tile's corner, clear of the page icon (monospace ran it into
+   the icon's corner) */
+[data-skin="terminal"] .more-page .nav-soon {
+  top: 4px;
+  right: 4px;
+  padding: 0 3px;
+  font-size: 9px;
+  letter-spacing: 0;
+  line-height: 14px;
+}
+
+/* (each edge set in full: a style alone on an edge with no width drew it 3px thick) */
+[data-skin="terminal"] :is(.more-list, .more-tabs) {
+  border-top: 1px dashed var(--line-strong);
+}
+
+[data-skin="terminal"] :is(.more-row, .more-tab) {
+  border-bottom: 1px dashed var(--line-strong);
+}
+
+/* Monospace runs wide: the row's name never breaks ("Searc/h"); its hint gives way, cut */
+[data-skin="terminal"] .more-row-label {
+  flex: none;
+}
+
+[data-skin="terminal"] .more-row-hint {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---- Phone tab bar: the open page in inverse video, as in the sidebar ---- */
+@media (max-width: 900px) {
+  [data-skin="terminal"] .tabbar {
+    border-top: var(--terminal-frame);
     background: var(--bg);
-    font-size: 9px;
-    line-height: 1.3;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
   }
 
-  [data-skin="terminal"] .tab .nav-badge::before,
-  [data-skin="terminal"] .tab .nav-badge::after {
+  [data-skin="terminal"] :is(.tab[aria-current="page"], .tab--more.is-current) {
+    --mod-home: currentColor;
+    --mod-tasks: currentColor;
+    --mod-notes: currentColor;
+    --mod-habits: currentColor;
+    --mod-calendar: currentColor;
+    --mod-pomodoro: currentColor;
+    --mod-training: currentColor;
+    --mod-finance: currentColor;
+    --mod-health: currentColor;
+    background: var(--terminal-inv-bg);
+    color: var(--terminal-inv-ink);
+    text-shadow: none;
+  }
+
+  [data-skin="terminal"] :is(.tab[aria-current="page"], .tab--more.is-current)::before {
     content: none;
   }
 
+  [data-skin="terminal"] :is(.tab[aria-current="page"], .tab--more.is-current) .nav-dot {
+    background: var(--terminal-inv-ink);
+    box-shadow: 0 0 0 2px var(--terminal-inv-bg);
+  }
+}
+
+/* ---- Settings: each section titled like a window, [ Appearance ] in VT323 (its one weight),
+   still the biggest words on its card; words only, as on Home's cards ---- */
+[data-skin="terminal"] .st-root .st-card-title {
+  gap: 0;
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 400;
+  letter-spacing: 0.01em;
+  line-height: 1;
+}
+
+[data-skin="terminal"] .st-root .st-card-title > .icon {
+  display: none;
+}
+
+[data-skin="terminal"] .st-root .st-card-title::before {
+  content: "[ ";
+  color: var(--text-3);
+  white-space: pre;
+}
+
+[data-skin="terminal"] .st-root .st-card-title::after {
+  content: " ]";
+  color: var(--text-3);
+  white-space: pre;
+}
+
+/* ---- Settings: the section index as a menu, the open section in inverse video ---- */
+[data-skin="terminal"] .st-index-link {
+  border-radius: 0;
+}
+
+[data-skin="terminal"] .st-index-link[aria-current="location"] {
+  box-shadow: none;
+}
+
+/* The jump bar on narrow windows: solid, so the phosphor text never shows through it */
+@media (max-width: 1099px) {
+  [data-skin="terminal"] .st-index {
+    background: var(--bg);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
+/* Color dots are square here (the right-click menu, dialogs, Settings → Colors, section dots) */
+[data-skin="terminal"] :is(.cc-swatch, .pal-swatch, .cc-dot, .cc-btn-dot) {
+  border-radius: 0;
+}
+
+[data-skin="terminal"] .pal-swatch::-webkit-color-swatch {
+  border-radius: 0;
+}
+
+[data-skin="terminal"] .pal-swatch::-moz-color-swatch {
+  border-radius: 0;
+}
+
+/* ==========================================================================
+   Habits: [x] done, [ ] still to do, · a day off; today brightest
+   The past keeps a quiet [x] (a wall of phosphor blocks drew the eye to last week); today's
+   column is the bright one, its done days an inverse block.
+   ========================================================================== */
+
+[data-skin="terminal"] .hb-day {
+  --tb: var(--text-3);
+  border: 0;
+  border-left: 2px solid var(--tb);
+  border-right: 2px solid var(--tb);
+  border-radius: 0;
+  background:
+    linear-gradient(var(--tb), var(--tb)) left top / 5px 2px no-repeat,
+    linear-gradient(var(--tb), var(--tb)) left bottom / 5px 2px no-repeat,
+    linear-gradient(var(--tb), var(--tb)) right top / 5px 2px no-repeat,
+    linear-gradient(var(--tb), var(--tb)) right bottom / 5px 2px no-repeat;
+  color: var(--text);
+  box-shadow: none;
+}
+
+/* The week's boxes are a little narrower than their column: side by side at full width (a 2px gap
+   on a phone) the ] of one day met the [ of the next and the row read as bars, "‖ ‖ ‖". The tap
+   still lands anywhere in the column (habits.css). */
+[data-skin="terminal"] .hb-mx-cell {
+  max-width: calc(var(--hb-mx-cell) - 8px);
+}
+
+[data-skin="terminal"] .hb-day > svg {
+  filter: var(--terminal-icon-glow);
+}
+
+[data-skin="terminal"] .hb-day > svg path {
+  d: path("M7 7l10 10M17 7 7 17");
+  stroke-linecap: square;
+}
+
+/* Done: [x] with a faint phosphor wash */
+[data-skin="terminal"] .hb-day[data-state="done"] {
+  --tb: var(--text-2);
+  background:
+    linear-gradient(var(--tb), var(--tb)) left top / 5px 2px no-repeat,
+    linear-gradient(var(--tb), var(--tb)) left bottom / 5px 2px no-repeat,
+    linear-gradient(var(--tb), var(--tb)) right top / 5px 2px no-repeat,
+    linear-gradient(var(--tb), var(--tb)) right bottom / 5px 2px no-repeat,
+    var(--heat-1);
+  color: var(--text);
+}
+
+/* Done today: the inverse block */
+[data-skin="terminal"] .hb-mx-td.is-today > .hb-day[data-state="done"] {
+  --tb: var(--terminal-inv-ink);
+  background:
+    linear-gradient(var(--tb), var(--tb)) left top / 5px 2px no-repeat,
+    linear-gradient(var(--tb), var(--tb)) left bottom / 5px 2px no-repeat,
+    linear-gradient(var(--tb), var(--tb)) right top / 5px 2px no-repeat,
+    linear-gradient(var(--tb), var(--tb)) right bottom / 5px 2px no-repeat,
+    var(--terminal-inv-bg);
+  color: var(--terminal-inv-ink);
+  box-shadow: none;
+}
+
+[data-skin="terminal"] .hb-mx-td.is-today > .hb-day[data-state="done"] > svg {
+  filter: none;
+}
+
+/* Planned, not done yet: [ ], bright today, dim later in the week */
+[data-skin="terminal"] .hb-day[data-state="pending"] {
+  --tb: var(--text);
+}
+
+[data-skin="terminal"] .hb-day[data-state="future"][data-planned="true"] {
+  --tb: var(--line-strong);
+}
+
+/* Missed: dim [ ] over a faint hatch (still a box you can tick) */
+[data-skin="terminal"] .hb-day[data-state="miss"] {
+  --tb: var(--text-3);
+  background:
+    linear-gradient(var(--tb), var(--tb)) left top / 5px 2px no-repeat,
+    linear-gradient(var(--tb), var(--tb)) left bottom / 5px 2px no-repeat,
+    linear-gradient(var(--tb), var(--tb)) right top / 5px 2px no-repeat,
+    linear-gradient(var(--tb), var(--tb)) right bottom / 5px 2px no-repeat,
+    repeating-linear-gradient(-45deg, var(--hatch) 0 1.5px, transparent 1.5px 5px);
+}
+
+/* Ticked on a day off: [+] (an extra) */
+[data-skin="terminal"] .hb-day[data-state="bonus"] {
+  --tb: var(--text-3);
+}
+
+[data-skin="terminal"] .hb-day[data-state="bonus"] > svg path {
+  d: path("M12 6v12M6 12h12");
+}
+
+/* A day off, a day not planned yet, before the habit began: no box, the dot alone */
+[data-skin="terminal"] .hb-day:is([data-state="rest"], [data-state="future"]:not([data-planned="true"]), [data-state="pre"]) {
+  --tb: transparent;
+}
+
+[data-skin="terminal"] .hb-day[data-state="archived"] {
+  --tb: var(--text-4);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="terminal"] .hb-day:not([aria-disabled="true"]):hover {
+    --tb: var(--text);
+    box-shadow: none;
+  }
+}
+
+/* The legends say the same, in glyphs */
+[data-skin="terminal"] .hb-swatch {
+  width: auto;
+  height: auto;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  font-family: var(--font-mono);
+  font-weight: 600;
+  letter-spacing: 0;
+  white-space: pre;
+}
+
+[data-skin="terminal"] .hb-swatch::before {
+  content: "[ ]";
+  color: var(--text-2);
+}
+
+[data-skin="terminal"] .hb-swatch[data-s="done"]::before {
+  content: "[x]";
+  color: var(--text);
+}
+
+[data-skin="terminal"] .hb-swatch[data-s="miss"] {
+  background: repeating-linear-gradient(-45deg, var(--hatch) 0 1.5px, transparent 1.5px 5px);
+}
+
+[data-skin="terminal"] .hb-swatch[data-s="miss"]::before {
+  color: var(--text-3);
+}
+
+[data-skin="terminal"] .hb-swatch[data-s="rest"]::before {
+  content: " · ";
+  color: var(--text-3);
+}
+
+[data-skin="terminal"] .hb-swatch[data-s="bonus"]::before {
+  content: "[+]";
+}
+
+/* The Week plan: a planned weekday is an empty [ ] (the box you will tick), a day off a dot */
+[data-skin="terminal"] .hb-plan-cell {
+  border-radius: 0;
+}
+
+[data-skin="terminal"] .hb-plan-cell svg {
+  display: none;
+}
+
+[data-skin="terminal"] .hb-plan-cell[aria-pressed="true"] {
+  border: 0;
+  background:
+    linear-gradient(var(--text-2), var(--text-2)) left center / 2px 18px no-repeat,
+    linear-gradient(var(--text-2), var(--text-2)) right center / 2px 18px no-repeat,
+    linear-gradient(var(--text-2), var(--text-2)) left calc(50% - 8px) / 6px 2px no-repeat,
+    linear-gradient(var(--text-2), var(--text-2)) left calc(50% + 8px) / 6px 2px no-repeat,
+    linear-gradient(var(--text-2), var(--text-2)) right calc(50% - 8px) / 6px 2px no-repeat,
+    linear-gradient(var(--text-2), var(--text-2)) right calc(50% + 8px) / 6px 2px no-repeat;
+  background-origin: content-box;
+  padding-inline: 8px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="terminal"] .hb-plan-cell:hover {
+    box-shadow: none;
+    outline: 1px dashed var(--text-2);
+    outline-offset: -1px;
+  }
+}
+
+/* ==========================================================================
+   Calendar: the period in VT323, task checks as [ ] / [x], the tray chip and popover framed
+   ========================================================================== */
+
+[data-skin="terminal"] .cal-title {
+  font-family: var(--font-display);
+  font-weight: 400;
+  letter-spacing: 0.01em;
+  line-height: 1;
+}
+
+[data-skin="terminal"] .cal-title-main {
+  font-size: 36px;
+}
+
+/* A phone-wide calendar: the month in full beside ‹ › Today ("September 2026" fits at 26px;
+   at 36px "October 2026" was cut to "October 2…") */
+@container cal (max-width: 600px) {
+  [data-skin="terminal"] .cal-title-main {
+    font-size: 26px;
+  }
+}
+
+/* Task chips' check: [ ] / [x] like every other box (it is 12px across: brackets fit) */
+[data-skin="terminal"] .cal-task-check {
+  width: 12px;
+  height: 11px;
+  border: 0;
+  border-left: 2px solid var(--text-2);
+  border-right: 2px solid var(--text-2);
+  border-radius: 0;
+  background:
+    linear-gradient(var(--text-2), var(--text-2)) left top / 3px 1px no-repeat,
+    linear-gradient(var(--text-2), var(--text-2)) left bottom / 3px 1px no-repeat,
+    linear-gradient(var(--text-2), var(--text-2)) right top / 3px 1px no-repeat,
+    linear-gradient(var(--text-2), var(--text-2)) right bottom / 3px 1px no-repeat;
+  color: var(--text);
+  box-shadow: none;
+}
+
+[data-skin="terminal"] .cal-task-check[aria-checked="true"] {
+  border-color: var(--text);
+  background:
+    linear-gradient(var(--text), var(--text)) left top / 3px 1px no-repeat,
+    linear-gradient(var(--text), var(--text)) left bottom / 3px 1px no-repeat,
+    linear-gradient(var(--text), var(--text)) right top / 3px 1px no-repeat,
+    linear-gradient(var(--text), var(--text)) right bottom / 3px 1px no-repeat;
+}
+
+[data-skin="terminal"] .cal-task-check svg path {
+  d: path("M7 7l10 10M17 7 7 17");
+  stroke-linecap: square;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="terminal"] .cal-task-check:hover {
+    border-color: var(--text);
+    box-shadow: none;
+  }
+}
+
+/* In the lists (the phone agenda, the tray, a day's "+N more", Home's "Today & next"), the box
+   is a list row's [ ] like Tasks': a size up, with Tasks' 2px corners and a space before the words
+   (at 14px with 1px corners it read "[]Call mum", glued to the title) */
+[data-skin="terminal"] :is(.cal-ag-items, .cal-tray, .cal-pop-list, .hm-up-items) .cal-task-check {
+  --tb: var(--text-2);
+  width: 18px;
+  height: 18px;
+  margin-inline-end: 3px;
+  border-color: var(--tb);
+  background:
+    linear-gradient(var(--tb), var(--tb)) left top / 4px 2px no-repeat,
+    linear-gradient(var(--tb), var(--tb)) left bottom / 4px 2px no-repeat,
+    linear-gradient(var(--tb), var(--tb)) right top / 4px 2px no-repeat,
+    linear-gradient(var(--tb), var(--tb)) right bottom / 4px 2px no-repeat;
+}
+
+[data-skin="terminal"] :is(.cal-ag-items, .cal-tray, .cal-pop-list, .hm-up-items) .cal-task-check[aria-checked="true"] {
+  --tb: var(--text);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="terminal"] :is(.cal-ag-items, .cal-tray, .cal-pop-list, .hm-up-items) .cal-task-check:hover {
+    --tb: var(--text);
+  }
+}
+
+/* Chip titles: room for the descenders (the line was cut at 11px) */
+[data-skin="terminal"] .cal-task-title {
+  line-height: 1.25;
+}
+
+/* Legend: the month's sample is a short bar beside its words (calendar.css's later .cal-hbar
+   width stretched it across the line and squeezed the sentence into a column) */
+[data-skin="terminal"] .cal-legend .cal-legend-hbar {
+  width: 20px;
+}
+
+/* By day an ended band doesn't fade: at 0.7 its name and hours fell to 4.45:1 on the band's tint */
+[data-skin="terminal"][data-theme="light"] .cal-tlev.is-band.is-past {
+  opacity: 1;
+}
+
+/* A band that is over (faded with the rest of the past) keeps its hours readable */
+[data-skin="terminal"] .cal-tlev.is-band.is-past .cal-band-label .cal-tlev-time {
+  color: var(--text);
+}
+
+[data-skin="terminal"] .cal-pop {
+  border: var(--terminal-frame);
+  border-color: var(--text-2);
+}
+
+/* (The day's "+4 more" already prints its own +: no second one before it.) */
+
+/* ==========================================================================
+   Training: the live dot is a block cursor, the readouts are VT323
+   ========================================================================== */
+
+[data-skin="terminal"] .tr-live-dot {
+  width: 6px;
+  height: 10px;
+  border-radius: 0;
+  background: currentColor;
+  animation: terminal-blink 1.06s steps(1, end) infinite;
+}
+
+[data-skin="terminal"] .tr-live {
+  border-radius: 0;
+}
+
+[data-skin="terminal"] :is(.tr-detail-title, .tr-sess-title) {
+  font-family: var(--font-display);
+  font-weight: 400;
+  letter-spacing: 0.01em;
+}
+
+[data-skin="terminal"] .input.tr-sess-title {
+  font-size: 36px;
+  line-height: 1;
+}
+
+[data-skin="terminal"] .tr-kpi-value {
+  font-family: var(--font-display);
+  font-size: 30px;
+  font-weight: 400;
+  line-height: 0.95;
+}
+
+/* The rest between sets counts down like every timer here: VT323, its one weight */
+[data-skin="terminal"] .tr-rest-time {
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  line-height: 1;
+}
+
+/* Rest over: the block is inverse video (training.css), so its words drop the glow */
+[data-skin="terminal"] .tr-rest.is-over {
+  text-shadow: none;
+}
+
+[data-skin="terminal"] .tr-pick-opt {
+  border-radius: 0;
+}
+
+/* ==========================================================================
+   Habits insights, the LIFE chart, Finance: one numeral face (VT323, its one weight)
+   ========================================================================== */
+
+[data-skin="terminal"] :is(.hbi-tile-value, .hbt-price) {
+  font-family: var(--font-display);
+  font-weight: 400;
+  letter-spacing: 0.02em;
+}
+
+[data-skin="terminal"] .hbi-tile-value {
+  font-size: 40px;
+  line-height: 0.9;
+}
+
+[data-skin="terminal"] .fn-avatar {
+  border-radius: 0;
+  font-weight: 400;
+  font-size: 22px;
+}
+
+/* By category: a block bar, like every meter here */
+[data-skin="terminal"] .fn-cat-bar {
+  height: 6px;
+  background: repeating-linear-gradient(90deg, var(--heat-0) 0 6px, transparent 6px 8px);
+}
+
+[data-skin="terminal"] .fn-cat-fill {
+  background: repeating-linear-gradient(90deg, var(--text) 0 6px, transparent 6px 8px);
+}
+
+/* Health: the idea list as a comment block */
+[data-skin="terminal"] .hl-ideas-title::before {
+  content: "# ";
+}
+
+@media (max-width: 640px) {
   [data-skin="terminal"] .shell > .topbar-center .pm-mini-digits {
     font-size: 26px;
   }
 
   [data-skin="terminal"] .hm-pomo-digits {
     font-size: 68px;
+  }
+
+  /* The workout's name beside its clock: "Name this workout" whole on a phone */
+  [data-skin="terminal"] .input.tr-sess-title {
+    font-size: 28px;
+  }
+
+  /* The page's main button keeps its word on a phone: without the spacing between capitals it
+     leaves the status line its room ("12 to go today", not "12 to go to…") */
+  [data-skin="terminal"] .page-actions .btn {
+    letter-spacing: 0;
+  }
+
+  [data-skin="terminal"] .page-stat {
+    letter-spacing: -0.02em;
   }
 }

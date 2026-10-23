@@ -7,12 +7,32 @@
    galloping horse is the crest at the top of the menu and stands faintly behind every page
    (oldmoney-horse.png: black ink on transparency, colored here through a CSS mask).
 
+   One language for states, on every page:
+   - Square cut: nothing is rounded (--radius-* and --radius-pill are 0). Only the round things
+     stay round: avatars, color dots, the timer's ring.
+   - Picked (a choice among words: tabs, filters, chips, views): the word in ink, underlined.
+     A picked card (a preset, the day strip, a dialog's weekdays, the template cards): an ink
+     frame, no fill.
+   - Where you are (the menu, the Settings index, More's tiles): a small brass diamond; the
+     open note, Notes' open section, the open task or the lit row of a list or menu: a brass
+     edge on its left and a faint fill; the phone tab bar: a brass rule over the tab.
+   - Done: an ink ✓ in a hairline square (every checkbox, habit squares, the Start card).
+     Planned is the empty square, missed a faint hatch, today is marked in brass.
+   - A switch is a square track: off is a hairline frame with a gray knob at the left, on is
+     filled with ink with a paper knob at the right.
+   - Claret marks only what is late, and what deletes.
+   - Type: Bodoni 400 for titles, headings and big figures (never bold: it is a hairline face),
+     Garamond for reading, Montserrat small capitals (500/600 only) for labels and buttons.
+
    Simple underneath: css/skins/simple.css styles this template too (its rules are scoped to
-   :is([data-skin="simple"], [data-skin="oldmoney"])), and ui.plainSkin() gives it Simple's
+   [data-plain], which this template's scope also carries), and ui.plainSkin() gives it Simple's
    words and plain numbers. This file only restyles. Same conventions as the other skins:
    every selector starts at the skin scope, never :root / html / body (the scope is also a
    <div> inside each Appearance preview); the shared kit uses .thing:where([data-skin] *) so a
    feature's own rule still wins. Loaded after simple.css: at equal specificity this file wins.
+   Background-changing :hover rules sit in @media (hover: hover) and (pointer: fine), so a tap
+   never leaves anything looking pressed. The page top's size and spacing come from
+   css/compact.css through the --page-title-size / --page-header-* tokens below.
    After changing --bg, update SKIN_BOOT (js/skins.js and index.html's head script).
    ========================================================================== */
 
@@ -38,10 +58,18 @@
   --fs-2xl: 32px;
   --fs-3xl: 44px;
 
+  /* Square cut, pills included (avatars, dots and the timer's ring keep their own 50%) */
   --radius-xs: 0;
   --radius-sm: 0;
   --radius: 0;
   --radius-lg: 0;
+  --radius-pill: 0;
+
+  /* The page top (css/compact.css): a Bodoni title, room for the brass double rule under it */
+  --page-title-size: clamp(30px, 2.6vw, 38px);
+  --page-title-size-phone: 27px;
+  --page-header-pb: 14px;
+  --page-header-mb: 22px;
 
   /* Feature captions read in quiet Garamond, as in Simple; the .label class itself (and the
      menu, buttons, tabs, tags and card titles) gets the small spaced capitals below */
@@ -56,10 +84,10 @@
   --page-bg-size: 240px 240px;
 
   --om-brass: #c9a96b;
-  /* Brass for words: light enough on the dark paper as it is, and on a toast's Undo, which sits
-     on its own dark chip */
+  /* Brass for words: light enough on the dark paper as it is. A toast is a card of cream here, so
+     its Undo takes a darker brass: 5:1 on it (WCAG 1.4.3; the paper's brass was 1.8:1) */
   --om-brass-ink: var(--om-brass);
-  --om-brass-on-card: var(--om-brass);
+  --om-brass-on-card: color-mix(in srgb, var(--om-brass) 50%, var(--bg));
   --om-rule: rgba(201, 169, 107, 0.42);
   --om-claret: #d27a80;
   --om-horse-alpha: 0.075;
@@ -201,11 +229,12 @@
   font-variant-numeric: lining-nums tabular-nums;
 }
 
+/* Small spaced capitals: 10px at the least (smaller capitals were hard to read on a laptop) */
 [data-skin="oldmoney"] .label {
   font-family: var(--om-caps);
-  font-size: 9.5px;
+  font-size: 10px;
   font-weight: 500;
-  letter-spacing: 0.22em;
+  letter-spacing: 0.2em;
   text-transform: uppercase;
 }
 
@@ -303,13 +332,39 @@
 [data-skin="oldmoney"] .brand::after {
   content: "Est. MMXXVI";
   margin-top: 10px;
-  margin-right: -0.36em;
+  margin-right: -0.32em;
   font-family: var(--om-caps);
-  font-size: 8px;
+  font-size: 9px;
   font-weight: 500;
-  letter-spacing: 0.36em;
+  letter-spacing: 0.32em;
   text-transform: uppercase;
-  color: var(--om-brass);
+  color: var(--om-brass-ink);
+}
+
+/* Search: an underlined line in the text face, like every field, its key in small type */
+[data-skin="oldmoney"] .sidebar-search {
+  height: 36px;
+  margin-top: -10px;
+  padding: 0 2px 0 4px;
+  border: 0;
+  border-bottom: 1px solid var(--field-line);
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-3);
+  font-family: var(--font-sans);
+  font-size: 15px;
+  font-style: italic;
+}
+
+[data-skin="oldmoney"] .sidebar-search-kbd {
+  font-style: normal;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="oldmoney"] .sidebar-search:hover {
+    border-bottom-color: var(--text);
+    color: var(--text);
+  }
 }
 
 /* The menu heading is for screen readers: the crest says where you are */
@@ -340,9 +395,11 @@
   color: var(--text-3);
 }
 
-[data-skin="oldmoney"] .nav-item:hover {
-  background: transparent;
-  color: var(--text);
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="oldmoney"] .nav-item:hover {
+    background: transparent;
+    color: var(--text);
+  }
 }
 
 [data-skin="oldmoney"] .nav-item[aria-current="page"] {
@@ -352,7 +409,7 @@
   box-shadow: none;
 }
 
-/* The open page: a small brass diamond */
+/* Where you are: a small brass diamond (the same mark in Notes' sections and Settings' index) */
 [data-skin="oldmoney"] .nav-item[aria-current="page"]::before {
   content: "";
   position: absolute;
@@ -375,6 +432,7 @@
   }
 }
 
+/* Counts: italic Garamond numbers, not badges */
 [data-skin="oldmoney"] .nav-badge {
   min-width: 0;
   padding: 0;
@@ -393,6 +451,13 @@
   color: var(--om-brass-ink);
 }
 
+/* "Needs you today" where there is no room for a count (icon rail, tab bar, More): brass */
+[data-skin="oldmoney"] .nav-dot {
+  width: 7px;
+  height: 7px;
+  background: var(--om-brass);
+}
+
 [data-skin="oldmoney"] .nav-item.is-soon {
   color: var(--text-3);
 }
@@ -400,16 +465,18 @@
 [data-skin="oldmoney"] .nav-soon {
   border: 0;
   padding: 0;
-  font-size: 8px;
-  letter-spacing: 0.24em;
+  font-size: 9px;
+  letter-spacing: 0.2em;
 }
 
 [data-skin="oldmoney"] .sidebar-foot {
+  gap: 8px;
   border-top: 1px solid var(--line);
   padding-top: 12px;
 }
 
-/* The foot stays in the text face: wide capitals don't fit there */
+/* The foot stays in the text face: wide capitals don't fit there (Settings, Appearance, the
+   install row: one size) */
 [data-skin="oldmoney"] .sidebar-foot .btn {
   border-color: transparent;
   background: transparent;
@@ -421,9 +488,87 @@
   text-transform: none;
 }
 
-[data-skin="oldmoney"] .sidebar-foot .btn:hover {
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="oldmoney"] .sidebar-foot .btn:hover {
+    border-color: transparent;
+    background: transparent;
+    color: var(--text);
+  }
+}
+
+/* Settings open: the brass diamond, like the menu above it */
+[data-skin="oldmoney"] .sidebar-foot .settings-btn[aria-current="page"] {
+  position: relative;
   background: transparent;
   color: var(--text);
+}
+
+[data-skin="oldmoney"] .sidebar-foot .settings-btn[aria-current="page"]::after {
+  content: "";
+  width: 5px;
+  height: 5px;
+  margin-left: auto;
+  margin-right: 4px;
+  background: var(--om-brass);
+  transform: rotate(45deg);
+}
+
+/* A short window (a 13" laptop at 800px, a 14" one at 900px; the full crest needs about 900px):
+   a smaller crest and closer rows, so the menu, the foot and the legal links fit without the
+   sidebar scrolling */
+@media (min-width: 901px) and (max-height: 920px) {
+  [data-skin="oldmoney"] .sidebar {
+    padding-top: 22px;
+    gap: 18px;
+  }
+
+  [data-skin="oldmoney"] .brand {
+    padding-bottom: 14px;
+  }
+
+  [data-skin="oldmoney"] .brand::before {
+    width: 112px;
+    margin-bottom: 10px;
+  }
+
+  [data-skin="oldmoney"] .brand::after {
+    margin-top: 7px;
+  }
+
+  [data-skin="oldmoney"] .sidebar-search {
+    margin-top: -6px;
+  }
+
+  [data-skin="oldmoney"] .nav-item {
+    height: 34px;
+  }
+
+  [data-skin="oldmoney"] .sidebar-foot {
+    gap: 4px;
+    padding-top: 8px;
+  }
+}
+
+/* Shorter still (a 1366×768 laptop once the browser's own bars are drawn, about 680px): the
+   crest smaller again and the rows closer, so the foot still shows whole */
+@media (min-width: 901px) and (max-height: 740px) {
+  [data-skin="oldmoney"] .sidebar {
+    padding-top: 16px;
+    gap: 12px;
+  }
+
+  [data-skin="oldmoney"] .brand {
+    padding-bottom: 10px;
+  }
+
+  [data-skin="oldmoney"] .brand::before {
+    width: 84px;
+    margin-bottom: 8px;
+  }
+
+  [data-skin="oldmoney"] .nav-item {
+    height: 31px;
+  }
 }
 
 /* The icon rail (tablets, narrow windows): a small crest, the icons back */
@@ -453,8 +598,20 @@
     left: 2px;
   }
 
-  [data-skin="oldmoney"] .nav-badge {
-    font-size: 12px;
+  /* The brass dot clear of the icon's corner */
+  [data-skin="oldmoney"] .nav-item .nav-dot {
+    top: 2px;
+    left: calc(50% + 10px);
+  }
+
+  /* The search line: the magnifier alone, centred over its underline */
+  [data-skin="oldmoney"] .sidebar-search {
+    margin-top: 0;
+    padding: 0;
+  }
+
+  [data-skin="oldmoney"] .sidebar-foot .settings-btn[aria-current="page"]::after {
+    content: none;
   }
 }
 
@@ -465,8 +622,8 @@
 }
 
 [data-skin="oldmoney"] .crumbs {
-  font-size: 9.5px;
-  letter-spacing: 0.28em;
+  font-size: 10px;
+  letter-spacing: 0.26em;
   color: var(--text-3);
 }
 
@@ -478,7 +635,7 @@
   color: var(--om-brass);
 }
 
-/* ---- Phone tab bar ---- */
+/* ---- Phone tab bar: small capitals under each icon, a brass rule over the open one ---- */
 [data-skin="oldmoney"] .tabbar {
   background: color-mix(in srgb, var(--bg) 94%, transparent);
   border-top: 1px solid var(--line);
@@ -486,21 +643,36 @@
 
 [data-skin="oldmoney"] .tab {
   font-family: var(--om-caps);
-  font-size: 8.5px;
+  font-size: 10px;
   font-weight: 500;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
 }
 
-/* ---- Page header: a Bodoni title, an italic line, a brass double rule ---- */
-[data-skin="oldmoney"] .view {
-  padding-top: 60px;
+/* (More is "current" while one of its pages is open: the same look) */
+[data-skin="oldmoney"] :is(.tab[aria-current="page"], .tab--more.is-current) {
+  color: var(--text);
+  font-weight: 600;
 }
 
+[data-skin="oldmoney"] :is(.tab[aria-current="page"], .tab--more.is-current)::before {
+  left: 24%;
+  right: 24%;
+  height: 1px;
+  background: var(--om-brass);
+  box-shadow: none;
+}
+
+/* The brass dot sits clear of the icon's corner (the icon box is 22px, centred) */
+[data-skin="oldmoney"] .tab .nav-dot {
+  top: 5px;
+  left: calc(50% + 12px);
+}
+
+/* ---- Page top: a Bodoni title, its quiet stat, a brass double rule ----
+   (size and spacing: the --page-title-size / --page-header-* tokens above, css/compact.css) */
 [data-skin="oldmoney"] .page-header {
   position: relative;
-  padding-bottom: 26px;
-  margin-bottom: 34px;
   border-bottom: 0;
 }
 
@@ -517,22 +689,35 @@
   background: none;
 }
 
-[data-skin="oldmoney"] .page-heading {
-  gap: 8px;
-}
-
 [data-skin="oldmoney"] .page-title {
   font-family: var(--font-display);
-  font-size: clamp(40px, 4.2vw, 58px);
   font-weight: 400;
   letter-spacing: -0.005em;
   line-height: 1.04;
+}
+
+/* The page's badge: square, like every icon badge (css/icons.css rounds this one) */
+[data-skin="oldmoney"] .page-title > .page-ib {
+  border-radius: 0;
 }
 
 [data-skin="oldmoney"] .page-subtitle {
   font-size: 17px;
   font-style: italic;
   color: var(--text-2);
+}
+
+/* The live line beside the title ('3 today · 2 overdue'): italic Garamond, figures upright */
+[data-skin="oldmoney"] .page-stat {
+  font-size: 16px;
+  font-style: italic;
+  color: var(--text-2);
+}
+
+[data-skin="oldmoney"] .page-stat :is(strong, b) {
+  font-style: normal;
+  font-weight: 600;
+  color: var(--text);
 }
 
 /* ==========================================================================
@@ -546,10 +731,45 @@
   box-shadow: none;
 }
 
-[data-skin="oldmoney"] .panel-head,
-[data-skin="oldmoney"] .st-card-title {
+/* A panel that floats over the page (the month's "+N more" list, the live workout's sticky bar)
+   stays opaque and keeps its soft shadow: through the see-through card stock the words under it
+   showed */
+[data-skin="oldmoney"] :is(.cal-pop, .tr-sess-bar) {
+  background: var(--surface-solid);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Card titles, one style everywhere: small spaced capitals in ink (each a single class, so the
+   list stays at one class's strength) */
+[data-skin="oldmoney"] :is(.panel-head, .hm-card-title, .hm-week-title, .hbi-card-title, .pm-card-title, .tr-section-title, .fn-panel-title),
+[data-skin="oldmoney"] .nt-rail-head > .label {
   font-family: var(--om-caps);
+  font-size: 10px;
+  font-weight: 600;
   letter-spacing: 0.22em;
+  line-height: 1.3;
+  text-transform: uppercase;
+  color: var(--text);
+}
+
+/* Their small print (the week's dates, a card's range): italic Garamond, not capitals */
+[data-skin="oldmoney"] :is(.hm-wt-sub, .hm-wt-year) {
+  font-family: var(--font-sans);
+  font-size: 15px;
+  font-style: italic;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--text-2);
+}
+
+/* Icon badges: the icon engraved in a hairline frame of its own color (brass for the pages, a
+   section's color under Color coding), no tint. css/icons.css loads after the templates, so
+   this takes the scope's strength */
+[data-skin="oldmoney"] .ib {
+  border-radius: 0;
+  background: transparent;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ib-c) 50%, transparent);
 }
 
 /* ---- Buttons: small capitals; primary in ink, the rest in outline or bare ---- */
@@ -560,34 +780,19 @@
   font-family: var(--om-caps);
   font-size: 10px;
   font-weight: 500;
-  letter-spacing: 0.22em;
+  letter-spacing: 0.2em;
   text-transform: uppercase;
 }
 
-.btn:where([data-skin="oldmoney"] *):hover {
-  border-color: var(--text);
-  background: transparent;
-}
-
-.btn--ghost:where([data-skin="oldmoney"] *),
-.btn--ghost:where([data-skin="oldmoney"] *):hover {
+.btn--ghost:where([data-skin="oldmoney"] *) {
   border-color: transparent;
-}
-
-.btn--ghost:where([data-skin="oldmoney"] *):hover {
-  background: var(--accent-soft);
 }
 
 .btn--primary:where([data-skin="oldmoney"] *) {
   border-color: var(--accent);
   background: var(--accent);
   color: var(--accent-ink);
-}
-
-.btn--primary:where([data-skin="oldmoney"] *):hover {
-  border-color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 86%, var(--bg));
-  color: var(--accent-ink);
+  font-weight: 600;
 }
 
 .btn--danger:where([data-skin="oldmoney"] *) {
@@ -596,13 +801,58 @@
   color: var(--om-claret);
 }
 
-.btn--danger:where([data-skin="oldmoney"] *):hover {
-  border-color: var(--om-claret);
-  background: transparent;
-  color: var(--om-claret);
+@media (hover: hover) and (pointer: fine) {
+  .btn:where([data-skin="oldmoney"] *):hover {
+    border-color: var(--text);
+    background: transparent;
+  }
+
+  .btn--ghost:where([data-skin="oldmoney"] *):hover {
+    border-color: transparent;
+    background: var(--accent-soft);
+  }
+
+  .btn--primary:where([data-skin="oldmoney"] *):hover {
+    filter: none;
+    border-color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 86%, var(--bg));
+    color: var(--accent-ink);
+  }
+
+  .btn--danger:where([data-skin="oldmoney"] *):hover {
+    border-color: var(--om-claret);
+    background: transparent;
+    color: var(--om-claret);
+  }
 }
 
-/* ---- Segmented controls become underlined words ---- */
+/* A toggle button that is on (the Calendar's Unscheduled chip, Insights' Table): an ink frame, no
+   fill, like a picked preset. Their pages fill them with ink at the hover's strength, so under
+   the pointer the fill went and the paper-colored icon vanished on the paper */
+[data-skin="oldmoney"] :is(.cal-tray-toggle[aria-expanded="true"], .hbi-table-btn[aria-pressed="true"]) {
+  border-color: var(--text);
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--text);
+  color: var(--text);
+}
+
+/* A dialog's Delete / Discard / Clear: filled claret, paper words (claret: what deletes). As
+   strong as css/compact.css's rule for every template, plus the dialog. */
+[data-skin="oldmoney"] .modal .btn.btn--danger.btn--danger-fill {
+  border-color: var(--om-claret);
+  background: var(--om-claret);
+  color: var(--bg);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="oldmoney"] .modal .btn.btn--danger.btn--danger-fill:hover {
+    border-color: var(--om-claret);
+    background: color-mix(in srgb, var(--om-claret) 86%, var(--text));
+    color: var(--bg);
+  }
+}
+
+/* ---- Segmented controls become underlined words (a picked word: ink, underlined) ---- */
 [data-skin="oldmoney"] .seg {
   gap: 4px 20px;
   padding: 0;
@@ -629,9 +879,11 @@
   color: var(--text-3);
 }
 
-[data-skin="oldmoney"] .seg .seg-btn:hover {
-  background: transparent;
-  color: var(--text);
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="oldmoney"] .seg .seg-btn:hover {
+    background: transparent;
+    color: var(--text);
+  }
 }
 
 /* (.is-on: a dialog's picked option, a radio's label, e.g. the event editor's Repeat. The rule
@@ -661,9 +913,9 @@
   border-radius: 0;
   background: transparent;
   font-family: var(--om-caps);
-  font-size: 9.5px;
+  font-size: 10px;
   font-weight: 500;
-  letter-spacing: 0.16em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--text-3);
 }
@@ -671,18 +923,20 @@
 .tag:where([data-skin="oldmoney"] *) + .tag::before {
   content: "·";
   margin-right: 0.7em;
-  color: var(--text-4);
+  color: var(--text-3);
 }
 
+/* Solid (High priority, the next payment): ink and weight; claret stays for what is late */
 .tag--solid:where([data-skin="oldmoney"] *) {
   background: transparent;
-  color: var(--om-claret);
+  color: var(--text);
   font-weight: 600;
 }
 
 /* ---- Fields: a single underline ----
    In --field-line (tokens.css), not the hairline: the underline is the only sign a line takes
-   typing, so it keeps 3:1 on the paper (WCAG 1.4.11) */
+   typing, so it keeps 3:1 on the paper (WCAG 1.4.11). Base strength: a field with an icon in
+   it (Home's To do, .hm-add .hm-add-input) keeps its own room */
 .input:where([data-skin="oldmoney"] *),
 .select:where([data-skin="oldmoney"] *) {
   padding-inline: 2px;
@@ -719,6 +973,21 @@
   outline: none;
 }
 
+/* Renaming in place (a task's title, a Notes section's name): the words on an ink underline,
+   like every field here, not a framed box with a ring */
+[data-skin="oldmoney"] :is(.tk-edit-input, .nt-rename) {
+  border: 0;
+  border-bottom: 1px solid var(--text);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: 0 1px 0 var(--text);
+}
+
+[data-skin="oldmoney"] .nt-rename[aria-invalid="true"] {
+  border-bottom-style: dashed;
+  box-shadow: none;
+}
+
 .input-group:where([data-skin="oldmoney"] *) > svg {
   left: 4px;
 }
@@ -727,19 +996,127 @@
   padding-left: 28px;
 }
 
-/* ---- Checkboxes: a fine circle, filled with ink when done ---- */
+/* ---- Checkboxes: a hairline square; done is an ink ✓ in it (no fill) ---- */
 .check:where([data-skin="oldmoney"] *) {
   border-width: 1px;
   border-color: color-mix(in srgb, var(--text) 45%, transparent);
-  border-radius: 50%;
+  border-radius: 0;
+  color: var(--text);
 }
 
-/* On the light paper the fine circle takes a little more ink: 3:1 (WCAG 1.4.11; it was 2.9:1) */
+/* On the light paper the fine square takes a little more ink: 3:1 (WCAG 1.4.11; it was 2.9:1) */
 .check:where([data-skin="oldmoney"][data-theme="light"] *) {
   border-color: color-mix(in srgb, var(--text) 56%, transparent);
 }
 
-/* ---- Dialogs: a card with an inner brass frame ---- */
+[data-skin="oldmoney"] :is(.check, .cal-task-check, .cal-hcheck):is([aria-checked="true"], .is-checked) {
+  border-color: var(--text);
+  background: transparent;
+  box-shadow: none;
+  color: var(--text);
+}
+
+[data-skin="oldmoney"] :is(.cal-task-check, .cal-hcheck) {
+  border-radius: 0;
+  color: var(--text);
+}
+
+/* ---- Switches: a square track; off = a hairline frame, a gray knob at the left; on = filled
+   with ink, a paper knob at the right ---- */
+[data-skin="oldmoney"] .pm-switch-track {
+  width: 38px;
+  height: 20px;
+  border: 1px solid var(--field-line);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+[data-skin="oldmoney"] .pm-switch-thumb {
+  left: 3px;
+  width: 12px;
+  height: 12px;
+  border-radius: 0;
+  background: var(--text-3);
+}
+
+[data-skin="oldmoney"] .pm-switch[aria-checked="true"] .pm-switch-track {
+  border-color: var(--text);
+  background: var(--text);
+}
+
+[data-skin="oldmoney"] .pm-switch[aria-checked="true"] .pm-switch-thumb {
+  background: var(--bg);
+  transform: translate(18px, -50%);
+}
+
+/* (Settings adds a ring to an off track for the round templates: the frame is already there) */
+[data-skin="oldmoney"] .st-switch:not([aria-checked="true"]) .pm-switch-track {
+  box-shadow: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="oldmoney"] .pm-switch:hover .pm-switch-track {
+    border-color: var(--text);
+  }
+}
+
+[data-skin="oldmoney"] .cal-ed-switch-track {
+  border-color: var(--field-line);
+  background: transparent;
+}
+
+[data-skin="oldmoney"] .cal-ed-switch-thumb {
+  border-radius: 0;
+}
+
+[data-skin="oldmoney"] .cal-ed-switch[aria-checked="true"] .cal-ed-switch-track {
+  border-color: var(--text);
+  background: var(--text);
+  box-shadow: none;
+}
+
+[data-skin="oldmoney"] .cal-ed-switch[aria-checked="true"] .cal-ed-switch-thumb {
+  background: var(--bg);
+}
+
+/* ---- Keys: an engraved plate, flat ---- */
+.kbd:where([data-skin="oldmoney"] *) {
+  border-width: 1px;
+  border-radius: 0;
+  font-family: var(--font-sans);
+  font-style: normal;
+}
+
+/* ---- Dropdown counts: an italic number, no badge ---- */
+[data-skin="oldmoney"] .dd-count {
+  min-width: 0;
+  padding: 0 0 0 2px;
+  background: transparent;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-style: italic;
+  letter-spacing: 0;
+  color: var(--text-2);
+}
+
+/* ---- Meters and progress bars: square ticks, a hairline track with a fine bar of ink ---- */
+.meter-tick:where([data-skin="oldmoney"] *) {
+  border-radius: 0;
+}
+
+.progress:where([data-skin="oldmoney"] *) {
+  height: 2px;
+  border-radius: 0;
+  background: var(--line-strong);
+}
+
+.progress-fill:where([data-skin="oldmoney"] *) {
+  background: var(--text-2);
+  box-shadow: none;
+}
+
+/* ---- Dialogs: a card with an inner brass frame; title, fields and buttons on one edge ---- */
 .modal:where([data-skin="oldmoney"] *) {
   border: 1px solid var(--line-strong);
   border-radius: 0;
@@ -750,7 +1127,15 @@
 }
 
 .modal-head:where([data-skin="oldmoney"] *) {
-  padding: 28px 32px 6px;
+  padding: 28px 28px 6px;
+}
+
+.modal-body:where([data-skin="oldmoney"] *) {
+  padding-inline: 28px;
+}
+
+.modal-foot:where([data-skin="oldmoney"] *) {
+  padding-inline: 28px;
 }
 
 .modal-title:where([data-skin="oldmoney"] *) {
@@ -759,6 +1144,21 @@
   font-weight: 400;
   letter-spacing: 0;
   line-height: 1.1;
+}
+
+@media (max-width: 640px) {
+  .modal-head:where([data-skin="oldmoney"] *) {
+    padding: 24px 22px 4px;
+  }
+
+  .modal-body:where([data-skin="oldmoney"] *),
+  .modal-foot:where([data-skin="oldmoney"] *) {
+    padding-inline: 22px;
+  }
+
+  .modal-title:where([data-skin="oldmoney"] *) {
+    font-size: 26px;
+  }
 }
 
 /* ---- Toasts: a card of ink ---- */
@@ -774,6 +1174,7 @@
 
 .toast-action:where([data-skin="oldmoney"] *) {
   border-radius: 0;
+  background: transparent;
   color: var(--om-brass-on-card);
   font-family: var(--om-caps);
   font-size: 10px;
@@ -781,7 +1182,28 @@
   text-transform: uppercase;
 }
 
-/* ---- Empty states: an italic line ---- */
+@media (hover: hover) and (pointer: fine) {
+  .toast-action:where([data-skin="oldmoney"] *):hover {
+    background: transparent;
+    color: var(--bg);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+}
+
+/* ---- Empty states: an italic line under a Bodoni title, no inner fill ---- */
+.empty:where([data-skin="oldmoney"] *) {
+  border: 1px solid var(--line);
+  background: transparent;
+}
+
+.empty-icon:where([data-skin="oldmoney"] *) {
+  border-radius: 0;
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--om-rule);
+  color: var(--om-brass-ink);
+}
+
 .empty-title:where([data-skin="oldmoney"] *) {
   font-family: var(--font-display);
   font-size: var(--fs-xl);
@@ -792,8 +1214,44 @@
   font-style: italic;
 }
 
-/* ---- The right-click menu and the color pop-up ---- */
+/* ---- Tips: a note in the margin (italic, a brass rule at the left); "✓ Got it" in small
+   capitals in a hairline box ---- */
+[data-skin="oldmoney"] .tip {
+  border: 0;
+  border-left: 1px solid var(--om-brass);
+  border-radius: 0;
+  padding: 2px 4px 2px 12px;
+  font-style: italic;
+}
+
+[data-skin="oldmoney"] .tip-icon {
+  color: var(--om-brass-ink);
+}
+
+[data-skin="oldmoney"] :is(.tip-ok, .page-tip-ok) {
+  height: 22px;
+  padding: 0 8px;
+  border-color: var(--line-strong);
+  border-radius: 0;
+  font-family: var(--om-caps);
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="oldmoney"] :is(.tip-ok, .page-tip-ok):hover {
+    border-color: var(--text);
+    background: transparent;
+  }
+}
+
+/* ---- The right-click menu, its submenus and the dropdowns: a card; the lit item has a faint
+   fill and a brass edge; a brass hairline between the groups; Delete in claret ---- */
 [data-skin="oldmoney"] .ctx-menu {
+  --ctx-hi: var(--surface-2);
   border: 1px solid var(--line-strong);
   border-radius: 0;
   background: var(--surface-solid);
@@ -811,26 +1269,535 @@
   text-transform: none;
 }
 
+[data-skin="oldmoney"] .ctx-item:not([aria-disabled="true"]):focus,
+[data-skin="oldmoney"] .ctx-menu .ctx-item.is-open {
+  background: var(--surface-2);
+  box-shadow: inset 2px 0 0 var(--om-brass);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="oldmoney"] .ctx-item:not([aria-disabled="true"]):hover {
+    background: var(--surface-2);
+    box-shadow: inset 2px 0 0 var(--om-brass);
+  }
+}
+
+[data-skin="oldmoney"] .ctx-item:not([aria-disabled="true"]):focus-visible {
+  box-shadow: inset 2px 0 0 var(--om-brass), inset 0 0 0 1px var(--line-focus);
+}
+
+[data-skin="oldmoney"] .ctx-sep {
+  margin: 4px 10px;
+  background: var(--om-rule);
+}
+
+[data-skin="oldmoney"] .ctx-item.is-checked .ctx-icon {
+  color: var(--om-brass-ink);
+}
+
+[data-skin="oldmoney"] .ctx-menu .ctx-item.ctx-item--delete:not([aria-disabled="true"]),
+[data-skin="oldmoney"] .ctx-menu .ctx-item.ctx-item--delete:not([aria-disabled="true"]) .ctx-icon {
+  color: var(--om-claret);
+}
+
+[data-skin="oldmoney"] .dd-menu {
+  border-color: var(--line-strong);
+  border-radius: 0;
+  box-shadow: var(--shadow-sm);
+}
+
+[data-skin="oldmoney"] .dd-item:focus-visible {
+  background: var(--surface-2);
+  box-shadow: inset 2px 0 0 var(--om-brass), inset 0 0 0 1px var(--line-focus);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="oldmoney"] .dd-item:hover {
+    background: var(--surface-2);
+    box-shadow: inset 2px 0 0 var(--om-brass);
+  }
+}
+
+[data-skin="oldmoney"] .dd-sep {
+  background: var(--om-rule);
+}
+
+[data-skin="oldmoney"] .dd-item.is-danger {
+  color: var(--om-claret);
+}
+
+/* ---- Search (⌘K): the field is an underlined line in Garamond; small capitals in brass over
+   each group, with a hairline after them; the lit result has a brass edge. The list sits
+   inside the dialog's brass frame. ---- */
+/* The field's rule and the foot's rule meet the brass frame instead of running through it to
+   the card's edge (the frame is 7px in) */
+[data-skin="oldmoney"] .cmd-field {
+  margin-inline: 7px;
+  padding-inline: 17px 13px;
+}
+
+[data-skin="oldmoney"] .cmd-input {
+  font-family: var(--font-sans);
+  font-size: 20px;
+}
+
+[data-skin="oldmoney"] .cmd-input::placeholder {
+  font-style: italic;
+}
+
+[data-skin="oldmoney"] .cmd-list {
+  padding-inline: 14px;
+}
+
+[data-skin="oldmoney"] .cmd-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--om-brass-ink);
+}
+
+[data-skin="oldmoney"] .cmd-group::after {
+  content: "";
+  flex: 1 1 auto;
+  height: 1px;
+  background: var(--om-rule);
+}
+
+[data-skin="oldmoney"] .cmd-item {
+  border-radius: 0;
+}
+
+[data-skin="oldmoney"] .cmd-item[aria-selected="true"] {
+  background: var(--surface-2);
+  box-shadow: inset 2px 0 0 var(--om-brass), inset 0 0 0 1px var(--om-rule);
+}
+
+[data-skin="oldmoney"] .cmd-hit {
+  font-weight: 600;
+  text-decoration-color: var(--om-brass);
+}
+
+[data-skin="oldmoney"] .cmd-meta {
+  font-style: italic;
+}
+
+[data-skin="oldmoney"] .cmd-foot {
+  margin-inline: 7px;
+  padding-inline: 17px 9px;
+}
+
+/* (the hints only: the Shortcuts button keeps upright capitals) */
+[data-skin="oldmoney"] .cmd-hints {
+  font-style: italic;
+}
+
+/* The shortcuts sheet's groups ('Everywhere', each page): the same small capitals in brass as the
+   search's groups; '· this page' an italic aside */
+[data-skin="oldmoney"] .cmd-keys-head {
+  font-family: var(--om-caps);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--om-brass-ink);
+}
+
+[data-skin="oldmoney"] .cmd-keys-here {
+  font-family: var(--font-sans);
+  font-size: var(--fs-sm);
+  font-style: italic;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+[data-skin="oldmoney"] .cmd-keys-text {
+  font-style: italic;
+}
+
+/* ---- More (the phone tab bar's last tab): page tiles as engraved cards; the open page has
+   the brass diamond; rows and the Edit tabs list on hairlines ---- */
+[data-skin="oldmoney"] .more-page {
+  border-color: var(--line);
+  background: transparent;
+  font-family: var(--om-caps);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--text-2);
+}
+
+[data-skin="oldmoney"] .more-page > .icon {
+  color: var(--om-brass-ink);
+}
+
+[data-skin="oldmoney"] .more-page[aria-current="page"] {
+  border-color: var(--text);
+  background: transparent;
+  color: var(--text);
+  font-weight: 600;
+}
+
+[data-skin="oldmoney"] .more-page[aria-current="page"]::before {
+  content: "";
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  width: 5px;
+  height: 5px;
+  background: var(--om-brass);
+  transform: rotate(45deg);
+}
+
+[data-skin="oldmoney"] .more-page.is-soon {
+  color: var(--text-3);
+}
+
+[data-skin="oldmoney"] .more-page .more-page-count {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-style: italic;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--text-3);
+}
+
+[data-skin="oldmoney"] :is(.more-row, .more-tab-label) {
+  font-family: var(--font-sans);
+  font-size: var(--fs-md);
+}
+
+[data-skin="oldmoney"] .more-row-icon {
+  color: var(--om-brass-ink);
+}
+
+[data-skin="oldmoney"] :is(.more-row-hint, .more-tabs-lead, .more-tabs-note, .more-status) {
+  font-style: italic;
+}
+
+[data-skin="oldmoney"] .more-tab-pos {
+  font-family: var(--font-sans);
+  font-style: italic;
+}
+
+[data-skin="oldmoney"] :is(.more-page, .more-row, .more-tab):active {
+  background: var(--accent-soft);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="oldmoney"] :is(.more-page, .more-row, .more-tab):hover {
+    background: var(--accent-soft);
+  }
+}
+
+/* ---- Appearance: the template in use is a picked card (an ink frame, no fill), its ✓ in a
+   hairline square on paper, "In use" in brass small capitals (where you are), not an ink slab ---- */
+[data-skin="oldmoney"] .skin-card[aria-checked="true"] {
+  border-color: var(--text);
+  box-shadow: inset 0 0 0 1px var(--text);
+}
+
+[data-skin="oldmoney"] .skin-card-current {
+  padding: 0;
+  background: transparent;
+  color: var(--om-brass-ink);
+  font-family: var(--om-caps);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+[data-skin="oldmoney"] .skin-card-mark {
+  border: 1px solid var(--text);
+  background: var(--surface-solid);
+  color: var(--text);
+}
+
 /* ==========================================================================
    Pages
    ========================================================================== */
 
-/* Titles of tasks and notes in the text face, a touch larger */
+/* ---- Home: small-capital card titles, Bodoni figures, today in brass ---- */
+[data-skin="oldmoney"] :is(.hm-gl-value, .hm-pomo-digits) {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-variant-numeric: lining-nums tabular-nums;
+  letter-spacing: 0;
+}
+
+[data-skin="oldmoney"] :is(.hm-more, .hm-list-more, .hm-up-more, .hm-up-earlier, .hm-up-foot-note) {
+  font-style: italic;
+}
+
+/* A card's small empty state ('Nothing due today'): like every empty state, a hairline frame,
+   no inner fill, its icon engraved in a square */
+[data-skin="oldmoney"] .hm-empty {
+  border: 1px solid var(--line);
+  background: transparent;
+}
+
+[data-skin="oldmoney"] .hm-empty-icon {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--om-rule);
+  color: var(--om-brass-ink);
+}
+
+[data-skin="oldmoney"] .hm-empty-text {
+  font-style: italic;
+}
+
+[data-skin="oldmoney"] .hm-empty-text strong {
+  font-style: normal;
+}
+
+/* The focus timer's bar in brass, like the Pomodoro page's ring (a break stays hatched) */
+[data-skin="oldmoney"] .hm-pomo[data-phase="focus"] .hm-pomo-fill {
+  background: var(--om-brass);
+}
+
+[data-skin="oldmoney"] .hm-day.is-today {
+  box-shadow: inset 0 2px 0 var(--om-brass);
+}
+
+[data-skin="oldmoney"] .hm-day.is-today .hm-day-num {
+  border-radius: 0;
+  background: transparent;
+  box-shadow: inset 0 -1px 0 var(--om-brass);
+  color: var(--om-brass-ink);
+}
+
+[data-skin="oldmoney"] .hm-day-tag {
+  font-style: italic;
+  color: var(--om-brass-ink);
+}
+
+/* Today & next: each day's name in small capitals, today's in brass */
+[data-skin="oldmoney"] .hm-up-when {
+  font-family: var(--om-caps);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+[data-skin="oldmoney"] .hm-up-date {
+  font-style: italic;
+}
+
+[data-skin="oldmoney"] .hm-up-day.is-today .hm-up-when {
+  color: var(--om-brass-ink);
+}
+
+/* Habits, last two weeks: slim bars of ink (today's in brass) on a hairline, not blocks */
+[data-skin="oldmoney"] .hm-bar-track {
+  justify-content: center;
+  border-bottom: 1px solid var(--line-strong);
+  border-radius: 0;
+  background: transparent;
+}
+
+[data-skin="oldmoney"] .hm-bar-fill {
+  width: 45%;
+  border-radius: 0;
+  background: var(--text-2);
+  box-shadow: none;
+}
+
+[data-skin="oldmoney"] .hm-bar.is-today .hm-bar-fill {
+  background: var(--om-brass);
+  box-shadow: none;
+}
+
+[data-skin="oldmoney"] .hm-bar.is-now .hm-bar-day {
+  color: var(--om-brass-ink);
+}
+
+/* The Start card: a Bodoni line, numbered steps in hairline squares, a done step ticked */
+[data-skin="oldmoney"] .hm-start-title {
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 400;
+}
+
+[data-skin="oldmoney"] .hm-start-count {
+  font-style: italic;
+}
+
+[data-skin="oldmoney"] .hm-start-btn {
+  border-color: var(--line);
+  background: transparent;
+}
+
+[data-skin="oldmoney"] .hm-start-mark {
+  border-color: var(--field-line);
+  border-radius: 0;
+  font-family: var(--font-display);
+  font-weight: 400;
+}
+
+[data-skin="oldmoney"] .hm-start-step.is-done .hm-start-mark {
+  border-color: var(--text);
+  background: transparent;
+  color: var(--text);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="oldmoney"] .hm-start-btn:hover {
+    border-color: var(--text-2);
+    background: var(--accent-soft);
+  }
+}
+
+/* Half-width cards on a phone: the capitals closer, so 'Focus timer' and 'Quick note' fit */
+@media (max-width: 640px) {
+  [data-skin="oldmoney"] :is(.hm-card-title, .hm-week-title) {
+    letter-spacing: 0.12em;
+  }
+}
+
+/* The tablet week strip: no room for the word "Today" (its brass rule says it) */
+@media (max-width: 900px) {
+  [data-skin="oldmoney"] .hm-day-tag {
+    display: none;
+  }
+}
+
+/* ---- Tasks ---- */
 [data-skin="oldmoney"] .tk-title,
 [data-skin="oldmoney"] .nt-item-title,
 [data-skin="oldmoney"] .nt-card-title {
   font-size: 17px;
 }
 
-/* A task's small capitals each lead with their icon, which parts them instead of the middle dot */
-[data-skin="oldmoney"] .tk-meta .tag + .tag::before {
+/* A task's small capitals each lead with their icon, which parts them instead of the middle dot
+   (in the list and on the task's page alike) */
+[data-skin="oldmoney"] :is(.tk-meta, .tk-page-meta) .tag + .tag::before {
   content: none;
 }
 
-[data-skin="oldmoney"] .tk-root .tk-row .tk-meta {
+[data-skin="oldmoney"] .tk-root .tk-row .tk-meta,
+[data-skin="oldmoney"] .tk-page-meta {
   column-gap: 9px;
 }
 
+/* Late: claret words, no tinted chip. (The task's page sits on <body>, outside .tk-root where
+   --tk-alert is set: without the fallback its 'Overdue' turned to plain ink.) */
+[data-skin="oldmoney"] .tk-due-tag--overdue {
+  background: transparent;
+  color: var(--tk-alert, var(--alert));
+}
+
+/* The details dialog's section icon: engraved in a hairline square, like every icon badge (no
+   gray tile) */
+[data-skin="oldmoney"] .tk-field-section-icon {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--om-rule);
+  color: var(--om-brass-ink);
+}
+
+/* Smart order's headings: small capitals over a hairline */
+[data-skin="oldmoney"] .tk-group-head {
+  font-size: 10px;
+  letter-spacing: 0.2em;
+}
+
+[data-skin="oldmoney"] .tk-group-count {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-style: italic;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+/* The status filter stands apart from the section picker: a brass hairline between them. Only
+   where the toolbar has room for one line (a wide window, or a very wide one with a task's page
+   open): when the words wrap under the picker, the rule stood alone at the start of the line */
+@media (min-width: 1100px) {
+  [data-skin="oldmoney"]:not(.tk-page-open) .tk-toolbar .tk-filters {
+    padding-left: 18px;
+    border-left: 1px solid var(--om-rule);
+  }
+}
+
+@media (min-width: 1600px) {
+  [data-skin="oldmoney"] .tk-toolbar .tk-filters {
+    padding-left: 18px;
+    border-left: 1px solid var(--om-rule);
+  }
+}
+
+/* A task's page (tasks.panel.js): the dialogs' card, docked on the right, with their inner brass
+   frame; the title in Bodoni at its one weight, as every title here. Its task in the list is
+   where you are: a brass edge, as Search's lit row. */
+[data-skin="oldmoney"] .tk-page {
+  border-left: 1px solid var(--line-strong);
+  outline: 1px solid var(--om-rule);
+  outline-offset: -8px;
+}
+
+/* Its bar's rule meets the frame; the bar's buttons and the page's words share one edge, 24px in
+   (as a dialog's title and fields do) */
+[data-skin="oldmoney"] .tk-page-head {
+  margin-inline: 8px;
+  padding-inline: 16px;
+  border-bottom-color: var(--om-rule);
+}
+
+[data-skin="oldmoney"] .tk-page-title {
+  font-weight: 400;
+  font-size: 34px;
+  line-height: 1.12;
+  letter-spacing: 0;
+}
+
+[data-skin="oldmoney"] .tk-page-tools {
+  border-bottom-color: var(--om-rule);
+}
+
+[data-skin="oldmoney"] .tk-row.is-open {
+  box-shadow: inset 2px 0 0 var(--om-brass);
+}
+
+/* …and keeps the keyboard's ring, the brass edge inside it (the edge alone took the ring's place:
+   no focus to be seen on the open task, WCAG 2.4.7) */
+[data-skin="oldmoney"] .tk-row.is-open:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--line-focus), inset 4px 0 0 var(--om-brass);
+}
+
+@media (max-width: 640px) {
+  [data-skin="oldmoney"] .tk-page {
+    border-left: 0;
+  }
+
+  /* A phone: 22px in, as the dialogs there (16px put the words 8px from the brass frame) */
+  [data-skin="oldmoney"] .tk-page-head {
+    padding-left: calc(14px + env(safe-area-inset-left, 0px));
+    padding-right: calc(14px + env(safe-area-inset-right, 0px));
+  }
+
+  [data-skin="oldmoney"] .tk-page-scroll {
+    padding-left: calc(22px + env(safe-area-inset-left, 0px));
+    padding-right: calc(22px + env(safe-area-inset-right, 0px));
+  }
+
+  [data-skin="oldmoney"] .tk-page-title {
+    font-size: 30px;
+  }
+}
+
+/* With the page beside the list, the horse behind the page moves over with the list (it stood
+   half behind the page, its head showing at the page's edge), and it fits what is left */
+@media (min-width: 1100px) {
+  [data-skin="oldmoney"].tk-page-open .main::before {
+    right: calc(var(--tk-page-w) + clamp(8px, 2.5vw, 56px));
+    width: min(clamp(380px, 50vw, 880px), calc(100vw - var(--sidebar-w) - var(--tk-page-w) - 2 * clamp(8px, 2.5vw, 56px)));
+  }
+}
+
+/* ---- Notes: square rows and cards, sections as underlined words, Bodoni headings ---- */
 [data-skin="oldmoney"] .nt-title {
   font-family: var(--font-display);
   font-weight: 400;
@@ -842,9 +1809,452 @@
   line-height: 1.65;
 }
 
-/* Calendar: today in brass, underlined rather than filled */
-[data-skin="oldmoney"] .cal-cell.is-today::before {
+[data-skin="oldmoney"] :is(.nt-item, .nt-card, .nt-rail-item, .nt-menu, .nt-menu-item, .nt-col, .nt-drag-ghost, .nt-search .input, .nt-hit) {
+  border-radius: 0;
+}
+
+/* The open note (list and board) and the open section: a faint fill, a brass edge */
+[data-skin="oldmoney"] :is(.nt-item, .nt-rail-item)[aria-current="true"] {
+  border-color: transparent;
+  background: var(--surface-2);
+}
+
+[data-skin="oldmoney"] .nt-card[aria-current="true"] {
+  border-color: var(--line-strong);
+}
+
+[data-skin="oldmoney"] :is(.nt-item, .nt-rail-item, .nt-card)[aria-current="true"]::before {
+  content: "";
+  position: absolute;
+  left: -1px;
+  top: -1px;
+  bottom: -1px;
+  width: 2px;
+  background: var(--om-brass);
+  box-shadow: none;
+  transform: none;
+}
+
+[data-skin="oldmoney"] .nt-card {
+  box-shadow: none;
+}
+
+/* Save status: small capitals, no capsule, a small square for its dot */
+[data-skin="oldmoney"] .nt-status {
+  padding: 0;
+  background: transparent;
+  font-family: var(--om-caps);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+[data-skin="oldmoney"] .nt-status-dot {
+  border-radius: 0;
+}
+
+/* "Move to section": a word over an underline, like a field */
+[data-skin="oldmoney"] .nt-move {
+  padding: 0 2px;
+  border: 0;
+  border-bottom: 1px solid var(--field-line);
+  border-radius: 0;
+  background: transparent;
+  font-family: var(--om-caps);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+/* Section chips (and More ▾): underlined small-capital words, the open one in ink */
+[data-skin="oldmoney"] .nt-chips {
+  gap: 4px 18px;
+}
+
+[data-skin="oldmoney"] .nt-chip {
+  height: 32px;
+  padding: 0 1px;
+  border: 0;
+  border-bottom: 1px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  font-family: var(--om-caps);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+[data-skin="oldmoney"] .nt-chip[aria-current="true"] {
+  border-bottom-color: var(--text);
+  background: transparent;
+  box-shadow: none;
+  color: var(--text);
+}
+
+[data-skin="oldmoney"] .nt-chip[aria-current="true"]:focus-visible {
+  outline-color: var(--om-brass);
+}
+
+[data-skin="oldmoney"] .nt-chip-count {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-style: italic;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+[data-skin="oldmoney"] :is(.nt-chip--add, .nt-chip--suggest) {
+  border-bottom: 1px dotted var(--line-strong);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="oldmoney"] .nt-chip:hover {
+    border-bottom-color: var(--text-3);
+    background: transparent;
+    color: var(--text);
+  }
+}
+
+/* The Markdown preview: Bodoni headings at the note title's weight */
+[data-skin="oldmoney"] .nt-prose :is(h1, h2, h3) {
+  font-family: var(--font-display);
+  font-weight: 400;
+  letter-spacing: 0;
+}
+
+[data-skin="oldmoney"] .nt-prose blockquote {
+  border-left: 1px solid var(--om-brass);
+  font-style: italic;
+}
+
+[data-skin="oldmoney"] .nt-prose ul > li::before {
+  border-radius: 0;
+  transform: rotate(45deg) scale(0.8);
+}
+
+[data-skin="oldmoney"] :is(.nt-prose code, .nt-prose pre, .nt-task-box) {
+  border-radius: 0;
+}
+
+/* ---- Habits: stationery marks, not blocks ----
+   Done = an ink ✓ in a brass hairline square, planned = the empty hairline square, missed = a
+   faint hatch, a bonus = the ✓ in a dotted square, today = brass */
+[data-skin="oldmoney"] :is(.hb-day, .hb-swatch, .hb-wk, .hb-plan-cell, .hb-mx-colbtn, .hb-plan-colbtn) {
+  border-radius: 0;
+}
+
+[data-skin="oldmoney"] .hb-day[data-state="done"],
+[data-skin="oldmoney"] .hb-swatch[data-s="done"] {
+  border-color: var(--om-brass);
+  background: transparent;
+  color: var(--text);
+}
+
+[data-skin="oldmoney"] .hb-day[data-state="pending"] {
+  border-width: 1px;
+  border-color: var(--text-2);
+}
+
+[data-skin="oldmoney"] .hb-day[data-state="bonus"],
+[data-skin="oldmoney"] .hb-swatch[data-s="bonus"],
+[data-skin="oldmoney"] .hb-row.is-bonus .hb-row-check {
+  border: 1px dotted var(--om-brass);
+  background: transparent;
+  color: var(--text);
+}
+
+[data-skin="oldmoney"] .hb-day[data-state="done"].is-today,
+[data-skin="oldmoney"] .hb-mx-td.is-today > .hb-day[data-state="done"] {
+  box-shadow: none;
+}
+
+[data-skin="oldmoney"] :is(.hb-mx-th, .hb-plan-th).is-today :is(.hb-mx-colbtn, .hb-plan-colbtn)::before {
   height: 1px;
+  border-radius: 0;
+  background: var(--om-brass);
+  box-shadow: none;
+}
+
+[data-skin="oldmoney"] .hb-mx-th.is-perfect .hb-mx-colbtn::after {
+  border-radius: 0;
+  background: var(--om-brass);
+  transform: rotate(45deg);
+}
+
+[data-skin="oldmoney"] .hb-mx-th.is-today :is(.hb-mx-wd, .hb-mx-date) {
+  color: var(--om-brass-ink);
+}
+
+/* Today's column (and a picked day's) in the grids: a whisper of brass, not a gray band */
+[data-skin="oldmoney"] :is(.hb-mx-th, .hb-mx-td, .hb-hi-th, .hb-plan-th, .hb-plan-td):is(.is-today, .is-selected) {
+  background: color-mix(in srgb, var(--om-brass) 7%, transparent);
+}
+
+/* The week plan's load under each day: a fine bar of ink on a hairline, like every bar here */
+[data-skin="oldmoney"] .hb-plan-bar {
+  height: 2px;
+  border-radius: 0;
+  background: var(--line-strong);
+}
+
+[data-skin="oldmoney"] .hb-plan-bar-fill {
+  border-radius: 0;
+  background: var(--text-2);
+}
+
+/* The week plan's new-habit row: a draft, so dashed hairline squares; a picked day is the ✓ in
+   one (no hatched fill) */
+[data-skin="oldmoney"] .hb-plan-cell.is-draft {
+  border-style: dashed;
+  border-color: var(--line-strong);
+}
+
+[data-skin="oldmoney"] .hb-plan-cell.is-draft[aria-pressed="true"] {
+  border-color: var(--text-2);
+  background: transparent;
+  color: var(--text-2);
+}
+
+/* A day with nothing planned: a small square mark, not a dot (the grid, a quiet week in History,
+   and a day the week plan leaves off) */
+[data-skin="oldmoney"] .hb-mx-cell:is([data-state="rest"], [data-state="future"]:not([data-planned="true"]))::after,
+[data-skin="oldmoney"] .hb-wk[data-l=""][data-active="true"]::after {
+  border-radius: 0;
+}
+
+[data-skin="oldmoney"] .hb-plan-cell:not([aria-pressed="true"], .is-draft) {
+  background: linear-gradient(var(--line-strong), var(--line-strong)) center / 4px 4px no-repeat;
+}
+
+/* History: each week a hairline square with a slim bar of ink in it, like the charts' bars, that
+   rises as more of the week gets done (a quarter, a half, three quarters); a whole week done is
+   the ✓ in a brass square, like a done day; a week with nothing done, the missed day's hatch */
+[data-skin="oldmoney"] .hb-wk:is([data-l="0"], [data-l="1"], [data-l="2"], [data-l="3"], [data-l="4"]) {
+  border-color: var(--line-strong);
+  box-shadow: none;
+}
+
+[data-skin="oldmoney"] .hb-wk[data-l="0"] {
+  background: repeating-linear-gradient(-45deg, var(--hatch) 0 1.5px, transparent 1.5px 5px);
+}
+
+[data-skin="oldmoney"] .hb-wk:is([data-l="1"], [data-l="2"], [data-l="3"]) {
+  background: linear-gradient(var(--text-2), var(--text-2)) 50% 100% / 8px var(--om-wk-fill) no-repeat;
+}
+
+[data-skin="oldmoney"] .hb-wk[data-l="1"] {
+  --om-wk-fill: 25%;
+}
+
+[data-skin="oldmoney"] .hb-wk[data-l="2"] {
+  --om-wk-fill: 50%;
+}
+
+[data-skin="oldmoney"] .hb-wk[data-l="3"] {
+  --om-wk-fill: 75%;
+}
+
+[data-skin="oldmoney"] .hb-wk[data-l="4"] {
+  border-color: var(--om-brass);
+  background: transparent;
+}
+
+/* (the ✓ drawn as the check icon's stroke: an ink corner, turned) */
+[data-skin="oldmoney"] .hb-wk[data-l="4"]::after {
+  content: "";
+  width: 5px;
+  height: 9px;
+  margin-top: -2px;
+  border-right: 1.5px solid var(--text);
+  border-bottom: 1.5px solid var(--text);
+  transform: rotate(45deg);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="oldmoney"] .hb-wk:hover {
+    border-color: var(--text);
+  }
+}
+
+/* The habit dialog's weekdays (and the event editor's, below): hairline squares; a picked day in
+   an ink frame with its word in ink, no fill, like a picked preset */
+[data-skin="oldmoney"] :is(.hb-wd, .cal-ed-wd) {
+  background: transparent;
+  color: var(--text-3);
+}
+
+[data-skin="oldmoney"] :is(.hb-wd, .cal-ed-wd)[aria-pressed="true"] {
+  border-color: var(--text);
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--text);
+  color: var(--text);
+}
+
+/* The icon picker's little chevron: square, like the button it sits on */
+[data-skin="oldmoney"] .hb-f-iconbtn-chev {
+  border-radius: 0;
+}
+
+/* The day strip: hairline squares; the picked day in an ink frame, today's rule in brass */
+[data-skin="oldmoney"] .hb-sel {
+  border-radius: 0;
+  background: transparent;
+}
+
+[data-skin="oldmoney"] .hb-sel[aria-checked="true"] {
+  border-color: var(--text);
+  background: transparent;
+  box-shadow: none;
+  color: var(--text);
+}
+
+[data-skin="oldmoney"] .hb-sel[aria-checked="true"] .hb-sel-date {
+  color: var(--text);
+}
+
+[data-skin="oldmoney"] .hb-sel[aria-checked="true"] .hb-sel-fill {
+  background: var(--text);
+}
+
+[data-skin="oldmoney"] .hb-sel[aria-checked="true"] .hb-sel-bar {
+  background: var(--line-strong);
+}
+
+[data-skin="oldmoney"] :is(.hb-sel.is-today, .hb-sel[aria-checked="true"].is-today)::before {
+  top: -1px;
+  height: 1px;
+  border-radius: 0;
+  background: var(--om-brass);
+  box-shadow: none;
+}
+
+[data-skin="oldmoney"] :is(.hb-sel-bar, .hb-sel-fill) {
+  border-radius: 0;
+}
+
+/* Day / Week / History under the page's tabs: italic words, so the two rows don't read alike */
+[data-skin="oldmoney"] .hb-view-seg .seg-btn {
+  font-family: var(--font-sans);
+  font-size: 16px;
+  font-style: italic;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+/* The page's own tabs: the picked one's icon in brass */
+[data-skin="oldmoney"] .hb-tab[aria-selected="true"] > svg,
+[data-skin="oldmoney"] .hb-view-btn[aria-pressed="true"] > svg {
+  color: var(--om-brass-ink);
+}
+
+/* The day's count ('0/12' by Today): a Bodoni figure at its one weight, as on Home */
+[data-skin="oldmoney"] .hb-ro-frac {
+  font-family: var(--font-display);
+  font-weight: 400;
+  letter-spacing: 0;
+}
+
+/* ---- Habits insights: Bodoni figures, slim bars of ink (today's in brass) ---- */
+[data-skin="oldmoney"] .hbi-tile-value {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-variant-numeric: lining-nums tabular-nums;
+}
+
+/* The words beside a figure ('Up', '%', 'points', '· 50%'): italic Garamond at reading weight,
+   never a thickened Bodoni */
+[data-skin="oldmoney"] .hbi-tile-value :is(.hbi-tile-unit, .hbi-dir--word) {
+  font-family: var(--font-sans);
+  font-style: italic;
+  font-weight: 400;
+  letter-spacing: 0;
+}
+
+/* A day's bar: about 45% of its slot */
+[data-skin="oldmoney"] :is(.hbi-col, .hbi-zero) {
+  fill: var(--text-2);
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  scale: 0.45 1;
+}
+
+/* The legend's samples match the bars: square, in the same ink */
+[data-skin="oldmoney"] .hbi-swatch {
+  border-radius: 0;
+}
+
+[data-skin="oldmoney"] .hbi-swatch--col {
+  background: var(--text-2);
+}
+
+[data-skin="oldmoney"] .hbi-col--planned {
+  fill: var(--heat-1);
+}
+
+[data-skin="oldmoney"] :is(.hbi-col, .hbi-zero).is-pending {
+  fill: var(--om-brass);
+  fill-opacity: 1;
+}
+
+[data-skin="oldmoney"] .hbi-axis.is-today {
+  fill: var(--om-brass-ink);
+}
+
+[data-skin="oldmoney"] .hbi-line {
+  stroke-width: 1.5;
+}
+
+[data-skin="oldmoney"] .hbi-baseline {
+  stroke: var(--line-strong);
+}
+
+[data-skin="oldmoney"] :is(.hbi-tile, .hbi-note, .hbi-plot, .hbi-tip, .hbi-rank-bar, .hbi-rank-bar .progress-fill) {
+  border-radius: 0;
+}
+
+/* ---- Calendar ---- */
+
+/* The month's name in Bodoni, its year quieter */
+[data-skin="oldmoney"] .cal-title {
+  font-family: var(--font-display);
+  font-weight: 400;
+  letter-spacing: 0;
+}
+
+[data-skin="oldmoney"] .cal-title-sub {
+  font-style: italic;
+}
+
+/* A phone's title row: Bodoni runs wide, so 'Today' drops its sun and the month takes a size
+   that fits even 'September 2026' beside the three buttons */
+@container cal (max-width: 760px) {
+  [data-skin="oldmoney"] .cal-title {
+    font-size: 22px;
+    letter-spacing: -0.005em;
+  }
+
+  [data-skin="oldmoney"] .cal-today-btn {
+    padding-inline: 10px;
+    letter-spacing: 0.12em;
+  }
+
+  [data-skin="oldmoney"] .cal-today-btn > svg {
+    display: none;
+  }
+}
+
+/* Today in brass, underlined rather than filled (the month's cell, the week's and the day's
+   column head, the agenda's day: calendar.css draws them in ink) */
+[data-skin="oldmoney"] :is(.cal-cell, .cal-dh).is-today::before {
+  height: 1px;
+  background: var(--om-brass);
+  box-shadow: none;
+}
+
+[data-skin="oldmoney"] .cal-ag-day.is-today::before {
   background: var(--om-brass);
   box-shadow: none;
 }
@@ -865,8 +2275,87 @@
 }
 
 /* Events and task chips: square cut, like cards */
-[data-skin="oldmoney"] :is(.cal-ev, .cal-tlev, .cal-task, .cal-tltask, .cal-mark-ev) {
-  border-radius: 1px;
+[data-skin="oldmoney"] :is(.cal-ev, .cal-tlev, .cal-task, .cal-tltask, .cal-mark-ev, .cal-trow, .cal-tray-empty, .cal-pop) {
+  border-radius: 0;
+}
+
+/* A task's priority, the bar at a chip's end: a fine square-cut rule, not a rounded slab (High
+   in ink, Medium gray; Low keeps its dotted line) */
+[data-skin="oldmoney"] :is(.cal-task, .cal-tltask):is(.pri-high, .pri-med)::after {
+  width: 2px;
+  border-radius: 0;
+}
+
+/* The habit marks by a date (the legend, a short list of habits): small squares, like the
+   habits' own squares */
+[data-skin="oldmoney"] .cal-hb-dot {
+  border-radius: 0;
+}
+
+/* An outlined or hatched event keeps its edge, as a month bar and as a block in the week and the
+   day (the bars' and blocks' own border reset in calendar.css drew it transparent, so a long
+   'Work' block read as loose words) */
+[data-skin="oldmoney"] :is(.cal-ev, .cal-tlev):is(.cal-ev--outline, .cal-ev--hatched) {
+  border-color: var(--line-strong);
+}
+
+/* A band (a long block behind the day's other events): a brass spine and a whisper of brass,
+   or the event's own color under Color coding */
+[data-skin="oldmoney"] .cal-tl .cal-tl-col > .cal-tlev.is-band {
+  border-color: color-mix(in srgb, var(--cc, var(--om-brass)) 30%, transparent);
+  border-left: 2px solid var(--cc, var(--om-brass));
+  border-radius: 0;
+  background: color-mix(in srgb, var(--cc, var(--om-brass)) 6%, transparent);
+}
+
+[data-skin="oldmoney"] .cal-tl .cal-tl-col > .cal-tlev.is-band.cal-band--hatched {
+  background: repeating-linear-gradient(-45deg, color-mix(in srgb, var(--cc, var(--om-brass)) 12%, transparent) 0 1px, transparent 1px 7px);
+}
+
+/* A day's habits in the month: a hairline bar of ink, brass when every habit is done */
+[data-skin="oldmoney"] .cal-hbar {
+  height: 2px;
+  border-radius: 0;
+  background: var(--line-strong);
+}
+
+[data-skin="oldmoney"] .cal-hbar-fill {
+  background: var(--text-2);
+}
+
+[data-skin="oldmoney"] .cal-hbar.is-perfect {
+  box-shadow: none;
+}
+
+[data-skin="oldmoney"] .cal-hbar.is-perfect .cal-hbar-fill {
+  background: var(--om-brass);
+}
+
+/* (the legend's sample bar: calendar.css's general bar width came after it and stretched it) */
+[data-skin="oldmoney"] .cal-legend-hbar {
+  width: 20px;
+}
+
+/* "+4 more": an italic Garamond line, as on Home (it carries .label, whose capitals would be a
+   slanted Montserrat); the hidden tasks' box square-cut */
+[data-skin="oldmoney"] .cal-more {
+  font-family: var(--font-sans);
+  font-size: var(--fs-xs);
+  font-style: italic;
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+[data-skin="oldmoney"] :is(.cal-more-box, .cal-legend-box) {
+  border-radius: 0;
+}
+
+/* The month's "+N more" list: a Bodoni date over the day's items */
+[data-skin="oldmoney"] .cal-pop-title {
+  font-family: var(--font-display);
+  font-weight: 400;
 }
 
 /* The event editor's Repeat words on a phone: closer together and less tracked, so Weekly,
@@ -891,57 +2380,188 @@
   text-transform: none;
 }
 
-/* Home: card titles in small capitals, links in italic, today in brass */
-[data-skin="oldmoney"] .hm-card-title {
-  font-family: var(--om-caps);
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
-}
-
-[data-skin="oldmoney"] .fn-root .fn-panel-title {
-  font-family: var(--om-caps);
-  font-size: 10px;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
-}
-
-[data-skin="oldmoney"] .fn-avatar {
-  font-weight: 400;
-}
-
-[data-skin="oldmoney"] .hm-more {
-  font-style: italic;
-}
-
-[data-skin="oldmoney"] .hm-day.is-today {
-  box-shadow: inset 0 2px 0 var(--om-brass);
-}
-
-[data-skin="oldmoney"] .hm-day.is-today .hm-day-num {
-  border-radius: 0;
-  background: transparent;
-  box-shadow: inset 0 -1px 0 var(--om-brass);
-  color: var(--om-brass-ink);
-}
-
-[data-skin="oldmoney"] .hm-day-tag {
-  font-style: italic;
-  color: var(--om-brass-ink);
-}
-
-/* Big numbers (timer, statistics) in Bodoni */
-[data-skin="oldmoney"] .pm-time,
-[data-skin="oldmoney"] .stat-value {
+/* ---- Pomodoro: Bodoni digits on a fine ring; presets as cards, the picked one in an ink
+   frame ---- */
+[data-skin="oldmoney"] :is(.pm-digits, .stat-value) {
   font-family: var(--font-display);
   font-weight: 400;
   font-variant-numeric: lining-nums tabular-nums;
   letter-spacing: 0;
 }
 
+[data-skin="oldmoney"] .pm-ring :is(.ring-track, .ring-fill) {
+  stroke-width: 2;
+}
+
+[data-skin="oldmoney"] .pm-ring .ring-fill {
+  stroke: var(--om-brass);
+}
+
+[data-skin="oldmoney"] .pm-preset {
+  border-color: var(--line);
+  background: transparent;
+}
+
+[data-skin="oldmoney"] .pm-preset[aria-pressed="true"] {
+  border-color: var(--text);
+  background: transparent;
+  color: var(--text);
+  box-shadow: inset 0 0 0 1px var(--text);
+}
+
+[data-skin="oldmoney"] .pm-preset[aria-pressed="true"] .pm-preset-sub {
+  color: var(--text-2);
+}
+
+[data-skin="oldmoney"] .pm-setup-chip {
+  font-style: normal;
+}
+
+[data-skin="oldmoney"] .pm-mini[data-status="running"][data-phase="focus"] {
+  border-color: var(--text);
+  background: var(--text);
+  color: var(--bg);
+}
+
+/* ---- Training: the live bar and the rest timer square-cut; the picker's lit option with the
+   brass edge ---- */
+[data-skin="oldmoney"] :is(.tr-rest, .tr-sess-bar, .tr-live, .tr-pick-list, .tr-pick-opt, .tr-plot) {
+  border-radius: 0;
+}
+
+[data-skin="oldmoney"] .tr-rest-time {
+  font-family: var(--font-display);
+  font-weight: 400;
+}
+
+/* The workout's name: a Bodoni title at its one weight, on the underline every field has here
+   (with no line it didn't read as a field to type in: WCAG 1.4.11) */
+[data-skin="oldmoney"] .input.tr-sess-title {
+  border-bottom: 1px solid var(--field-line);
+  font-weight: 400;
+}
+
+[data-skin="oldmoney"] .input.tr-sess-title:focus {
+  border-bottom-color: var(--text);
+  box-shadow: 0 1px 0 var(--text);
+}
+
+/* "Workout in progress" (the page and the top bar): a brass dot; claret is kept for what is late */
+[data-skin="oldmoney"] .tr-live-dot {
+  background: var(--om-brass);
+}
+
+[data-skin="oldmoney"] .tr-rest.is-running {
+  border-color: var(--om-brass);
+  background: transparent;
+}
+
+[data-skin="oldmoney"] .tr-pick-opt[aria-selected="true"] {
+  background: var(--surface-2);
+  box-shadow: inset 2px 0 0 var(--om-brass);
+}
+
+[data-skin="oldmoney"] .tr-chip[aria-pressed="true"] {
+  border-color: var(--text);
+  background: transparent;
+}
+
+/* ---- Finance: Bodoni figures, the category bars as hairlines ---- */
+/* A subscription's seal: round (an avatar), engraved like the icon badges: its hairline ring,
+   no tint (as strong as Color coding's own fill rule) */
+[data-skin="oldmoney"] .fn-root .fn-avatar {
+  background: transparent;
+  font-weight: 400;
+}
+
+/* (as strong as the page-stat rule that sets its figures in weight) */
+[data-skin="oldmoney"] .page-stat .fn-sum-total {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-style: normal;
+}
+
+[data-skin="oldmoney"] .fn-cat-bar {
+  height: 2px;
+  border-radius: 0;
+  background: var(--line-strong);
+}
+
+[data-skin="oldmoney"] .fn-cat-fill {
+  border-radius: 0;
+  background: var(--text-2);
+}
+
+/* A wrapped tag starts its own line: no middle dot leading it (the phone row has the room for
+   the two tags on their own lines) */
+@media (max-width: 640px) {
+  [data-skin="oldmoney"] .fn-root .fn-meta {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  [data-skin="oldmoney"] .fn-root .fn-meta .tag + .tag::before {
+    content: none;
+  }
+}
+
+/* ---- Settings: Bodoni section headings, the index with the brass diamond ---- */
+[data-skin="oldmoney"] .st-root .st-card-title {
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
 [data-skin="oldmoney"] .st-row-title {
   font-weight: 600;
+}
+
+[data-skin="oldmoney"] .st-index-link {
+  position: relative;
+  padding-left: 22px;
+  border-radius: 0;
+}
+
+[data-skin="oldmoney"] .st-index-link[aria-current] {
+  background: transparent;
+  box-shadow: none;
+}
+
+[data-skin="oldmoney"] .st-index-link[aria-current]::before {
+  content: "";
+  position: absolute;
+  left: 7px;
+  top: 50%;
+  width: 5px;
+  height: 5px;
+  margin-top: -2.5px;
+  background: var(--om-brass);
+  transform: rotate(45deg);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="oldmoney"] .st-index-link:hover {
+    background: transparent;
+    color: var(--text);
+  }
+}
+
+/* The jump bar (narrower windows): opaque paper, so the page's words never show through it, with
+   the page's own grain (fixed, like the page's), so it doesn't read as a darker band */
+@media (max-width: 1099px) {
+  [data-skin="oldmoney"] .st-index {
+    background-color: var(--bg);
+    background-image: var(--page-bg-image);
+    background-size: var(--page-bg-size);
+    background-attachment: fixed;
+  }
+}
+
+/* ---- Health: the ideas as words, the badge engraved ---- */
+[data-skin="oldmoney"] .hl-list {
+  font-style: italic;
 }
 
 /* Color coding: an edge and only a whisper of the color on paper */
@@ -957,5 +2577,11 @@
   [data-skin="oldmoney"] .main::before,
   [data-skin="oldmoney"] .brand::before {
     display: none;
+  }
+
+  /* Picked words and cards lose their ink underline and frame there: an outline instead */
+  [data-skin="oldmoney"] :is(.nt-chip[aria-current="true"], .pm-preset[aria-pressed="true"], .hb-sel[aria-checked="true"], .st-index-link[aria-current], .more-page[aria-current="page"]) {
+    outline: 2px solid Highlight;
+    outline-offset: -2px;
   }
 }

@@ -1071,6 +1071,34 @@ export function layoutTimed(occurrences, { minMinutes = SNAP_MINUTES } = {}) {
   return out;
 }
 
+/* ---- Bands: a long block of time ("Work 09–17") sits behind the day, not beside it ----
+   Laid out as one more lane, a working day squeezed every meeting and lunch on top of it into a
+   sliver ("12:…"). A band takes the column's whole width behind the others instead; the events
+   on top keep theirs. Bands that overlap each other still share their own lanes. */
+
+/** An event this long (minutes) is a band; an outline event (the look for a block of time) from BAND_OUTLINE_MINUTES. */
+export const BAND_MINUTES = 240;
+export const BAND_OUTLINE_MINUTES = 120;
+
+/** Whether a timed occurrence is drawn as a band (tasks never are). */
+export function isBand(o) {
+  if (!o || o.allDay || o.task) return false;
+  const s = Number.isFinite(o.startMin) ? o.startMin : parseTime(o.startTime);
+  const e = Number.isFinite(o.endMin) ? o.endMin : parseTime(o.endTime);
+  if (s === null || e === null) return false;
+  const len = e - s;
+  return len >= BAND_MINUTES || (o.style === 'outline' && len >= BAND_OUTLINE_MINUTES);
+}
+
+/**
+ * One day's timed items laid out with the bands apart: { bands, blocks }, both in layoutTimed's
+ * shape. Bands are laid out among themselves; the other blocks as if no band were there.
+ */
+export function layoutDay(occurrences, opts = {}) {
+  const list = Array.isArray(occurrences) ? occurrences : [];
+  return { bands: layoutTimed(list.filter(isBand), opts), blocks: layoutTimed(list.filter((o) => !isBand(o)), opts) };
+}
+
 /**
  * Bars for all-day / multi-day occurrences across a row of consecutive day keys (a week:
  * Mon..Sun; any length works, e.g. [key] for a day's all-day lane):

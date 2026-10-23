@@ -2,8 +2,10 @@
 // Unscheduled tray). Pure DOM out of a render context; no listeners here: calendar.js
 // handles every click, key and drag by delegation through these data attributes:
 //   data-act      click action: zoom-week · zoom-day · event · add-event · add-allday ·
-//                 task-check · task-open · task-schedule · more · habit-check · layer-on ·
+//                 task-check · task-open · task-schedule · habit-check · layer-on ·
+//                 more (a month day's "+N more": its whole list, dayPopover) ·
 //                 plan-toggle (open / fold a day-plan list: data-panel 'tasks' | 'habits')
+//   data-pop-close  the day list's close button
 //   data-drag     'task' | 'event' (month / all-day bars); data-tl='event' + data-tl-resize
 //   data-tl-day   a timeline column; data-drop-day / data-drop-tray: drop targets
 //   data-zoom     'week:<monday>' | 'day:<key>': what a zoom transition grows from / into
@@ -19,13 +21,10 @@ import { h, icon, iconBadge, registerIcon, idx, term, plural, tip, weekday, WEEK
 import { paintColor } from '../colors.js';
 import {
   WEEK_ORDER,
-  STYLES,
-  STYLE_LABEL,
   monthGrid,
   weekKeys,
   isoWeek,
   layoutSpans,
-  layoutTimed,
   parseTime,
   laneCount,
   viewTitle,
@@ -35,6 +34,7 @@ import {
   formatTime,
   dayIcon,
   LAYER_ICON,
+  layoutDay,
 } from './calendar.logic.js';
 
 registerIcon('repeat', '<path d="m17 2 4 4-4 4"/><path d="M3 11V9a3 3 0 0 1 3-3h15"/><path d="m7 22-4-4 4-4"/><path d="M21 13v2a3 3 0 0 1-3 3H3"/>');
@@ -108,19 +108,23 @@ const isPastOcc = (occ, ctx) => occ.end < ctx.today || (occ.end === ctx.today &&
  * A bar for an all-day span or a one-line timed event (month cells, all-day lanes, lists).
  * opts: { prefix (focus id scope), tab (tabindex), cl / cr (continues left / right), drag, extra }
  */
-export function eventBar(occ, ctx, { prefix = 'm', tab = '-1', cl = false, cr = false, drag = true, extra = null, glyph = true } = {}) {
+export function eventBar(occ, ctx, { prefix = 'm', tab = '-1', cl = false, cr = false, drag = true, extra = null, glyph = true, timeFirst = false } = {}) {
+  // A one-line bar reads its title first ("Lunch with Ola 12:00"): squeezed, the title is what
+  // must show. A list of the day's hours (an agenda) keeps the time in front.
+  const time = occ.allDay ? null : h('span', { class: 'cal-ev-time' }, occ.startTime);
   const bar = h(
     'button',
     {
       type: 'button',
-      class: ['cal-ev', `cal-ev--${occ.style}`, occ.allDay ? 'is-allday' : 'is-timed', cl && 'cont-l', cr && 'cont-r', isPastOcc(occ, ctx) && 'is-past'],
+      class: ['cal-ev', `cal-ev--${occ.style}`, occ.allDay ? 'is-allday' : 'is-timed', cl && 'cont-l', cr && 'cont-r', isPastOcc(occ, ctx) && 'is-past', time && !timeFirst && 'is-title-first'],
       tabindex: tab,
       'aria-label': occLabel(occ),
       dataset: { act: 'event', occ: occ.occId, drag: drag ? 'event' : null, fid: `ev:${prefix}:${occ.occId}` },
     },
-    occ.allDay ? null : h('span', { class: 'cal-ev-time' }, occ.startTime),
+    timeFirst ? time : null,
     // The tooltip sits on the text, so it isn't read again as the button's description
     h('span', { class: 'cal-ev-title', title: occTooltip(occ) }, occ.title),
+    timeFirst ? null : time,
     extra,
     glyph && occ.recurring ? h('span', { class: 'cal-ev-rep', 'aria-hidden': 'true' }, icon('repeat', { size: 10, stroke: 2 })) : null,
   );
@@ -199,6 +203,21 @@ export function habitMeter(info, { max = 5, readout = true } = {}) {
   return el;
 }
 
+/** A day's habits as a thin bar (done of planned), or null when nothing is planned. */
+export function habitBar(info, { className = 'cal-cell-hbar' } = {}) {
+  if (!info?.planned) return null;
+  const future = info.scheduled.length > 0 && info.scheduled.every((st) => st.status === 'future');
+  return h(
+    'span',
+    {
+      class: ['cal-hbar', className, info.done === info.planned && 'is-perfect', future && 'is-future'],
+      title: future ? `Habits: ${info.planned} planned` : `Habits: ${info.done} of ${info.planned} done`,
+      'aria-hidden': 'true',
+    },
+    h('span', { class: 'cal-hbar-fill', style: { width: `${Math.round((info.done / info.planned) * 100)}%` } }),
+  );
+}
+
 /** The live "now" line on a timeline column. */
 export function nowLine(nowMin, hourH) {
   return h(
@@ -241,6 +260,8 @@ export function monthView(ctx) {
     'aria-label': `${grid.title}. Arrow keys move between days, Enter opens a day.`,
   });
   el.style.setProperty('--cal-slots', String(ctx.slots));
+  // The rows stretch to fill the screen (calendar.js monthFit); a phone sizes its own cells
+  if (!compact && ctx.rowH) el.style.setProperty('--cal-row-h', `${ctx.rowH}px`);
   el.append(
     h(
       'div',
@@ -391,7 +412,8 @@ function weekRow(ctx, week) {
           { type: 'button', class: 'cal-date tnum', tabindex: '-1', title: `Open ${shortDay(day.key)}`, 'aria-label': `Open ${longDay(day.key)}`, dataset: { act: 'zoom-day', key: day.key } },
           dateText(day, false),
         ),
-        habitMeter(info, { max: 4 }),
+        // Habits that day: a small bar, not a fraction in every cell (the cell's name reads it out)
+        habitBar(info),
       ),
       h(
         'button',
@@ -403,15 +425,18 @@ function weekRow(ctx, week) {
     const ev = hiddenEv[c];
     const tk = hiddenTask[c];
     if (ev || tk) {
-      // Typed overflow: hidden tasks show as a hollow square count, so they are never invisible
+      // Typed overflow: hidden tasks show as a hollow square count, so they are never invisible.
+      // It opens the day's whole list on the spot (a popover; Tab reaches it, Esc closes it)
+      const what = [ev ? plural(ev, 'more event') : '', tk ? plural(tk, 'more task') : ''].filter(Boolean).join(' and ');
       const more = h(
         'button',
         {
           type: 'button',
           class: 'cal-more label',
-          tabindex: '-1',
-          title: `${[ev ? plural(ev, 'more event') : '', tk ? plural(tk, 'more task') : ''].filter(Boolean).join(' · ')} · open ${shortDay(day.key)}`,
-          dataset: { act: 'more', key: day.key },
+          title: `${what}: show all of ${shortDay(day.key)}`,
+          'aria-label': `${what} on ${longDay(day.key)}: show the whole day`,
+          'aria-haspopup': 'dialog',
+          dataset: { act: 'more', key: day.key, fid: `more:${day.key}` },
         },
         h('span', { class: 'cal-more-n tnum' }, `+${ev + tk}`),
         h('span', { class: 'cal-more-word' }, 'more'),
@@ -423,8 +448,9 @@ function weekRow(ctx, week) {
     }
   });
 
-  // Bars and chips overlay the cells; each cell's label already lists its day, and Enter opens it
-  for (const it of items) it.setAttribute('aria-hidden', 'true');
+  // Bars and chips overlay the cells; each cell's label already lists its day, and Enter opens it.
+  // "+N more" stays reachable: it opens the day's list where a keyboard can use every item
+  for (const it of items) if (!it.classList.contains('cal-more')) it.setAttribute('aria-hidden', 'true');
   row.append(...items);
   return row;
 }
@@ -471,6 +497,35 @@ function weekRowCompact(ctx, week) {
   return row;
 }
 
+/**
+ * A month day's whole list, for its "+N more": the day's name, its events and tasks (each
+ * usable: open, tick, drag, right-click), and Open day. calendar.js places it over the day and
+ * handles its keys; the clicks go through the calendar's own delegation (data-act).
+ */
+export function dayPopover(ctx, key) {
+  const occs = ctx.layers.events ? ctx.occs.filter((o) => o.start <= key && o.end >= key).sort((a, b) => Number(!a.allDay) - Number(!b.allDay) || (a.startMin ?? 0) - (b.startMin ?? 0)) : [];
+  const tasks = ctx.layers.tasks ? ctx.tasksByDay.get(key) ?? [] : [];
+  const titleId = `cal-pop-title-${key}`;
+  return h(
+    'div',
+    { class: 'cal-pop panel', role: 'dialog', 'aria-labelledby': titleId, dataset: { key, popDay: key } },
+    h(
+      'div',
+      { class: 'cal-pop-head' },
+      h('h3', { class: 'cal-pop-title', id: titleId }, icon(dayIcon(key, ctx.today), { size: 14 }), h('span', null, longDay(key))),
+      h('button', { type: 'button', class: 'btn btn--ghost btn--icon btn--sm cal-pop-close', 'aria-label': 'Close', title: 'Close (Esc)', dataset: { popClose: '' } }, icon('x', { size: 14 })),
+    ),
+    h(
+      'div',
+      { class: 'cal-pop-list' },
+      occs.map((o) => eventBar(o, ctx, { prefix: 'pop', tab: '0', drag: false, timeFirst: true })),
+      tasks.map((t) => taskChip(t, ctx, { prefix: 'pop', tab: '0' })),
+      occs.length || tasks.length ? null : h('p', { class: 'cal-plan-note' }, 'Nothing left on this day.'),
+    ),
+    h('button', { type: 'button', class: 'btn btn--sm cal-pop-open', dataset: { act: 'zoom-day', key, fid: 'pop-open' } }, icon('rows', { size: 14 }), 'Open day'),
+  );
+}
+
 /* ==========================================================================
    Timelines (week + day)
    ========================================================================== */
@@ -494,10 +549,17 @@ function fillTimeline(tl, ctx, keys) {
       'aria-label': `Timeline for ${longDay(key)}`,
       dataset: { tlDay: key, dropDay: key, zoom: keys.length > 1 ? `day:${key}` : null },
     });
-    // Timed events and tasks with a time share the column, side by side when they overlap
+    // Timed events and tasks with a time share the column, side by side when they overlap. A long
+    // block of time (a working day) is a band behind them instead of a lane (calendar.logic isBand)
     const items = ctx.layers.events ? ctx.occs.filter((o) => !o.allDay && o.start === key) : [];
     if (ctx.layers.tasks) items.push(...timedTasks(ctx.tasksByDay.get(key)));
-    for (const b of layoutTimed(items)) col.append(b.occ.task ? taskBlock(b, ctx, keys.length === 1) : timedBlock(b, ctx, keys.length === 1));
+    const wide = keys.length === 1;
+    const { bands, blocks } = layoutDay(items);
+    for (const b of bands) col.append(timedBlock(b, ctx, wide, { band: true }));
+    // A block over a band starts a little in, so the band's edge (and its name) still shows
+    const overBand = (b) => bands.some((x) => b.top < x.top + x.height && x.top < b.top + Math.max(b.height, 15));
+    for (const b of blocks) col.append(b.occ.task ? taskBlock(b, ctx, wide, overBand(b)) : timedBlock(b, ctx, wide, { inset: overBand(b) }));
+    col.classList.toggle('has-band', bands.length > 0);
     if (key === ctx.today) col.append(nowLine(ctx.nowMin, H));
     return col;
   });
@@ -516,7 +578,7 @@ function timedTasks(tasks) {
 }
 
 /** A task with a time on the timeline: check box, time, title, priority; drag to move or resize. */
-function taskBlock(b, ctx, wide) {
+function taskBlock(b, ctx, wide, inset = false) {
   const { task } = b.occ;
   const H = ctx.hourH;
   const height = Math.max((b.height / 60) * H, MIN_BLOCK_PX);
@@ -524,11 +586,15 @@ function taskBlock(b, ctx, wide) {
   const narrow = !wide && b.colSpan / b.cols < 0.6;
   const end = formatTime(b.occ.endMin);
   const overdue = !task.done && (task.due < ctx.today || (task.due === ctx.today && b.occ.endMin <= ctx.nowMin));
+  const pad = inset ? BAND_INSET : 2;
+  // One line (short or squeezed): the title first, then the time
+  const timeEl = h('span', { class: 'cal-tlev-time tnum' }, short || narrow ? task.time : `${task.time}–${end}`);
+  const titleEl = h('span', { class: 'cal-tlev-title', title: `Task: ${task.title}` }, task.title);
   const block = h(
     'div',
     {
       class: ['cal-tltask', task.done && 'is-done', `pri-${task.priority}`, short && 'is-short', narrow && 'is-narrow', wide && 'is-wide', overdue && 'is-past'],
-      style: { top: `${(b.top / 60) * H}px`, height: `${height}px`, left: `calc(${(b.col / b.cols) * 100}% + 2px)`, width: `calc(${(b.colSpan / b.cols) * 100}% - 4px)` },
+      style: { top: `${(b.top / 60) * H}px`, height: `${height}px`, left: `calc(${(b.col / b.cols) * 100}% + ${pad}px)`, width: `calc(${(b.colSpan / b.cols) * 100}% - ${pad + 2}px)` },
       dataset: { tl: 'task', task: task.id },
     },
     h(
@@ -551,8 +617,7 @@ function taskBlock(b, ctx, wide) {
         'aria-label': `${taskLabel(task, ctx)}, ${task.time} to ${end}. Open to schedule; drag to move`,
         dataset: { act: 'task-open', task: task.id, fid: `tlt:${task.id}` },
       },
-      h('span', { class: 'cal-tlev-time tnum' }, short || narrow ? task.time : `${task.time}–${end}`),
-      h('span', { class: 'cal-tlev-title', title: `Task: ${task.title}` }, task.title),
+      short || narrow ? [titleEl, timeEl] : [timeEl, titleEl],
     ),
     priorityBadge(task.priority),
     h('span', { class: 'cal-tlev-resize', dataset: { tlResize: '' }, 'aria-hidden': 'true' }),
@@ -565,13 +630,42 @@ const TL_PAD = 8; // 3 + 3 padding, 1 + 1 border
 const TL_TIME = 13; // time row incl. the 1px gap
 const TL_LOC = 14;
 
-function timedBlock(b, ctx, wide) {
+// How far a block over a band starts in (px): the band's edge and name stay in view
+const BAND_INSET = 12;
+
+/**
+ * A timed event on a timeline. band: a long block of time drawn behind the column's other
+ * events (its name and time on one line at its top; only that line and its bottom edge take
+ * the pointer, so the hours under it stay free to click and drag). inset: a block over a band.
+ */
+function timedBlock(b, ctx, wide, { band = false, inset = false } = {}) {
   const { occ } = b;
   const H = ctx.hourH;
   const top = (b.top / 60) * H;
   const height = Math.max((b.height / 60) * H, MIN_BLOCK_PX);
   const left = (b.col / b.cols) * 100;
   const width = (b.colSpan / b.cols) * 100;
+  if (band) {
+    const el = h(
+      'button',
+      {
+        type: 'button',
+        class: ['cal-tlev', 'is-band', `cal-band--${occ.style}`, isPastOcc(occ, ctx) && 'is-past', wide && 'is-wide'],
+        style: { top: `${top}px`, height: `${height}px`, left: `calc(${left}% + 1px)`, width: `calc(${width}% - 2px)` },
+        'aria-label': occLabel(occ),
+        dataset: { act: 'event', occ: occ.occId, tl: 'event', fid: `tl:${occ.occId}` },
+      },
+      h(
+        'span',
+        { class: 'cal-band-label', title: occTooltip(occ) },
+        h('span', { class: 'cal-tlev-title' }, occ.title),
+        h('span', { class: 'cal-tlev-time tnum' }, `${occ.startTime}–${occ.endTime}`),
+      ),
+      h('span', { class: 'cal-tlev-resize', dataset: { tlResize: '' }, 'aria-hidden': 'true' }),
+    );
+    return paintColor(el, 'events', occ.color);
+  }
+  const pad = inset ? BAND_INSET : 2;
   const short = height < 40;
   // A block squeezed into part of a week column shows its start time only
   const narrow = !wide && b.colSpan / b.cols < 0.6;
@@ -586,17 +680,19 @@ function timedBlock(b, ctx, wide) {
     if (showLoc) lines = Math.floor((height - TL_PAD - TL_TIME - TL_LOC) / lineH);
     lines = Math.max(1, Math.min(6, lines));
   }
+  // One line (short or squeezed): the title first, then the time ("Lunch with Ola 12:00")
+  const timeEl = h('span', { class: 'cal-tlev-time tnum' }, short || narrow ? occ.startTime : `${occ.startTime}–${occ.endTime}`);
+  const titleEl = h('span', { class: 'cal-tlev-title', title: occTooltip(occ) }, occ.title);
   const block = h(
     'button',
     {
       type: 'button',
-      class: ['cal-tlev', `cal-ev--${occ.style}`, short && 'is-short', tiny && 'is-tiny', narrow && 'is-narrow', isPastOcc(occ, ctx) && 'is-past', wide && 'is-wide'],
-      style: { top: `${top}px`, height: `${height}px`, left: `calc(${left}% + 2px)`, width: `calc(${width}% - 4px)` },
+      class: ['cal-tlev', `cal-ev--${occ.style}`, short && 'is-short', tiny && 'is-tiny', narrow && 'is-narrow', isPastOcc(occ, ctx) && 'is-past', wide && 'is-wide', inset && 'is-over-band'],
+      style: { top: `${top}px`, height: `${height}px`, left: `calc(${left}% + ${pad}px)`, width: `calc(${width}% - ${pad + 2}px)` },
       'aria-label': occLabel(occ),
       dataset: { act: 'event', occ: occ.occId, tl: 'event', fid: `tl:${occ.occId}` },
     },
-    h('span', { class: 'cal-tlev-time tnum' }, short || narrow ? occ.startTime : `${occ.startTime}–${occ.endTime}`),
-    h('span', { class: 'cal-tlev-title', title: occTooltip(occ) }, occ.title),
+    short || narrow ? [titleEl, timeEl] : [timeEl, titleEl],
     showLoc ? h('span', { class: 'cal-tlev-loc' }, icon('map-pin', { size: 10 }), occ.location) : null,
     occ.recurring && !short && !narrow ? h('span', { class: 'cal-ev-rep', 'aria-hidden': 'true' }, icon('repeat', { size: 10, stroke: 2 })) : null,
     h('span', { class: 'cal-tlev-resize', dataset: { tlResize: '' }, 'aria-hidden': 'true' }),
@@ -699,7 +795,8 @@ function fillAllday(el, ctx, keys, { tasks: withTasks = true, add = false } = {}
   }
   const rows = Math.max(1, rowsUsed);
   el.style.setProperty('--cal-cols', String(keys.length));
-  el.style.gridTemplateRows = `repeat(${rows}, var(--cal-slot))`;
+  // A week's chips may wrap to two lines: its rows grow with them (calendar.css)
+  el.style.gridTemplateRows = keys.length > 1 ? `repeat(${rows}, minmax(var(--cal-slot), auto))` : `repeat(${rows}, var(--cal-slot))`;
   if (add) {
     // Its own column at the lane's end, so it never covers a bar
     items.push(
@@ -800,6 +897,8 @@ function taskRow(task, ctx, { prefix, showDue = false }) {
         dataset: { act: 'task-check', task: task.id, fid: `rc:${prefix}:${task.id}` },
       },
       icon('check', { size: 13, stroke: 2.5 }),
+      // The finger-sized target, as ui.checkButton's (44px on touch screens, css/compact.css)
+      h('span', { class: 'check-hit', 'aria-hidden': 'true' }),
     ),
     h(
       'button',
@@ -1045,7 +1144,7 @@ export function agendaView(ctx) {
       const tasks = ctx.layers.tasks ? ctx.tasksByDay.get(key) ?? [] : [];
       const info = ctx.layers.habits ? ctx.habits?.get(key) : null;
       const items = [
-        ...occs.map((o) => eventBar(o, ctx, { prefix: `ag${key}`, tab: '0', drag: false })),
+        ...occs.map((o) => eventBar(o, ctx, { prefix: `ag${key}`, tab: '0', drag: false, timeFirst: true })),
         ...tasks.map((t) => taskChip(t, ctx, { prefix: `ag${key}`, tab: '0' })),
       ];
       // A day with nothing planned folds into its heading row, so the busy days stand out
@@ -1137,28 +1236,23 @@ export function trayView() {
    Legend
    ========================================================================== */
 
-/** The look key (events · task · habits). Inline (a span), so it can sit in a tip's text. */
+/**
+ * What the marks mean, in words (a tip, shown once): a bar is an event, a box a task, the mark
+ * by a date its habits (dots in the week and day, a thin bar in the month: calendar.css shows
+ * the sample of the view on screen). Inline (a span), so it can sit in a tip's text.
+ */
 export function legend() {
   return h(
     'span',
-    { class: 'cal-legend', role: 'group', 'aria-label': 'Legend' },
-    h(
-      'span',
-      { class: 'cal-legend-group' },
-      h('span', { class: 'label cal-legend-name' }, icon(LAYER_ICON.events, { size: 12 }), 'Events'),
-      STYLES.map((s) => h('span', { class: ['cal-legend-ev', `cal-ev--${s}`], title: `${STYLE_LABEL[s]} event` }, STYLE_LABEL[s])),
-    ),
-    h(
-      'span',
-      { class: 'cal-legend-group' },
-      h('span', { class: 'label cal-legend-name' }, icon(LAYER_ICON.tasks, { size: 12 }), 'Task'),
-      h('span', { class: 'cal-legend-task' }, h('span', { class: 'cal-legend-box' }), 'Square check'),
-    ),
+    { class: 'cal-legend', role: 'group', 'aria-label': 'What the marks mean' },
+    h('span', { class: 'cal-legend-group' }, h('span', { class: 'cal-legend-ev cal-ev--solid', 'aria-hidden': 'true' }), h('span', null, 'A bar is an event (its look is yours to pick)')),
+    h('span', { class: 'cal-legend-group' }, h('span', { class: 'cal-legend-task', 'aria-hidden': 'true' }, h('span', { class: 'cal-legend-box' })), h('span', null, 'a box is a task to tick')),
     h(
       'span',
       { class: 'cal-legend-group cal-legend-group--hb' },
-      h('span', { class: 'label cal-legend-name' }, icon(LAYER_ICON.habits, { size: 12 }), 'Habits'),
-      h('span', { class: 'cal-hb cal-legend-hb' }, h('span', { class: 'cal-hb-dot is-done' }), h('span', { class: 'cal-hb-dot is-done' }), h('span', { class: 'cal-hb-dot is-pending' }), h('span', { class: 'cal-hb-n tnum' }, '2/3')),
+      h('span', { class: 'cal-hb cal-legend-hb', 'aria-hidden': 'true' }, h('span', { class: 'cal-hb-dot is-done' }), h('span', { class: 'cal-hb-dot is-pending' })),
+      h('span', { class: 'cal-hbar cal-legend-hbar', 'aria-hidden': 'true' }, h('span', { class: 'cal-hbar-fill', style: { width: '60%' } })),
+      h('span', null, 'the mark by a date shows the habits done'),
     ),
   );
 }

@@ -50,9 +50,15 @@
   --dur-slow: 420ms;
 
   --sidebar-w: 236px;
-  --topbar-h: 56px;
-  --tabbar-h: 64px;
+  /* The top bar holds the timer, a widget and the clock: slim, so pages start high */
+  --topbar-h: 44px;
+  --tabbar-h: 60px;
   --content-max: 1120px;
+
+  /* Page titles (css/compact.css): a template picks a size within the cap (22–44px on a
+     computer, 20–32px on a phone), so every page starts high whatever the look */
+  --page-title-size: clamp(26px, 2.6vw, 40px);
+  --page-title-size-phone: 24px;
 
   --z-nav: 20;
   --z-overlay: 50;

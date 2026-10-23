@@ -633,6 +633,22 @@ export function normalizeSession(raw) {
   };
 }
 
+/**
+ * Anything typed or ticked in one exercise of the session: taking it out (or discarding the whole
+ * workout) then loses something, so the page offers Undo or asks first.
+ */
+export function itemHasData(item) {
+  if (!isObject(item)) return false;
+  const filled = (v) => typeof v === 'string' && v.trim() !== '';
+  return (
+    item.touched === true ||
+    (Array.isArray(item.sets) && item.sets.some((x) => isObject(x) && (x.done === true || filled(x.reps) || filled(x.kg)))) ||
+    filled(item.km) ||
+    filled(item.time) ||
+    (Array.isArray(item.times) && item.times.some(filled))
+  );
+}
+
 /** Seconds since the session started (never negative). */
 export const sessionElapsed = (session, now = Date.now()) => Math.max(0, Math.floor((now - session.startedAt) / 1000));
 

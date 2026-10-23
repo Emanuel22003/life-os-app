@@ -57,7 +57,7 @@
 
 .nt-view .page-header {
   flex: none;
-  margin-bottom: var(--space-5);
+  margin-bottom: var(--space-4);
 }
 
 /* The heading gives way first (its explanation wraps), so List · Board and New note stay on
@@ -66,33 +66,9 @@
   flex: 1 1 0;
 }
 
-/* ---- Header totals ---- */
-
-/* Mid widths: the totals step aside for the buttons */
-@container nt-view (max-width: 860px) {
-  .nt-view .nt-stats {
-    display: none;
-  }
-}
-
-.nt-stats {
-  display: flex;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  background: var(--surface);
-}
-
-.nt-stat {
-  min-width: 72px;
-  padding: var(--space-2) var(--space-4);
-}
-
-.nt-stat + .nt-stat {
-  border-left: 1px solid var(--line);
-}
-
-.nt-stat .stat-value {
-  font-size: var(--fs-lg);
+/* The header's count ("36 notes") reads like the page's other quiet numbers */
+.nt-stat-line {
+  font-variant-numeric: tabular-nums;
 }
 
 /* ---- Workspace ---- */
@@ -136,11 +112,6 @@
 
 /* A blank notebook keeps the strip above the big empty state (narrow workspaces), so
    sections and the starters are one tap away, as the rail offers them on wide ones */
-
-/* Delete confirmation copy (rendered in the shared modal, outside the view) */
-.nt-confirm-msg {
-  overflow-wrap: anywhere;
-}
 
 /* Keyboard hints sitting on an inverted (primary) button */
 .nt-kbd-inv {
@@ -265,9 +236,11 @@
   transition: color var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease);
 }
 
-.nt-search-clear:hover {
-  color: var(--text);
-  background: var(--surface-3);
+@media (hover: hover) and (pointer: fine) {
+  .nt-search-clear:hover {
+    color: var(--text);
+    background: var(--surface-3);
+  }
 }
 
 .nt-list-meta {
@@ -342,9 +315,11 @@
     color var(--dur-fast) var(--ease);
 }
 
-.nt-item:hover {
-  background: var(--surface-2);
-  color: var(--text);
+@media (hover: hover) and (pointer: fine) {
+  .nt-item:hover {
+    background: var(--surface-2);
+    color: var(--text);
+  }
 }
 
 .nt-item[aria-current="true"] {
@@ -564,12 +539,18 @@
 .nt-title {
   flex: none;
   display: block;
-  width: 100%;
+  /* The text's own column (the editor stretches it), so the line under it keeps to the words,
+     as the meta line under it does */
+  width: auto;
+  margin: 0 var(--space-6);
   /* Grows with the text (a long title wraps), up to about six lines, then scrolls */
   field-sizing: content;
   max-height: 8em;
-  padding: var(--space-5) var(--space-6) var(--space-2);
+  padding: var(--space-5) 0 var(--space-2);
+  /* A field you can type in, not a form box: a dotted line in the field-edge ink under it at
+     rest (3:1, WCAG 1.4.11), solid where you point at it, 2px in the focus color while you type */
   border: 0;
+  border-bottom: 1px dotted var(--field-line);
   border-radius: 0;
   background: transparent;
   -webkit-appearance: none;
@@ -590,10 +571,28 @@
   color: var(--text-3);
 }
 
-/* Borderless fields: the caret and the panel's lit HUD corners mark focus */
+@media (hover: hover) and (pointer: fine) {
+  .nt-title:hover {
+    border-bottom-style: solid;
+  }
+}
+
+.nt-title:focus {
+  border-bottom-style: solid;
+  border-bottom-color: var(--line-focus);
+  box-shadow: inset 0 -1px 0 var(--line-focus);
+}
+
+/* No ring around the fields themselves: the title's line (above) and, while you write in the
+   text, a line in the focus color across the top of the writing area (3:1, WCAG 1.4.11) mark
+   focus, with the caret (and Mission Control's lit panel corners) */
 .nt-title:focus-visible,
 .nt-body:focus-visible {
   outline: none;
+}
+
+.nt-body:focus {
+  box-shadow: inset 0 1px 0 var(--line-focus);
 }
 
 /* ---- Meta bar ---- */
@@ -813,9 +812,11 @@
   transition: text-decoration-color var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease);
 }
 
-.nt-prose a:hover {
-  text-decoration-color: var(--accent);
-  background: var(--accent-soft);
+@media (hover: hover) and (pointer: fine) {
+  .nt-prose a:hover {
+    text-decoration-color: var(--accent);
+    background: var(--accent-soft);
+  }
 }
 
 .nt-prose code {
@@ -928,8 +929,9 @@
   border-color: var(--text-3);
 }
 
+/* Numbers as the template counts: 1. 2. in the plain ones, 01. 02. in Mission Control */
 .nt-prose ol {
-  list-style: decimal-leading-zero;
+  list-style-type: var(--counter-style, decimal);
 }
 
 .nt-prose ol > li::marker {
@@ -989,9 +991,11 @@
   transition: transform var(--dur) var(--ease-out);
 }
 
-.nt-task-box:hover {
-  border-color: var(--text);
-  box-shadow: var(--glow);
+@media (hover: hover) and (pointer: fine) {
+  .nt-task-box:hover {
+    border-color: var(--text);
+    box-shadow: var(--glow);
+  }
 }
 
 .nt-task-box:checked {
@@ -1100,6 +1104,11 @@
   animation: lo-rise var(--dur) var(--ease-out) both;
 }
 
+/* An empty Unsorted steps aside, except as a drop target while a note is dragged */
+.nt-rail:not(.is-dropzone) .nt-srow.nt-srow--empty {
+  display: none;
+}
+
 .nt-rail-item {
   position: relative;
   display: grid;
@@ -1119,9 +1128,11 @@
     border-color var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease);
 }
 
-.nt-rail-item:hover {
-  color: var(--text);
-  background: var(--surface-2);
+@media (hover: hover) and (pointer: fine) {
+  .nt-rail-item:hover {
+    color: var(--text);
+    background: var(--surface-2);
+  }
 }
 
 .nt-rail-item[aria-current="true"] {
@@ -1443,11 +1454,13 @@
     border-color var(--dur-fast) var(--ease);
 }
 
-.nt-suggest-chip:hover {
-  border-style: solid;
-  border-color: var(--text-3);
-  background: var(--surface-2);
-  color: var(--text);
+@media (hover: hover) and (pointer: fine) {
+  .nt-suggest-chip:hover {
+    border-style: solid;
+    border-color: var(--text-3);
+    background: var(--surface-2);
+    color: var(--text);
+  }
 }
 
 .nt-suggest-chip svg {
@@ -1455,8 +1468,10 @@
   color: var(--text-3);
 }
 
-.nt-suggest-chip:hover svg {
-  color: var(--text);
+@media (hover: hover) and (pointer: fine) {
+  .nt-suggest-chip:hover svg {
+    color: var(--text);
+  }
 }
 
 .nt-suggest-name {
@@ -1553,10 +1568,36 @@
     border-color var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease);
 }
 
-.nt-chip:hover {
-  border-color: var(--text-3);
-  background: var(--surface-2);
-  color: var(--text);
+@media (hover: hover) and (pointer: fine) {
+  .nt-chip:hover {
+    border-color: var(--text-3);
+    background: var(--surface-2);
+    color: var(--text);
+  }
+}
+
+/* More ▾: the sections that don't fit, in a menu (a chip like the others, from ui.dropdown) */
+.nt-chip-more {
+  flex: none;
+}
+
+/* A notch stronger than the plain templates' .btn, so it reads as a chip; a template's own chip
+   rules still win */
+.nt-chips .nt-chip--more {
+  height: 30px;
+  gap: 4px;
+  padding: 0 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  box-shadow: none;
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+}
+
+.nt-chip--more .dd-chev {
+  color: var(--text-3);
 }
 
 .nt-chip svg {
@@ -1660,15 +1701,6 @@
   overflow-wrap: anywhere;
 }
 
-.nt-viewempty-btn {
-  max-width: 100%;
-}
-
-.nt-viewempty-btn > span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
 .nt-elsewhere {
   display: flex;
   align-items: center;
@@ -1732,11 +1764,18 @@
     border-color var(--dur-fast) var(--ease);
 }
 
-.nt-move:hover,
 .nt-move[aria-expanded="true"] {
   border-color: var(--text-3);
   background: var(--surface-2);
   color: var(--text);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .nt-move:hover {
+    border-color: var(--text-3);
+    background: var(--surface-2);
+    color: var(--text);
+  }
 }
 
 /* Not filed yet: dashed, like everything provisional in the HUD */
@@ -2043,9 +2082,11 @@
     box-shadow var(--dur-fast) var(--ease);
 }
 
-.nt-choice:hover {
-  border-color: var(--text-3);
-  background: var(--surface-2);
+@media (hover: hover) and (pointer: fine) {
+  .nt-choice:hover {
+    border-color: var(--text-3);
+    background: var(--surface-2);
+  }
 }
 
 .nt-choice:has(.nt-choice-input:checked) {
@@ -2197,8 +2238,9 @@
    Wide workspace: three columns, sections rail | list | editor
    ========================================================================== */
 
-/* 1000px, not 940: the editor keeps about 500px when the rail takes its column */
-@container nt-view (min-width: 1000px) {
+/* From 900px: a laptop's workspace (about 980px at 1280) gets the rail rather than a strip of
+   chips running off its edge; the editor keeps about 420px or more */
+@container nt-view (min-width: 900px) {
   .nt-workspace {
     grid-template-columns: 208px clamp(240px, 27%, 360px) minmax(0, 1fr);
   }
@@ -2224,18 +2266,10 @@
 /* Touch screens: the open section keeps its Edit / Delete showing, so the rail gets
    a little more room for its name */
 @media (hover: none) {
-  @container nt-view (min-width: 1000px) {
+  @container nt-view (min-width: 900px) {
     .nt-workspace {
       grid-template-columns: 224px clamp(240px, 27%, 360px) minmax(0, 1fr);
     }
-  }
-}
-
-/* Four readouts in a mid-width header: tighter cells */
-@container nt-view (max-width: 760px) {
-  .nt-stat {
-    min-width: 0;
-    padding: var(--space-2) var(--space-3);
   }
 }
 
@@ -2298,7 +2332,8 @@
     --btn-h: 34px;
   }
 
-  .nt-chip {
+  .nt-chip,
+  .nt-chips .nt-chip--more {
     height: 34px;
   }
 
@@ -2317,6 +2352,18 @@
   .nt-rail-item,
   .nt-rename {
     height: 40px;
+  }
+
+  /* The editor's icon buttons (color, pin, delete, close): a finger's 40px */
+  .nt-toolbar .btn--icon {
+    --btn-h: 40px;
+    width: 40px;
+  }
+
+  /* Edit · Preview keeps its whole width beside them on a phone (it would scroll inside itself):
+     the gaps give way instead */
+  .nt-toolbar .nt-seg {
+    flex: none;
   }
 
   .nt-rename {
@@ -2350,17 +2397,15 @@
     margin-bottom: var(--space-4);
   }
 
-  /* The totals go; the List · Board toggle stays */
-  .nt-view .nt-stats {
-    display: none;
-  }
-
+  /* Back, Edit · Preview and three 40px buttons in one row of a 375px phone */
   .nt-toolbar {
+    gap: 6px;
     padding: var(--space-2);
   }
 
   .nt-title {
-    padding: var(--space-4) var(--space-4) var(--space-2);
+    margin-inline: var(--space-4);
+    padding: var(--space-4) 0 var(--space-2);
     font-size: var(--fs-xl);
   }
 
@@ -2411,6 +2456,19 @@
   html[data-skin] .main .view.nt-view[data-pane="editor"]:not([data-layout="board"]) > .page-header :is(a, button, input, select, textarea, [tabindex]) {
     visibility: hidden;
   }
+
+  /* …and the h1 itself is the usual visually-hidden box (base.css .sr-only), so it reads as one */
+  html[data-skin] .main .view.nt-view[data-pane="editor"]:not([data-layout="board"]) > .page-header .page-title {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    border: 0;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
 }
 
 @media (max-width: 640px) {
@@ -2428,6 +2486,18 @@
 
   html[data-skin] .main .view.nt-view[data-pane="editor"] > .page-header :is(a, button, input, select, textarea, [tabindex]) {
     visibility: hidden;
+  }
+
+  html[data-skin] .main .view.nt-view[data-pane="editor"] > .page-header .page-title {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    border: 0;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
   }
 }
 
@@ -2527,6 +2597,47 @@
     -webkit-line-clamp: 1;
     line-clamp: 1;
   }
+
+  /* The list scrolls with the page: one scroller, not a box inside a box. Its card runs edge to
+     edge (it keeps its background, so a template's artwork stays behind it), and the notes sit
+     on the page's 16px gutters; the section menu and the search stay on top while they scroll. */
+  .view.nt-view[data-layout="list"][data-pane="list"] {
+    height: auto;
+    min-height: 0;
+  }
+
+  .nt-view[data-layout="list"][data-pane="list"] .nt-workspace {
+    display: block;
+    flex: none;
+  }
+
+  html[data-skin] .main .nt-view[data-layout="list"] .nt-list.panel {
+    overflow: visible;
+    margin-inline: calc(var(--space-4) * -1);
+    padding: 0;
+    border-inline-color: transparent;
+    border-radius: 0;
+  }
+
+  html[data-skin] .main .nt-view[data-layout="list"] .nt-list.panel::before,
+  html[data-skin] .main .nt-view[data-layout="list"] .nt-list.panel::after {
+    content: none;
+  }
+
+  .nt-view[data-layout="list"][data-pane="list"] .nt-list-head {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    padding: var(--space-2) var(--space-4);
+    background: var(--surface-solid);
+  }
+
+  /* A note's text starts on the gutter: its own border and padding reach back out */
+  .nt-view[data-layout="list"][data-pane="list"] .nt-list-body {
+    flex: none;
+    overflow: visible;
+    padding-inline: calc(var(--space-4) - var(--space-3) - 1px);
+  }
 }
 
 @media (max-width: 400px) {
@@ -2545,7 +2656,6 @@
 @media (hover: none) {
   .nt-search-kbd,
   .nt-new .kbd,
-  .nt-create .kbd,
   .nt-foot.nt-hints,
   .nt-strip-hint {
     display: none;

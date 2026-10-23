@@ -21,7 +21,6 @@ import {
   pageHeader,
   emptyState,
   toast,
-  confirmDialog,
   timeAgo,
   formatDay,
   dateKey,
@@ -36,6 +35,7 @@ import {
   modalOpen,
   dropdown,
   tip,
+  dismissTip,
 } from '../ui.js';
 import { createStore } from '../store.js';
 import {
@@ -51,7 +51,6 @@ import {
   countWords,
   countChars,
   groupDigits,
-  formatCount,
   continueList,
   pickNeighbor,
   clip,
@@ -238,17 +237,6 @@ function viewCount(counts, view) {
   return counts.bySection[view] ?? 0;
 }
 
-// Header word total, cached per (immutable) note object.
-const wordCache = new WeakMap();
-function wordsIn(note) {
-  let n = wordCache.get(note);
-  if (n == null) {
-    n = countWords(note.title) + countWords(note.body);
-    wordCache.set(note, n);
-  }
-  return n;
-}
-
 let justSeeded = false;
 let editorMode = 'edit'; // 'edit' | 'preview'; survives navigation within a session
 
@@ -284,11 +272,6 @@ const pad2 = (n) => String(n).padStart(2, '0');
 function formatStamp(ts) {
   const d = new Date(ts);
   return `${formatDay(dateKey(d))} · ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
-}
-
-/** Label above value, the order the Tasks stats and Habits readouts use. */
-function statBlock(label, valueEl) {
-  return h('div', { class: 'stat nt-stat' }, h('span', { class: 'label' }, label), valueEl);
 }
 
 /** User text dropped into a sentence (toasts, dialogs), isolated so its direction cannot reorder the copy around it. */
@@ -420,7 +403,11 @@ function mount(root) {
   const board = createBoard({
     host: root,
     onOpen: (id, { keyboard }) => openCard(id, { keyboard }),
-    onMove: (id, column) => moveNote(id, columnSection(column)),
+    onMove: (id, column) => {
+      moveNote(id, columnSection(column));
+      // A card moved: how to move one is known now
+      dismissTip('notes.board');
+    },
     onMenu: (id, anchor, { keyboard }) => toggleCardMenu(id, anchor, { keyboard }),
     onNew: (column) => newNote({ column }),
     onNewSection: () => newSection(),
@@ -441,10 +428,8 @@ function mount(root) {
 
   /* ---- Header ---- */
 
-  const statNotes = h('span', { class: 'stat-value' });
-  const statSections = h('span', { class: 'stat-value' });
-  const statPinned = h('span', { class: 'stat-value' });
-  const statWords = h('span', { class: 'stat-value' });
+  // The header's live status: how many notes there are ("36 notes"), the same in both layouts
+  const statEl = h('span', { class: 'nt-stat-line' });
 
   // List · Board: each tab keeps its own; the last choice is what a new tab opens with.
   // Phones show the two as icons (the word is the button's name).
@@ -477,24 +462,18 @@ function mount(root) {
     h('span', { class: 'kbd nt-kbd-inv lo-hint', 'aria-hidden': 'true' }, 'N'),
   );
 
+  // One header for the list and the board (it never changes height when you switch): the title
+  // and the count, List · Board and New note; what the page is for is a tip until "Got it".
   const header = pageHeader({
     index: '03',
     title: 'Notes',
     subtitle: term('notes.subtitle', 'Ideas, plans and references in markdown. Saved as you type.'),
     tipId: 'notes.intro',
-    actions: [
-      h(
-        'div',
-        { class: 'nt-stats lo-deco', role: 'group', 'aria-label': 'Notebook totals' },
-        statBlock('Notes', statNotes),
-        statBlock('Sections', statSections),
-        statBlock('Pinned', statPinned),
-        statBlock('Words', statWords),
-      ),
-      layoutSeg,
-      newBtn,
-    ],
+    stat: statEl,
+    actions: [layoutSeg, newBtn],
   });
+  // A shell that doesn't place `stat` yet: the count goes on the heading itself
+  if (!header.contains(statEl)) header.querySelector('.page-heading')?.append(h('p', { class: 'page-stat' }, statEl));
 
   /* ---- Section menu (phones): All notes · Unsorted · each section, then New / Edit / Manage ----
      It stands in for the chip strip, in the same row as the search. Its button shows the open
@@ -560,7 +539,7 @@ function mount(root) {
     type: 'search',
     placeholder: 'Search notes',
     'aria-label': 'Search notes',
-    'aria-keyshortcuts': '/ Control+K Meta+K',
+    'aria-keyshortcuts': '/',
     autocomplete: 'off',
     spellcheck: 'false',
     enterkeyhint: 'search',
@@ -619,14 +598,9 @@ function mount(root) {
 
   const escHint = hint(['Esc'], 'Exit editor');
 
-  // An empty view: "No notes in TikTok ideas yet" + a button that starts one there.
-  const viewEmptyLabel = h('span');
-  const viewEmpty = emptyState({
-    icon: 'folder',
-    title: ' ',
-    text: ' ',
-    action: h('button', { type: 'button', class: 'btn btn--sm btn--primary nt-viewempty-btn', onClick: () => newNote() }, icon('plus'), viewEmptyLabel),
-  });
+  // An empty view: "No notes in TikTok ideas yet" and how to fill it. The header's New note starts
+  // one there, so the empty list has no button of its own.
+  const viewEmpty = emptyState({ icon: 'folder', title: ' ', text: ' ' });
   viewEmpty.classList.add('nt-nomatch', 'nt-viewempty');
   const viewEmptyIcon = viewEmpty.querySelector('.empty-icon');
   const viewEmptyTitle = viewEmpty.querySelector('.empty-title');
@@ -660,6 +634,15 @@ function mount(root) {
 
   /* ---- Board panel ---- */
 
+  // By touch, a hold let go in place opens Move to… (phones hide the cards' ⋯): the tip says so.
+  const boardTip = tip({
+    id: 'notes.board',
+    className: 'nt-board-hint',
+    text: window.matchMedia('(pointer: coarse)').matches
+      ? 'Hold a card and drag it onto a column, or let go to pick one.'
+      : 'Drag a card onto another column, or onto its chip above, to move it.',
+  });
+
   // Toolbar: search (and the column menu on phones), the column pager (the drop dock while a
   // card is lifted), Manage. How to move a card is a tip under it until it is dismissed.
   const boardTools = h('div', { class: 'nt-board-tools' }, jumpMenu.el);
@@ -678,14 +661,7 @@ function mount(root) {
         icon('sliders'),
       ),
     ),
-    // By touch, a hold let go in place opens Move to… (phones hide the cards' ⋯): the tip says so.
-    tip({
-      id: 'notes.board',
-      className: 'nt-board-hint',
-      text: window.matchMedia('(pointer: coarse)').matches
-        ? 'Hold a card and drag it onto a column, or let go to pick one.'
-        : 'Drag a card onto another column, or onto its chip above, to move it.',
-    }),
+    boardTip,
     board.el,
     h(
       'div',
@@ -731,14 +707,15 @@ function mount(root) {
     icon('eye', { size: 12 }),
     'Preview',
   );
+  // The toolbar's icon buttons share one quiet look; only a pinned note's pin is lit
   const pinBtn = h(
     'button',
-    { type: 'button', class: 'btn btn--icon btn--sm nt-pin', 'aria-pressed': 'false', 'aria-label': 'Pin note', title: 'Pin note', onClick: () => togglePin() },
+    { type: 'button', class: 'btn btn--ghost btn--icon btn--sm nt-pin', 'aria-pressed': 'false', 'aria-label': 'Pin note', title: 'Pin note', onClick: () => togglePin() },
     icon('pin'),
   );
   const deleteBtn = h(
     'button',
-    { type: 'button', class: 'btn btn--danger btn--icon btn--sm', 'aria-label': 'Delete note', title: 'Delete note', onClick: () => deleteCurrent() },
+    { type: 'button', class: 'btn btn--ghost btn--icon btn--sm nt-delete', 'aria-label': 'Delete note', title: 'Delete note (Undo in the toast)', onClick: () => deleteCurrent() },
     icon('trash'),
   );
   // Color coding: the open note's color
@@ -787,17 +764,23 @@ function mount(root) {
     onInput: onEdit,
     onKeydown: onBodyKey,
   });
+  // A note with something in it opens as it reads; a click on the text (not a link or a box), the
+  // Edit button or E starts editing there
   const previewEl = h('div', {
     class: 'nt-preview nt-prose',
     role: 'region',
-    'aria-label': 'Note preview',
+    'aria-label': 'Note preview. Press E or click to edit',
     tabindex: '0',
     hidden: true,
     onChange: onPreviewChange,
+    onClick: onPreviewClick,
     onKeydown: (e) => {
       if (e.key === 'Escape') {
         e.preventDefault();
         releaseEditor();
+      } else if ((e.key === 'e' || e.key === 'E' || e.key === 'Enter') && e.target === previewEl && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        e.preventDefault();
+        setMode('edit', { focus: true });
       }
     },
   });
@@ -846,17 +829,11 @@ function mount(root) {
   const emptyEl = h(
     'div',
     { class: 'nt-empty' },
+    // New note in the header (or N) is the way in; this only says what a note is for
     emptyState({
       icon: 'note',
       title: 'No notes yet',
-      text: 'Capture an idea, a plan or a checklist. Notes save automatically while you type.',
-      action: h(
-        'button',
-        { type: 'button', class: 'btn btn--primary nt-create', onClick: () => newNote() },
-        icon('plus'),
-        h('span', null, 'Create your first note'),
-        h('span', { class: 'kbd nt-kbd-inv lo-hint', 'aria-hidden': 'true' }, 'N'),
-      ),
+      text: 'Capture an idea, a plan or a checklist with New note. Notes save automatically while you type.',
     }),
   );
 
@@ -904,13 +881,13 @@ function mount(root) {
     return JSON.stringify([note?.id ?? null, note?.sectionId ?? null, s.sections.map((x) => [x.id, x.name, x.icon])]);
   }
 
-  /** Somewhere sensible for focus once its control is gone: the empty view's button, a note, or the nav. */
+  /** Somewhere sensible for focus once its control is gone: a note, or the nav. */
   function focusListFallback() {
     if (isBoard()) {
       board.focusFallback();
       return;
     }
-    const target = (viewEmpty.isConnected && viewEmpty.querySelector('.btn')) || listBody.querySelector('.nt-item');
+    const target = listBody.querySelector('.nt-item');
     if (target && target.offsetParent !== null) target.focus({ preventScroll: true });
     else focusViewNav(ui.view);
   }
@@ -967,17 +944,13 @@ function mount(root) {
     if (editing && isBoard()) ui.refocus = true;
   }
 
+  /** "36 notes" in the header (an empty note just started doesn't count yet); nothing at none. */
   function renderStats(s) {
-    let pinned = 0;
-    let words = 0;
-    for (const note of s.items) {
-      if (note.pinned) pinned += 1;
-      words += wordsIn(note);
-    }
-    statNotes.textContent = num(s.items.length);
-    statSections.textContent = num(s.sections.length);
-    statPinned.textContent = num(pinned);
-    statWords.textContent = formatCount(words);
+    const n = s.items.filter((note) => !isBlank(note)).length;
+    const text = n ? `${num(n)} ${n === 1 ? 'note' : 'notes'}` : '';
+    if (statEl.textContent !== text) statEl.textContent = text;
+    statEl.hidden = !n;
+    if (statEl.parentElement?.matches('.page-stat')) statEl.parentElement.hidden = !n;
   }
 
   function renderList(s, counts, currentId) {
@@ -1119,16 +1092,13 @@ function mount(root) {
     viewEmptyIcon.replaceChildren(icon(viewIconName(s.sections, view), { size: 20 }));
     if (view === VIEW_ALL) {
       viewEmptyTitle.textContent = 'No notes yet';
-      viewEmptyText.textContent = 'Capture an idea, a plan or a checklist. New notes start out unsorted.';
-      viewEmptyLabel.textContent = 'New note';
+      viewEmptyText.textContent = 'Capture an idea, a plan or a checklist with New note. New notes start out unsorted.';
     } else if (view === VIEW_UNSORTED) {
       viewEmptyTitle.textContent = 'Nothing unsorted';
       viewEmptyText.textContent = 'Every note is filed in a section. Notes you start here stay unsorted.';
-      viewEmptyLabel.textContent = 'New note';
     } else {
       viewEmptyTitle.textContent = `No notes in ${name} yet`;
-      viewEmptyText.textContent = `Start one here, or file a note with the section button above its title.${nav.railVisible() ? ' You can also drag a note from the list onto a section.' : ''}`;
-      viewEmptyLabel.textContent = `New note in ${clip(ui.viewName, 22)}`;
+      viewEmptyText.textContent = `New note starts one here, or file a note with the section button above its title.${nav.railVisible() ? ' You can also drag a note from the list onto a section.' : ''}`;
     }
   }
 
@@ -1212,13 +1182,27 @@ function mount(root) {
     entry.dirty = true;
   }
 
-  function revealItem(id) {
+  /**
+   * Bring a note's row into view. `page: false` leaves a phone's page where it is: opening Notes or
+   * switching to List starts at the top (the header and the newest notes), not scrolled down to
+   * the note opened last. `instant`: no smooth scroll (back from a note lands where it was).
+   */
+  function revealItem(id, { page = true, instant = false } = {}) {
     if (isBoard()) {
       board.revealCard(id);
       return;
     }
     const li = itemCache.get(id)?.li;
     if (!li?.isConnected) return;
+    // A phone's list scrolls with the page (notes.css): the page brings the row into view, clear
+    // of the search row stuck on top
+    if (getComputedStyle(listBody).overflowY === 'visible') {
+      if (!page) return;
+      const r = li.getBoundingClientRect();
+      const top = listHead.getBoundingClientRect().bottom;
+      if (r.top < top || r.bottom > window.innerHeight - 80) li.scrollIntoView({ block: 'center', behavior: instant ? 'instant' : 'smooth' });
+      return;
+    }
     const box = listBody.getBoundingClientRect();
     const r = li.getBoundingClientRect();
     if (r.top < box.top) listBody.scrollTop -= box.top - r.top + 8;
@@ -1243,6 +1227,10 @@ function mount(root) {
       ui.previewSource = null;
       setStatus('saved');
       replay(doc, 'is-switching');
+      // A note with text opens as it reads (no markdown signs to wade through); an empty one
+      // opens ready to write. The text field that had the keyboard keeps it.
+      const typingHere = document.activeElement === bodyInput;
+      setMode(note.body.trim() && !typingHere ? 'preview' : 'edit');
     } else if (ui.pendingId !== note.id) {
       // Same note changed underneath us (another tab, a preview checkbox).
       if (setValueKeepCaret(titleInput, note.title)) fitTitle();
@@ -1336,6 +1324,32 @@ function mount(root) {
     const to = previewing ? previewEl : bodyInput;
     if (ratio) to.scrollTop = ratio * (to.scrollHeight - to.clientHeight);
     if (focus) to.focus({ preventScroll: true });
+  }
+
+  /**
+   * A click on the preview's text starts editing, the caret at the end of the line clicked (found
+   * by its first words; else where the text ends). Links, the task boxes and a selection stay
+   * theirs.
+   */
+  function onPreviewClick(e) {
+    if (!(e.target instanceof Element) || e.target.closest('a, input, label, .nt-task') || String(window.getSelection?.() ?? '').trim()) return;
+    const block = e.target.closest('p, li, h1, h2, h3, h4, h5, h6, blockquote, pre, td, th');
+    const src = bodyInput.value;
+    let at = src.length;
+    const words = (block?.textContent ?? '').trim().split(/\s+/).filter((w) => w.length > 1);
+    // Markdown signs sit around words in the text (**Bold**, [a link](…)): one word alone is
+    // looked for without them
+    const bare = words.map((w) => w.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, '')).filter((w) => w.length >= 3);
+    for (const probe of [words.slice(0, 3).join(' '), bare[0]]) {
+      const i = probe ? src.indexOf(probe) : -1;
+      if (i !== -1) {
+        const end = src.indexOf('\n', i);
+        at = end === -1 ? src.length : end;
+        break;
+      }
+    }
+    setMode('edit', { focus: true });
+    bodyInput.setSelectionRange(at, at);
   }
 
   function toggleMode() {
@@ -1541,7 +1555,8 @@ function mount(root) {
     }
     const btn = itemCache.get(ui.selectedId)?.btn;
     if (btn?.isConnected) {
-      revealItem(ui.selectedId);
+      // A phone's page lost its place while the note was open: back to that row at once
+      revealItem(ui.selectedId, { instant: true });
       btn.focus({ preventScroll: true });
     }
   }
@@ -1579,6 +1594,8 @@ function mount(root) {
     setPane('editor');
     titleInput.focus();
     revealItem(ui.selectedId);
+    // The first note made: what the page is for is clear now
+    dismissTip('notes.intro');
   }
 
   /** The color a note shows when it has none of its own: its section's. */
@@ -1603,9 +1620,18 @@ function mount(root) {
   }
 
   function togglePin() {
-    const id = ui.editorId;
-    if (!id) return;
-    commit((s) => ({ ...s, items: s.items.map((n) => (n.id === id ? { ...n, pinned: !n.pinned } : n)) }));
+    const note = findNote(ui.editorId);
+    if (note) setPinned(note.id, !note.pinned);
+  }
+
+  /** Pin a note to the top of its list (or let it go back among the others). */
+  function setPinned(id, pinned) {
+    if (!findNote(id)) return;
+    if (id === ui.editorId) flushSave();
+    commitIfChanged((s) => {
+      const note = findNote(id, s);
+      return note && !!note.pinned !== pinned ? { ...s, items: s.items.map((n) => (n === note ? { ...n, pinned } : n)) } : s;
+    });
     revealItem(id);
   }
 
@@ -1614,23 +1640,14 @@ function mount(root) {
   }
 
   /**
-   * Delete a note (the open one, or any note from the right-click menu): a note with text asks
-   * first, and Undo brings it back where it was stored. Deleting the open note opens its neighbour.
+   * Delete a note (the open one, or any note from the right-click menu): gone at once, and Undo in
+   * the toast (or ⌘/Ctrl + Z) brings it back where it was stored, as a deleted task does. Deleting
+   * the open note opens its neighbour.
    */
-  async function deleteNote(id) {
+  function deleteNote(id) {
     if (!findNote(id)) return;
     flushSave();
-    let note = findNote(id);
-    if (!isBlank(note)) {
-      const confirmed = await confirmDialog({
-        title: 'Delete note?',
-        // A node rather than a string so an unbroken title can wrap inside the dialog.
-        message: h('span', { class: 'nt-confirm-msg' }, `“${clip(note.title, 48) || 'Untitled'}” will be deleted, also on your other computers if Sync is on. You can undo right after.`),
-        confirmLabel: 'Delete note',
-      });
-      note = findNote(id);
-      if (!confirmed || !note) return;
-    }
+    const note = findNote(id);
     if (ui.pendingId === id) {
       saver.cancel();
       ui.pendingId = null;
@@ -1830,12 +1847,30 @@ function mount(root) {
         const n = findNote(id);
         return n && !isBlank(n) ? { kind: 'note', snapshot: noteSnapshot(n), text: [n.title.trim(), n.body.trim()].filter(Boolean).join('\n\n') } : null;
       },
+      actions: noteActions(note),
       remove: () => deleteNote(id),
       duplicate: () => duplicateNote(id),
       can: { copy: !blank, duplicate: !blank },
       rename: () => renameNote(id),
       color: { kind: 'notes', value: note.color ?? null, set: (c) => setNoteColor(id, c) },
     };
+  }
+
+  /** A note's own actions, first in its right-click menu: Pin (or Unpin) and Move to ▸ a section. */
+  function noteActions(note) {
+    const id = note.id;
+    const { sections } = getState();
+    const here = note.sectionId != null && findSection(sections, note.sectionId) ? note.sectionId : null;
+    const move = (sectionId, label, iconEl) => ({ id: `move-${sectionId ?? 'unsorted'}`, label, icon: iconEl, checked: here === sectionId, run: () => moveNote(id, sectionId) });
+    return [
+      { id: 'pin', label: note.pinned ? 'Unpin' : 'Pin to the top', icon: 'pin', run: () => setPinned(id, !note.pinned) },
+      {
+        id: 'move',
+        label: 'Move to',
+        icon: 'folder',
+        children: [move(null, 'Unsorted', 'inbox'), ...sections.map((sec) => move(sec.id, sec.name, glyphOf(sec)))],
+      },
+    ];
   }
 
   /** Undo of a delete: the note comes back where it was stored, so the saved list reads as before. */
@@ -2399,7 +2434,7 @@ function mount(root) {
       if (ui.pane === 'list' && btn?.isConnected) btn.focus({ preventScroll: true });
       else if (ui.pane === 'list') focusListFallback();
     }
-    revealItem(selectedId);
+    revealItem(selectedId, { page: false });
     nav.revealView(view, { instant: true });
   }
 
@@ -2491,11 +2526,9 @@ function mount(root) {
       else switchView(stepView(getState().sections, ui.view, key === '[' ? -1 : 1));
       return;
     }
+    // ⌘/Ctrl+K is the app's Search (js/command.js); this page's own search is /
     if (mod) {
-      if (key === 'k') {
-        e.preventDefault();
-        focusSearch();
-      } else if (key === 'e' && editorShown() && root.dataset.empty !== 'true') {
+      if (key === 'e' && editorShown() && root.dataset.empty !== 'true') {
         e.preventDefault();
         toggleMode();
       } else if (key === 'z' && !typing(e) && undoLast()) {
@@ -2511,6 +2544,10 @@ function mount(root) {
     } else if (key === 'n') {
       e.preventDefault();
       newNote();
+    } else if (key === 'e' && editorShown() && editorMode === 'preview' && (!editorFull() || ui.pane === 'editor') && (editorPanel.contains(document.activeElement) || listBody.contains(document.activeElement))) {
+      // E: write in the open note (from its preview, or its row in the list)
+      e.preventDefault();
+      setMode('edit', { focus: true });
     } else if (key === 'b') {
       e.preventDefault();
       setLayout(isBoard() ? LAYOUT_LIST : LAYOUT_BOARD, { viaKey: true });
@@ -2557,8 +2594,9 @@ function mount(root) {
   setPane('list');
   render();
   setMode(editorMode);
-  // The board opens at its first column; the list scrolls to the open note.
-  if (!isBoard()) revealItem(ui.selectedId);
+  // The board opens at its first column; the list scrolls to the open note (in its own box: a
+  // phone's page opens at its top).
+  if (!isBoard()) revealItem(ui.selectedId, { page: false });
 
   /** notesApi.reveal(): open the requested note (in its section's view, or its card's panel on the board). */
   const revealRequested = () => {
@@ -2567,12 +2605,18 @@ function mount(root) {
     if (!note || disposed) return;
     if (isBoard()) {
       openCard(note.id);
+      // The keyboard lands on its card (a phone's full-screen note has it on Back already)
+      if (!editorFull()) board.focusCard(note.id, { reveal: false });
       return;
     }
     if (ui.query) setQuery('');
     if (!noteInView(note, ui.view)) switchView(note.sectionId ?? VIEW_UNSORTED);
     selectNote(note.id);
     revealItem(note.id);
+    // The keyboard lands on its row, as a revealed task's (Enter goes on into the note; a phone's
+    // full-screen note has it on Back already)
+    const btn = itemCache.get(note.id)?.btn;
+    if (!editorFull() && btn?.isConnected) btn.focus({ preventScroll: true });
   };
   revealInView = revealRequested;
   revealRequested();
@@ -2679,13 +2723,10 @@ export const notesApi = Object.freeze({
   subscribe: apiSubscribe,
 });
 
+// No badge: notes never need doing (the menu's numbers are for what needs attention today)
 export default {
   id: 'notes',
   title: 'Notes',
   icon: 'note',
-  badge() {
-    const n = getState().items.length;
-    return n ? String(n) : '';
-  },
   mount,
 };

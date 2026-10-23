@@ -10,7 +10,7 @@
 // Contract: mountInsights(container, source) -> cleanup
 //   source = { getItems(), today(), subscribe(fn) -> unsub, openTab(name) }
 
-import { h, icon, registerIcon, emptyState, formatDay, onDayChange, plural, idx, clamp, MONTHS_SHORT, WEEKDAYS_SHORT, plainSkin } from '../ui.js';
+import { h, icon, registerIcon, emptyState, dropdown, formatDay, onDayChange, plural, idx, clamp, term, MONTHS_SHORT, WEEKDAYS_SHORT, plainSkin } from '../ui.js';
 import { createStore } from '../store.js';
 import * as L from './habits.logic.js';
 import * as S from './habits.stats.js';
@@ -66,6 +66,14 @@ const NOTES_MAX = 3;
 
 const WEEKDAYS_LONG = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const RANGE_COPY = { '7d': 'Last 7 days', '30d': 'Last 30 days', '90d': 'Last 90 days', all: 'All time' };
+// The range buttons in words ('7 days'); Mission Control and Terminal keep '7D' (skins.js TERMS)
+const RANGE_WORDS = { '7d': '7 days', '30d': '30 days', '90d': '90 days', all: 'All' };
+const rangeLabel = (id) => term(`habits.range.${id}`, RANGE_WORDS[id] ?? id);
+// The ranking shows the top few; "Show all" opens the rest (remembered while the tab is open)
+const RANK_TOP = 5;
+
+/** term() text with its {placeholders} filled in. */
+const fill = (text, values) => text.replace(/\{(\w+)\}/g, (m, k) => (k in values ? String(values[k]) : m));
 
 let seq = 0;
 
@@ -585,8 +593,16 @@ export function mountInsights(container, source) {
   /* ---- Filter row: one row above everything it scopes ---- */
 
   const rangeBtns = S.RANGES.map((r) =>
-    h('button', { type: 'button', class: 'seg-btn', 'aria-pressed': 'false', title: RANGE_COPY[r.id], onClick: () => setPrefs({ range: r.id }) }, r.label),
+    h('button', { type: 'button', class: 'seg-btn', 'aria-pressed': 'false', title: RANGE_COPY[r.id], onClick: () => setPrefs({ range: r.id }) }, rangeLabel(r.id)),
   );
+  // A phone gets the range as a short menu (the four words don't fit beside the rest)
+  const rangeMenu = dropdown({
+    items: S.RANGES.map((r) => ({ value: r.id, label: RANGE_COPY[r.id] })),
+    value: readPrefs().range,
+    className: 'hbi-range-dd',
+    ariaLabel: ({ picked }) => `Date range: ${picked?.label ?? ''}`,
+    onSelect: (range) => setPrefs({ range }),
+  });
   const metricBtns = METRICS.map((m) =>
     h('button', { type: 'button', class: 'seg-btn hbi-metric-btn', 'aria-pressed': 'false', 'aria-label': m.name, title: m.title, onClick: () => setPrefs({ metric: m.id }) }, m.label),
   );
@@ -599,7 +615,8 @@ export function mountInsights(container, source) {
   const filters = h(
     'div',
     { class: 'hbi-filters' },
-    h('div', { class: 'seg hbi-seg', role: 'group', 'aria-label': 'Date range' }, rangeBtns),
+    h('div', { class: 'seg hbi-seg hbi-range-seg', role: 'group', 'aria-label': 'Date range' }, rangeBtns),
+    h('div', { class: 'hbi-range-menu' }, rangeMenu.el),
     h('div', { class: 'seg hbi-seg', role: 'group', 'aria-label': 'Measure' }, metricBtns),
     h('span', { class: 'spacer' }),
     tableBtn,
@@ -663,13 +680,28 @@ export function mountInsights(container, source) {
   dayCard.body.append(dayPlot.el, dayTable);
 
   const rankCard = card('03', 'Habit ranking', 'hb-trophy');
-  const rankList = h('ol', { class: 'hbi-rank-list' });
+  const rankList = h('ol', { class: 'hbi-rank-list', id: `hbi-rank-${seq}` });
+  let rankAll = false;
+  const rankMore = h(
+    'button',
+    {
+      type: 'button',
+      class: 'btn btn--sm btn--ghost hbi-rank-more',
+      'aria-controls': rankList.id,
+      'aria-expanded': 'false',
+      onClick: () => {
+        rankAll = !rankAll;
+        if (ctx && !ctx.empty) paintRank(ctx);
+      },
+    },
+  );
   rankCard.body.append(
     h(
       'div',
       { class: 'hbi-rank' },
       h('div', { class: 'hbi-rank-head label', 'aria-hidden': 'true' }, h('span', null, '#'), h('span', null, 'Habit'), h('span', { class: 'hbi-num' }, 'Done'), h('span', null, 'Rate'), h('span', { class: 'hbi-num' }, 'Streak')),
       rankList,
+      rankMore,
     ),
   );
 
@@ -718,6 +750,7 @@ export function mountInsights(container, source) {
 
   function paint(c) {
     rangeBtns.forEach((b, i) => b.setAttribute('aria-pressed', String(S.RANGES[i].id === c.prefs.range)));
+    rangeMenu.update({ value: c.prefs.range });
     metricBtns.forEach((b, i) => b.setAttribute('aria-pressed', String(METRICS[i].id === c.prefs.metric)));
     tableBtn.setAttribute('aria-pressed', String(c.prefs.table));
 
@@ -733,7 +766,7 @@ export function mountInsights(container, source) {
 
     paintTiles(c);
     paintHeads(c);
-    rankList.replaceChildren(...c.board.map((r, i) => rankRow(r, i, c.byId.get(r.id))));
+    paintRank(c);
 
     const table = c.prefs.table;
     mainPlot.el.hidden = table;
@@ -758,7 +791,7 @@ export function mountInsights(container, source) {
 
   function paintTiles(c) {
     const cur = c.cmp.current;
-    const short = S.RANGES.find((r) => r.id === c.range)?.label ?? '';
+    const short = rangeLabel(c.range);
 
     tCompletion.value.replaceChildren(...(cur.avgRate == null ? bigValue('—') : bigValue(String(pctNum(cur.avgRate)), '%')));
     tCompletion.sub.textContent = cur.planned ? `${cur.done} of ${cur.planned} planned` : 'Nothing measured yet';
@@ -770,16 +803,24 @@ export function mountInsights(container, source) {
     if (v == null) {
       tChange.value.replaceChildren(...bigValue('—'));
     } else {
-      const [glyph, word] = v > 0 ? ['▲', 'up'] : v < 0 ? ['▼', 'down'] : ['■', 'no change,'];
+      // 'Up 46 points' in words; Mission Control and Terminal draw '▲ 46 pts' (skins.js TERMS)
+      const [key, plain, word] = v > 0 ? ['up', 'Up', 'up'] : v < 0 ? ['down', 'Down', 'down'] : ['flat', 'No change', 'no change,'];
+      const dir = term(`habits.change.${key}`, plain);
+      const glyph = dir.length === 1;
       tChange.value.replaceChildren(
-        h('span', { class: 'hbi-dir', 'aria-hidden': 'true' }, glyph),
-        h('span', { class: 'sr-only' }, `${word} `),
-        ...bigValue(String(Math.abs(v)), 'pts'),
+        h('span', { class: cls('hbi-dir', !glyph && 'hbi-dir--word'), 'aria-hidden': glyph ? 'true' : null }, dir),
+        ...(glyph ? [h('span', { class: 'sr-only' }, `${word} `)] : []),
+        ...(v === 0 && !glyph ? [] : bigValue(String(Math.abs(v)), term('habits.change.unit', Math.abs(v) === 1 ? 'point' : 'points'))),
       );
     }
     tChange.el.classList.toggle('is-up', v > 0);
     tChange.el.classList.toggle('is-down', v < 0);
-    tChange.sub.textContent = c.range === 'all' ? (v == null ? 'No earlier period' : 'vs prev period') : v == null ? `No data in prev ${short}` : `vs prev ${short}`;
+    tChange.sub.textContent =
+      c.range === 'all'
+        ? v == null
+          ? 'No earlier period'
+          : term('habits.change.vsAll', 'from the period before')
+        : fill(v == null ? term('habits.change.none', 'No data from the {range} before') : term('habits.change.vs', 'from the {range} before'), { range: short });
 
     tCheckins.value.replaceChildren(...bigValue(cur.checkIns.toLocaleString()));
     tCheckins.sub.textContent = [plural(cur.perfectDays, 'perfect day'), cur.bonus ? `+${cur.bonus} bonus` : ''].filter(Boolean).join(' · ');
@@ -787,6 +828,16 @@ export function mountInsights(container, source) {
     const best = c.best;
     tBest.value.replaceChildren(...(best ? bigValue(caps(WEEKDAYS_SHORT[best.weekday]), `· ${pct(best.avgRate)}`) : bigValue('—')));
     tBest.sub.textContent = best ? `avg ${habitsAvg(best.avgPlanned)} planned` : 'Not enough data yet';
+  }
+
+  /** The top RANK_TOP habits, or all of them after "Show all". */
+  function paintRank(c) {
+    const rows = rankAll ? c.board : c.board.slice(0, RANK_TOP);
+    rankList.replaceChildren(...rows.map((r, i) => rankRow(r, i, c.byId.get(r.id))));
+    const more = c.board.length > RANK_TOP;
+    rankMore.hidden = !more;
+    rankMore.setAttribute('aria-expanded', String(rankAll));
+    rankMore.replaceChildren(icon(rankAll ? 'chevron-up' : 'chevron-down', { size: 14 }), h('span', null, rankAll ? 'Show the top 5' : `Show all ${c.board.length}`));
   }
 
   function legendItem(key, text) {

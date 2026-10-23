@@ -9,7 +9,7 @@
 // a fresh read of the store (so it lands once), and exactly one window plays the chime and shows
 // the notification: the first to claim that session's id under the same lock.
 
-import { h, icon, registerIcon, pageHeader, toast, isTyping, modalOpen, uid, num, term, skin, onSkinChange, onDayChange, plural, plainSkin } from '../ui.js';
+import { h, icon, registerIcon, pageHeader, dismissTip, toast, isTyping, modalOpen, uid, num, term, skin, onSkinChange, onDayChange, plural, plainSkin, reducedMotion } from '../ui.js';
 import { createStore } from '../store.js';
 import * as P from './pomodoro.logic.js';
 import { tasksApi } from './tasks.js';
@@ -703,15 +703,32 @@ function switchRow({ label, hint, onToggle }) {
   };
 }
 
+/** Today's focus on the page's title row: '2 sessions · 50 min today' ('' before the first). */
+function todayStat(doc) {
+  const { from, to } = dayBounds();
+  const stats = P.focusStats(doc.history, from, to);
+  if (stats.sessions) return `${plural(stats.sessions, 'session')} · ${minutesText(stats.minutes)} today`;
+  return stats.minutes ? `${minutesText(stats.minutes)} of focus today` : '';
+}
+
+/** 'Classic · 25 / 5 / 15 min' or 'Custom · 40 / 8 / 20 min': the setup at a glance, under the timer. */
+function setupText(settings) {
+  const preset = P.PRESETS.find((p) => p.id === P.presetOf(settings));
+  return `${preset ? preset.label : 'Custom'} · ${settings.focusMin} / ${settings.shortMin} / ${settings.longMin} min`;
+}
+
 function mount(root) {
   ensureService();
   root.classList.add('pm-page');
   const simple = plainSkin();
+  let alive = true;
 
   const header = pageHeader({
     index: '06',
     title: 'Pomodoro',
     subtitle: term('pomodoro.subtitle', 'Focus in rounds, rest in between. One timer for every window, running on every page.'),
+    tipId: 'pomodoro.intro',
+    stat: todayStat(getDoc()),
   });
 
   /* ---- Timer ---- */
@@ -725,7 +742,10 @@ function mount(root) {
   for (let i = 0; i < 60; i++) ticks.append(h('span', { class: ['pm-tick', i % 5 === 0 && 'is-major'], style: { transform: `rotate(${i * 6}deg)` } }));
   const ringEl = ringOf();
   const dialPhase = h('div', { class: 'pm-dial-phase label' });
-  const digits = h('div', { class: 'pm-digits tnum', role: 'timer', 'aria-atomic': 'true' });
+  // The digits' text sits in its own box, which fitDigits() scales to the ring (every template
+  // sets its own size on .pm-digits; the box takes that size, times --pm-fit)
+  const digitsText = h('span', { class: 'pm-digits-fit' });
+  const digits = h('div', { class: 'pm-digits tnum', role: 'timer', 'aria-atomic': 'true' }, digitsText);
   const dialRound = h('div', { class: 'pm-dial-round' });
   const dial = h('div', { class: 'pm-dial' }, ticks, ringEl, h('div', { class: 'pm-dial-center' }, dialPhase, digits, dialRound));
 
@@ -744,6 +764,17 @@ function mount(root) {
   taskSelect.addEventListener('change', () => mutate((d) => P.setTask(d, taskSelect.value || null)));
   const taskField = h('div', { class: 'field pm-task' }, h('label', { class: 'label', for: 'pm-task' }, 'Focusing on'), taskSelect);
 
+  // The setup at a glance (the active preset) and the button that unfolds it: closed when the
+  // page opens and whenever a session runs, so the timer is the one thing to look at
+  const setupChip = h('span', { class: 'tag pm-setup-chip tnum' });
+  const setupBtn = h(
+    'button',
+    { type: 'button', class: 'btn btn--sm btn--ghost pm-setup-btn', 'aria-expanded': 'false', 'aria-controls': 'pm-setup', onClick: () => openSetup(settingsCard.hidden) },
+    icon('sliders', { size: 14 }),
+    h('span', null, 'Set up'),
+    icon('chevron-down', { size: 13, className: 'pm-setup-chev' }),
+  );
+
   const timerCard = h(
     'section',
     { class: 'panel hud pm-timer', 'aria-label': 'Timer' },
@@ -751,13 +782,14 @@ function mount(root) {
     dial,
     h('div', { class: 'pm-controls' }, resetBtn, mainBtn, skipBtn),
     hints,
+    h('div', { class: 'pm-setup-row' }, setupChip, setupBtn),
     taskField,
   );
 
-  /* ---- Today ---- */
+  /* ---- Today: the sessions done, once there is one (the title row says how many) ---- */
 
   const todayBody = h('div', { class: 'pm-today-body' });
-  const todayCard = h('section', { class: 'panel pm-today', 'aria-labelledby': 'pm-today-title' }, h('h2', { class: 'pm-card-title', id: 'pm-today-title' }, 'Today'), todayBody);
+  const todayCard = h('section', { class: 'panel pm-today', 'aria-labelledby': 'pm-today-title', hidden: true }, h('h2', { class: 'pm-card-title', id: 'pm-today-title' }, 'Today'), todayBody);
 
   /* ---- Settings ---- */
 
@@ -812,7 +844,7 @@ function mount(root) {
 
   const settingsCard = h(
     'section',
-    { class: 'panel pm-settings', 'aria-labelledby': 'pm-settings-title' },
+    { class: 'panel pm-settings', id: 'pm-setup', 'aria-labelledby': 'pm-settings-title', hidden: true },
     h('h2', { class: 'pm-card-title', id: 'pm-settings-title' }, simple ? 'Set up your timer' : 'Timer settings'),
     h('div', { class: 'pm-presets', role: 'group', 'aria-label': 'Presets' }, presetBtns),
     h('div', { class: 'pm-steps' }, steppers.map((s) => s.row)),
@@ -822,11 +854,41 @@ function mount(root) {
     h('div', { class: 'pm-mini-pref' }, h('span', { class: 'pm-switch-label', id: 'pm-mini-label' }, 'Mini timer in the top bar'), h('div', { class: 'seg', role: 'group', 'aria-labelledby': 'pm-mini-label' }, miniBtns)),
   );
 
-  root.append(header, h('div', { class: 'pm-layout' }, h('div', { class: 'pm-stack' }, timerCard, todayCard), settingsCard));
+  root.append(header, h('div', { class: 'pm-layout' }, timerCard, settingsCard, todayCard));
+
+  /** Unfold or fold the setup (it stays folded while a session runs). */
+  function openSetup(open) {
+    const on = !!open && getDoc().state.status !== 'running';
+    settingsCard.hidden = !on;
+    setupBtn.setAttribute('aria-expanded', String(on));
+    setupBtn.classList.toggle('is-open', on);
+    if (on) settingsCard.scrollIntoView?.({ block: 'nearest', behavior: reducedMotion() ? 'auto' : 'smooth' });
+  }
+
+  /**
+   * The digits always fit inside the ring, whatever size and font the template gives them: when
+   * the time is wider than the ring's inside, its box is scaled down to fit (--pm-fit). A template
+   * without the ring (Minimal) keeps its size.
+   */
+  let fitLen = 0;
+  function fitDigits() {
+    if (!alive) return;
+    digits.style.removeProperty('--pm-fit');
+    fitLen = digitsText.textContent.length;
+    if (!ringEl.getClientRects().length) return;
+    const room = ringEl.clientWidth * 0.78;
+    const width = digitsText.getBoundingClientRect().width;
+    if (room > 0 && width > room) digits.style.setProperty('--pm-fit', String(Math.floor((room / width) * 1000) / 1000));
+  }
+  const fitObserver = typeof ResizeObserver === 'function' ? new ResizeObserver(() => fitDigits()) : null;
+  fitObserver?.observe(dial);
+  // A template's font arrives after the page is drawn
+  document.fonts?.addEventListener?.('loadingdone', fitDigits);
 
   /* ---- Painting ---- */
 
   let shownDoc = null;
+  let introDone = false;
   let shownDay = '';
 
   function paintTimer(v) {
@@ -836,7 +898,19 @@ function mount(root) {
     timerCard.dataset.status = v.status;
     phaseBtns.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.phase === v.phase)));
     ringEl.setValue(v.fraction);
-    if (digits.textContent !== v.clock) digits.textContent = v.clock;
+    if (digitsText.textContent !== v.clock) {
+      digitsText.textContent = v.clock;
+      if (v.clock.length !== fitLen) fitDigits();
+    }
+    timerCard.classList.toggle('is-running', v.status === 'running');
+    setupBtn.disabled = v.status === 'running';
+    setupBtn.title = v.status === 'running' ? 'Pause the timer to change the setup' : '';
+    if (v.status === 'running' && !settingsCard.hidden) openSetup(false);
+    // A timer going: the page's explanation has done its job (C2)
+    if (v.status === 'running' && !introDone) {
+      introDone = true;
+      dismissTip('pomodoro.intro');
+    }
     const left = Math.ceil(v.left / 60000);
     digits.setAttribute('aria-label', `${left} ${left === 1 ? 'minute' : 'minutes'} left`);
     dialPhase.textContent = v.status === 'paused' ? `${P.PHASE_LABEL[v.phase]} · Paused` : P.PHASE_LABEL[v.phase];
@@ -867,6 +941,8 @@ function mount(root) {
   function paintSettings(doc) {
     const s = doc.settings;
     const preset = P.presetOf(s);
+    setupChip.textContent = setupText(s);
+    setupChip.title = `${setupText(s)}, a long break after ${plural(s.roundsBeforeLong, 'round')}`;
     presetBtns.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.preset === preset)));
     steppers.forEach((st) => st.paint(s));
     autoBreaks.set(s.autoStartBreaks);
@@ -921,54 +997,35 @@ function mount(root) {
       });
   }
 
+  /** Today's sessions as a list, once there is one; the count and minutes are on the title row. */
   function paintToday(doc) {
     const { from, to } = dayBounds();
     const stats = P.focusStats(doc.history, from, to);
     const entries = [...stats.entries].reverse();
-    const body = [];
-    if (simple) {
-      body.push(
-        h(
-          'p',
-          { class: 'pm-today-line' },
-          stats.sessions
-            ? `You finished ${plural(stats.sessions, 'focus session')} today, ${minutesText(stats.minutes)} in all.`
-            : stats.minutes
-              ? `${minutesText(stats.minutes)} of focus today so far.`
-              : 'No focus sessions yet today. Press Start when you’re ready.',
-        ),
-      );
-    } else {
-      body.push(
-        h(
-          'div',
-          { class: 'pm-today-stats' },
-          h('div', { class: 'stat' }, h('span', { class: 'stat-value tnum' }, num(stats.sessions)), h('span', { class: 'label' }, stats.sessions === 1 ? 'Session done' : 'Sessions done')),
-          h('div', { class: 'stat' }, h('span', { class: 'stat-value tnum' }, num(Math.round(stats.minutes))), h('span', { class: 'label' }, 'Focus minutes')),
-        ),
-      );
-      if (!entries.length) body.push(h('p', { class: 'pm-today-empty' }, 'No focus sessions yet today.'));
+    header.setStat?.(todayStat(doc));
+    todayCard.hidden = !entries.length;
+    if (!entries.length) {
+      todayBody.replaceChildren();
+      return;
     }
-    if (entries.length) {
-      const shown = entries.slice(0, LOG_MAX);
-      body.push(
-        h(
-          'ol',
-          { class: 'pm-log', 'aria-label': 'Focus sessions today, newest first' },
-          shown.map((e) => {
-            const task = focusTask(e.taskId);
-            return h(
-              'li',
-              { class: ['pm-log-row', !e.completed && 'is-partial'] },
-              h('span', { class: 'pm-log-time tnum' }, e.startedAt ? `${hhmm(e.startedAt)}–${hhmm(e.endedAt)}` : hhmm(e.endedAt)),
-              h('span', { class: 'pm-log-what' }, task ? task.title : 'Focus', !e.completed ? h('span', { class: 'pm-log-tag' }, 'stopped early') : null),
-              h('span', { class: 'pm-log-min tnum' }, minutesText(e.minutes)),
-            );
-          }),
-        ),
-      );
-      if (entries.length > shown.length) body.push(h('p', { class: 'pm-today-more' }, `and ${plural(entries.length - shown.length, 'earlier session')}`));
-    }
+    const shown = entries.slice(0, LOG_MAX);
+    const body = [
+      h(
+        'ol',
+        { class: 'pm-log', 'aria-label': 'Focus sessions today, newest first' },
+        shown.map((e) => {
+          const task = focusTask(e.taskId);
+          return h(
+            'li',
+            { class: ['pm-log-row', !e.completed && 'is-partial'] },
+            h('span', { class: 'pm-log-time tnum' }, e.startedAt ? `${hhmm(e.startedAt)}–${hhmm(e.endedAt)}` : hhmm(e.endedAt)),
+            h('span', { class: 'pm-log-what' }, task ? task.title : 'Focus', !e.completed ? h('span', { class: 'pm-log-tag' }, 'stopped early') : null),
+            h('span', { class: 'pm-log-min tnum' }, minutesText(e.minutes)),
+          );
+        }),
+      ),
+    ];
+    if (entries.length > shown.length) body.push(h('p', { class: 'pm-today-more' }, `and ${plural(entries.length - shown.length, 'earlier session')}`));
     todayBody.replaceChildren(...body);
   }
 
@@ -1014,10 +1071,15 @@ function mount(root) {
   }
   document.addEventListener('keydown', onKeydown);
 
+  fitDigits();
+
   return () => {
+    alive = false;
     offTimer();
     offTasks();
     offDay();
+    fitObserver?.disconnect();
+    document.fonts?.removeEventListener?.('loadingdone', fitDigits);
     window.removeEventListener('focus', onFocus);
     document.removeEventListener('keydown', onKeydown);
   };

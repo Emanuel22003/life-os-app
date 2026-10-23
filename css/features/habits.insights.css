@@ -38,6 +38,11 @@
   flex: none;
 }
 
+/* The range as a menu: only where the four words don't fit (a phone, see the container rule) */
+.hbi-range-menu {
+  display: none;
+}
+
 .hbi-metric-btn {
   min-width: 36px;
   justify-content: center;
@@ -136,6 +141,18 @@
 
 .hbi-tile.is-down .hbi-dir {
   color: var(--text-3);
+}
+
+/* In words ('Up 46 points'): the word at the unit's size, on the number's baseline */
+.hbi-dir--word {
+  align-self: baseline;
+  font-size: var(--fs-md);
+  font-weight: 500;
+  text-shadow: none;
+}
+
+.hbi-tile.is-up .hbi-dir--word {
+  text-shadow: none;
 }
 
 .hbi-tile-sub {
@@ -726,6 +743,11 @@
   container-type: inline-size;
 }
 
+/* The top five; the rest on request */
+.hbi-rank-more {
+  margin-top: var(--space-2);
+}
+
 .hbi-rank-head,
 .hbi-rank-row {
   display: grid;
@@ -913,8 +935,18 @@
   }
 }
 
+@container (max-width: 560px) {
+  /* Range (a menu now), measure and the table switch share one row on a phone */
+  .hbi-range-seg {
+    display: none;
+  }
+
+  .hbi-range-menu {
+    display: block;
+  }
+}
+
 @container (max-width: 420px) {
-  /* Range, measure and the table switch share one row on a phone */
   .hbi-filters .seg-btn {
     padding: 0 8px;
   }

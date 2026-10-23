@@ -40,8 +40,12 @@ import {
   dropdown,
   tip,
   tipHidden,
+  dismissTip,
+  emptyState,
   menuOpen,
+  MONTHS_SHORT,
 } from '../ui.js';
+import { shell } from '../shell.js';
 import { createStore } from '../store.js';
 import { registerContextProvider } from '../contextmenu.js';
 import { splitText } from '../contextmenu.logic.js';
@@ -51,6 +55,7 @@ import { habitsApi } from './habits.js';
 import { habitsForDay } from './habits.logic.js';
 import { dailySeries } from './habits.stats.js';
 import { notesApi } from './notes.js';
+import { WELCOME_NOTE } from './notes.logic.js';
 import { getEvents, subscribeCalendar, getDayColors } from './calendar.store.js';
 import { paintColor } from '../colors.js';
 import { calendarApi } from './calendar.js';
@@ -66,6 +71,8 @@ import { iconOf } from '../icons.logic.js';
 import * as HM from './home.logic.js';
 
 const prefs = createStore('home', { quickNoteSection: null });
+// The Start card's ✓ (settings.tips): hidden for good on this device
+const START_TIP = 'home.start';
 
 registerIcon('hm-layout', '<rect x="3.5" y="3.5" width="7.5" height="9" rx="1.5"/><rect x="13" y="3.5" width="7.5" height="5" rx="1.5"/><rect x="13" y="10.5" width="7.5" height="10" rx="1.5"/><rect x="3.5" y="14.5" width="7.5" height="6" rx="1.5"/>');
 
@@ -83,10 +90,12 @@ const PAY_MAX = 5;
 const DAY_ITEMS = 5; // per day in the week before "+N more"
 const MONTH_ITEMS = 3; // per day in the month
 const DAY_SPLIT = 520; // px: a widget this wide shows the day's schedule beside its habits
+const AGENDA_W = 600; // px: a narrower calendar shows its week as "Today & next" (a phone, half a board)
 const DAY_FROM = 8; // the day's hours run 8:00 to 20:00 at least
 const DAY_TO = 20;
 const HOUR_H = 34; // px per hour in the day's schedule
 const TODO_MAX = 7;
+const HABITS_MAX = 6; // rows in Habits today: five and "+N more" when there are more than six
 const GRAPH_DAYS = 14;
 const AHEAD_DAYS = 14; // how far "Next:" looks
 const LINGER_MS = 900; // a checked to-do keeps its row for a beat
@@ -102,12 +111,25 @@ const nowMinutes = () => {
   return d.getHours() * 60 + d.getMinutes();
 };
 
-/** Repaint a part of the page and give focus back to the control it had (by data-fid). */
+/**
+ * Repaint a part of the page and give focus back to the control it had (by data-fid). When that
+ * control went with the repaint (a to-do ticked off with the keyboard), the focus goes to the one
+ * of its kind now in its place ('todo' of 'todo:<id>': the next row), else the last one left, else
+ * the part's first control (the add field), never to the page's start.
+ */
 function keepFocus(container, paint) {
   const active = document.activeElement;
   const fid = active instanceof HTMLElement && container.contains(active) ? active.dataset.fid : null;
+  const kind = fid ? fid.split(':')[0] : null;
+  const ofKind = () => [...container.querySelectorAll('[data-fid]')].filter((n) => n.dataset.fid.split(':')[0] === kind);
+  const at = fid ? ofKind().indexOf(active) : -1;
   paint();
-  if (fid) container.querySelector(`[data-fid="${CSS.escape(fid)}"]`)?.focus({ preventScroll: true });
+  if (!fid) return;
+  const back = container.querySelector(`[data-fid="${CSS.escape(fid)}"]`);
+  if (back) return back.focus({ preventScroll: true });
+  const left = ofKind();
+  const next = (at >= 0 ? left[Math.min(at, left.length - 1)] : null) ?? container.querySelector('input:not(:disabled)') ?? container.querySelector('button:not(:disabled), a[href]');
+  next?.focus({ preventScroll: true });
 }
 
 /**
@@ -252,18 +274,28 @@ function mount(root) {
   );
   // Customize: arrange the widgets (Done leaves it)
   const customizeBtn = h('button', { type: 'button', class: 'btn hm-customize', 'aria-pressed': 'false', onClick: () => setEditing(!editing) });
-  const header = pageHeader({ index: '01', title: HM.greeting(new Date().getHours()), subtitle: ' ', actions: [customizeBtn, quickBtn] });
+  // The date (and on a phone what's next) is the title row's live status (ui.pageHeader stat)
+  const dateLong = h('span', { class: 'hm-date-long' });
+  const dateShort = h('span', { class: 'hm-date-short' });
+  const nextEl = h('button', { type: 'button', class: 'hm-next' });
+  const dateLine = h('span', { class: 'hm-sub' }, h('span', { class: 'hm-date' }, dateLong, dateShort), h('span', { class: 'hm-sub-sep', 'aria-hidden': 'true' }, '·'), nextEl);
+  // A new Home opens on its Start card (below), which already says where to begin: no page tip then
+  const firstRunAtStart = !!startState();
+  const header = pageHeader({
+    index: '01',
+    title: HM.greeting(new Date().getHours()),
+    subtitle: firstRunAtStart ? null : 'Today at a glance: tap a number to open its page. Customize picks and arranges the widgets.',
+    tipId: 'home.intro',
+    stat: dateLine,
+    actions: [customizeBtn, quickBtn],
+  });
+  // Before the shell's one-row header knew `stat`, the date had its own line under the greeting
+  if (!header.contains(dateLine)) header.querySelector('.page-heading')?.append(h('p', { class: 'page-subtitle hm-sub-row' }, dateLine));
   const titleEl = header.querySelector('.page-title');
   // The greeting's words and its badge (Home's title gets no page badge from the shell)
   const greetText = h('span', { class: 'hm-greet' });
   titleEl.replaceChildren(greetText);
   let greetIcon = '';
-  const dateLong = h('span', { class: 'hm-date-long' });
-  const dateShort = h('span', { class: 'hm-date-short' });
-  const nextEl = h('button', { type: 'button', class: 'hm-next' });
-  const subEl = header.querySelector('.page-subtitle');
-  subEl.classList.add('hm-sub');
-  subEl.replaceChildren(h('span', { class: 'hm-date' }, dateLong, dateShort), h('span', { class: 'hm-sub-sep', 'aria-hidden': 'true' }, '·'), nextEl);
   let nextDay = null;
   nextEl.addEventListener('click', () => calendarApi.open(nextDay ?? state.today, 'day'));
 
@@ -300,6 +332,142 @@ function mount(root) {
     paintGlance({ events, next: up ? text : '', nextKind: up?.kind ?? null });
   }
 
+  /* ---- First run: "Start here" ----
+     A Home with nothing saved anywhere yet opens with one card of three steps (HM.startSteps)
+     instead of a board of zeros. It stays (prefs.start, this device) until its steps are done or
+     its ✓ hides it; meanwhile the strip and the widgets that could only say "nothing yet" wait. */
+
+  /** What the app holds, for the Start card and the widgets that wait for data. */
+  function appCounts() {
+    const notes = notesApi.recent(2).filter((n) => n.title !== WELCOME_NOTE.title).length;
+    return {
+      tasks: tasksApi.getItems().length,
+      habits: habitsApi.source.getItems().length,
+      events: getEvents().length,
+      notes,
+      subs: financeApi.subscriptions().length,
+      workouts: trainingApi.getState().workouts?.length ?? 0,
+    };
+  }
+
+  /**
+   * The Start card's steps, or null when it doesn't show: it shows on an empty app, and once
+   * begun on this device (prefs.start) it stays until its ✓ or its last step. Then it is gone
+   * for good (settings.tips), even if the app is emptied again.
+   */
+  function startState() {
+    if (tipHidden(START_TIP)) return null;
+    const begun = !!prefs.get().start;
+    // A Home with tasks, habits or events (most of the time): no need to count the rest
+    if (!begun && (tasksApi.getItems().length || habitsApi.source.getItems().length || getEvents().length)) return null;
+    const c = appCounts();
+    if (!begun && !HM.isEmptyApp(c)) return null;
+    const steps = HM.startSteps({ tasks: c.tasks, habits: c.habits, look: prefs.get().start?.look });
+    if (steps.every((st) => st.done)) {
+      if (begun) dismissTip(START_TIP);
+      return null;
+    }
+    return steps;
+  }
+
+  const startList = h('ol', { class: 'hm-start-list' });
+  const startCount = h('span', { class: 'hm-start-count tnum' });
+  const startCard = h(
+    'section',
+    { class: 'panel hm-start', 'aria-labelledby': 'hm-start-title', hidden: true },
+    h(
+      'header',
+      { class: 'hm-start-head' },
+      h('h2', { class: 'hm-start-title', id: 'hm-start-title' }, iconBadge('sparkles', { tone: 'home', size: 16, className: 'hm-start-ib' }), h('span', null, 'Start here')),
+      startCount,
+      h(
+        'button',
+        {
+          type: 'button',
+          class: 'btn btn--ghost btn--sm hm-start-ok',
+          title: 'Hide this card for good',
+          onClick: () => {
+            const hadFocus = startCard.contains(document.activeElement);
+            dismissTip(START_TIP);
+            refreshStart();
+            // Its button went with the card: focus moves on to what comes next (the strip, the board)
+            if (hadFocus) [...root.querySelectorAll('.hm-glance a[href], .hm-board :is(a[href], button, input)')].find((n) => n.getClientRects().length)?.focus({ preventScroll: true });
+          },
+        },
+        icon('check', { size: 13, stroke: 2 }),
+        h('span', null, 'Got it'),
+      ),
+    ),
+    startList,
+  );
+
+  const startAction = {
+    // The To do card's field (on the board while the card is up); without it, the Tasks page
+    task: () => {
+      if (addInput.isConnected && !addInput.closest('[hidden]')) {
+        addInput.scrollIntoView({ block: 'nearest', behavior: reducedMotion() ? 'auto' : 'smooth' });
+        addInput.focus({ preventScroll: true });
+      } else location.hash = '#/tasks';
+    },
+    // The habit editor with its starter list where Habits offers it, else the Habits page's own start
+    habit: () => (typeof habitsApi.openEditor === 'function' ? habitsApi.openEditor({ starters: true }) : habitsApi.source.openTab('today')),
+    look: () => {
+      if (!prefs.get().start?.look) prefs.update({ start: { ...(prefs.get().start ?? {}), look: true } });
+      shell.openAppearance();
+    },
+  };
+
+  let startSig = '';
+  function paintStart() {
+    const steps = startState();
+    // Begun: the card stays on this device until done or hidden, even once there is data
+    if (steps && !prefs.get().start) prefs.update({ start: { look: false } });
+    startCard.hidden = !steps;
+    if (!steps) {
+      startSig = '';
+      return;
+    }
+    const sig = steps.map((st) => Number(st.done)).join('');
+    if (sig === startSig) return;
+    startSig = sig;
+    const done = steps.filter((st) => st.done).length;
+    startCount.textContent = done ? `${done} of ${steps.length} done` : `${steps.length} steps`;
+    keepFocus(startList, () =>
+      startList.replaceChildren(
+        ...steps.map((st, i) =>
+          h(
+            'li',
+            { class: ['hm-start-step', st.done && 'is-done'] },
+            h(
+              'button',
+              { type: 'button', class: 'hm-start-btn', dataset: { fid: `start:${st.id}` }, 'aria-label': `${i + 1}. ${st.label}${st.done ? ', done' : ''}`, onClick: () => startAction[st.id]() },
+              h('span', { class: 'hm-start-mark', 'aria-hidden': 'true' }, st.done ? icon('check', { size: 14, stroke: 2.5 }) : h('span', { class: 'tnum' }, String(i + 1))),
+              iconBadge(st.icon, { tone: st.tone, size: 16, className: 'hm-start-step-ib' }),
+              h('span', { class: 'hm-start-text' }, h('strong', null, st.label), h('span', null, st.text)),
+              icon('chevron-right', { size: 16, className: 'hm-start-go' }),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /** New data or a step done: the card, and the widgets and strip that waited, follow. */
+  function refreshStart() {
+    paintStart();
+    // The board as drawn against what it should show now (a first task brings the calendar in)
+    const want = shownLayout().map((w) => w.id).join();
+    if (want !== [...board.children].map((n) => n.dataset.widget).join()) renderBoard();
+    else syncGlance();
+  }
+
+  /** While the Start card is up: widgets that could only say "nothing yet" (HM.emptyWidgets). */
+  const waitingWidgets = () => {
+    if (startCard.hidden) return new Set();
+    const c = appCounts();
+    return new Set(HM.emptyWidgets({ tasks: c.tasks, habits: c.habits, events: c.events }));
+  };
+
   /* ---- Today: the strip under the greeting, the first place to look ----
      A tile per page with something for today: events (and what's next), tasks to do (and how
      many are late), habits done of planned, the focus timer. Each is its page's badge, one big
@@ -329,13 +497,13 @@ function mount(root) {
         href: t.href,
         title: `Open ${t.name === 'Focus timer' ? 'the timer' : t.name}`,
         dataset: { tile: t.id },
-        onClick: open
-          ? (e) => {
-              if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
-              e.preventDefault();
-              open();
-            }
-          : null,
+        onClick: (e) => {
+          // Opening a page from its number is what the page's tip explains
+          if (!tipHidden('home.intro')) dismissTip('home.intro');
+          if (!open || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+          e.preventDefault();
+          open();
+        },
       },
       iconBadge(t.icon, { tone: t.tone, size: 18, className: 'hm-gl-ib' }),
       h('span', { class: 'hm-gl-text' }, h('span', { class: 'hm-gl-main' }, value, label), alert, sub),
@@ -347,6 +515,23 @@ function mount(root) {
   const setText = (el, text) => {
     if (el.textContent !== text) el.textContent = text;
   };
+
+  /**
+   * Every fact once: a tile whose widget on the board shows the same (the Focus timer's clock)
+   * leaves the strip (HM.glanceHidden); the strip itself waits while a new Home has only zeros.
+   * Tiles are taken out, not hidden, so the strip's first / last tile styles stay right.
+   */
+  function syncGlance() {
+    const away = new Set(HM.glanceHidden(layoutNow().filter((w) => !waitingWidgets().has(w.id))));
+    const cells = HM.GLANCE.filter((t) => !away.has(t.id)).map((t) => glanceCells.get(t.id).cell);
+    if (cells.length !== glance.children.length || cells.some((c, i) => glance.children[i] !== c)) glance.replaceChildren(...cells);
+    if (startCard.hidden) {
+      glance.hidden = false;
+      return;
+    }
+    const c = appCounts();
+    glance.hidden = !c.tasks && !c.habits && !c.events;
+  }
 
   /** Merge in the parts that changed and paint the four tiles. */
   function paintGlance(patch = {}) {
@@ -454,6 +639,9 @@ function mount(root) {
     emptyText,
     h('button', { type: 'button', class: 'btn btn--sm', onClick: () => calendarApi.open(state.cursor, calNow().view) }, icon('calendar', { size: 14 }), 'Plan in the Calendar'),
   );
+  // Under "Today & next": the whole week, in the Calendar
+  const weekFootNote = h('span', { class: 'hm-up-foot-note' });
+  const weekFoot = h('div', { class: 'hm-up-foot', hidden: true }, weekFootNote, moreLink({ href: '#/calendar', label: 'Whole week', onClick: () => calendarApi.open(state.cursor, 'week') }));
   const weekCard = h(
     'section',
     { class: 'panel hud hm-card hm-week', 'aria-labelledby': 'hm-week-title' },
@@ -469,6 +657,7 @@ function mount(root) {
     ),
     daysEl,
     weekEmpty,
+    weekFoot,
   );
 
   function goTo(key) {
@@ -586,7 +775,7 @@ function mount(root) {
       groups.push(h('section', { class: 'hm-dv-group' }, title('clock', 'Schedule'), schedule(d, ctx)));
     } else if (layers.events && d.events.length) {
       groups.push(group(HM.CAL_LAYER_ICON.events, 'Events', d.events.map((occ) => {
-        const bar = eventBar(occ, ctx, { prefix: 'hm', tab: '0', drag: false, glyph: false, extra: occ.location ? h('span', { class: 'hm-dv-where' }, occ.location) : null });
+        const bar = eventBar(occ, ctx, { prefix: 'hm', tab: '0', drag: false, glyph: false, timeFirst: true, extra: occ.location ? h('span', { class: 'hm-dv-where' }, occ.location) : null });
         bar.dataset.open = d.key;
         return bar;
       })));
@@ -657,20 +846,90 @@ function mount(root) {
     return [head, h('div', { class: 'hm-mgrid', role: 'group', 'aria-label': grid.title }, cells)];
   }
 
-  // The day view splits in two from this width of the widget (a medium one and up)
+  // The day view splits in two from this width of the widget (a medium one and up); the week is
+  // "Today & next" below AGENDA_W. Crossing either width paints the widget again.
   let dayWide = null;
+  let agendaMode = null;
   const dayResize = new ResizeObserver(() => {
-    if (calNow().view !== 'day' || (weekCard.clientWidth >= DAY_SPLIT) === dayWide) return;
-    requestAnimationFrame(() => paintWeek());
+    const view = calNow().view;
+    const w = weekCard.clientWidth;
+    if (view === 'day' && (w >= DAY_SPLIT) !== dayWide) requestAnimationFrame(() => paintWeek());
+    else if (view === 'week' && w > 0 && (w < AGENDA_W) !== agendaMode) requestAnimationFrame(() => paintWeek());
   });
   dayResize.observe(weekCard);
 
   // The cell that takes Tab in the month: today, or the first day of the month
   const focusKeyIn = (grid) => (state.today.startsWith(grid.month) ? state.today : `${grid.month}-01`);
 
+  /**
+   * "Today & next" (a narrow widget's week): today, or the first day after ‹ ›, then only the
+   * days after it with something on them (HM.agendaDays); a free day is no row at all. Each day:
+   * its word (Today, Tomorrow, the weekday) with its icon and date, then its events and tasks.
+   * Today's events that are over fold into one "N earlier" line: what is next comes first.
+   */
+  function agendaList(days, ctx, colors, last) {
+    const { shown, hidden } = HM.agendaDays(days);
+    const tomorrow = shiftKey(state.today, 1);
+    // Today's tasks are in To do when it is on the board: each fact once
+    const todoShown = !!todoCard.closest('.hm-board');
+    const rows = shown.map((d) => {
+      const tasks = d.isToday && todoShown ? [] : d.tasks;
+      const ended = d.isToday ? HM.endedEvents(d.events, d.key, ctx.nowMin) : [];
+      const events = ended.length ? d.events.filter((o) => !ended.includes(o)) : d.events;
+      const items = [...events.map((occ) => ({ occ })), ...tasks.map((task) => ({ task }))];
+      const { shown: list, more } = HM.clipItems(items, DAY_ITEMS);
+      const date = parseKey(d.key);
+      const word = d.isToday ? 'Today' : d.key === tomorrow ? 'Tomorrow' : WEEKDAYS_SHORT[date.getDay()];
+      const label = `${formatDay(d.key, 'long')}${d.isToday ? ', today' : ''}: ${plural(d.events.length, 'event')}, ${plural(d.tasks.length, 'task')}. Open in the Calendar`;
+      return paintColor(
+        h(
+          'section',
+          { class: ['hm-up-day', d.isToday && 'is-today', d.isPast && 'is-past'], dataset: { key: d.key } },
+          h(
+            'button',
+            { type: 'button', class: 'hm-up-head', 'aria-label': label, dataset: { open: d.key, fid: `up:${d.key}` } },
+            icon(d.isToday ? 'sun' : d.key === tomorrow ? 'sunrise' : 'calendar', { size: 14 }),
+            h('span', { class: 'hm-up-when' }, word),
+            h('span', { class: 'hm-up-date tnum' }, `${date.getDate()} ${MONTHS_SHORT[date.getMonth()]}`),
+          ),
+          h(
+            'div',
+            { class: 'hm-up-items' },
+            ended.length
+              ? h(
+                  'button',
+                  { type: 'button', class: 'hm-up-earlier', 'aria-label': `${plural(ended.length, 'earlier event')} today, over now. Open today in the Calendar`, dataset: { open: d.key, fid: `up-earlier:${d.key}` } },
+                  icon('check-circle', { size: 12 }),
+                  plural(ended.length, 'earlier event'),
+                )
+              : null,
+            list.map((it) => {
+              const el = it.occ ? eventBar(it.occ, ctx, { prefix: 'up', tab: '0', drag: false, glyph: false, timeFirst: true }) : taskChip(it.task, ctx, { prefix: 'up', tab: '0' });
+              el.dataset.open = d.key;
+              return el;
+            }),
+            more ? h('button', { type: 'button', class: 'hm-up-more', dataset: { open: d.key, fid: `up-more:${d.key}` } }, `+${more} more`) : null,
+            items.length ? null : h('p', { class: 'hm-up-none' }, !d.isToday ? 'Nothing planned.' : ended.length ? 'Nothing else today.' : d.tasks.length ? 'No events today. Your tasks are in To do.' : 'Nothing planned today.'),
+          ),
+        ),
+        'days',
+        colors[d.key],
+      );
+    });
+    // The days after the first that had nothing: said once, at the end; busy days left out: counted
+    if (shown.length === 1 && !hidden) rows.push(h('p', { class: 'hm-up-rest' }, `Nothing else planned up to ${formatDay(last)}.`));
+    weekFootNote.textContent = hidden ? `${plural(hidden, 'more day')} with plans` : '';
+    return rows;
+  }
+
   function paintWeek() {
     const { view, layers } = calNow();
-    const { from, to } = viewRange(view, state.cursor);
+    const width = weekCard.clientWidth;
+    const agenda = view === 'week' && width > 0 && width < AGENDA_W;
+    agendaMode = view === 'week' ? agenda : null;
+    // The agenda runs from today (this week) or from the day ‹ › moved to, for AGENDA_DAYS days
+    const start = agenda ? (isCurrent('week') ? state.today : state.cursor) : null;
+    const { from, to } = agenda ? { from: start, to: shiftKey(start, HM.AGENDA_DAYS - 1) } : viewRange(view, state.cursor);
     const occs = layers.events ? occurrencesInRange(getEvents(), from, to) : [];
     const byDay = layers.tasks ? tasksByDay(tasksApi.getItems(), from, to, { includeCompleted: layers.completed }) : new Map();
     const habits = layers.habits ? habitsByDay(habitsApi.source.getItems(), from, to, state.today) : new Map();
@@ -680,21 +939,25 @@ function mount(root) {
 
     weekKicker.textContent = HM.CAL_VIEW_LABEL[view];
     const head = periodHeading(view, state.cursor, { weekNumber: !simple });
-    const headText = `${head.month} ${head.year}|${head.sub}`;
+    // "Today & next" while it starts today; after ‹ ›, its month and its own seven days
+    const shownHead = agenda ? { month: start === state.today ? 'Today & next' : head.month, year: start === state.today ? '' : String(from).slice(0, 4), sub: HM.rangeText(from, to, MONTHS_SHORT) } : head;
+    const headText = `${shownHead.month} ${shownHead.year}|${shownHead.sub}`;
     if (weekTitle.dataset.text !== headText) {
       weekTitle.dataset.text = headText;
-      wtMonth.textContent = head.month;
-      wtYear.textContent = head.year;
-      wtSub.textContent = head.sub;
-      wtSub.hidden = !head.sub;
+      wtMonth.textContent = shownHead.month;
+      wtYear.textContent = shownHead.year;
+      wtSub.textContent = shownHead.sub;
+      wtSub.hidden = !shownHead.sub;
     }
-    thisWeekBtn.textContent = HM.CAL_NOW_LABEL[view];
-    thisWeekBtn.title = `Back to ${HM.CAL_NOW_LABEL[view].toLowerCase()} (T)`;
+    weekTitle.classList.toggle('is-agenda', agenda);
+    const nowLabel = agenda ? 'Today' : HM.CAL_NOW_LABEL[view];
+    thisWeekBtn.textContent = nowLabel;
+    thisWeekBtn.title = `Back to ${nowLabel.toLowerCase()} (T)`;
     thisWeekBtn.hidden = isCurrent(view);
-    prevBtn.setAttribute('aria-label', `Previous ${unit}`);
-    prevBtn.title = `Previous ${unit} (←)`;
-    nextBtn.setAttribute('aria-label', `Next ${unit}`);
-    nextBtn.title = `Next ${unit} (→)`;
+    prevBtn.setAttribute('aria-label', agenda ? 'Previous seven days' : `Previous ${unit}`);
+    prevBtn.title = `${agenda ? 'Previous seven days' : `Previous ${unit}`} (←)`;
+    nextBtn.setAttribute('aria-label', agenda ? 'Next seven days' : `Next ${unit}`);
+    nextBtn.title = `${agenda ? 'Next seven days' : `Next ${unit}`} (→)`;
     // Only a new view rebuilds the menu: this runs every half minute on today's day view, and an
     // open menu rebuilt under the keyboard would lose its place
     if (viewDD.button.dataset.view !== view) {
@@ -711,14 +974,20 @@ function mount(root) {
       showSig = sig;
       updateMenu(showDD, { items: showItems });
     }
-    weekCard.dataset.view = view;
-    daysEl.dataset.view = view;
+    weekCard.dataset.view = agenda ? 'agenda' : view;
+    daysEl.dataset.view = agenda ? 'agenda' : view;
+    weekFoot.hidden = !agenda;
 
     let quiet;
     if (view === 'month') {
       const grid = monthGrid(state.cursor, { today: state.today });
       keepFocus(daysEl, () => daysEl.replaceChildren(...monthCells(grid, occs, byDay, habits, colors)));
       quiet = !layers.events && !layers.tasks && !layers.habits;
+    } else if (agenda) {
+      const days = HM.weekDays(Array.from({ length: HM.AGENDA_DAYS }, (_, i) => shiftKey(start, i)), occs, byDay, state.today);
+      keepFocus(daysEl, () => daysEl.replaceChildren(...agendaList(days, ctx, colors, to)));
+      // Every layer off: say so (the first day's own line covers a quiet week)
+      quiet = !layers.events && !layers.tasks;
     } else {
       const days = HM.weekDays(view === 'day' ? [state.cursor] : weekKeys(state.cursor), occs, byDay, state.today);
       if (view === 'day') {
@@ -743,7 +1012,7 @@ function mount(root) {
     if (check) {
       const id = check.dataset.task;
       const done = check.getAttribute('aria-checked') === 'true';
-      if (done) tasksApi.setDone(id, false);
+      if (done) reopenTask(id);
       else completeTask(id);
       return;
     }
@@ -812,31 +1081,57 @@ function mount(root) {
   /* ---- Habits today ---- */
 
   const habitsBody = h('div', { class: 'hm-habits-body' });
-  const habitsCount = h('span', { class: 'hm-count tnum' });
+  // No count in the header: the Today strip says how many are done (every fact once)
   const habitsCard = h(
     'section',
     { class: 'panel hm-card hm-habits', 'aria-labelledby': 'hm-habits-title' },
-    cardHead('hm-habits-title', 'habits', simple ? 'Habits today' : 'Habits · today', h('div', { class: 'hm-card-tools' }, habitsCount, moreLink({ href: '#/habits', label: 'Habits', onClick: () => habitsApi.source.openTab('today') })), 'Habits'),
+    cardHead('hm-habits-title', 'habits', simple ? 'Habits today' : 'Habits · today', moreLink({ href: '#/habits', label: 'Habits', onClick: () => habitsApi.source.openTab('today') }), 'Habits'),
     habitsBody,
   );
+  let habitHoldUntil = 0;
+  let habitTimer = 0;
 
   function miniEmpty({ iconName, title, text, action }) {
     return h('div', { class: 'hm-empty' }, h('span', { class: 'hm-empty-icon' }, icon(iconName, { size: 18 })), h('div', { class: 'hm-empty-text' }, h('strong', null, title), text ? h('span', null, text) : null), action ?? null);
   }
 
+  /**
+   * Tick a habit from Home: its box shows it at once, and its row keeps its place a beat, so the
+   * list doesn't jump under the pointer.
+   */
+  function logHabit(id, done, check) {
+    habitHoldUntil = Date.now() + LINGER_MS;
+    setChecked(check, done);
+    check.closest('.hm-habit')?.classList.toggle('is-done', done);
+    if (habitsApi.setLog(id, state.today, done)) return;
+    // Not logged (that day can't be checked in): the list as it really is
+    habitHoldUntil = 0;
+    paintHabits();
+  }
+
+  /**
+   * Today's planned habits to tick: the ones still to do first, then the done ones, at most
+   * HABITS_MAX rows and "+N more" (the Habits page has them all). No ring or count: the Today
+   * strip has the number.
+   */
   function paintHabits() {
+    const wait = habitHoldUntil - Date.now();
+    if (wait > 0) {
+      clearTimeout(habitTimer);
+      habitTimer = setTimeout(paintHabits, wait + 10);
+      return;
+    }
     const items = habitsApi.source.getItems();
     const today = state.today;
     const planned = habitsForDay(items, today);
     const done = planned.filter((hb) => hb.log?.[today]).length;
-    habitsCount.textContent = planned.length ? `${num(done)}/${num(planned.length)}` : '';
     if (!items.some((hb) => !hb.archivedAt || hb.archivedAt > today)) {
       habitsBody.replaceChildren(
         miniEmpty({
           iconName: 'target',
           title: 'No habits yet',
           text: 'Small things you do on chosen days, like a walk or reading.',
-          action: h('button', { type: 'button', class: 'btn btn--sm', onClick: () => (location.hash = '#/habits') }, icon('plus', { size: 14 }), 'Add a habit'),
+          action: h('button', { type: 'button', class: 'btn btn--sm', onClick: () => (typeof habitsApi.openEditor === 'function' ? habitsApi.openEditor({ starters: true }) : habitsApi.source.openTab('today')) }, icon('plus', { size: 14 }), 'Add a habit'),
         }),
       );
       return;
@@ -852,71 +1147,59 @@ function mount(root) {
       );
       return;
     }
-    const pct = planned.length ? done / planned.length : 0;
-    const ring = ringEl(pct, `${done}/${planned.length}`);
-    const rows = planned.map((hb) => {
-      const isDone = !!hb.log?.[today];
-      const check = checkButton({ checked: isDone, label: `${hb.name}: done today`, onToggle: (next) => habitsApi.setLog(hb.id, today, next) });
+    const isDone = (hb) => !!hb.log?.[today];
+    const ordered = [...planned.filter((hb) => !isDone(hb)), ...planned.filter(isDone)];
+    const { shown, more } = HM.clipItems(ordered, HABITS_MAX);
+    const rows = shown.map((hb) => {
+      const check = checkButton({ checked: isDone(hb), label: `${hb.name}: done today`, onToggle: (next) => logHabit(hb.id, next, check) });
       check.dataset.fid = `hb:${hb.id}`;
-      return h('li', { class: ['hm-habit', isDone && 'is-done'] }, check, habitIcon(hb), h('span', { class: 'hm-habit-name', title: hb.name }, hb.name));
+      // The whole row ticks it (a bigger target than the box); the box stays the control
+      return h(
+        'li',
+        { class: ['hm-habit', isDone(hb) && 'is-done'], onClick: (e) => e.target === check || check.contains(e.target) || check.click() },
+        check,
+        habitIcon(hb),
+        h('span', { class: 'hm-habit-name', title: hb.name }, hb.name),
+      );
     });
-    // A narrow card drops the ring (the count is in its header) but keeps "All done"
     habitsBody.classList.toggle('is-complete', done === planned.length);
     keepFocus(habitsBody, () =>
       habitsBody.replaceChildren(
-        h(
-          'div',
-          { class: 'hm-habits-sum' },
-          ring,
-          h('p', { class: 'hm-habits-line' }, done === planned.length ? term('habits.allDone', 'All done for today.') : `${planned.length - done} to go today`),
-        ),
-        h('ul', { class: 'hm-habit-list', 'aria-label': 'Habits planned today' }, rows),
+        ...[
+          done === planned.length ? h('p', { class: 'hm-habits-line' }, icon('check-circle', { size: 14 }), h('span', null, term('habits.allDone', 'All done for today.'))) : null,
+          h('ul', { class: 'hm-habit-list', 'aria-label': 'Habits planned today' }, rows),
+          more
+            ? h(
+                'a',
+                {
+                  class: 'hm-list-more',
+                  href: '#/habits',
+                  onClick: (e) => {
+                    if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+                    e.preventDefault();
+                    habitsApi.source.openTab('today');
+                  },
+                },
+                `+${more} more`,
+              )
+            : null,
+        ].filter(Boolean),
       ),
     );
-  }
-
-  /** A small progress ring with a done / planned readout. */
-  function ringEl(value, text) {
-    const size = 56;
-    const stroke = 4;
-    const r = (size - stroke) / 2;
-    const c = 2 * Math.PI * r;
-    const ns = 'http://www.w3.org/2000/svg';
-    const svg = document.createElementNS(ns, 'svg');
-    svg.setAttribute('viewBox', `0 0 ${size} ${size}`);
-    svg.setAttribute('width', String(size));
-    svg.setAttribute('height', String(size));
-    svg.setAttribute('aria-hidden', 'true');
-    for (const cls of ['ring-track', 'ring-fill']) {
-      const el = document.createElementNS(ns, 'circle');
-      el.setAttribute('class', cls);
-      el.setAttribute('cx', String(size / 2));
-      el.setAttribute('cy', String(size / 2));
-      el.setAttribute('r', String(r));
-      el.setAttribute('fill', 'none');
-      el.setAttribute('stroke-width', String(stroke));
-      if (cls === 'ring-fill') {
-        el.setAttribute('stroke-dasharray', String(c));
-        el.style.strokeDashoffset = String(c * (1 - value));
-        if (!value) el.style.opacity = '0';
-      }
-      svg.append(el);
-    }
-    return h('div', { class: 'ring hm-ring', role: 'img', 'aria-label': `${text} habits done` }, svg, h('div', { class: 'ring-label hm-ring-label tnum', 'aria-hidden': 'true' }, text));
   }
 
   /* ---- To do ---- */
 
   const todoList = h('ul', { class: 'hm-tasks', 'aria-label': 'To do today' });
   const todoFoot = h('div', { class: 'hm-todo-foot' });
-  const todoCount = h('span', { class: 'hm-count tnum' });
   const addInput = h('input', {
     class: 'input hm-add-input',
     type: 'text',
     maxlength: '500',
     autocomplete: 'off',
     enterkeyhint: 'done',
-    placeholder: simple ? 'Add a task for today' : 'Add a task for today…  !h high',
+    // (a phone's field is too narrow for the priority hint: it would be cut off mid-word)
+    placeholder: simple || matchMedia('(max-width: 640px)').matches ? 'Add a task for today' : 'Add a task for today…  !h high',
     'aria-label': 'Add a task for today (priority: !h, !m, !l)',
     'aria-keyshortcuts': 'N',
   });
@@ -936,7 +1219,8 @@ function mount(root) {
   const todoCard = h(
     'section',
     { class: 'panel hm-card hm-todo', 'aria-labelledby': 'hm-todo-title' },
-    cardHead('hm-todo-title', 'todo', 'To do', h('div', { class: 'hm-card-tools' }, todoCount, moreLink({ href: '#/tasks', label: 'All tasks' }))),
+    // No count in the header: the Today strip says how many (every fact once)
+    cardHead('hm-todo-title', 'todo', 'To do', moreLink({ href: '#/tasks', label: 'All tasks' })),
     addForm,
     todoList,
     todoFoot,
@@ -969,8 +1253,13 @@ function mount(root) {
       const check = row.querySelector('.check');
       if (check) setChecked(check, true);
     }
-    if (!tasksApi.setDone(id, true)) return;
-    toast(`Completed “${clip(task.title)}”.`, { action: { label: 'Undo', onClick: () => tasksApi.setDone(id, false) } });
+    // The Tasks page's own tick: its toast (“X” done. + Undo, one toast for quick ticks) and ⌘/Ctrl+Z there
+    tasksApi.complete(id, true);
+  }
+
+  /** Untick (the week's check, the row's, Reopen in the menu): “X” is open again, with Undo. */
+  function reopenTask(id) {
+    tasksApi.complete(id, false);
   }
 
   function taskRow({ task, overdueDays }) {
@@ -979,7 +1268,7 @@ function mount(root) {
     const check = checkButton({
       checked: false,
       label: `Complete ${task.title}${pri ? `, ${pri.text.toLowerCase()} priority` : ''}${overdueDays ? ', overdue' : ''}`,
-      onToggle: (next) => (next ? completeTask(task.id, row) : tasksApi.setDone(task.id, false)),
+      onToggle: (next) => (next ? completeTask(task.id, row) : reopenTask(task.id)),
     });
     check.dataset.fid = `todo:${task.id}`;
     // Native append() would print a null as "null": only the parts this task has
@@ -1004,7 +1293,6 @@ function mount(root) {
     const overdue = overdueTasks(tasks, state.today);
     const dueToday = tasksByDay(tasks, state.today, state.today).get(state.today) ?? [];
     const rows = HM.todoList(overdue, dueToday, state.today, daysBetween);
-    todoCount.textContent = rows.length ? num(rows.length) : '';
     keepFocus(todoCard, () => {
       todoList.replaceChildren(...rows.slice(0, TODO_MAX).map(taskRow));
       todoList.hidden = !rows.length;
@@ -1315,7 +1603,13 @@ function mount(root) {
   let stopDrag = null;
 
   const layoutNow = () => HM.normalizeLayout(prefs.get().layout);
-  const saveLayout = (layout) => prefs.update({ layout });
+  // What the board shows: the layout, less the widgets waiting for data on a new Home (never while arranging)
+  const shownLayout = () => HM.shownWidgets(layoutNow(), editing ? [] : [...waitingWidgets()]);
+  const saveLayout = (layout) => {
+    // Arranging once is what the Customize tip explains: it has done its job (C2: one tip at a time)
+    if (editing && !tipHidden(TIP_ID)) dismissTip(TIP_ID);
+    prefs.update({ layout });
+  };
   const nameOf = (id) => HM.WIDGETS.find((w) => w.id === id)?.name ?? id;
 
   // Four columns on a wide board, two on a narrower one and on a phone (HM.columnsFor)
@@ -1329,7 +1623,7 @@ function mount(root) {
   const heightsOf = (layout) => Object.fromEntries(layout.map((it) => [it.id, wraps.get(it.id)?.offsetHeight ?? 0]));
 
   /** Size each widget for its columns, measure it, and move it into its place. */
-  function layoutBoard(layout = layoutNow()) {
+  function layoutBoard(layout = shownLayout()) {
     metrics = measure();
     if (!metrics.width) return;
     const { cols, step, gap } = metrics;
@@ -1469,15 +1763,16 @@ function mount(root) {
     );
   }
 
+  // Every widget taken off: the app's one empty state (ui.emptyState), whose button opens the shelf
   function emptyBoard() {
     return h(
       'div',
-      { class: 'panel hm-board-empty' },
-      miniEmpty({
-        iconName: 'hm-layout',
+      { class: 'hm-board-empty' },
+      emptyState({
+        icon: 'hm-layout',
         title: 'Your Home is empty',
         text: 'Pick the widgets you want here.',
-        action: h('button', { type: 'button', class: 'btn btn--sm btn--primary', onClick: () => setEditing(true) }, 'Customize'),
+        action: h('button', { type: 'button', class: 'btn btn--sm', onClick: () => setEditing(true) }, icon('plus', { size: 14 }), 'Add widgets'),
       }),
     );
   }
@@ -1490,7 +1785,7 @@ function mount(root) {
 
   function renderBoard() {
     if (dragging) return;
-    const layout = layoutNow();
+    const layout = shownLayout();
     const active = document.activeElement;
     const focusWidget = active instanceof Element && active.classList.contains('hm-wgrip') ? active.closest('.hm-widget')?.dataset.widget : null;
     const nodes = layout.map((item) => {
@@ -1513,8 +1808,9 @@ function mount(root) {
     const same = nodes.length === board.children.length && nodes.every((n, i) => board.children[i] === n);
     if (!same) board.replaceChildren(...nodes);
     board.classList.toggle('is-editing', editing);
-    below.replaceChildren(...(editing ? [addShelf()] : layout.length ? [] : [emptyBoard()]));
+    below.replaceChildren(...(editing ? [addShelf()] : layoutNow().length ? [] : [emptyBoard()]));
     layoutBoard(layout);
+    syncGlance();
     if (focusWidget) wraps.get(focusWidget)?.querySelector('.hm-wgrip')?.focus({ preventScroll: true });
   }
 
@@ -1633,7 +1929,8 @@ function mount(root) {
     window.addEventListener('pointercancel', end);
   }
 
-  root.append(header, glance, editHint, board, below, announce);
+  root.append(header, startCard, glance, editHint, board, below, announce);
+  paintStart();
   setEditing(false);
 
   function paintAll() {
@@ -1666,17 +1963,42 @@ function mount(root) {
     return true;
   }
 
+  /** A new due day for a task, with Undo (unless it was changed again since). */
+  function moveTask(task, key) {
+    const prev = task.due ?? null;
+    if (!tasksApi.setDue(task.id, key)) return;
+    const when = key === state.today ? 'today' : key === shiftKey(state.today, 1) ? 'tomorrow' : formatDay(key);
+    toast(`Moved “${clip(task.title)}” to ${when}.`, {
+      action: {
+        label: 'Undo',
+        onClick: () => {
+          if (tasksApi.getItems().find((t) => t.id === task.id)?.due === key) tasksApi.setDue(task.id, prev);
+          else toast(`Nothing undone: “${clip(task.title)}” changed since.`);
+        },
+      },
+    });
+  }
+
   const offMenu = registerContextProvider('home', (el) => {
     if (!root.contains(el)) return null;
     const row = el.closest('[data-task]');
     const id = row?.dataset.task;
     const task = id ? tasksApi.getItems().find((t) => t.id === id) : null;
     if (task) {
+      const tomorrow = shiftKey(state.today, 1);
       return {
         kind: 'task',
         id,
         label: `Task: ${task.title}`,
         el: row.querySelector('.hm-task-title, [data-act="task-open"]') ?? row,
+        // The quick ones first (the shell lists them before Edit…): done, today, tomorrow
+        actions: [
+          task.done
+            ? { id: 'reopen', label: 'Reopen', icon: 'undo', run: () => reopenTask(id) }
+            : { id: 'complete', label: 'Complete', icon: 'check', run: () => completeTask(id) },
+          task.due !== state.today && !task.done ? { id: 'today', label: 'Move to today', icon: 'sun', run: () => moveTask(task, state.today) } : null,
+          task.due !== tomorrow && !task.done ? { id: 'tomorrow', label: 'Move to tomorrow', icon: 'sunrise', run: () => moveTask(task, tomorrow) } : null,
+        ].filter(Boolean),
         accepts: ['task'],
         copy: () => {
           const snapshot = tasksApi.snapshot(id);
@@ -1722,22 +2044,26 @@ function mount(root) {
       paintTodo();
       paintWeek();
       paintHeader();
+      refreshStart();
     }),
     habitsApi.source.subscribe(() => {
       glanceHabits();
       paintHabits();
       paintGraph();
       paintWeek();
+      refreshStart();
     }),
     subscribeCalendar(() => {
       paintWeek();
       paintHeader();
       paintAgenda();
+      refreshStart();
     }),
     financeApi.subscribe(() => paintPayments()),
     trainingApi.subscribe(() => paintTraining()),
-    // The layout or the calendar's view changed (here, or in another window)
+    // The layout or the calendar's view changed (here, or in another window); a Start step too
     prefs.subscribe(() => {
+      paintStart();
       renderBoard();
       paintWeek();
     }),
@@ -1813,6 +2139,7 @@ function mount(root) {
     clearInterval(clock);
     clearInterval(seconds);
     clearTimeout(todoTimer);
+    clearTimeout(habitTimer);
     document.removeEventListener('keydown', onKeydown);
   };
 }

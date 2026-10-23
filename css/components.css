@@ -85,9 +85,11 @@
     transform var(--dur-fast) var(--ease);
 }
 
-.btn:hover {
-  background: var(--surface-3);
-  border-color: var(--text-3);
+@media (hover: hover) and (pointer: fine) {
+  .btn:hover {
+    background: var(--surface-3);
+    border-color: var(--text-3);
+  }
 }
 
 .btn:active {
@@ -105,10 +107,12 @@
   color: var(--accent-ink);
 }
 
-.btn--primary:hover {
-  background: var(--accent);
-  border-color: var(--accent);
-  box-shadow: var(--glow-strong);
+@media (hover: hover) and (pointer: fine) {
+  .btn--primary:hover {
+    background: var(--accent);
+    border-color: var(--accent);
+    box-shadow: var(--glow-strong);
+  }
 }
 
 .btn--ghost {
@@ -117,10 +121,12 @@
   color: var(--text-2);
 }
 
-.btn--ghost:hover {
-  background: var(--surface-2);
-  border-color: var(--line);
-  color: var(--text);
+@media (hover: hover) and (pointer: fine) {
+  .btn--ghost:hover {
+    background: var(--surface-2);
+    border-color: var(--line);
+    color: var(--text);
+  }
 }
 
 /* Destructive: no red — dashed outline + hatched hover */
@@ -130,10 +136,12 @@
   color: var(--text);
 }
 
-.btn--danger:hover {
-  border-style: solid;
-  border-color: var(--text);
-  background: repeating-linear-gradient(-45deg, var(--hatch) 0 2px, transparent 2px 6px);
+@media (hover: hover) and (pointer: fine) {
+  .btn--danger:hover {
+    border-style: solid;
+    border-color: var(--text);
+    background: repeating-linear-gradient(-45deg, var(--hatch) 0 2px, transparent 2px 6px);
+  }
 }
 
 .btn--sm {
@@ -184,7 +192,8 @@
 .textarea:focus,
 .select:focus {
   border-color: var(--line-focus);
-  background: var(--surface-2);
+  /* the color only: the shorthand would wipe the select's chevron (background-image) */
+  background-color: var(--surface-2);
   box-shadow: var(--glow);
   outline: none;
 }
@@ -217,13 +226,13 @@ input[type="date"].input {
   font-size: var(--fs-xs);
 }
 
-input[type="date"]::-webkit-calendar-picker-indicator {
+input:is([type="date"], [type="time"])::-webkit-calendar-picker-indicator {
   filter: grayscale(1);
   opacity: 0.6;
   cursor: pointer;
 }
 
-[data-theme="dark"] input[type="date"]::-webkit-calendar-picker-indicator {
+[data-theme="dark"] input:is([type="date"], [type="time"])::-webkit-calendar-picker-indicator {
   filter: invert(1) grayscale(1);
 }
 
@@ -274,9 +283,19 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   transition: opacity var(--dur-fast) var(--ease), transform var(--dur) var(--ease-out);
 }
 
-.check:hover {
-  border-color: var(--text);
-  box-shadow: var(--glow);
+@media (hover: hover) and (pointer: fine) {
+  .check:hover {
+    border-color: var(--text);
+    box-shadow: var(--glow);
+  }
+}
+
+/* The finger-sized target (ui.checkButton): its own element, so a template drawing on the check's
+   ::before / ::after can't shrink it. 44px on touch screens (css/compact.css), the box itself
+   elsewhere. */
+.check-hit {
+  position: absolute;
+  inset: 0;
 }
 
 .check[aria-checked="true"],
@@ -328,8 +347,10 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   transition: color var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease);
 }
 
-.seg-btn:hover {
-  color: var(--text);
+@media (hover: hover) and (pointer: fine) {
+  .seg-btn:hover {
+    color: var(--text);
+  }
 }
 
 /* The ring sits just inside the button: the bar scrolls sideways on narrow screens, which cuts
@@ -461,14 +482,20 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   line-height: 1.1;
 }
 
-/* ---- Empty state ---- */
+/* ---- Empty state (ui.emptyState): the one pattern on every page ----
+   The whole content width (in a grid, every column; never a narrow card beside nothing), the
+   icon, title, sentence and one action centred under each other. Mission Control's dashes and
+   hatching here; the templates restyle its colors and edges. */
 .empty {
+  grid-column: 1 / -1;
+  justify-self: stretch;
+  width: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: var(--space-3);
-  padding: var(--space-8) var(--space-5);
+  gap: var(--space-2);
+  padding: var(--space-7) var(--space-5);
   text-align: center;
   color: var(--text-3);
   border: var(--border-w) dashed var(--line-strong);
@@ -481,6 +508,7 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   height: 44px;
   display: grid;
   place-items: center;
+  margin-bottom: var(--space-1);
   border: 1px solid var(--line-strong);
   border-radius: var(--radius-sm);
   color: var(--text-2);
@@ -488,13 +516,19 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 
 .empty-title {
   color: var(--text);
-  font-weight: 500;
+  font-weight: 600;
   font-size: var(--fs-md);
 }
 
 .empty-text {
   font-size: var(--fs-sm);
-  max-width: 36ch;
+  max-width: 44ch;
+  color: var(--text-2);
+}
+
+/* Its one action, a step below the words */
+.empty > :is(.btn, .row):last-child {
+  margin-top: var(--space-2);
 }
 
 /* ---- Keyboard hint ---- */
@@ -608,10 +642,12 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   outline-offset: -3px;
 }
 
-.toast-action:hover {
-  background: var(--accent);
-  color: var(--accent-ink);
-  border-color: var(--accent);
+@media (hover: hover) and (pointer: fine) {
+  .toast-action:hover {
+    background: var(--accent);
+    color: var(--accent-ink);
+    border-color: var(--accent);
+  }
 }
 
 @media (max-width: 640px) {
@@ -697,7 +733,53 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   border-top: 1px solid var(--line);
 }
 
-/* ---- Touch devices: 16px fields (no iOS focus zoom) and >= 32px targets ---- */
+/* ---- One dialog anatomy ----
+   480px for one column of fields (the default), 640px (openModal size: 'lg') for two side by
+   side. A field is its label over its control (.field > label.label + control); the body spaces
+   the fields, the footer ends with the main button (Cancel before it). A danger confirmation is
+   the main button, filled (ui.confirmDialog, .btn--danger-fill in compact.css).
+   On a phone every dialog is a sheet from the bottom: the whole width, rounded on top only (each
+   template keeps its own top corners), up to the top of the screen; the body scrolls and the
+   footer stays in reach, above the home indicator. */
+@media (max-width: 640px) {
+  .modal-root {
+    place-items: end stretch;
+    padding: calc(env(safe-area-inset-top, 0px) + var(--space-4)) 0 0;
+  }
+
+  .modal-root > .modal {
+    width: 100%;
+    max-height: calc(100dvh - env(safe-area-inset-top, 0px) - var(--space-4));
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+    animation-name: lo-sheet-up;
+  }
+
+  .modal-root > .modal > .modal-foot {
+    flex-wrap: wrap;
+    padding-bottom: calc(var(--space-4) + env(safe-area-inset-bottom, 0px));
+  }
+
+  .modal-root > .modal > .modal-body:last-child {
+    padding-bottom: calc(var(--space-5) + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+@keyframes lo-sheet-up {
+  from {
+    opacity: 0;
+    transform: translateY(32px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ---- Touch devices: 16px fields (no iOS focus zoom) and finger-sized targets ----
+   44px (40px for the small, packed controls: small buttons, choice bars, dropdown buttons) as
+   min-height / min-width, so a template's own --btn-h or height never takes a target under it.
+   A check's 44px target is its .check-hit child (ui.checkButton). */
 @media (max-width: 640px) {
   .input,
   .textarea,
@@ -706,15 +788,7 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   }
 }
 
-@media (pointer: coarse) {
-  .btn--sm {
-    --btn-h: 34px;
-  }
-
-  .seg-btn {
-    height: 32px;
-  }
-}
+/* (the finger-sized minimums themselves are in css/compact.css, after the templates' own sizes) */
 
 /* ---- Context menu (right-click): Copy · Paste · Delete · Duplicate ----
    Built by js/contextmenu.js on <body>, so the skin scope is <html>. This is Mission Control's
@@ -793,6 +867,46 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   justify-self: end;
   text-transform: none;
   letter-spacing: 0;
+}
+
+/* A line between the groups: the page's own actions, Edit / Rename, Duplicate / Copy / Paste,
+   then Delete on its own at the end */
+.ctx-sep {
+  flex: none;
+  height: 1px;
+  margin: 3px var(--space-1);
+  background: var(--line);
+}
+
+/* An item with a submenu (Priority ▸): the chevron on the right, lit while its submenu is open */
+.ctx-sub-mark {
+  display: grid;
+  /* Always on the item's own row, at the end: the plain templates give the item two columns
+     only (no key hints), where it would otherwise wrap under the icon */
+  grid-row: 1;
+  grid-column: 3;
+  justify-self: end;
+  color: var(--text-3);
+}
+
+.ctx-menu .ctx-item.is-open {
+  background: var(--surface-3);
+  color: var(--text);
+}
+
+/* A picked choice in a submenu shows its check in the icon's place */
+.ctx-item.is-checked .ctx-icon {
+  color: var(--text);
+}
+
+.ctx-submenu {
+  min-width: 176px;
+}
+
+/* Delete reads as Delete once it is lit (it sits alone at the end) */
+.ctx-menu .ctx-item.ctx-item--delete:not([aria-disabled="true"]):is(:hover, :focus),
+.ctx-menu .ctx-item.ctx-item--delete:not([aria-disabled="true"]):is(:hover, :focus) .ctx-icon {
+  color: var(--alert);
 }
 
 /* The lit item: hovered or focused (the pointer focuses what it is over) */
@@ -949,10 +1063,15 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   white-space: nowrap;
 }
 
-.dd-item:hover,
 .dd-item:focus-visible {
   background: var(--surface-2);
   outline: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .dd-item:hover {
+    background: var(--surface-2);
+  }
 }
 
 /* From the keyboard, a ring as well: the faint fill alone is about 1.1:1 against the menu, too
@@ -1018,6 +1137,11 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   display: none;
 }
 
+/* One tip at a time on a page (ui.gateTips): the others wait their turn */
+.view [data-tip-wait] {
+  display: none !important;
+}
+
 .tip-icon {
   display: grid;
   flex: none;
@@ -1046,10 +1170,12 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   white-space: nowrap;
 }
 
-.tip-ok:hover,
-.page-tip-ok:hover {
-  border-color: var(--text-2);
-  background: var(--surface-2);
+@media (hover: hover) and (pointer: fine) {
+  .tip-ok:hover,
+  .page-tip-ok:hover {
+    border-color: var(--text-2);
+    background: var(--surface-2);
+  }
 }
 
 /* A page's explanation under its title, its ✓ at the end of the text (no row of its own) */

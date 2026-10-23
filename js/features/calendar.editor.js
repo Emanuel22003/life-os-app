@@ -256,7 +256,7 @@ function confirmDelete({ title, message, confirmLabel }) {
   });
 }
 
-/** Confirm (or ask the scope), delete, toast with Undo. Resolves to an onDone-style result. */
+/** Ask the scope (a repeating date) or confirm (a whole series), delete, toast with Undo. Resolves to an onDone-style result. */
 async function runDelete(id, occurrenceKey, { onAsk } = {}) {
   const live = getEvent(id);
   if (!live) {
@@ -270,13 +270,17 @@ async function runDelete(id, occurrenceKey, { onAsk } = {}) {
     const ask = askScope({ mode: 'delete', key, title: live.title, options: hasOccurrenceBefore(live, key) ? ['only', 'following', 'all'] : ['only', 'all'] });
     onAsk?.(ask);
     scope = await ask;
-  } else {
+  } else if (live.repeat) {
+    // A whole series is many dates at once: that one still asks
     const ok = await confirmDelete({
-      title: live.repeat ? 'Delete repeating event?' : 'Delete event?',
-      message: live.repeat ? `${quote(live.title)} and every date in its series will be removed.` : `${quote(live.title)} will be removed from the calendar.`,
-      confirmLabel: live.repeat ? 'Delete all' : 'Delete',
+      title: 'Delete repeating event?',
+      message: `${quote(live.title)} and every date in its series will be removed.`,
+      confirmLabel: 'Delete all',
     });
     scope = ok ? 'all' : null;
+  } else {
+    // One event goes at once; the toast's Undo (or ⌘/Ctrl + Z) brings it back
+    scope = 'all';
   }
   if (!scope) return CANCELLED;
   // Re-read: another tab may have changed the event while the question was open. Never widen
@@ -300,7 +304,8 @@ async function runDelete(id, occurrenceKey, { onAsk } = {}) {
 /**
  * deleteEvent({ event, occurrenceKey }) -> Promise<result>
  * The editor's delete flow without the editor: a repeating occurrence asks Only this / This and
- * following / All events, anything else asks for confirmation; then a toast with Undo.
+ * following / All events, a whole series asks for confirmation, a single event goes at once;
+ * then a toast with Undo.
  * Resolves to { action: 'deleted', scope, eventId, key, event: null } or { action: 'cancelled' }.
  */
 export async function deleteEvent({ event, occurrenceKey = null } = {}) {

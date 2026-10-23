@@ -2,7 +2,7 @@
 // strip, the week, the to-do list, the habit graph, the board). DOM-free, so
 // tools/tests/home.test.js runs them in JavaScriptCore.
 // Home stores nothing of its own except per-device preferences (store 'home': { quickNoteSection,
-// layout, calendar }).
+// layout, calendar, start }; start: { look } once a new Home's Start card has begun).
 
 /** 'Good morning' (5–11) · 'Good afternoon' (12–16) · 'Good evening' (17–4). */
 export function greeting(hour) {
@@ -145,6 +145,59 @@ export function glanceTiles(data = {}, { num = String } = {}) {
   return tiles;
 }
 
+/**
+ * Every fact once: a tile whose widget on the board shows the same thing stays off the strip.
+ * The Focus timer widget is a big clock, so its tile would only repeat it. (The other widgets
+ * are lists; the strip keeps their numbers and the lists drop them.) -> tile ids to leave out
+ */
+export function glanceHidden(layout) {
+  const ids = new Set((Array.isArray(layout) ? layout : []).map((w) => (typeof w === 'string' ? w : w?.id)));
+  return ids.has('pomodoro') ? ['focus'] : [];
+}
+
+/* ==========================================================================
+   First run: "Start here"
+   A new Home (nothing saved anywhere yet) opens with one card of three steps instead of a
+   board of zeros: add a first task, add a habit, pick a look. Each step ticks itself once it is
+   done; the card goes when all three are, or with its ✓ (settings.tips 'home.start').
+   ========================================================================== */
+
+/**
+ * Nothing of one's own in the app yet. counts: { tasks, habits, events, notes (not counting the
+ * welcome note), subs, workouts }; a missing count is zero.
+ */
+export function isEmptyApp(counts = {}) {
+  const c = counts ?? {};
+  return ['tasks', 'habits', 'events', 'notes', 'subs', 'workouts'].every((k) => !(Number(c[k]) > 0));
+}
+
+export const START_STEPS = Object.freeze(
+  [
+    { id: 'task', label: 'Add your first task', text: 'Type it in To do and press Enter.', icon: 'list', tone: 'tasks' },
+    { id: 'habit', label: 'Add a habit', text: 'A small thing you do on chosen days.', icon: 'target', tone: 'habits' },
+    { id: 'look', label: 'Pick a look', text: 'Eight templates, light or dark.', icon: 'palette', tone: 'home' },
+  ].map((s) => Object.freeze(s)),
+);
+
+/** The steps with whether each is done: { tasks, habits } counts and `look` (Appearance was opened). */
+export function startSteps({ tasks = 0, habits = 0, look = false } = {}) {
+  const done = { task: Number(tasks) > 0, habit: Number(habits) > 0, look: !!look };
+  return START_STEPS.map((s) => ({ ...s, done: done[s.id] }));
+}
+
+/**
+ * While the Start card is up, the widgets that could only say "nothing yet" (and repeat the
+ * card's steps) wait until there is something for them: the calendar without events or tasks,
+ * the agenda without events, habits and the habit graph without habits. -> widget ids
+ */
+export function emptyWidgets({ tasks = 0, habits = 0, events = 0 } = {}) {
+  const out = [];
+  if (!(events > 0) && !(tasks > 0)) out.push('week');
+  if (!(events > 0)) out.push('agenda');
+  if (!(habits > 0)) out.push('habits', 'graph');
+  return out;
+}
+
 const startsBefore = (a, b) => (a.start !== b.start ? (a.start < b.start ? -1 : 1) : Number(!a.allDay) - Number(!b.allDay) || (a.startMin ?? 0) - (b.startMin ?? 0) || String(a.title).localeCompare(String(b.title)));
 
 /**
@@ -192,6 +245,45 @@ export function clipItems(items, max) {
   const list = Array.isArray(items) ? items : [];
   if (list.length <= max) return { shown: list, more: 0 };
   return { shown: list.slice(0, Math.max(0, max - 1)), more: list.length - Math.max(0, max - 1) };
+}
+
+/* ---- "Today & next": the calendar widget's week when it is narrow (a phone, half a board) ----
+   Seven days from today (or from the first day shown, after ‹ ›), but only today and the days
+   that have something: a free day is no row at all, so what is coming up is all you see. */
+
+/** How many days the agenda covers: the first one and the six after it. */
+export const AGENDA_DAYS = 7;
+
+/** How many days the agenda lists at most (the first and the next two with something). */
+export const AGENDA_SHOW = 3;
+
+/**
+ * From weekDays() entries of AGENDA_DAYS days: the first one always, then those with events or
+ * tasks, at most `max` days in all (the rest is a link away). -> { shown, hidden } where hidden
+ * counts the days with something that didn't make it.
+ */
+export function agendaDays(days, max = AGENDA_SHOW) {
+  const busy = (Array.isArray(days) ? days : []).filter((d, i) => i === 0 || d.events.length > 0 || d.tasks.length > 0);
+  return { shown: busy.slice(0, Math.max(1, max)), hidden: Math.max(0, busy.length - Math.max(1, max)) };
+}
+
+/**
+ * Day `key`'s timed events that are over by `nowMin` (minutes since midnight): "Today & next"
+ * folds them into one line. An all-day event never is; one still under way isn't.
+ */
+export function endedEvents(events, key, nowMin) {
+  return (Array.isArray(events) ? events : []).filter((o) => !o.allDay && o.end === key && Number.isFinite(o.endMin) && o.endMin <= nowMin);
+}
+
+/**
+ * Two days as a short range: '19–25 Oct', '28 Oct – 3 Nov', '30 Dec – 5 Jan'. months: the short
+ * month names (ui.MONTHS_SHORT).
+ */
+export function rangeText(from, to, months) {
+  const day = (k) => Number(String(k).slice(8, 10));
+  const mon = (k) => months[Number(String(k).slice(5, 7)) - 1];
+  if (String(from).slice(0, 7) === String(to).slice(0, 7)) return `${day(from)}–${day(to)} ${mon(to)}`;
+  return `${day(from)} ${mon(from)} – ${day(to)} ${mon(to)}`;
 }
 
 /**
@@ -256,7 +348,7 @@ export function graphBars(series) {
  */
 export const WIDGETS = Object.freeze(
   [
-    { id: 'week', name: 'Calendar', text: 'Your day, week or month, with the events, tasks and habits you pick.', size: 'l', icon: 'calendar', tone: 'calendar' },
+    { id: 'week', name: 'Calendar', text: 'Today and what is coming up, or your day, week or month, with the events, tasks and habits you pick.', size: 'l', icon: 'calendar', tone: 'calendar' },
     { id: 'pomodoro', name: 'Focus timer', text: 'Start, pause and skip Pomodoro rounds.', size: 's', icon: 'timer', tone: 'pomodoro' },
     { id: 'todo', name: 'To do', text: 'Today’s and overdue tasks, with a quick add.', size: 'm', icon: 'list', tone: 'tasks' },
     { id: 'habits', name: 'Habits today', text: 'Tick off the habits planned for today.', size: 's', icon: 'target', tone: 'habits' },
@@ -277,15 +369,20 @@ export const SIZE_LABEL = Object.freeze({ s: 'Small', m: 'Medium', l: 'Large', x
 export const COLUMNS = 4;
 const SPAN = Object.freeze({ s: 1, m: 2, l: 3, xl: 4 });
 
-/** The Home everyone starts with (the six widgets Home always had). */
+/**
+ * The Home a new person starts with: what to do first. To do, then the calendar (half a board,
+ * so it shows "Today & next": today and the days ahead that have something), today's habits,
+ * the focus timer and a quick note. Only the first two keep a column; the rest have none, so
+ * each goes where the board is shortest (no tall empty column beside a long one). A saved board
+ * (one arranged before) is never changed by this.
+ */
 export const DEFAULT_LAYOUT = Object.freeze(
   [
-    { id: 'week', size: 'l', col: 0 },
-    { id: 'pomodoro', size: 's', col: 3 },
     { id: 'todo', size: 'm', col: 0 },
-    { id: 'habits', size: 's', col: 2 },
-    { id: 'note', size: 's', col: 3 },
-    { id: 'graph', size: 'm', col: 0 },
+    { id: 'week', size: 'm', col: 2 },
+    { id: 'habits', size: 's' },
+    { id: 'pomodoro', size: 's' },
+    { id: 'note', size: 'm' },
   ].map((w) => Object.freeze(w)),
 );
 
@@ -315,6 +412,22 @@ export function normalizeLayout(raw) {
     out.push(entry(id, size, fitColumn(it?.col, size)));
   }
   return out;
+}
+
+/**
+ * The board while some widgets wait for data (a new Home, emptyWidgets): the layout without
+ * them. With gaps in it, the widgets without a column go widest first (in their own places in
+ * the order), so a lone small one ends the board instead of leaving an empty column beside it.
+ * Nothing waiting -> the layout as it is.
+ */
+export function shownWidgets(layout, waiting = []) {
+  const all = Array.isArray(layout) ? layout : [];
+  const away = new Set(waiting);
+  const list = all.filter((w) => !away.has(w.id));
+  if (list.length === all.length) return list;
+  const free = list.filter((w) => !Number.isInteger(w.col)).sort((a, b) => (SPAN[b.size] ?? 1) - (SPAN[a.size] ?? 1));
+  let i = 0;
+  return list.map((w) => (Number.isInteger(w.col) ? w : free[i++]));
 }
 
 /** The widgets not on Home, in catalog order. */

@@ -1,0 +1,544 @@
+/* ==========================================================================
+   LIFE/OS — skin: Mission Control (data-skin="hud")
+   Mission Control is the base look: tokens.css and the shared and feature stylesheets draw it.
+   This file holds only what is Mission Control's own and would be wrong in another template:
+   one rule for the corner brackets, one style of card title, mono readouts, one language for
+   state (picked, where you are, done), one switch, and the grayscale fixes. Loaded right after
+   css/skins/simple.css.
+
+   Conventions (as every skin file; README → Appearance):
+   - Every selector starts at the skin scope: [data-skin="hud"] … The scope is <html> in the app
+     and a <div> inside each Appearance preview, so never :root, html or body here.
+   - Background-changing :hover rules sit in @media (hover: hover) and (pointer: fine), so a tap
+     never leaves something looking pressed.
+   - Grayscale: no hue here. State is carried by contrast, weight, pattern and words.
+   ========================================================================== */
+
+/* ==========================================================================
+   Corner brackets: one rule
+   Every card on a page (.panel) and every number tile carries the two corner ticks; what sits
+   inside a card (rows, chips, day lists) never does. Cards built with .hud already have them
+   (components.css); this gives the same ticks to the rest, so no page looks half-finished.
+   The day cards of the phone agenda are a list, not cards on the page, and keep their today bar.
+   ========================================================================== */
+
+[data-skin="hud"] .main .panel:not(.hud, .cal-ag-day, .hbi-tile)::before,
+[data-skin="hud"] .main .panel:not(.hud, .cal-ag-day, .hbi-tile)::after,
+[data-skin="hud"] .hbi-tile::before,
+[data-skin="hud"] .hbi-tile::after {
+  content: var(--hud-corners);
+  position: absolute;
+  width: var(--hud-corner-size);
+  height: var(--hud-corner-size);
+  pointer-events: none;
+  border-color: var(--text-3);
+  border-style: solid;
+  background: none;
+  opacity: 1;
+  box-shadow: none;
+  transition: border-color var(--dur) var(--ease);
+}
+
+[data-skin="hud"] .main .panel:not(.hud, .cal-ag-day, .hbi-tile)::before,
+[data-skin="hud"] .hbi-tile::before {
+  top: -1px;
+  left: -1px;
+  right: auto;
+  bottom: auto;
+  border-width: 1px 0 0 1px;
+  border-radius: 0;
+  border-top-left-radius: var(--radius);
+}
+
+[data-skin="hud"] .main .panel:not(.hud, .cal-ag-day, .hbi-tile)::after,
+[data-skin="hud"] .hbi-tile::after {
+  top: auto;
+  left: auto;
+  bottom: -1px;
+  right: -1px;
+  border-width: 0 1px 1px 0;
+  border-radius: 0;
+  border-bottom-right-radius: var(--radius);
+}
+
+/* The number tiles are small: smaller ticks, square (they sit on the tile's square corners) */
+[data-skin="hud"] .hbi-tile::before,
+[data-skin="hud"] .hbi-tile::after {
+  width: 8px;
+  height: 8px;
+  border-radius: 0;
+}
+
+/* An empty page's placeholder (Health, a first Training log, Finance before the first
+   subscription) is that page's one card: the same ticks over its dashed frame. Placeholders
+   inside a card (an empty list, "No routines yet") stay plain, as the card already has them. */
+[data-skin="hud"] .main .empty:not(.panel .empty, .tr-empty-sm) {
+  position: relative;
+}
+
+[data-skin="hud"] .main .empty:not(.panel .empty, .tr-empty-sm)::before,
+[data-skin="hud"] .main .empty:not(.panel .empty, .tr-empty-sm)::after {
+  content: var(--hud-corners);
+  position: absolute;
+  width: var(--hud-corner-size);
+  height: var(--hud-corner-size);
+  pointer-events: none;
+  border-color: var(--text-3);
+  border-style: solid;
+}
+
+[data-skin="hud"] .main .empty:not(.panel .empty, .tr-empty-sm)::before {
+  top: -1px;
+  left: -1px;
+  border-width: 1px 0 0 1px;
+  border-top-left-radius: var(--radius);
+}
+
+[data-skin="hud"] .main .empty:not(.panel .empty, .tr-empty-sm)::after {
+  right: -1px;
+  bottom: -1px;
+  border-width: 0 1px 1px 0;
+  border-bottom-right-radius: var(--radius);
+}
+
+/* Training's numbers (Progress: latest, best ever, the change) are number tiles like Insights':
+   a quiet box, the small ticks, the value as a readout */
+[data-skin="hud"] .tr-kpi {
+  position: relative;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+
+[data-skin="hud"] .tr-kpi::before,
+[data-skin="hud"] .tr-kpi::after {
+  content: var(--hud-corners);
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  pointer-events: none;
+  border-color: var(--text-3);
+  border-style: solid;
+}
+
+[data-skin="hud"] .tr-kpi::before {
+  top: -1px;
+  left: -1px;
+  border-width: 1px 0 0 1px;
+}
+
+[data-skin="hud"] .tr-kpi::after {
+  right: -1px;
+  bottom: -1px;
+  border-width: 0 1px 1px 0;
+}
+
+/* The card you are in lights its ticks (as .hud does) */
+[data-skin="hud"] .main .panel:not(.hud, .cal-ag-day):focus-within::before,
+[data-skin="hud"] .main .panel:not(.hud, .cal-ag-day):focus-within::after {
+  border-color: var(--text);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="hud"] .main .panel:not(.hud, .cal-ag-day):hover::before,
+  [data-skin="hud"] .main .panel:not(.hud, .cal-ag-day):hover::after {
+    border-color: var(--text);
+  }
+}
+
+/* Cards that clip what is inside them (overflow: hidden: Finance's three cards, the calendar's
+   month, week and day, a day's "+N more") clipped ticks drawn over their edge too, so those pages
+   showed none. Theirs sit just inside the edge, on the same curve. The month grid is the
+   calendar's card as well, though it isn't a .panel. */
+[data-skin="hud"] .main .view :is(.fn-panel, .cal-month, .cal-week, .cal-day-tl, .cal-pop)::before,
+[data-skin="hud"] .main .view :is(.fn-panel, .cal-month, .cal-week, .cal-day-tl, .cal-pop)::after {
+  content: var(--hud-corners);
+  position: absolute;
+  z-index: 1;
+  width: var(--hud-corner-size);
+  height: var(--hud-corner-size);
+  pointer-events: none;
+  border-color: var(--text-3);
+  border-style: solid;
+  transition: border-color var(--dur) var(--ease);
+}
+
+[data-skin="hud"] .main .view :is(.fn-panel, .cal-month, .cal-week, .cal-day-tl, .cal-pop)::before {
+  top: 0;
+  left: 0;
+  right: auto;
+  bottom: auto;
+  border-width: 1px 0 0 1px;
+  border-radius: 0;
+  border-top-left-radius: max(0px, calc(var(--radius) - 1px));
+}
+
+[data-skin="hud"] .main .view :is(.fn-panel, .cal-month, .cal-week, .cal-day-tl, .cal-pop)::after {
+  top: auto;
+  left: auto;
+  bottom: 0;
+  right: 0;
+  border-width: 0 1px 1px 0;
+  border-radius: 0;
+  border-bottom-right-radius: max(0px, calc(var(--radius) - 1px));
+}
+
+[data-skin="hud"] .main .view .cal-month:focus-within::before,
+[data-skin="hud"] .main .view .cal-month:focus-within::after {
+  border-color: var(--text);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="hud"] .main .view .cal-month:hover::before,
+  [data-skin="hud"] .main .view .cal-month:hover::after {
+    border-color: var(--text);
+  }
+}
+
+/* ==========================================================================
+   Card titles: one style, the HUD caption (mono capitals, wide spacing, in the text color)
+   Home's widgets and Pomodoro already used it; the Insights charts, the day list, Training's
+   sections and the Settings sections now read the same.
+   ========================================================================== */
+
+[data-skin="hud"] :is(.hm-card-title, .pm-card-title, .fn-panel-title, .tr-section-title, .hbi-card-title, .hb-dl-title, .cal-tray-title, .cal-pop-title, .cmd-keys-head),
+[data-skin="hud"] .st-root .st-card-title {
+  font-family: var(--label-font);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  line-height: 1.3;
+  text-transform: uppercase;
+  color: var(--text);
+}
+
+/* A day's "+N more" title is a long date in wide capitals: two even lines, never a lone year */
+[data-skin="hud"] .cal-pop-title {
+  text-wrap: balance;
+}
+
+/* Settings sections stay the biggest caption on their page: a step up, still a caption */
+[data-skin="hud"] .st-root .st-card-title {
+  font-size: var(--fs-sm);
+  letter-spacing: 0.12em;
+}
+
+/* ==========================================================================
+   Mono readouts: the page's live status, counts and the numbers in tiles
+   ========================================================================== */
+
+/* The title row's status ('3 today · 3 overdue'): a mono readout, its numbers lit */
+[data-skin="hud"] .page-stat {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  letter-spacing: 0.04em;
+  color: var(--text-2);
+}
+
+[data-skin="hud"] .page-stat strong {
+  font-weight: 600;
+  color: var(--text);
+}
+
+/* Tile values are mono, like every other readout (the display face is for titles) */
+[data-skin="hud"] :is(.hm-gl-value, .hbi-tile-value, .tr-kpi-value) {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+/* Training's tile values a step up from a list row's numbers, so the tile reads as a readout */
+[data-skin="hud"] .tr-kpi-value {
+  font-size: var(--fs-xl);
+  line-height: 1.15;
+}
+
+/* Tasks' Smart groups: the heading is a caption with its count as a readout */
+[data-skin="hud"] .tk-group-head {
+  font-family: var(--label-font);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+/* Money is a readout too: prices, the next 30 days and the category totals in mono, the
+   figures lined up in their column */
+[data-skin="hud"] :is(.fn-price, .fn-up-amount, .fn-up-when, .fn-cat-amount, .fn-due) {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+[data-skin="hud"] .fn-price {
+  font-weight: 600;
+}
+
+/* The rest timer between sets counts like the workout clock above it */
+[data-skin="hud"] .tr-rest-time {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+
+/* ==========================================================================
+   One language for state
+   - picked / on / pressed: the inverse block (white on black, black on white): the chosen
+     segment, a pressed preset, a switch that is on (shared kit, and the switches below)
+   - where you are: the signal bar (the sidebar, the tab bar, Settings' index, and More's tiles)
+   - ticked / done: a filled square with its tick; planned is only an outline; missed is hatched
+   ========================================================================== */
+
+/* The page you are on, in More (phones): the tab bar's signal bar along its top edge */
+[data-skin="hud"] .more-page[aria-current="page"] {
+  box-shadow: inset 0 2px 0 var(--accent), 0 -4px 12px -8px var(--glow-c);
+}
+
+/* The page tiles in More are named like the tab bar under them: mono capitals */
+[data-skin="hud"] .more-page-label {
+  font-family: var(--label-font);
+  font-size: var(--fs-2xs);
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+/* Health's "Idea" tag sits in its tile's corner, clear of the page icon (it overlapped it) */
+[data-skin="hud"] .more-page .nav-soon {
+  top: 4px;
+  right: 4px;
+  padding: 0 3px;
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  line-height: 14px;
+}
+
+/* Search (⌘K) and Training's exercise type-ahead: the lit result is where you are (the one Enter
+   takes), so it carries the signal bar, with its ring */
+[data-skin="hud"] :is(.cmd-item, .tr-pick-opt)[aria-selected="true"] {
+  box-shadow: inset 2px 0 0 var(--accent), inset 0 0 0 1px var(--line-focus), 0 0 14px var(--glow-c-soft);
+}
+
+/* The exercise you are looking at (Training → Progress): its small print stays readable on the
+   lit card (the quietest ink on it was 4.1:1, WCAG 1.4.3) */
+[data-skin="hud"] .tr-ex[aria-pressed="true"] .tr-ex-meta {
+  color: var(--text-2);
+}
+
+/* Plan table: a planned day is an outline with a small tick in the quieter ink; it never
+   fills, so it can't be read as done */
+[data-skin="hud"] .hb-plan-cell[aria-pressed="true"] {
+  border-style: solid;
+  border-color: var(--text-3);
+  background: none;
+}
+
+/* Today's column in the matrix: the one you act on reads first */
+[data-skin="hud"] .hb-mx-td.is-today > .hb-day[data-state="pending"] {
+  border-color: var(--text);
+}
+
+/* The days behind you keep their filled squares in a quieter shade (still filled, still ticked:
+   done), so today's column is the bright one; a wall of full-white squares drew the eye to last
+   week instead of to what is left today */
+[data-skin="hud"] .hb-mx-td:not(.is-today) > .hb-day[data-state="done"] {
+  border-color: transparent;
+  background: var(--heat-3);
+}
+
+/* Home's first-run steps: the number, and the tick once done, sit in a square like every
+   other box you tick here (it was the app's one round mark) */
+[data-skin="hud"] .hm-start-mark {
+  border-radius: var(--radius-xs);
+}
+
+/* ==========================================================================
+   Switches: one look, on and off unmistakable in light and dark
+   On is a filled bar with its square thumb at the right; off is an empty frame, thumb left.
+   ========================================================================== */
+
+[data-skin="hud"] :is(.pm-switch-track, .cal-ed-switch-track) {
+  border-radius: var(--radius-xs);
+}
+
+[data-skin="hud"] :is(.pm-switch-thumb, .cal-ed-switch-thumb) {
+  border-radius: 1px;
+}
+
+/* Off is the same single frame everywhere: Settings' extra inner rim (for templates whose off
+   edge is faint) doubled it here, where the frame alone is 6:1 */
+[data-skin="hud"] .st-switch:not([aria-checked="true"]) .pm-switch-track {
+  box-shadow: none;
+}
+
+/* The event's All day switch is the same switch as Settings' and Pomodoro's (it was a smaller
+   one with a faint edge): one size, one off edge, one fill */
+[data-skin="hud"] .cal-ed-switch-track {
+  width: 36px;
+  height: 20px;
+  border-color: var(--text-3);
+  background: transparent;
+}
+
+[data-skin="hud"] .cal-ed-switch-thumb {
+  top: 3px;
+  left: 3px;
+  width: 12px;
+  height: 12px;
+  background: var(--text-2);
+}
+
+[data-skin="hud"] .cal-ed-switch[aria-checked="true"] .cal-ed-switch-track {
+  border-color: var(--accent);
+  background: var(--accent);
+  box-shadow: none;
+}
+
+[data-skin="hud"] .cal-ed-switch[aria-checked="true"] .cal-ed-switch-thumb {
+  transform: translateX(16px);
+  background: var(--accent-ink);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="hud"] .cal-ed-switch:not([aria-checked="true"]):hover .cal-ed-switch-track {
+    border-color: var(--text);
+  }
+}
+
+/* ==========================================================================
+   Menus: a dropdown (Sort ▾, Show ▾, Day · Week …) reads like the right-click menu beside it
+   (components.css): mono capitals, the lit item a soft block with its hairline and glow
+   ========================================================================== */
+
+[data-skin="hud"] .dd-menu {
+  border-radius: var(--radius);
+  box-shadow: var(--shadow), var(--glow);
+}
+
+[data-skin="hud"] .dd-item {
+  border-radius: var(--radius-sm);
+  color: var(--text-2);
+  font-family: var(--label-font);
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+/* The one that is picked: in the text color, its tick beside it */
+[data-skin="hud"] .dd-item[aria-checked="true"] {
+  color: var(--text);
+}
+
+[data-skin="hud"] .dd-item .dd-mark {
+  color: var(--text);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="hud"] .dd-item:not(:disabled):hover {
+    background: var(--surface-3);
+    color: var(--text);
+    box-shadow: inset 0 0 0 1px var(--line-strong), 0 0 14px var(--glow-c-soft);
+  }
+}
+
+[data-skin="hud"] .dd-item:not(:disabled):focus-visible {
+  background: var(--surface-3);
+  color: var(--text);
+  box-shadow: inset 0 0 0 1px var(--line-focus), 0 0 14px var(--glow-c-soft);
+}
+
+[data-skin="hud"] .dd-sep {
+  margin: 3px var(--space-1);
+}
+
+/* ==========================================================================
+   Grayscale: nothing in Mission Control takes a hue
+   ========================================================================== */
+
+/* Delete in a dropdown (Habits' Delete…): the alert ink (the text color here), dashed when lit */
+[data-skin="hud"] .dd-item.is-danger {
+  color: var(--alert);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="hud"] .dd-item.is-danger:hover {
+    background: repeating-linear-gradient(-45deg, var(--hatch) 0 2px, transparent 2px 6px);
+    box-shadow: inset 0 0 0 1px var(--text-3);
+  }
+}
+
+[data-skin="hud"] .dd-item.is-danger:focus-visible {
+  background: repeating-linear-gradient(-45deg, var(--hatch) 0 2px, transparent 2px 6px);
+}
+
+/* A dialog's Delete / Discard: filled like the main button (compact.css), and hatched, so it
+   never reads as the white block of a primary or a picked thing (the stripes are a faint shade of
+   the button's own ink-on-fill, so the words keep their contrast) */
+[data-skin="hud"] .modal .btn.btn--danger.btn--danger-fill {
+  background-image: repeating-linear-gradient(-45deg, color-mix(in srgb, var(--bg) 16%, transparent) 0 2px, transparent 2px 6px);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-skin="hud"] .modal .btn.btn--danger.btn--danger-fill:hover {
+    background-image: repeating-linear-gradient(-45deg, color-mix(in srgb, var(--bg) 16%, transparent) 0 2px, transparent 2px 6px);
+  }
+}
+
+/* Delete at the end of the right-click menu: hatched and outlined when lit, like a danger button */
+[data-skin="hud"] .ctx-menu .ctx-item.ctx-item--delete:not([aria-disabled="true"]):is(:hover, :focus) {
+  background: repeating-linear-gradient(-45deg, var(--hatch) 0 2px, transparent 2px 6px);
+  box-shadow: inset 0 0 0 1px var(--text-2);
+}
+
+/* ==========================================================================
+   Calendar
+   ========================================================================== */
+
+/* Legend: the month's sample is a short bar beside its words (calendar.css's later .cal-hbar
+   width stretched it across the line and squeezed the sentence into a column) */
+[data-skin="hud"] .cal-legend .cal-legend-hbar {
+  width: 20px;
+}
+
+/* A band that is over (faded with the rest of the past) keeps its hours readable (4.2:1) */
+[data-skin="hud"] .cal-tlev.is-band.is-past .cal-band-label .cal-tlev-time {
+  color: var(--text);
+}
+
+/* ==========================================================================
+   Quieter chrome: the frame around the pages gives way to what is on them
+   ========================================================================== */
+
+/* The clock's seconds tick quietly beside the time */
+[data-skin="hud"] .clock-seconds {
+  font-size: 0.85em;
+}
+
+/* The keyboard sheet's "· this page" stays a quiet word beside its caption */
+[data-skin="hud"] .cmd-keys-here {
+  letter-spacing: 0.08em;
+}
+
+/* Settings' jump bar (narrow windows): solid, so bright text never shows through it */
+@media (max-width: 1099px) {
+  [data-skin="hud"] .st-index {
+    background: var(--bg);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
+/* ==========================================================================
+   A task's page (tasks.panel.js): docked on the right edge, it is part of the frame, not a card
+   on the page. One bracket, where it meets the list under the top bar; none at the window's
+   corner, and none on a phone, where the page is the screen.
+   ========================================================================== */
+
+[data-skin="hud"] .tk-page.hud::after {
+  content: none;
+}
+
+@media (max-width: 640px) {
+  [data-skin="hud"] .tk-page.hud::before {
+    content: none;
+  }
+}

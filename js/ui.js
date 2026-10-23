@@ -127,12 +127,17 @@ export function brandMark(size = 26) {
    ========================================================================== */
 
 /**
- * Standard page header used by every feature. Returns the <header>.
+ * Standard page header used by every feature. Returns the <header>: one row of the page's icon
+ * and title, its live status and its buttons (css/compact.css), then whatever the heading holds.
+ * stat: a short live status on the title row ('3 today · 2 overdue', 'kr 338/mo'): a string or a
+ *   node; change it later with header.setStat(value) ('' or null hides it). It is a status, not a
+ *   number strip: keep it to a few words.
  * tipId: the subtitle explains the page (a tip): it carries a ✓ that hides it for good
- * (settings.tips). Action buttons get their text as their name and tooltip, so a phone can
- * show them as icons only (css/compact.css).
+ *   (settings.tips), and it shows only until then (and while no other tip of the page shows,
+ *   gateTips). Every page should pass one. A subtitle without a tipId is a plain line (Home's date).
+ * Action buttons get their text as their name and tooltip, so a phone can show them as icons only.
  */
-export function pageHeader({ index, title, subtitle, actions = [], tipId = null }) {
+export function pageHeader({ index, title, subtitle, actions = [], tipId = null, stat = null }) {
   for (const a of actions) {
     if (!(a instanceof HTMLElement) || !a.matches('button, a')) continue;
     const text = [...a.children].filter((c) => c.tagName === 'SPAN' && !c.classList.contains('kbd')).map((c) => c.textContent.trim()).join(' ').trim();
@@ -140,9 +145,17 @@ export function pageHeader({ index, title, subtitle, actions = [], tipId = null 
     if (!a.hasAttribute('aria-label')) a.setAttribute('aria-label', text);
     if (!a.title) a.title = text;
   }
+  // The live status: a quiet line beside the title (on a phone too, cut short when the row is full)
+  const statEl = h('p', { class: 'page-stat' });
+  const setStat = (value) => {
+    const empty = value == null || value === false || (typeof value === 'string' && !value.trim());
+    statEl.replaceChildren(...(empty ? [] : [value instanceof Node ? value : String(value)]));
+    statEl.hidden = empty;
+  };
+  setStat(stat);
   let sub = null;
   if (subtitle && !(tipId && tipHidden(tipId))) {
-    sub = h('p', { class: ['page-subtitle', tipId && 'page-tip'] }, h('span', null, subtitle));
+    sub = h('p', { class: ['page-subtitle', tipId && 'page-tip'], dataset: tipId ? { tipId } : null }, h('span', null, subtitle));
     if (tipId) {
       sub.append(
         h(
@@ -163,19 +176,23 @@ export function pageHeader({ index, title, subtitle, actions = [], tipId = null 
       );
     }
   }
-  return h(
+  const header = h(
     'header',
     { class: 'page-header' },
     h(
       'div',
       { class: 'page-heading' },
-      // The kicker ("01 // TASKS") is decoration: the Simple template hides it (.lo-deco)
+      // The kicker ("01 // TASKS") repeats the title: pages hide it (css/compact.css), only the
+      // Appearance previews show it
       h('div', { class: 'page-kicker label lo-deco' }, index ? h('span', null, index) : null, index ? h('span', { class: 'crumb-sep' }, '//') : null, h('span', null, title)),
       h('h1', { class: 'page-title' }, title),
+      statEl,
       sub,
     ),
     actions.length ? h('div', { class: 'page-actions' }, actions) : null,
   );
+  header.setStat = setStat;
+  return header;
 }
 
 /* ---- Icon badges and the icon picker ---- */
@@ -291,10 +308,17 @@ export function tipHidden(id) {
   return !!settingsStore?.get().tips?.[id];
 }
 
+/**
+ * Hide tip `id` for good on this device. Pages call it themselves once the person has done what a
+ * tip explains (ticked a habit, dragged a card): any copy of it on screen goes at once, and the
+ * page's next tip may show (gateTips).
+ */
 export function dismissTip(id) {
-  if (!settingsStore) return;
+  if (!settingsStore || id == null) return;
   const s = settingsStore.get();
-  settingsStore.update({ tips: { ...(s.tips ?? {}), [id]: true } });
+  if (!s.tips?.[id]) settingsStore.update({ tips: { ...(s.tips ?? {}), [id]: true } });
+  if (typeof document === 'undefined') return;
+  for (const el of document.querySelectorAll('[data-tip-id]')) if (el.dataset.tipId === String(id) && el.isConnected) hideTip(el);
 }
 
 /** How many tips are hidden on this device. */
@@ -323,7 +347,7 @@ function hideTip(box) {
  * append it. text: a string or nodes.
  */
 export function tip({ id, text, className = '' } = {}) {
-  const el = h('div', { class: ['tip', className], role: 'note', hidden: tipHidden(id) });
+  const el = h('div', { class: ['tip', className], role: 'note', hidden: tipHidden(id), dataset: id == null ? null : { tipId: String(id) } });
   el.append(
     h('span', { class: 'tip-icon', 'aria-hidden': 'true' }, icon('tip', { size: 15 })),
     h('p', { class: 'tip-text' }, text),
@@ -344,6 +368,59 @@ export function tip({ id, text, className = '' } = {}) {
     ),
   );
   return el;
+}
+
+/**
+ * One tip at a time: inside each page (a `.view` under `scope`, the shell's <main>), only the first
+ * tip on screen shows (a page's explanation under its title comes first); the others wait
+ * (data-tip-wait, hidden by css/components.css) until it is dismissed, hidden or gone. Tips in
+ * dialogs are left alone. Re-checked when a change in the page touches a tip (one added, removed or
+ * hidden, or a box holding one shown or hidden) and when the window resizes. Returns stop().
+ */
+export function gateTips(scope) {
+  const TIPS = '.page-tip, .tip';
+  const holdsTip = (node) => node?.nodeType === 1 && (node.matches(TIPS) || !!node.querySelector(TIPS));
+  // A ticking clock or a drag changes the page many times a second: only a change that can show
+  // or hide a tip measures the page again (measuring lays it out)
+  const touchesTips = (records) =>
+    records.some((r) => (r.type === 'attributes' ? holdsTip(r.target) : [...r.addedNodes, ...r.removedNodes].some(holdsTip)));
+  const sync = () => {
+    for (const view of scope.querySelectorAll(':scope > .view')) {
+      const tips = [...view.querySelectorAll('.page-tip, .tip')];
+      if (!tips.length) continue;
+      // Measured with none waiting: what would be on screen (not hidden, not in a closed tab or
+      // a template that leaves tips out)
+      tips.forEach((t) => t.removeAttribute('data-tip-wait'));
+      let shown = false;
+      for (const t of tips) {
+        if (t.hidden || !t.getClientRects().length) continue;
+        if (shown) t.setAttribute('data-tip-wait', '');
+        shown = true;
+      }
+    }
+  };
+  // Only what can show or hide a tip: added or removed nodes, `hidden` and classes (data-tip-wait
+  // itself is left out, so this never wakes itself up)
+  const observer = new MutationObserver((records) => {
+    if (touchesTips(records)) sync();
+  });
+  observer.observe(scope, { subtree: true, childList: true, attributes: true, attributeFilter: ['hidden', 'class'] });
+  // A narrower or wider window can hide a tip's box (a phone layout): once per frame
+  let frame = 0;
+  const onResize = () => {
+    if (frame) return;
+    frame = requestAnimationFrame(() => {
+      frame = 0;
+      sync();
+    });
+  };
+  window.addEventListener('resize', onResize);
+  sync();
+  return () => {
+    observer.disconnect();
+    window.removeEventListener('resize', onResize);
+    cancelAnimationFrame(frame);
+  };
 }
 
 /* ---- Dropdown menus ---- */
@@ -463,8 +540,9 @@ export function dropdown({ label = '', icon: iconName = null, items = [], value 
   const onDocDown = (e) => {
     if (menu && !menu.contains(e.target) && !button.contains(e.target)) close(false);
   };
+  // Also bound to window 'resize', whose target is window (not a Node): that closes it too
   const onScroll = (e) => {
-    if (menu && !menu.contains(e.target)) close(false);
+    if (menu && !(e.target instanceof Node && menu.contains(e.target))) close(false);
   };
 
   function items_() {
@@ -551,11 +629,16 @@ export function dropdown({ label = '', icon: iconName = null, items = [], value 
   return api;
 }
 
-/** Dashed, hatched empty state. */
-export function emptyState({ icon: iconName = 'inbox', title, text, action } = {}) {
+/**
+ * THE empty state, on every page: an icon, a short title, a sentence and at most one action. It
+ * spans the whole content width (a grid's every column too; css/components.css). Its action is
+ * never a second copy of the page header's main button: leave `action` out then, or offer the
+ * next step instead (Import, Use a starter).
+ */
+export function emptyState({ icon: iconName = 'inbox', title, text, action, className = '' } = {}) {
   return h(
     'div',
-    { class: 'empty' },
+    { class: ['empty', className] },
     h('div', { class: 'empty-icon' }, icon(iconName, { size: 20 })),
     title ? h('div', { class: 'empty-title' }, title) : null,
     text ? h('div', { class: 'empty-text' }, text) : null,
@@ -563,7 +646,11 @@ export function emptyState({ icon: iconName = 'inbox', title, text, action } = {
   );
 }
 
-/** Square checkbox button. Toggle state with setChecked(el, bool). */
+/**
+ * Square checkbox button. Toggle state with setChecked(el, bool).
+ * Its .check-hit child is the finger-sized target (44px on touch screens, css/compact.css): an
+ * element of its own, so a template drawing on the check's ::before / ::after can't shrink it.
+ */
 export function checkButton({ checked = false, label, onToggle, size } = {}) {
   const btn = h(
     'button',
@@ -579,6 +666,7 @@ export function checkButton({ checked = false, label, onToggle, size } = {}) {
       },
     },
     icon('check', { size: size === 'lg' ? 16 : 13, stroke: 2.5 }),
+    h('span', { class: 'check-hit', 'aria-hidden': 'true' }),
   );
   return btn;
 }
@@ -630,9 +718,17 @@ export function ensureToastRegion() {
   return toastStack;
 }
 
-/** toast('Task deleted', { action: { label: 'Undo', onClick }, duration }) -> { dismiss, el }. Default 3.8s, 6s with an action. */
-export function toast(message, { action, duration = action ? 6000 : 3800 } = {}) {
-  // Toasts with an action (Undo) stay longer so there is time to reach the button
+/**
+ * toast('Task deleted', { action: { label: 'Undo', onClick }, duration, key }) -> { dismiss, el }.
+ * Default 3.8s. With an action (Undo) at least 6s, whatever `duration` says, so there is time to
+ * reach the button. The one way to confirm a change you can take back (single delete, complete,
+ * move): do it at once and offer Undo here; ask first (confirmDialog) only for bulk or permanent ones.
+ * `key`: a toast with the same key takes the place of the one still showing (five quick ticks are
+ * one toast, with the latest one's Undo, not five covering a phone's list). Toasts without a key,
+ * or with another one (a delete's Undo), are never touched.
+ */
+export function toast(message, { action, duration = 3800, key = null } = {}) {
+  if (action) duration = Math.max(Number(duration) || 0, 6000);
   ensureToastRegion();
   let timer;
   const dismiss = () => {
@@ -643,7 +739,7 @@ export function toast(message, { action, duration = action ? 6000 : 3800 } = {})
   };
   const el = h(
     'div',
-    { class: 'toast' },
+    { class: 'toast', dataset: key ? { key: String(key) } : null },
     h('span', { class: 'toast-msg' }, message),
     action
       ? h(
@@ -660,7 +756,10 @@ export function toast(message, { action, duration = action ? 6000 : 3800 } = {})
         )
       : null,
   );
-  toastStack.append(el);
+  // The same key: in the place of the one showing (its own timer then finds it gone)
+  const before = key ? [...toastStack.children].find((n) => n.dataset.key === String(key) && !n.classList.contains('is-leaving')) : null;
+  if (before) before.replaceWith(el);
+  else toastStack.append(el);
   // keep at most 4 visible
   while (toastStack.children.length > 4) toastStack.firstElementChild.remove();
   // The clock stops while the pointer is over it or the keyboard is on it (Tab reaches Undo), and
@@ -777,6 +876,32 @@ export function openModal({ title, body, footer, size, className, onClose, initi
   const onKey = (e) => {
     if (modalStack[modalStack.length - 1] !== root) return;
     if (e.key === 'Escape') {
+      // Something open inside the dialog closes first, the dialog on the next Esc: a handler that
+      // already took this Esc (preventDefault), a menu it opened (on <body>: a dropdown's list, a
+      // right-click menu, which close themselves), a combobox or menu button showing its list
+      if (e.defaultPrevented) return;
+      const active = document.activeElement;
+      if (active && !root.contains(active) && active.closest?.('.dd-menu, .ctx-menu, [role="menu"], [role="listbox"]')) return;
+      if (openMenu) {
+        // (a dropdown still open with the focus elsewhere: closed from here)
+        e.preventDefault();
+        e.stopPropagation();
+        openMenu.close(true);
+        return;
+      }
+      if (active && root.contains(active) && active.matches?.('[aria-expanded="true"]:is([role="combobox"], [aria-haspopup]:not([aria-haspopup="false"]))')) {
+        // Its own handler hears this Esc after this one (capturing): the dialog closes only when
+        // that left its list open. Search's list is always open (it is the dialog): Esc closes it.
+        const after = (ev) => {
+          document.removeEventListener('keydown', after);
+          if (ev !== e || e.defaultPrevented || active.getAttribute('aria-expanded') !== 'true' || !root.isConnected) return;
+          close();
+        };
+        document.addEventListener('keydown', after);
+        // (a handler that stopped the Esc took it: the listener goes with this task)
+        setTimeout(() => document.removeEventListener('keydown', after), 0);
+        return;
+      }
       e.preventDefault();
       e.stopPropagation();
       close();
@@ -834,7 +959,12 @@ export function closeAllModals() {
   for (const root of [...modalStack].reverse()) root.closeModal?.();
 }
 
-/** confirmDialog({ title, message, confirmLabel, danger }) -> Promise<boolean> */
+/**
+ * confirmDialog({ title, message, confirmLabel, danger }) -> Promise<boolean>
+ * For bulk or permanent actions only (Clear completed, Delete all my data): a single item is
+ * deleted at once with Undo in the toast. A danger confirm is the dialog's main button, filled in
+ * the "late" color (.btn--danger-fill), and Cancel takes the focus first.
+ */
 export function confirmDialog({ title = 'Are you sure?', message, confirmLabel = 'Delete', cancelLabel = 'Cancel', danger = true } = {}) {
   return new Promise((resolve) => {
     let result = false;
@@ -842,7 +972,7 @@ export function confirmDialog({ title = 'Are you sure?', message, confirmLabel =
       'button',
       {
         type: 'button',
-        class: ['btn', danger ? 'btn--danger' : 'btn--primary'],
+        class: ['btn', danger ? 'btn--danger btn--danger-fill' : 'btn--primary'],
         onClick: () => {
           result = true;
           m.close();

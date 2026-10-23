@@ -1,6 +1,7 @@
 // LIFE/OS — 01 // Tasks
-// Sections (Work, Life …), quick-add command bar, live stats, filters + sort, and a keyed task
-// list with inline edit, details modal, drag-to-reorder and undoable deletes.
+// Sections (Work, Life …), quick-add command bar, a live status in the header, filters + sort
+// (Smart groups by default), and a keyed task list with inline edit, details modal,
+// drag-to-reorder and Undo for every single change.
 
 import {
   h,
@@ -12,7 +13,6 @@ import {
   toast,
   openModal,
   confirmDialog,
-  promptDialog,
   dateKey,
   todayKey,
   shiftKey,
@@ -20,7 +20,6 @@ import {
   relativeDay,
   timeAgo,
   onDayChange,
-  idx,
   num,
   term,
   plural,
@@ -29,8 +28,8 @@ import {
   modalOpen,
   plainSkin,
   tip,
+  dismissTip,
   dropdown,
-  iconBadge,
   iconPicker,
   registerIcon,
 } from '../ui.js';
@@ -48,8 +47,11 @@ import {
   isOverdue,
   matchesFilter,
   filterCounts,
-  openCount,
+  attentionCount,
+  nextWeek,
   viewSections,
+  SMART_GROUPS,
+  SMART_GROUP_LABEL,
   computeStats,
   createTask,
   addTask,
@@ -94,16 +96,23 @@ import { pagePreview } from './tasks.panel.logic.js';
 
 const LINGER_MS = 900; // how long a just-toggled row holds its place
 const DRAG_THRESHOLD = 4;
-const METER_TICKS = 20;
+const UNDO_MS = 6000;
+const UNDO_KEY_MS = 60000; // ⌘/Ctrl+Z reaches the latest Undo for a minute, as in Notes and the Calendar
 const IS_MAC = /Mac|iPhone|iPad|iPod/.test(globalThis.navigator?.userAgent ?? '');
 const MOD_KEY = IS_MAC ? '⌘' : 'Ctrl';
 const ALT_KEY = IS_MAC ? '⌥' : 'Alt';
 // The quick-add's steps after the title (tasks.logic.js ADD_STEPS)
 const STEP_LABEL = { priority: 'Priority', due: 'When', section: 'Section' };
-// The filter dropdown names what it shows: "All" alone reads like the sections' "All"
+// The filter names what it shows: "All" alone would read like the sections' "All sections"
 const VIEW_LABEL = { all: 'All tasks', today: 'Today', upcoming: 'Upcoming', done: 'Done' };
-// More sections than this and wide screens get the dropdown too (fewer: tabs if they fit, fitToolbar)
-const SECTION_TABS_MAX = 4;
+// The Smart groups' headings lead with the same icons as the due chips
+const GROUP_ICON = { overdue: DUE_ICON.overdue, today: DUE_ICON.today, upcoming: DUE_ICON.date, nodate: DUE_ICON.none };
+// A mouse can rest on the list (a ticked row then waits there); a finger can't
+const hoverQuery = globalThis.matchMedia?.('(hover: hover)') ?? null;
+// Touch screens: the details dialog opens without raising the keyboard
+const coarseQuery = globalThis.matchMedia?.('(pointer: coarse)') ?? null;
+// The details' notes grow with their text: CSS does it where it can (field-sizing), else JS
+const NOTES_SIZE_THEMSELVES = !!globalThis.CSS?.supports?.('field-sizing', 'content');
 // "All sections": a stack (the same drawing as Notes' "All notes"), so it never reads as one section
 const ALL_ICON = 'tk-all';
 registerIcon(ALL_ICON, '<path d="m12 3 9 4.5-9 4.5-9-4.5Z"/><path d="m3 12 9 4.5 9-4.5"/><path d="m3 16.5 9 4.5 9-4.5"/>');
@@ -134,22 +143,23 @@ let cacheRaw = null;
 let cacheState = null;
 
 /**
- * The one-line summary of today, in place of the stats strip (Simple's subtitle, a phone's title
- * row): with something to do, its numbers by icon ("☀ 3 today  ⚠ 2 overdue  ✓ 1 done"), else a
- * short sentence. -> [{ kind, icon, n?, text, sr? }]
+ * Today in one line, on the header's title row (the page's live status): with something to do,
+ * its numbers by icon ("☀ 3 today · ⚠ 2 overdue · ✓ 17% done", the share of today's tasks done),
+ * else a short sentence; nothing at all without tasks (the empty list says how to start).
+ * -> [{ kind, icon, n?, text, sr? }]
  */
 function summaryParts(s) {
   if (s.dueToday + s.overdue) {
+    const pct = Math.round(s.todayProgress * 100);
     return [
       s.dueToday && { kind: 'today', icon: DUE_ICON.today, n: s.dueToday, text: 'today', sr: 'due today' },
       s.overdue && { kind: 'overdue', icon: DUE_ICON.overdue, n: s.overdue, text: 'overdue' },
-      s.doneToday && { kind: 'done', icon: 'check-circle', n: s.doneToday, text: 'done', sr: 'done today' },
+      s.doneToday && { kind: 'done', icon: 'check-circle', n: `${pct}%`, text: 'done', sr: `of today’s tasks done` },
     ].filter(Boolean);
   }
   if (s.doneToday) return [{ kind: 'done', icon: 'check-circle', text: 'All done for today. Nice work!' }];
   if (s.open) return [{ kind: 'calm', icon: DUE_ICON.today, text: 'Nothing due today.' }];
-  // Short, so a phone's title keeps its row: the empty list below says how to start
-  return [{ kind: 'calm', icon: s.total ? 'check-circle' : null, text: s.total ? 'Every task is done.' : 'No tasks yet.' }];
+  return s.total ? [{ kind: 'calm', icon: 'check-circle', text: 'Every task is done.' }] : [];
 }
 
 function summaryNodes(parts) {
@@ -204,7 +214,7 @@ if (JSON.stringify(store.get()) !== JSON.stringify(getState())) commit(getState(
 
 // tasksApi.reveal() (bottom of file): the task the next Tasks view should bring into view
 const REVEAL_TTL_MS = 10000; // a request no Tasks view picked up by then is stale
-let pendingReveal = null; // { id, at }
+let pendingReveal = null; // { id, at, details }
 let revealInView = null; // set while the Tasks view is mounted, so a reveal there acts at once
 
 /* ==========================================================================
@@ -256,6 +266,48 @@ function removeCopy(created) {
   return true;
 }
 
+/* ==========================================================================
+   Undo: a single change (delete, done, when, priority, section) happens at once, with Undo in
+   its toast; only clearing every completed task asks first. ⌘/Ctrl+Z on the Tasks page takes
+   back the latest one, and pressed again the one before, for a minute, as in Notes and the
+   Calendar. Ticks share one toast (key 'task-done'): the newest tick's Undo shows, the earlier
+   ones stay on ⌘/Ctrl+Z.
+   ========================================================================== */
+
+const UNDO_STACK_MAX = 20;
+const undoStack = []; // [{ run, expires, seq }], oldest first: what ⌘/Ctrl+Z can still take back
+let undoSeq = 0; // each Undo's number (tasksApi.undoMark: which one ⌘/Ctrl+Z would take now)
+
+/** A toast with Undo. `undo()` returns false when it changed nothing (it says why itself). */
+function offerUndo(message, undo, { duration = UNDO_MS, key = null } = {}) {
+  let used = false;
+  let handle = null;
+  const entry = { run: null, expires: Date.now() + UNDO_KEY_MS, seq: ++undoSeq };
+  entry.run = () => {
+    if (used) return false;
+    used = true;
+    const at = undoStack.indexOf(entry);
+    if (at !== -1) undoStack.splice(at, 1);
+    handle?.dismiss();
+    return undo() !== false;
+  };
+  undoStack.push(entry);
+  if (undoStack.length > UNDO_STACK_MAX) undoStack.shift();
+  handle = toast(message, { duration, key, action: { label: 'Undo', onClick: entry.run } });
+}
+
+/** ⌘/Ctrl+Z outside a text field: the newest Undo not used yet, if it is recent. True when there was one. */
+function undoLast() {
+  const last = undoStack.pop();
+  // (pushed in time order: once the newest is too old, so is the rest)
+  if (!last || Date.now() > last.expires) {
+    undoStack.length = 0;
+    return false;
+  }
+  last.run();
+  return true;
+}
+
 /** The Tasks delete: gone at once, Undo in the toast puts it back in its place. `onUndo(id)` runs first. */
 function deleteWithUndo(id, { onUndo } = {}) {
   const s = getState();
@@ -263,15 +315,69 @@ function deleteWithUndo(id, { onUndo } = {}) {
   if (!task) return false;
   const { items, snapshots } = removeTasks(s.items, [id]);
   commit({ ...s, items });
-  toast(`“${clip(task.title)}” deleted.`, {
-    duration: 6000,
-    action: {
-      label: 'Undo',
-      onClick: () => {
-        onUndo?.(id);
-        setItems((cur) => restoreTasks(cur, snapshots));
-      },
+  offerUndo(`“${clip(task.title)}” deleted.`, () => {
+    onUndo?.(id);
+    setItems((cur) => restoreTasks(cur, snapshots));
+  });
+  return true;
+}
+
+/**
+ * Tick a task off (or open it again) with “X” done and Undo in the toast. The Tasks page, Home's
+ * To do card and the Calendar all come here (tasksApi.complete). Undo puts back exactly what was
+ * there (when it was done too), but only while the task is still as this left it. -> changed?
+ */
+function completeWithUndo(id, done = true) {
+  const task = findTask(id);
+  if (!task || typeof done !== 'boolean' || task.done === done) return false;
+  const today = todayKey();
+  const before = attentionCount(getState().items, today);
+  setItems((items) => toggleTask(items, id, done));
+  const cleared = done && before > 0 && attentionCount(getState().items, today) === 0;
+  const name = `“${clip(task.title)}”`;
+  offerUndo(
+    done ? `${name} done.${cleared ? ' That’s everything for today!' : ''}` : `${name} is open again.`,
+    () => {
+      const cur = findTask(id);
+      if (!cur || cur.done !== done) {
+        toast(`Nothing undone: ${name} ${cur ? 'changed' : 'was deleted'} since.`);
+        return false;
+      }
+      setItems((items) => items.map((t) => (t.id === id ? { ...t, done: task.done, completedAt: task.completedAt } : t)));
+      return true;
     },
+    // Quick ticks share one toast (a phone's list stays in sight); each one stays on ⌘/Ctrl+Z
+    { key: 'task-done' },
+  );
+  return true;
+}
+
+// What a change from the right-click menu can touch (a new date can also drop the time)
+const MENU_FIELDS = ['due', 'time', 'minutes', 'priority', 'sectionId'];
+const menuFields = (t) => Object.fromEntries(MENU_FIELDS.map((k) => [k, t[k] ?? null]));
+
+/** A change from the right-click menu (when, priority, section) with Undo, while it still stands. -> changed? */
+function changeWithUndo(id, patch, message) {
+  const task = findTask(id);
+  if (!task) return false;
+  const before = menuFields(task);
+  let after = null;
+  const changed = setItems((items) => {
+    const next = updateTask(items, id, patch);
+    after = menuFields(next.find((t) => t.id === id));
+    return JSON.stringify(after) === JSON.stringify(before) ? items : next;
+  });
+  if (!changed) return false;
+  offerUndo(message, () => {
+    const cur = findTask(id);
+    if (!cur || JSON.stringify(menuFields(cur)) !== JSON.stringify(after)) {
+      toast(`Nothing undone: “${clip(task.title, 28)}” ${cur ? 'changed' : 'was deleted'} since.`);
+      return false;
+    }
+    // Its old section may have gone meanwhile (another window): then it has none
+    const sectionId = getState().sections.some((sec) => sec.id === before.sectionId) ? before.sectionId : null;
+    setItems((items) => updateTask(items, id, { ...before, sectionId }));
+    return true;
   });
   return true;
 }
@@ -364,14 +470,13 @@ function priorityPicker(initial = 'none') {
   return { el: seg.el, get: () => value, set };
 }
 
-/** Due-date picker: quick chips + native date input + clear. */
-function duePicker(initial = null, { extended = false } = {}) {
+/** Due-date picker: Today · Tomorrow + native date input + clear (Next week is in the right-click menu). */
+function duePicker(initial = null) {
   let value = initial;
   const chips = [
     { label: 'Today', icon: DUE_ICON.today, key: () => todayKey() },
     { label: 'Tomorrow', icon: DUE_ICON.tomorrow, key: () => shiftKey(todayKey(), 1) },
-    extended && { label: '+1 week', icon: DUE_ICON.date, aria: 'In one week', key: () => shiftKey(todayKey(), 7) },
-  ].filter(Boolean);
+  ];
 
   const chipEls = chips.map((c) =>
     h(
@@ -417,7 +522,7 @@ function duePicker(initial = null, { extended = false } = {}) {
 
 function mount(root) {
   /* ---- view-local state ---- */
-  const rows = new Map(); // id -> { row, grip, idxEl, check, title, titleWrap, meta, details, del, input, sig }
+  const rows = new Map(); // id -> { row, grip, check, title, titleWrap, meta, details, del, input, sig }
   const linger = new Map(); // id -> { snap: { done, completedAt }, timer }
   const justAdded = new Set(); // ids that should play the entrance animation
   const ignoreTokens = new Set(); // quick-add token kinds the user chose to keep as text
@@ -433,23 +538,21 @@ function mount(root) {
   let lastDoneCount = -1;
   let lastViewKey = '';
   let swapTimer = 0;
+  let settleOnLeave = false; // ticked rows wait under the mouse until it leaves the list
 
   /* ---- header ---- */
-  // Simple says in its subtitle what today holds (it has no stats strip). The other templates keep
-  // their tagline, now a tip with ✓, and get the same one-line status on a phone, where the stats
-  // strip makes way for the tasks: there it sits on the title's row (tasks.css).
-  const plain = plainSkin();
-  const header = pageHeader(
-    plain
-      ? { index: '02', title: 'Tasks', subtitle: ' ' } // paint() writes the status
-      : { index: '02', title: 'Tasks', subtitle: 'Capture in one line. Sort by what matters. Clear the queue.', tipId: 'tasks.intro' },
-  );
-  let summaryEl = plain ? header.querySelector('.page-subtitle') : null;
-  if (!summaryEl) {
-    summaryEl = h('p', { class: 'page-subtitle tk-summary--phone' });
-    header.querySelector('.page-heading').append(summaryEl);
-  }
-  summaryEl.classList.add('tk-summary');
+  // One row: the title and what today holds ("☀ 3 today · ⚠ 2 overdue · ✓ 17% done", paint()
+  // writes it). What the page is for is a tip under it until "Got it" (or the first task added).
+  const summaryEl = h('span', { class: 'tk-summary' });
+  const header = pageHeader({
+    index: '02',
+    title: 'Tasks',
+    subtitle: plainSkin() ? 'Write down what you need to do, then tick it off when it’s done.' : 'Capture in one line. Sort by what matters. Clear the queue.',
+    tipId: 'tasks.intro',
+    stat: summaryEl,
+  });
+  // A shell that doesn't place `stat` yet: the status goes on the heading itself
+  if (!header.contains(summaryEl)) header.querySelector('.page-heading')?.append(h('p', { class: 'page-stat' }, summaryEl));
 
   /* ---- add box: the title first, then one step at a time (Priority → When → Section) ---- */
   // Screen-reader instructions sit on the controls that actually take focus (the add input
@@ -531,102 +634,43 @@ function mount(root) {
   // or the title is cleared, so Escape and Enter again come back to the same choices)
   let steps = null; // null = closed; { at: 'priority' | 'due' | 'section', list: the steps asked }
   let picks = {}; // { priority?, due?, section? }: a key present counts, null included
-  let presetDue; // a due date an empty state's button asked for ("Schedule for tomorrow")
   let datePicking = false; // the When step shows its date field
   let dateTypedAt = 0; // last key press in that field: a date being typed is not a pick yet
   let stepsSig = '';
 
-  /* ---- stats strip ---- */
-  // Each number under its icon (Terminal keeps its index numbers instead: tasks.css)
-  const statBadge = (name, className = '') => iconBadge(name, { tone: 'tasks', size: 14, box: 24, className: `tk-stat-ib ${className}`.trim() });
-  function statCell(n, iconName, label, onClick) {
-    const value = h('span', { class: 'stat-value tk-stat-value' }, '00');
-    const sub = h('span', { class: 'tk-stat-sub' });
-    const el = h(
-      onClick ? 'button' : 'div',
-      { class: 'tk-stat panel', type: onClick ? 'button' : null, onClick },
-      h('span', { class: 'label tk-stat-label' }, statBadge(iconName, iconName === DUE_ICON.overdue ? 'tk-ib-alert' : ''), h('span', { class: 'tk-stat-idx' }, n), label),
-      value,
-      sub,
-    );
-    return { el, value, sub };
-  }
-
-  const stOpen = statCell('01', 'list', 'Open', () => setFilter('all'));
-  const stDone = statCell('02', 'check-circle', 'Done today', () => setFilter('done'));
-  const stOver = statCell('03', DUE_ICON.overdue, 'Overdue', () => setFilter('today'));
-
-  const progValue = h('span', { class: 'stat-value tk-stat-value' }, '—');
-  const progRatio = h('span', { class: 'tk-prog-ratio mono tnum' });
-  const progFill = h('div', { class: 'progress-fill' });
-  const progBar = h('div', { class: 'progress tk-progress', role: 'progressbar', 'aria-label': "Today's progress", 'aria-valuemin': '0', 'aria-valuemax': '100', 'aria-valuenow': '0' }, progFill);
-  const meterTicks = Array.from({ length: METER_TICKS }, () => h('span', { class: 'meter-tick' }));
-  const overallPct = h('span', { class: 'mono tnum tk-overall-pct' });
-  const stProg = h(
-    'div',
-    { class: 'tk-stat tk-stat--progress panel' },
-    h('span', { class: 'label tk-stat-label' }, statBadge(DUE_ICON.today), h('span', { class: 'tk-stat-idx' }, '04'), "Today's progress", h('span', { class: 'spacer' }), progRatio),
-    progValue,
-    progBar,
-    h('div', { class: 'tk-overall' }, h('span', { class: 'label' }, 'All'), h('div', { class: 'meter tk-meter', 'aria-hidden': 'true' }, meterTicks), overallPct),
-  );
-  const statsEl = h('section', { class: 'tk-stats lo-deco', 'aria-label': 'Task summary' }, stOpen.el, stDone.el, stOver.el, stProg);
-
   /* ---- toolbar: section · filter · sort on one row ---- */
-  // Sections: tabs where they fit (a wide window, a few short names), else a dropdown (phones).
-  // Filter: tabs with counts on a wide window, a dropdown (counts as hints) on a phone. Both are
-  // built; tasks.css shows one by width, so nothing re-renders when the window is resized.
-  const secTabs = h('div', { class: 'tk-sec-tabs' });
-  let sectionSeg = null;
-  let sectionSig = null;
+  // Sections are a menu everywhere ("All sections ▾", "Work ▾"), so the filter beside it is the
+  // only row of choices: All tasks · Today · Upcoming · Done, with live counts (a menu with the
+  // counts as hints on a phone). Both filter forms are built; tasks.css shows one by width.
   const secDd = dropdown({ title: 'Section', className: 'tk-sec-dd-btn', onSelect: (id) => setSection(id) });
   secDd.el.classList.add('tk-sec-dd');
 
   const filterSeg = segGroup({
-    label: 'Filter tasks',
-    options: FILTERS.map((f) => ({ value: f, label: FILTER_LABEL[f], count: true, icon: VIEW_ICON[f] })),
+    label: 'Show',
+    options: FILTERS.map((f) => ({ value: f, label: VIEW_LABEL[f], count: true, icon: VIEW_ICON[f] })),
     value: getState().view.filter,
     className: 'tk-filters',
     onChange: (f) => setFilter(f),
   });
   const filterDd = dropdown({ title: 'Show', className: 'tk-filter-dd-btn', onSelect: (f) => setFilter(f) });
   filterDd.el.classList.add('tk-filter-dd');
-  // Its icon follows the order picked (paint): the sort lines for My order, else that order's icon
+  // Its icon follows the order picked (paint): the sort lines for My order, else that order's icon.
+  // A pick is remembered as chosen (view.sortPicked), so it never falls back to Smart.
   const sortDd = dropdown({
     title: 'Sort tasks',
     align: 'end',
     className: 'tk-sort-dd-btn',
-    onSelect: (s) => (getState().view.sort !== s ? setView({ sort: s }) : render()),
+    onSelect: (s) => {
+      settleLinger();
+      if (getState().view.sort !== s || !getState().view.sortPicked) setView({ sort: s, sortPicked: true });
+      else render();
+    },
   });
   sortDd.el.classList.add('tk-sort-dd');
   // A phone shows only its trash icon (tasks.css): the name stays on the button
   const clearDoneBtn = h('button', { type: 'button', class: 'btn btn--danger btn--sm tk-clear-done', 'aria-label': 'Clear completed', title: 'Clear completed', onClick: clearCompleted }, icon('trash', { size: 14 }), h('span', null, 'Clear completed'));
-  const toolbar = h('div', { class: 'tk-toolbar' }, secTabs, secDd.el, filterSeg.el, filterDd.el, h('span', { class: 'spacer' }), sortDd.el, clearDoneBtn);
+  const toolbar = h('div', { class: 'tk-toolbar' }, secDd.el, filterSeg.el, filterDd.el, h('span', { class: 'spacer' }), sortDd.el, clearDoneBtn);
   const ddSigs = new WeakMap();
-  let manySections = true; // none, or more than the tabs hold: the dropdown
-  let fitFrame = 0;
-
-  /**
-   * Section tabs only where the toolbar stays one row with them (sections, view, sort); else the
-   * sections are the dropdown. Measured, since names, counts, icons and each template's type all
-   * change the width.
-   */
-  function fitToolbar() {
-    if (manySections) {
-      toolbar.classList.add('tk-secs-dd');
-      return;
-    }
-    toolbar.classList.remove('tk-secs-dd');
-    // A narrow window's CSS shows the dropdown anyway
-    if (!secTabs.offsetParent) return;
-    const row = secTabs.getBoundingClientRect();
-    const wraps = [filterSeg.el, sortDd.el, clearDoneBtn].some((el) => el.offsetParent && el.getBoundingClientRect().top >= row.bottom - 1);
-    if (wraps) toolbar.classList.add('tk-secs-dd');
-  }
-  const onResize = () => {
-    cancelAnimationFrame(fitFrame);
-    fitFrame = requestAnimationFrame(fitToolbar);
-  };
 
   /* ---- lists ---- */
   // Referenced by every row (see createRow), the element that receives focus.
@@ -636,7 +680,18 @@ function mount(root) {
     'Arrow keys move between tasks. O opens the task’s page, Enter renames, Space toggles done, E opens details, Alt plus Up or Down reorders, Delete removes.',
   );
   const mainList = h('ol', { class: 'tk-list', 'aria-label': 'Tasks' });
-  const mainPanel = h('div', { class: 'tk-panel panel' }, mainList);
+  // Smart order: one small heading and list per group (Overdue · Today · Upcoming · No date). A
+  // view with one group alone shows the plain list: its heading would only repeat the filter.
+  const groupEls = new Map(
+    SMART_GROUPS.map((key) => {
+      const count = h('span', { class: 'tk-group-count tnum' });
+      const head = h('h2', { class: 'tk-group-head label', id: `tk-group-${key}` }, icon(GROUP_ICON[key], { size: 13, className: 'tk-group-icon' }), h('span', null, SMART_GROUP_LABEL[key]), count);
+      const list = h('ol', { class: 'tk-list tk-list--group', 'aria-labelledby': `tk-group-${key}` });
+      const el = h('section', { class: ['tk-group', `tk-group--${key}`], dataset: { group: key }, hidden: true }, head, list);
+      return [key, { el, list, count }];
+    }),
+  );
+  const mainPanel = h('div', { class: 'tk-panel panel' }, mainList, [...groupEls.values()].map((g) => g.el));
   const emptyHost = h('div', { class: 'tk-empty-host' });
 
   const doneCount = h('span', { class: 'tk-done-count mono tnum' });
@@ -691,8 +746,9 @@ function mount(root) {
   });
 
   root.classList.add('tk-root');
-  root.append(header, form, statsEl, toolbar, mainPanel, emptyHost, doneSection, hints, addHelp, kbdHelp);
+  root.append(header, form, toolbar, mainPanel, emptyHost, doneSection, hints, addHelp, kbdHelp);
   root.addEventListener('keydown', onRowKeydown);
+  mainPanel.addEventListener('pointerleave', () => onListLeave());
 
   /* ==========================================================================
      Rendering
@@ -721,12 +777,12 @@ function mount(root) {
   function paint() {
     const { items, sections, view } = getState();
     const today = todayKey();
-    // The open section scopes the stats, the filter counts and the lists
+    // The open section scopes the status, the filter counts and the lists
     const scoped = inSection(items, view.section);
     const counts = filterCounts(scoped, today);
     const stats = computeStats(scoped, today);
     const snaps = new Map([...linger].map(([id, l]) => [id, l.snap]));
-    const { main, completed } = viewSections(scoped, view, today, snaps);
+    const { main, completed, groups } = viewSections(scoped, view, today, snaps);
     const manual = view.sort === 'manual' && view.filter !== 'done';
     const focus = captureFocus();
     const openSec = sections.find((sec) => sec.id === view.section) ?? null;
@@ -739,7 +795,8 @@ function mount(root) {
     paintSections(sections, sectionCounts(items), view.section);
     paintStats(stats);
 
-    // toolbar
+    // toolbar: nothing to choose from before the first task (the empty list says how to start)
+    toolbar.hidden = items.length === 0 && sections.length === 0;
     filterSeg.set(view.filter);
     FILTERS.forEach((f) => filterSeg.count(f, String(counts[f])));
     syncDropdown(filterDd, FILTERS.map((f) => ({ value: f, label: VIEW_LABEL[f], icon: VIEW_ICON[f], hint: String(counts[f]) })), view.filter, '', `Show: ${VIEW_LABEL[view.filter]}`);
@@ -751,12 +808,9 @@ function mount(root) {
     // Completed tasks keep their completion order: no sort there, Clear in its place
     sortDd.el.hidden = view.filter === 'done';
     clearDoneBtn.hidden = view.filter !== 'done' || counts.done === 0;
-    fitToolbar();
     // The open steps follow sections and the view (a section deleted, Today opened meanwhile)
-    const sig = `${sections.map((sec) => `${sec.id}\u241f${sec.name}\u241f${sec.color ?? ''}\u241f${sectionIcon(sec)}`).join('\u241e')}|${view.section}|${view.filter}|${today}`;
+    const sig = `${sections.map((sec) => `${sec.id}␟${sec.name}␟${sec.color ?? ''}␟${sectionIcon(sec)}`).join('␞')}|${view.section}|${view.filter}|${today}`;
     if (sig !== stepsSig) {
-      // The day an empty state's button asked for ("Schedule for tomorrow") was for that view
-      if (stepsSig) presetDue = undefined;
       stepsSig = sig;
       if (steps) refreshSteps();
       else paintAddButton(); // the first section makes one more step: Next instead of Add
@@ -767,19 +821,44 @@ function mount(root) {
         ? 'Add a task for today…'
         : 'Add a task…';
 
-    // main list
+    // main list: Smart order under its group headings (two groups or more), else one list. The
+    // lists that take rows go first, so a row moving between them is never left out of the page.
     const used = new Set();
-    reconcile(mainList, main, used, (t, i) => ({ index: i, today, draggable: manual && !t.done, section: secInfo?.get(t.sectionId) ?? null, secColor: secColors.get(t.sectionId) ?? null }));
+    const ctx = (t, i) => ({ index: i, today, draggable: manual && !t.done, section: secInfo?.get(t.sectionId) ?? null, secColor: secColors.get(t.sectionId) ?? null });
+    const grouped = groups && groups.length > 1 ? new Map(groups.map((g) => [g.key, g.tasks])) : null;
+    let at = 0;
+    const offset = (fn) => (t, i) => fn(t, at + i);
+    const fill = (list, tasks) => {
+      reconcile(list, tasks, used, offset(ctx));
+      at += tasks.length;
+    };
+    if (grouped) {
+      for (const [key, g] of groupEls) {
+        const tasks = grouped.get(key) ?? [];
+        g.el.hidden = !tasks.length;
+        g.count.textContent = num(tasks.length);
+        fill(g.list, tasks);
+      }
+      reconcile(mainList, [], used, ctx);
+    } else {
+      fill(mainList, main);
+      for (const g of groupEls.values()) {
+        reconcile(g.list, [], used, ctx);
+        g.el.hidden = true;
+      }
+    }
+    mainList.hidden = !!grouped;
+    mainPanel.classList.toggle('is-grouped', !!grouped);
     mainIds = main.map((t) => t.id);
     mainPanel.hidden = main.length === 0;
-    paintEmpty(main.length === 0 ? emptyKind(view.filter, counts, sectionName) : '', sectionName ?? '', openSec ? sectionIcon(openSec) : null);
+    paintEmpty(main.length === 0 ? emptyKind(view.filter, counts, sectionName, items.length) : '', sectionName ?? '', openSec ? sectionIcon(openSec) : null);
 
     // a short staggered fade when the section, filter or sort changes
     const viewKey = `${view.section}:${view.filter}:${view.sort}`;
     if (lastViewKey && viewKey !== lastViewKey) {
-      bump(mainList, 'tk-list--swap');
+      bump(mainPanel, 'tk-list--swap');
       clearTimeout(swapTimer);
-      swapTimer = setTimeout(() => mainList.classList.remove('tk-list--swap'), 700);
+      swapTimer = setTimeout(() => mainPanel.classList.remove('tk-list--swap'), 700);
     }
     lastViewKey = viewKey;
 
@@ -816,44 +895,16 @@ function mount(root) {
     restoreFocus(focus);
   }
 
+  /** The header's status line (summaryParts): rebuilt only when it says something new. */
   function paintStats(s) {
     const parts = summaryParts(s);
     const sumKey = JSON.stringify(parts);
-    if (summaryEl.dataset.key !== sumKey) {
-      summaryEl.dataset.key = sumKey;
-      // Read as a list: "3 due today, 2 overdue"
-      summaryEl.replaceChildren(...summaryNodes(parts).flatMap((el, i) => (i ? [h('span', { class: 'sr-only' }, ', '), el] : [el])));
-    }
-    setStat(stOpen, s.open, `of ${s.total} total`);
-    setStat(stDone, s.doneToday, `${s.done} all time`);
-    setStat(stOver, s.overdue, s.overdue ? 'Needs attention' : 'All on schedule');
-    stOver.el.classList.toggle('is-alert', s.overdue > 0);
-    stOpen.el.setAttribute('aria-label', `${s.open} open tasks. Show all.`);
-    stDone.el.setAttribute('aria-label', `${s.doneToday} done today. Show completed.`);
-    stOver.el.setAttribute('aria-label', `${s.overdue} overdue. Show today.`);
-
-    const pct = Math.round(s.todayProgress * 100);
-    tick(progValue, s.todayTotal ? `${pct}%` : '—');
-    progRatio.textContent = `${num(s.doneToday)}/${num(s.todayTotal)}`;
-    progFill.style.width = `${s.todayTotal ? pct : 0}%`;
-    progBar.setAttribute('aria-valuenow', String(pct));
-    stProg.classList.toggle('is-complete', s.todayTotal > 0 && s.doneToday === s.todayTotal);
-    const lit = Math.round(s.overallProgress * METER_TICKS);
-    meterTicks.forEach((t, i) => t.classList.toggle('is-on', i < lit));
-    overallPct.textContent = `${Math.round(s.overallProgress * 100)}%`;
-  }
-
-  function setStat(cell, n, sub) {
-    tick(cell.value, num(n));
-    cell.el.classList.toggle('is-zero', n === 0);
-    if (cell.sub.textContent !== sub) cell.sub.textContent = sub;
-  }
-
-  /** Set text; when it changes after the first paint, replay the tick animation. */
-  function tick(el, text) {
-    if (el.textContent === text) return;
-    el.textContent = text;
-    if (!firstRender) bump(el, 'is-ticking');
+    if (summaryEl.dataset.key === sumKey) return;
+    summaryEl.dataset.key = sumKey;
+    // Read as a list: "3 due today, 2 overdue"
+    summaryEl.replaceChildren(...summaryNodes(parts).flatMap((el, i) => (i ? [h('span', { class: 'sr-only' }, ', '), el] : [el])));
+    summaryEl.hidden = !parts.length;
+    if (summaryEl.parentElement?.matches('.page-stat')) summaryEl.parentElement.hidden = !parts.length;
   }
 
   function bump(el, cls = 'is-bump') {
@@ -862,40 +913,12 @@ function mount(root) {
     el.classList.add(cls);
   }
 
-  /* ---- empty states ---- */
-
   /**
-   * Sections: the tabs (wide screens, a few short names) rebuilt when sections change, the
-   * dropdown (phones, or too many to fit) kept in step; counts and the open one every paint.
+   * Sections: one menu, "All sections ▾" or the open one's name and icon (in its color), with
+   * each section's open tasks as hints, New section… and Edit sections…. With none yet it
+   * offers the usual two.
    */
   function paintSections(sections, counts, active) {
-    const sig = sections.map((sec) => `${sec.id}\u241f${sec.name}\u241f${sec.color ?? ''}\u241f${sectionIcon(sec)}`).join('\u241e');
-    if (sig !== sectionSig) {
-      sectionSig = sig;
-      if (sections.length) {
-        sectionSeg = segGroup({
-          label: 'Sections',
-          options: [{ value: 'all', label: 'All', count: true, icon: ALL_ICON }, ...sections.map((sec) => ({ value: sec.id, label: sec.name, count: true, color: sec.color ?? null, icon: sectionIcon(sec) }))],
-          value: active,
-          className: 'tk-sec-seg',
-          onChange: (id) => setSection(id),
-        });
-        secTabs.replaceChildren(
-          sectionSeg.el,
-          h('button', { type: 'button', class: 'btn btn--ghost btn--icon btn--sm tk-sec-btn', 'aria-label': 'New section', title: 'New section', onClick: () => openSections({ adding: true }) }, icon('plus', { size: 14 })),
-          h('button', { type: 'button', class: 'btn btn--ghost btn--icon btn--sm', 'aria-label': 'Edit sections', title: 'Rename or delete sections', onClick: () => openSections() }, icon('edit', { size: 14 })),
-        );
-      } else {
-        sectionSeg = null;
-        secTabs.replaceChildren();
-      }
-      manySections = !sections.length || sections.length > SECTION_TABS_MAX;
-    }
-    if (sectionSeg) {
-      sectionSeg.set(active);
-      sectionSeg.count('all', String(counts.get('all') ?? 0));
-      for (const sec of sections) sectionSeg.count(sec.id, String(counts.get(sec.id) ?? 0));
-    }
     if (sections.length) {
       const open = sections.find((sec) => sec.id === active);
       const name = open?.name ?? 'All sections';
@@ -943,7 +966,9 @@ function mount(root) {
     if (dd.button.getAttribute('aria-label') !== aria) dd.button.setAttribute('aria-label', aria);
   }
 
-  function emptyKind(filter, counts, sectionName) {
+  /** Which empty list: 'fresh' (no tasks at all), the filter's own, 'clear' or 'section'. */
+  function emptyKind(filter, counts, sectionName, total) {
+    if (!total) return 'fresh';
     if (filter !== 'all') return filter;
     if (counts.done > 0) return 'clear';
     return sectionName ? 'section' : 'fresh';
@@ -951,65 +976,39 @@ function mount(root) {
 
   function paintEmpty(kind, detail = '', detailIcon = null) {
     emptyHost.hidden = !kind;
-    const key = `${kind}\u241f${detail}\u241f${detailIcon ?? ''}`;
+    const key = `${kind}␟${detail}␟${detailIcon ?? ''}`;
     if (key === emptyKey) return;
     emptyKey = key;
     emptyHost.replaceChildren(kind ? buildEmpty(kind, detail, detailIcon) : '');
   }
 
-  /** detail: the open section's name, detailIcon its icon (an empty section shows it). */
+  /**
+   * detail: the open section's name, detailIcon its icon (an empty section shows it). The add box
+   * right above is the way to start, so an empty list only says what goes there; a button only
+   * when it leads somewhere else (Done → all tasks).
+   */
   function buildEmpty(kind, detail = '', detailIcon = null) {
-    // Shared pattern (Notes, Habits): contextual empty states get a small button, primary
-    // for "create", secondary for "go elsewhere"; the first-run state gets a full-size one.
-    const action = (label, onClick, iconName = 'plus', { large = false, primary = true } = {}) =>
-      h(
-        'button',
-        { type: 'button', class: ['btn tk-empty-action', primary && 'btn--primary', !large && 'btn--sm'], onClick },
-        icon(iconName, { size: large ? 16 : 14 }),
-        label,
-      );
     switch (kind) {
       case 'today':
-        return emptyState({
-          icon: 'sun',
-          title: 'Nothing due today',
-          text: 'No tasks due today and nothing overdue. Clear runway.',
-          action: action('Add a task for today', () => focusAdd({ due: todayKey() })),
-        });
+        return emptyState({ icon: 'sun', title: 'Nothing due today', text: 'Nothing is overdue either. Enjoy the free time.' });
       case 'upcoming':
-        return emptyState({
-          icon: 'calendar',
-          title: 'Nothing scheduled',
-          text: term('tasks.empty.upcoming', 'Tasks with a future due date land here. Try typing @fri or @tomorrow.'),
-          action: action('Schedule for tomorrow', () => focusAdd({ due: shiftKey(todayKey(), 1) })),
-        });
+        return emptyState({ icon: 'calendar', title: 'Nothing scheduled', text: term('tasks.empty.upcoming', 'Tasks with a future due date land here. Try typing @fri or @tomorrow.') });
       case 'done':
         return emptyState({
           icon: VIEW_ICON.done,
           title: 'Nothing completed yet',
           text: 'Check off a task and it shows up here.',
-          action: action('View all tasks', () => setFilter('all'), VIEW_ICON.all, { primary: false }),
+          action: h('button', { type: 'button', class: 'btn btn--sm tk-empty-action', onClick: () => setFilter('all') }, icon(VIEW_ICON.all, { size: 14 }), 'Show all tasks'),
         });
       case 'clear':
-        return emptyState({
-          icon: 'check-circle',
-          title: 'All clear',
-          text: 'Every task is done. Add the next one when you are ready.',
-          action: action('Add a task', () => focusAdd()),
-        });
+        return emptyState({ icon: 'check-circle', title: 'All clear', text: 'Every task is done. Add the next one when you are ready.' });
       case 'section':
-        return emptyState({
-          icon: detailIcon ?? 'folder',
-          title: `Nothing in ${clip(detail, 32)} yet`,
-          text: 'Tasks you add while this section is open go here.',
-          action: action('Add a task', () => focusAdd()),
-        });
+        return emptyState({ icon: detailIcon ?? 'folder', title: `Nothing in ${clip(detail, 32)} yet`, text: 'Tasks you add while this section is open go here.' });
       default:
         return emptyState({
           icon: 'list',
           title: 'No tasks yet',
-          text: term('tasks.empty.first', 'Capture anything on your mind. Press N from anywhere on this page to start typing.'),
-          action: action('Add your first task', () => focusAdd(), 'plus', { large: true }),
+          text: term('tasks.empty.first', 'Capture anything on your mind: type it in the box above and press Enter. N jumps there from anywhere on this page.'),
         });
     }
   }
@@ -1048,15 +1047,15 @@ function mount(root) {
 
   function createRow(id) {
     const row = h('li', { class: 'tk-row', tabindex: '0', 'aria-describedby': 'tk-kbd-help', dataset: { id } });
-    const idxEl = h('span', { class: 'tk-idx mono tnum lo-deco' });
     // Pointer-only affordance (keyboard users reorder with Alt+arrows), so it stays out
     // of the accessibility tree instead of announcing "Drag to reorder" on every row.
     const grip = h(
       'button',
       { type: 'button', class: 'tk-grip', tabindex: '-1', 'aria-hidden': 'true', title: 'Drag to reorder', onPointerdown: (e) => startDrag(e, id) },
-      h('span', { class: 'tk-grip-inner' }, idxEl, icon('grip', { size: 14, className: 'tk-grip-icon' })),
+      h('span', { class: 'tk-grip-inner' }, icon('grip', { size: 14, className: 'tk-grip-icon' })),
     );
-    const check = checkButton({ label: 'Mark done', onToggle: (checked) => toggleDone(id, checked) });
+    // A click (not Space) may let the ticked row wait under the mouse: toggleDone
+    const check = checkButton({ label: 'Mark done', onToggle: (checked, e) => toggleDone(id, checked, { pointer: (e?.detail ?? 0) > 0 }) });
     check.classList.add('tk-check');
     const title = h('span', { class: 'tk-title' });
     const titleWrap = h('div', { class: 'tk-title-line' }, title);
@@ -1089,7 +1088,7 @@ function mount(root) {
       if (e.animationName === 'tk-enter') row.classList.remove('tk-row--enter');
       else if (e.animationName === 'tk-sweep' || e.animationName === 'tk-unsweep') row.classList.remove('is-completing', 'is-reopening');
     });
-    return { row, grip, idxEl, check, title, titleWrap, meta, details, del, input: null, sig: '' };
+    return { row, grip, check, title, titleWrap, meta, details, del, input: null, sig: '' };
   }
 
   function updateRow(r, t, { index, today, draggable, section = null, secColor = null }) {
@@ -1106,12 +1105,13 @@ function mount(root) {
     row.classList.toggle('is-draggable', draggable);
     row.dataset.priority = t.priority;
 
-    r.idxEl.textContent = idx(index + 1);
     row.style.setProperty('--tk-i', String(Math.min(index, 14)));
     r.grip.disabled = !draggable;
     setChecked(r.check, t.done);
     r.check.setAttribute('aria-label', t.done ? `Mark “${t.title}” as not done` : `Mark “${t.title}” as done`);
     if (editingId !== t.id) r.title.textContent = t.title;
+    // A wide window keeps a row to one line: a long title ends in … and shows whole on hover
+    r.titleWrap.title = t.title;
     r.details.setAttribute('aria-label', `Details for “${t.title}”`);
     r.del.setAttribute('aria-label', `Delete “${t.title}”`);
 
@@ -1176,7 +1176,8 @@ function mount(root) {
         out.push(
           h(
             'span',
-            { class: ['tag', 'tk-due-tag', !t.done && `tk-due-tag--${kind}`], title: `Due ${long}`, dataset: day ? { day } : null },
+            // --timed: it says a time too, so it stays under Smart order's Today heading (tasks.css)
+            { class: ['tag', 'tk-due-tag', !t.done && `tk-due-tag--${kind}`, t.time && 'tk-due-tag--timed'], title: `Due ${long}`, dataset: day ? { day } : null },
             chipIcon(DUE_ICON[kind]),
             h('span', { class: 'sr-only' }, 'Due: '),
             h('span', { class: 'tk-due-rel' }, rel),
@@ -1200,14 +1201,19 @@ function mount(root) {
 
   /* ---- focus preservation across re-renders ---- */
 
+  // The open tasks (every Smart group) or the completed ones: a row moving between Smart groups
+  // stays in its panel, and keeps the focus
+  const panelOf = (rowEl) => rowEl.closest('.tk-panel');
+  const panelRows = (panel) => [...panel.querySelectorAll('.tk-row')].filter((el) => isShown(el));
+
   function captureFocus() {
     const el = document.activeElement;
     if (!el || el === document.body || !root.contains(el)) return null;
     const rowEl = el.closest('.tk-row');
     if (!rowEl) return { el };
-    const list = rowEl.parentElement;
+    const panel = panelOf(rowEl);
     const sel = el.tagName === 'INPUT' ? [el.selectionStart, el.selectionEnd] : null;
-    return { el, rowId: rowEl.dataset.id, list, index: [...list.children].indexOf(rowEl), sel };
+    return { el, rowId: rowEl.dataset.id, panel, index: panelRows(panel).indexOf(rowEl), sel };
   }
 
   const isShown = (el) => el.isConnected && el.offsetParent !== null;
@@ -1217,17 +1223,17 @@ function mount(root) {
     if (document.activeElement === f.el && isShown(f.el)) return;
     if (f.rowId) {
       const r = rows.get(f.rowId);
-      // Same list, or the inline-edit input wherever its row went: put focus + caret back
-      if (r && isShown(f.el) && (r.row.parentElement === f.list || (r.input && f.el === r.input))) {
+      // Same panel, or the inline-edit input wherever its row went: put focus + caret back
+      if (r && isShown(f.el) && (panelOf(r.row) === f.panel || (r.input && f.el === r.input))) {
         f.el.focus({ preventScroll: true });
         if (f.sel && typeof f.el.setSelectionRange === 'function') f.el.setSelectionRange(f.sel[0], f.sel[1]);
         return;
       }
-      // The row left this list (completed, deleted, filtered out): keep the keyboard
+      // The row left this panel (completed, deleted, filtered out): keep the keyboard
       // user in place by focusing whatever now sits at its old index.
-      const siblings = f.list.querySelectorAll(':scope > .tk-row');
+      const siblings = panelRows(f.panel);
       const target = siblings[Math.min(f.index, siblings.length - 1)];
-      if (target && isShown(target)) {
+      if (target) {
         target.focus();
         return;
       }
@@ -1244,13 +1250,7 @@ function mount(root) {
      Actions
      ========================================================================== */
 
-  function focusAdd({ due } = {}) {
-    if (due !== undefined) {
-      // An empty state's "Schedule for tomorrow": the When step starts on that day
-      presetDue = due;
-      delete picks.due;
-      if (steps) renderSteps();
-    }
+  function focusAdd() {
     addInput.focus();
   }
 
@@ -1264,7 +1264,7 @@ function mount(root) {
     const { view, sections } = getState();
     return {
       priority: 'none',
-      due: presetDue !== undefined ? presetDue : view.filter === 'today' ? todayKey() : null,
+      due: view.filter === 'today' ? todayKey() : null,
       section: view.section !== 'all' && sections.some((sec) => sec.id === view.section) ? view.section : null,
     };
   }
@@ -1631,11 +1631,13 @@ function mount(root) {
     const task = createTask(resolveAdd(parsed, picks, addDefaults(), new Set(sections.map((sec) => sec.id))));
     justAdded.add(task.id);
     setItems((items) => addTask(items, task));
+    // The tips have done their job: the first task is in, and a token typed means it is known
+    dismissTip('tasks.intro');
+    if (parsed.tokens.priority || parsed.tokens.due) dismissTip('tasks.tokens');
 
     addInput.value = '';
     ignoreTokens.clear();
     picks = {};
-    presetDue = undefined;
     steps = null;
     datePicking = false;
     renderReadout();
@@ -1700,39 +1702,50 @@ function mount(root) {
     readout.replaceChildren(...(chips.length ? [h('span', { class: 'label tk-readout-label' }, term('tasks.parsed', 'Parsed')), ...chips] : []));
   }
 
-  function toggleDone(id, done) {
+  /**
+   * Tick a task off (or open it again): the row holds its place for a beat so the check-off reads
+   * before it moves, then the list settles. Ticked with the mouse while it rests on the list, the
+   * row waits there until the pointer leaves, so the next row never slides under the click.
+   * The toast says “X” done, with Undo (completeWithUndo).
+   */
+  function toggleDone(id, done, { pointer = false } = {}) {
     const task = findTask(id);
     if (!task || task.done === done) return;
-    const before = computeStats(getState().items, todayKey());
 
-    // Hold the row in place for a beat so the check-off reads before it moves.
     const prev = linger.get(id);
     if (prev) clearTimeout(prev.timer);
-    linger.set(id, {
-      snap: prev ? prev.snap : { done: task.done, completedAt: task.completedAt },
-      timer: setTimeout(() => {
-        linger.delete(id);
-        rows.get(id)?.row.classList.remove('is-completing', 'is-reopening');
-        render();
-      }, LINGER_MS),
-    });
+    const entry = { snap: prev ? prev.snap : { done: task.done, completedAt: task.completedAt }, timer: 0 };
+    entry.timer = setTimeout(() => {
+      if (pointer && hoverQuery?.matches && mainPanel.matches(':hover')) {
+        settleOnLeave = true;
+        return;
+      }
+      if (linger.get(id) !== entry) return;
+      linger.delete(id);
+      rows.get(id)?.row.classList.remove('is-completing', 'is-reopening');
+      render();
+    }, LINGER_MS);
+    linger.set(id, entry);
     const r = rows.get(id);
     if (r) {
       r.row.classList.remove('is-completing', 'is-reopening');
       bump(r.row, done ? 'is-completing' : 'is-reopening');
     }
+    completeWithUndo(id, done);
+  }
 
-    setItems((items) => toggleTask(items, id, done));
-
-    const after = computeStats(getState().items, todayKey());
-    if (done && before.dueToday + before.overdue > 0 && after.dueToday + after.overdue === 0) {
-      toast("Today's queue is clear. Nice work.");
-    }
+  /** The pointer left the list: rows ticked under it settle now. */
+  function onListLeave() {
+    if (!settleOnLeave) return;
+    settleOnLeave = false;
+    settleLinger();
+    render();
   }
 
   function settleLinger() {
     linger.forEach((l) => clearTimeout(l.timer));
     linger.clear();
+    settleOnLeave = false;
   }
 
   function setFilter(filter) {
@@ -2040,58 +2053,63 @@ function mount(root) {
     if (task) pasteTask(taskSnapshot(task), id, { verb: 'Duplicated' });
   }
 
-  /** Rename a section in a small dialog (Rename in its right-click menu). */
-  async function renameSectionPrompt(id) {
-    const sec = getState().sections.find((x) => x.id === id);
-    if (!sec) return;
-    const name = await promptDialog({
-      title: 'Rename section',
-      value: sec.name,
-      maxLength: SECTION_NAME_MAX,
-      validate: (text) => {
-        const res = renameSection(getState().sections, id, text);
-        return res.error === 'taken' ? `There is already a section called “${clip(text, 28)}”.` : res.error ? 'Give the section a name.' : null;
-      },
+  /**
+   * The everyday actions, first in a task's right-click menu (before Edit…, Copy, Paste …):
+   * Complete, when it is due (Today · Tomorrow · Next week), Priority ▸ and Move to ▸. Each one
+   * happens at once, with Undo in its toast.
+   */
+  function taskActions(task) {
+    const id = task.id;
+    const today = todayKey();
+    const name = `“${clip(task.title, 28)}”`;
+    const { sections } = getState();
+    const when = (key, label, iconName, text) => ({
+      id: `due-${label.toLowerCase().replace(/\s+/g, '-')}`,
+      label,
+      icon: iconName,
+      disabled: task.due === key,
+      run: () => changeWithUndo(id, { due: key }, `${name} is due ${text}.`),
     });
-    if (name === null) return;
-    const cur = getState();
-    const res = renameSection(cur.sections, id, name);
-    if (!res.error && res.sections !== cur.sections) commit({ ...cur, sections: res.sections });
-  }
-
-  /** A section tab's right-click menu: rename, the Sections dialog, color, delete. */
-  function sectionTarget(el) {
-    const tab = el.closest('.tk-sec-seg .seg-btn[data-value]');
-    const sec = tab ? getState().sections.find((x) => x.id === tab.dataset.value) : null;
-    if (!sec) return null;
-    const id = sec.id;
-    return {
-      kind: 'section',
-      id,
-      label: `Section: ${sec.name}`,
-      el: tab,
-      accepts: ['task'],
-      paste: (c) => pasteTask(c.snapshot, null, { sectionId: id }),
-      rename: () => renameSectionPrompt(id),
-      edit: () => openSections(),
-      remove: () => deleteSection(id),
-      color: {
-        kind: 'sections',
-        value: sec.color ?? null,
-        set: (c) => {
-          const cur = getState();
-          const next = recolorSection(cur.sections, id, c);
-          if (next !== cur.sections) commit({ ...cur, sections: next });
-        },
-      },
-    };
+    const next = nextWeek(today);
+    const out = [
+      { id: 'complete', label: task.done ? 'Mark as not done' : 'Complete', icon: task.done ? 'undo' : 'check-circle', kbd: 'Space', run: () => toggleDone(id, !task.done) },
+    ];
+    if (!task.done) {
+      out.push(when(today, 'Today', DUE_ICON.today, 'today'), when(shiftKey(today, 1), 'Tomorrow', DUE_ICON.tomorrow, 'tomorrow'), when(next, 'Next week', DUE_ICON.date, formatDay(next)));
+    }
+    // The one it has now is ticked; picking it again changes nothing
+    out.push({ separator: true });
+    out.push({
+      id: 'priority',
+      label: 'Priority',
+      icon: 'flag',
+      children: ['high', 'med', 'low', 'none'].map((p) => {
+        const label = p === 'med' ? 'Medium' : PRIORITY_LABEL[p];
+        return {
+          id: `priority-${p}`,
+          label,
+          icon: PRIORITY_ICON[p],
+          checked: task.priority === p,
+          run: () => changeWithUndo(id, { priority: p }, p === 'none' ? `${name} has no priority now.` : `${name} is ${label.toLowerCase()} priority now.`),
+        };
+      }),
+    });
+    if (sections.length) {
+      const move = (sectionId, label, iconName) => ({
+        id: `move-${sectionId ?? 'none'}`,
+        label,
+        icon: iconName,
+        checked: (task.sectionId ?? null) === sectionId,
+        run: () => changeWithUndo(id, { sectionId }, sectionId ? `${name} moved to ${clip(label, 24)}.` : `${name} is in no section now.`),
+      });
+      out.push({ id: 'move', label: 'Move to', icon: 'folder', children: [...sections.map((sec) => move(sec.id, sec.name, sectionIcon(sec))), move(null, 'No section', NO_SECTION_ICON)] });
+    }
+    return out;
   }
 
   /** The right-click menu: a task row, or anywhere else on the page (a paste target). */
   function contextTarget(el) {
     if (!root.contains(el)) return null;
-    const sectionMenu = sectionTarget(el);
-    if (sectionMenu) return sectionMenu;
     const rowEl = el.closest('.tk-row[data-id]');
     const task = rowEl ? findTask(rowEl.dataset.id) : null;
     const afterId = task?.id ?? null;
@@ -2108,6 +2126,7 @@ function mount(root) {
       label: `Task: ${task.title}`,
       el: rowEl,
       ...paste,
+      actions: taskActions(task),
       copy: () => {
         const t = findTask(id);
         return t ? { kind: 'task', snapshot: taskSnapshot(t), text: t.title } : null;
@@ -2135,15 +2154,15 @@ function mount(root) {
     doneIds.forEach(dropLinger);
     const { items, snapshots } = removeTasks(s.items, doneIds);
     commit({ ...s, items });
-    toast(`${plural(doneIds.length, 'completed task')} cleared.`, {
-      duration: 6000,
-      action: { label: 'Undo', onClick: () => setItems((cur) => restoreTasks(cur, snapshots)) },
-    });
+    // Undo in the toast, and ⌘/Ctrl+Z like every other change here
+    offerUndo(`${plural(doneIds.length, 'completed task')} cleared.`, () => setItems((cur) => restoreTasks(cur, snapshots)));
   }
 
-  /** tasksApi.reveal(): show the requested task (switching filter if it is hidden), scroll to it, focus and flash it. */
+  /** tasksApi.reveal(): show the requested task (switching filter if it is hidden), scroll to it,
+   *  focus and flash it; with { details: true } its details open too (closing them lands on the row). */
   function revealPending() {
-    const id = takePendingReveal();
+    const ask = takePendingReveal();
+    const id = ask?.id;
     const task = id ? findTask(id) : null;
     if (!task) return;
     if (editingId) commitEdit();
@@ -2159,14 +2178,16 @@ function mount(root) {
     r.row.scrollIntoView({ block: 'center' });
     r.row.focus({ preventScroll: true });
     bump(r.row, 'tk-row--enter');
+    if (ask.details) openDetails(id);
   }
 
   function moveByKeyboard(id, delta, repeat = false) {
     const { view } = getState();
     if (view.sort !== 'manual' || view.filter === 'done') {
       if (repeat) return; // one explanation per press, not one per auto-repeat
-      toast(view.filter === 'done' ? 'Completed tasks keep their completion order.' : 'Switch to Manual sort to reorder.', {
-        action: view.filter === 'done' ? undefined : { label: 'Manual', onClick: () => setView({ sort: 'manual' }) },
+      const myOrder = term('tasks.sort.manual', SORT_LABEL.manual);
+      toast(view.filter === 'done' ? 'Completed tasks keep their completion order.' : `Sort by ${myOrder} to move tasks yourself.`, {
+        action: view.filter === 'done' ? undefined : { label: myOrder, onClick: () => setView({ sort: 'manual', sortPicked: true }) },
       });
       return;
     }
@@ -2255,14 +2276,27 @@ function mount(root) {
 
   /* ---- details modal ---- */
 
+  /**
+   * The details dialog, compact enough for a laptop screen without scrolling: the title, the notes
+   * (three lines that grow with the text), Priority beside Section, Due beside Time, and under
+   * More the rarer ones (how long a timed task takes, its color). A touch screen opens it without
+   * raising the keyboard; the shell shows it as a bottom sheet on a phone.
+   */
   function openDetails(id) {
     const task = findTask(id);
     if (!task) return;
     if (editingId) commitEdit();
 
     const titleIn = h('input', { class: 'input tk-field-title', id: 'tk-d-title', type: 'text', value: task.title, maxlength: '500', autocomplete: 'off', 'aria-describedby': 'tk-d-err' });
-    const notesIn = h('textarea', { class: 'textarea tk-field-notes', id: 'tk-d-notes', rows: '6', placeholder: 'Context, links, sub-steps…' });
+    const notesIn = h('textarea', { class: 'textarea tk-field-notes', id: 'tk-d-notes', rows: '3', placeholder: 'Context, links, sub-steps…' });
     notesIn.value = task.notes;
+    // Grows with what is written (where CSS can't: field-sizing), up to the CSS max-height
+    const fitNotes = () => {
+      if (NOTES_SIZE_THEMSELVES) return;
+      notesIn.style.height = 'auto';
+      notesIn.style.height = `${notesIn.scrollHeight + 2}px`;
+    };
+    notesIn.addEventListener('input', fitNotes);
     // The notes' links, clickable (a textarea can't open them); follows the text as it's typed
     const linksEl = h('div', { class: 'tk-links' });
     const paintLinks = () => {
@@ -2275,24 +2309,26 @@ function mount(root) {
     notesIn.addEventListener('input', paintLinks);
     paintLinks();
     const pri = priorityPicker(task.priority);
-    const due = duePicker(task.due, { extended: true });
+    const due = duePicker(task.due);
     // Optional time of day: the calendar then shows the task on its timeline
-    const timeIn = h('input', { class: 'input tk-field-time', id: 'tk-d-time', type: 'time', step: '300', value: task.time ?? '' });
+    const timeIn = h('input', { class: 'input tk-field-time', id: 'tk-d-time', type: 'time', step: '300', value: task.time ?? '', 'aria-describedby': 'tk-d-time-hint' });
     const lengthSel = h(
       'select',
-      { class: 'select tk-field-length', id: 'tk-d-length', 'aria-label': 'How long' },
+      { class: 'select tk-field-length', id: 'tk-d-length' },
       [15, 30, 45, 60, 90, 120, 180, 240].map((n) => h('option', { value: String(n) }, n < 60 ? `${n} min` : `${Math.floor(n / 60)} h${n % 60 ? ` ${n % 60} min` : ''}`)),
     );
     const length = task.minutes ?? DEFAULT_TASK_MINUTES;
     // A length set by dragging on the calendar (say 75 min) gets its own option
     if (![...lengthSel.options].some((o) => o.value === String(length))) lengthSel.append(h('option', { value: String(length) }, `${length} min`));
     lengthSel.value = String(length);
-    const timeHint = h('p', { class: 'tk-field-hint label' });
+    // Said only when it applies: a time needs a day first
+    const timeHint = h('p', { class: 'tk-field-hint', id: 'tk-d-time-hint' });
     const paintTime = () => {
       const hasDate = !!due.get();
       timeIn.disabled = !hasDate;
       lengthSel.disabled = !hasDate || !timeIn.value;
-      timeHint.textContent = hasDate ? (timeIn.value ? 'Shown at this time in the Calendar.' : 'Optional: a time puts it on the Calendar’s timeline.') : 'Pick a due date first.';
+      timeHint.textContent = hasDate ? '' : 'Pick a day first.';
+      timeHint.hidden = hasDate;
     };
     timeIn.addEventListener('input', paintTime);
     // The due picker has no change hook: re-check after any click or edit in it
@@ -2315,11 +2351,11 @@ function mount(root) {
       secSel.addEventListener('change', paintSecIcon);
       paintSecIcon();
     }
-    const err = h('p', { class: 'tk-field-error label', id: 'tk-d-err', hidden: true }, 'A task needs a title');
+    const err = h('p', { class: 'tk-field-error', id: 'tk-d-err', hidden: true }, 'A task needs a title.');
     const colorIn = colorPicker({ value: task.color ?? null, label: 'Color' });
 
     const created = `Created ${formatDay(dateKey(new Date(task.createdAt)))}`;
-    const meta = h('p', { class: 'label tk-detail-meta' }, task.done && task.completedAt ? `${created} · Completed ${timeAgo(task.completedAt)}` : created);
+    const meta = h('p', { class: 'tk-detail-meta' }, task.done && task.completedAt ? `${created} · Completed ${timeAgo(task.completedAt)}` : created);
 
     const save = () => {
       const title = cleanTitle(titleIn.value);
@@ -2353,20 +2389,40 @@ function mount(root) {
       titleIn.removeAttribute('aria-invalid');
     });
 
-    const body = [
+    // More: open from the start when something in it is set, so nothing set is out of sight
+    const more = h(
+      'details',
+      { class: 'tk-more', open: !!task.color || (!!task.time && length !== DEFAULT_TASK_MINUTES) },
+      h('summary', { class: 'tk-more-sum' }, icon('chevron-right', { size: 14, className: 'tk-more-chev' }), h('span', null, 'More')),
+      h(
+        'div',
+        { class: 'tk-detail-row tk-more-body' },
+        h('div', { class: 'field tk-field-length-wrap' }, fieldLabel('clock', 'How long', 'tk-d-length'), lengthSel),
+        h('div', { class: 'field cc-field', dataset: { ccFor: 'tasks' } }, fieldLabel('palette', 'Color'), colorIn.el),
+      ),
+    );
+
+    // Focusable (not in the Tab order) so a touch screen can open the dialog on it, keyboard down
+    const body = h(
+      'div',
+      { class: 'tk-detail', tabindex: '-1' },
       h('div', { class: 'field' }, fieldLabel('check-square', 'Title', 'tk-d-title'), titleIn, err),
       h('div', { class: 'field' }, fieldLabel('note', 'Notes', 'tk-d-notes'), notesIn, linksEl),
       h(
         'div',
-        { class: 'tk-detail-grid' },
-        h('div', { class: 'field' }, fieldLabel('flag', 'Priority'), pri.el),
-        h('div', { class: 'field' }, fieldLabel('calendar', 'Due'), due.el),
-        h('div', { class: 'field' }, fieldLabel('clock', 'Time', 'tk-d-time'), h('div', { class: 'tk-time-row' }, timeIn, lengthSel), timeHint),
-        secSel ? h('div', { class: 'field' }, fieldLabel('folder', 'Section', 'tk-d-section'), h('div', { class: 'tk-field-section-row' }, secIcon, secSel)) : null,
-        h('div', { class: 'field cc-field', dataset: { ccFor: 'tasks' } }, fieldLabel('palette', 'Color'), colorIn.el),
+        { class: 'tk-detail-row' },
+        h('div', { class: 'field tk-field-pri' }, fieldLabel('flag', 'Priority'), pri.el),
+        secSel ? h('div', { class: 'field tk-field-sec' }, fieldLabel('folder', 'Section', 'tk-d-section'), h('div', { class: 'tk-field-section-row' }, secIcon, secSel)) : null,
       ),
-      h('div', { class: 'tk-detail-foot' }, meta, h('span', { class: 'tk-detail-keys label lo-hint' }, kbd(MOD_KEY), kbd('⏎'), 'Save')),
-    ];
+      h(
+        'div',
+        { class: 'tk-detail-row' },
+        h('div', { class: 'field tk-field-due' }, fieldLabel('calendar', 'Due'), due.el),
+        h('div', { class: 'field tk-field-when' }, fieldLabel('clock', 'Time', 'tk-d-time'), timeIn, timeHint),
+      ),
+      more,
+      h('div', { class: 'tk-detail-foot' }, meta, h('span', { class: 'tk-detail-keys lo-hint' }, kbd(MOD_KEY), kbd('⏎'), 'Save')),
+    );
     const footer = [
       h(
         'button',
@@ -2390,12 +2446,13 @@ function mount(root) {
       body,
       footer,
       size: 'lg',
-      initialFocus: titleIn,
+      className: 'tk-modal',
+      initialFocus: coarseQuery?.matches ? body : titleIn,
       onClose: () => {
         if (detailsModal === m) detailsModal = null;
       },
     });
-    m.el.classList.add('tk-modal');
+    requestAnimationFrame(fitNotes);
     m.el.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && !isComposing(e)) {
         e.preventDefault();
@@ -2567,6 +2624,8 @@ function mount(root) {
       e.preventDefault();
       return;
     }
+    // A row's own key in use: the keys tip is known now
+    if (ONCE_KEYS.has(e.key)) dismissTip('tasks.keys');
 
     switch (e.key) {
       case 'Enter':
@@ -2632,6 +2691,11 @@ function mount(root) {
       cancelDrag();
       return;
     }
+    // ⌘/Ctrl+Z outside a text field takes back the latest change (fields keep their own undo)
+    if ((e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey && e.key?.toLowerCase() === 'z' && !isTyping(e) && !modalOpen()) {
+      if (undoLast()) e.preventDefault();
+      return;
+    }
     if (e.metaKey || e.ctrlKey || e.altKey || isTyping(e) || modalOpen()) return;
     if (e.key === 'n' || e.key === 'N' || e.key === '/') {
       e.preventDefault();
@@ -2649,6 +2713,7 @@ function mount(root) {
     if (!task || task[field] === value) return;
     setItems((items) => updateTask(items, id, { [field]: value }));
   };
+  let pageNext = null; // the row after one deleted from its page, for the focus
   const page = createTaskPanel({
     getTask: (id) => findTask(id) ?? null,
     // The row's own chips (the section always: the page has room), less its note line
@@ -2661,11 +2726,24 @@ function mount(root) {
     onNotes: (id, notes) => setField(id, 'notes', notes),
     onDone: (id, done) => toggleDone(id, done),
     onDetails: (id) => openDetails(id),
-    onDelete: (id) => deleteTask(id),
+    onDelete: (id) => {
+      // Deleted from its page: the keyboard lands on the task after it (before it, at the end)
+      const shown = [...root.querySelectorAll('.tk-row')].filter(isShown);
+      const at = shown.indexOf(rows.get(id)?.row);
+      pageNext = at === -1 ? null : (shown[at + 1] ?? shown[at - 1] ?? null);
+      deleteTask(id);
+    },
     onChange: (id, was) => {
       for (const [rid, r] of rows) r.row.classList.toggle('is-open', rid === id);
-      // Closed from inside: the keyboard goes back to the task it showed
-      if (was) rows.get(was)?.row.focus({ preventScroll: true });
+      // Closed from inside: the keyboard goes back to the task it showed (scrolled to, if the
+      // list moved meanwhile), or, when that row is gone from the view (deleted, ticked off under
+      // Today, moved to another section), to its neighbor or the first task, else the add bar
+      const next = pageNext;
+      pageNext = null;
+      if (!was) return;
+      const back = rows.get(was)?.row;
+      const to = [back, next].find((el) => el && isShown(el)) ?? [...root.querySelectorAll('.tk-row')].find(isShown) ?? addInput;
+      to.focus();
     },
   });
 
@@ -2674,9 +2752,6 @@ function mount(root) {
      ========================================================================== */
 
   document.addEventListener('keydown', onDocKeydown);
-  window.addEventListener('resize', onResize);
-  // The template's fonts may arrive after the first paint and widen the tabs
-  document.fonts?.ready.then(() => toolbar.isConnected && fitToolbar());
   const offMenu = registerContextProvider('tasks', contextTarget);
   const unsubscribe = store.subscribe(() => render());
   const offDay = onDayChange(() => {
@@ -2693,10 +2768,14 @@ function mount(root) {
   render();
 
   // Reveal once the view has laid out (it may arrive with this mount, or while it is open)
+  // (the timer backs the frame up in a tab that paints no frames: the first one takes the reveal)
   let revealFrame = 0;
+  let revealTimer = 0;
   const queueReveal = () => {
     cancelAnimationFrame(revealFrame);
+    clearTimeout(revealTimer);
     revealFrame = requestAnimationFrame(revealPending);
+    revealTimer = setTimeout(revealPending, 120);
   };
   revealInView = queueReveal;
   if (pendingReveal) queueReveal();
@@ -2704,6 +2783,7 @@ function mount(root) {
   return () => {
     if (revealInView === queueReveal) revealInView = null;
     cancelAnimationFrame(revealFrame);
+    clearTimeout(revealTimer);
     if (editingId) commitEdit();
     if (drag) cancelDrag();
     settleLinger();
@@ -2712,8 +2792,6 @@ function mount(root) {
     offDay();
     clearInterval(minuteTimer);
     clearTimeout(swapTimer);
-    cancelAnimationFrame(fitFrame);
-    window.removeEventListener('resize', onResize);
     document.removeEventListener('keydown', onDocKeydown);
     root.removeEventListener('keydown', onRowKeydown);
     detailsModal?.close();
@@ -2789,6 +2867,15 @@ function apiSetDone(id, done) {
   return setItems((items) => toggleTask(items, id, done));
 }
 
+/**
+ * Tick a task off (done = true) or open it again, with the page's own toast: “X” done, and Undo
+ * (also ⌘/Ctrl+Z on the Tasks page). Home's To do card and the Calendar use it, so ticking a task
+ * off reads the same everywhere. True when it changed.
+ */
+function apiComplete(id, done = true) {
+  return completeWithUndo(id, done);
+}
+
 /** Quick-add without the tokens: the title is taken literally. Lands at the top of the manual order. */
 function apiAddTask({ title, due = null, priority = 'none', notes = '' } = {}) {
   const clean = typeof title === 'string' ? cleanTitle(cleanTitle(title).slice(0, API_TITLE_MAX)) : '';
@@ -2798,10 +2885,13 @@ function apiAddTask({ title, due = null, priority = 'none', notes = '' } = {}) {
   return freezeTask(findTask(task.id) ?? task);
 }
 
-/** Open the Tasks page with this task in view, focused and flashed. False when there is no such task. */
-function apiReveal(id) {
+/**
+ * Open the Tasks page with this task in view, focused and flashed; `{ details: true }` opens its
+ * details too (Search). False when there is no such task.
+ */
+function apiReveal(id, { details = false } = {}) {
   if (!findTask(id)) return false;
-  pendingReveal = { id, at: Date.now() };
+  pendingReveal = { id, at: Date.now(), details: !!details };
   if (revealInView) revealInView();
   else location.hash = '#/tasks';
   return true;
@@ -2858,10 +2948,29 @@ function apiSectionIcons() {
   return new Map(getState().sections.map((sec) => [sec.id, sectionIcon(sec)]));
 }
 
+/** The reveal still waiting ({ id, details }), or null (none, or too old). */
 function takePendingReveal() {
   const p = pendingReveal;
   pendingReveal = null;
-  return p && Date.now() - p.at < REVEAL_TTL_MS ? p.id : null;
+  return p && Date.now() - p.at < REVEAL_TTL_MS ? p : null;
+}
+
+/**
+ * ⌘/Ctrl+Z from another page (the Calendar) for a change made there through this module (a tick,
+ * a delete): the newest Undo not used yet, as the Tasks page's ⌘/Ctrl+Z. True when there was one.
+ */
+function apiUndoLast() {
+  return undoLast();
+}
+
+/**
+ * Which Undo ⌘/Ctrl+Z would take now: its number (they only grow), or 0 when there is none. Right
+ * after complete() or remove() it is that change's, so a page can tell whether the newest Undo is
+ * still one of its own (not taken back from its toast, nothing newer from another page).
+ */
+function apiUndoMark() {
+  const last = undoStack[undoStack.length - 1];
+  return last && Date.now() <= last.expires ? last.seq : 0;
 }
 
 export const tasksApi = Object.freeze({
@@ -2870,6 +2979,9 @@ export const tasksApi = Object.freeze({
   setDue: apiSetDue,
   setSchedule: apiSetSchedule,
   setDone: apiSetDone,
+  complete: apiComplete,
+  undoLast: apiUndoLast,
+  undoMark: apiUndoMark,
   addTask: apiAddTask,
   reveal: apiReveal,
   snapshot: apiSnapshot,
@@ -2886,8 +2998,9 @@ export default {
   id: 'tasks',
   title: 'Tasks',
   icon: 'list',
+  // What needs doing today: open tasks overdue or due today (Home's To do lists the same ones)
   badge() {
-    const n = openCount(getState().items);
+    const n = attentionCount(getState().items, todayKey());
     return n ? String(n) : '';
   },
   mount,

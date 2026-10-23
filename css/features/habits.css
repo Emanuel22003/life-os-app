@@ -79,9 +79,6 @@
   color: var(--hb-mark);
 }
 
-.hb-tab-count:empty {
-  display: none;
-}
 
 .hb-panel {
   min-width: 0;
@@ -100,7 +97,9 @@
 }
 
 /* ==========================================================================
-   Legends + day-state visuals — shared by the week matrix, the legend and the Week plan
+   Legends + day-state visuals — shared by the week matrix, the legend and the Week plan.
+   One grammar everywhere: done = filled (with a tick), planned / not yet = an outline,
+   missed = a faint hatch, a day off = a quiet dot, a bonus = a soft fill with a tick.
    ========================================================================== */
 
 .hb-legend {
@@ -139,7 +138,7 @@
 
 .hb-day[data-state="miss"],
 .hb-swatch[data-s="miss"] {
-  background: var(--heat-0);
+  background: repeating-linear-gradient(-45deg, var(--hatch) 0 1.5px, transparent 1.5px 5px);
   /* A missed day is a button you can still tick: its square keeps 3:1, like a field's edge
      (WCAG 1.4.11); a hairline left it nearly invisible on the card */
   border-color: var(--field-line);
@@ -152,24 +151,30 @@
   color: var(--text);
 }
 
+/* A day off: quiet, a dot where the square would be (the planned squares stand out) */
 .hb-day[data-state="rest"],
 .hb-swatch[data-s="rest"] {
-  background: repeating-linear-gradient(-45deg, var(--hatch) 0 1.5px, transparent 1.5px 5px);
-  border-color: var(--line);
+  background: none;
+  border-color: transparent;
   color: var(--text-3);
 }
 
-/* the matrix draws "not planned" as a dot: so does its legend */
-.hb-mx-legend .hb-legend-item .hb-swatch[data-s="rest"] {
-  border-color: transparent;
+.hb-swatch[data-s="rest"] {
   background: radial-gradient(circle, var(--line-strong) 0 2px, transparent 2.5px);
 }
 
+/* Ticked on a day it wasn't planned: a soft fill, the tick showing */
 .hb-day[data-state="bonus"],
 .hb-swatch[data-s="bonus"] {
-  background: repeating-linear-gradient(-45deg, var(--heat-3) 0 2px, var(--heat-1) 2px 5px);
+  background: var(--heat-1);
   border-color: var(--text-3);
   color: var(--text);
+}
+
+/* The Week plan's legend: a planned weekday is an outline with a small tick, like its cells */
+.hb-swatch[data-s="plan"] {
+  border-color: var(--text-3);
+  border-width: 1.5px;
 }
 
 .hb-day[data-state="pre"] {
@@ -210,9 +215,11 @@
     color var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease);
 }
 
-.hb-day:not([aria-disabled="true"]):hover {
-  border-color: var(--text);
-  box-shadow: var(--glow);
+@media (hover: hover) and (pointer: fine) {
+  .hb-day:not([aria-disabled="true"]):hover {
+    border-color: var(--text);
+    box-shadow: var(--glow);
+  }
 }
 
 .hb-day:not([aria-disabled="true"]):active {
@@ -257,14 +264,35 @@
   min-width: 0;
 }
 
-/* ---- The bar: ‹ week › · Today · the overview menu ---- */
+/* ---- The bar: Day | Week | History, then ‹ week › · Today ---- */
 
 .hb-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-3);
+  min-width: 0;
+  min-height: 34px;
+}
+
+.hb-view-seg {
+  flex: none;
+}
+
+.hb-view-btn > svg {
+  flex: none;
+}
+
+.hb-view-btn[aria-pressed="true"] > svg {
+  color: var(--hb-mark);
+}
+
+.hb-bar-nav {
   display: flex;
   align-items: center;
   gap: var(--space-1);
   min-width: 0;
-  min-height: 34px;
 }
 
 .hb-bar-when {
@@ -297,15 +325,6 @@
   margin-left: var(--space-1);
 }
 
-.hb-view-dd {
-  flex: none;
-}
-
-/* The open overview's icon, leading the menu button */
-.hb-view-ic {
-  display: inline-grid;
-  flex: none;
-}
 
 /* What the week matrix's squares mean, under the table */
 .hb-mx-legend {
@@ -490,9 +509,11 @@
   transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
 }
 
-.hb-mx-colbtn:hover {
-  background: var(--surface-3);
-  color: var(--text);
+@media (hover: hover) and (pointer: fine) {
+  .hb-mx-colbtn:hover {
+    background: var(--surface-3);
+    color: var(--text);
+  }
 }
 
 /* The matrix scrolls sideways, which cuts off a ring drawn outside the day heads and the names
@@ -794,8 +815,10 @@
   background: var(--line-strong);
 }
 
-.hb-wk:hover {
-  border-color: var(--text-2);
+@media (hover: hover) and (pointer: fine) {
+  .hb-wk:hover {
+    border-color: var(--text-2);
+  }
 }
 
 .hb-wk:active {
@@ -828,9 +851,11 @@
     color var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease);
 }
 
-.hb-sel:hover {
-  border-color: var(--text-3);
-  color: var(--text-2);
+@media (hover: hover) and (pointer: fine) {
+  .hb-sel:hover {
+    border-color: var(--text-3);
+    color: var(--text-2);
+  }
 }
 
 .hb-sel:active {
@@ -1037,13 +1062,16 @@
   box-shadow: none;
 }
 
+/* The same grammar as the matrix: missed = a faint hatch, a bonus = a soft fill with its tick */
 .hb-row.is-miss .hb-row-check {
   border-style: dashed;
+  background: repeating-linear-gradient(-45deg, var(--hatch) 0 1.5px, transparent 1.5px 5px);
 }
 
 .hb-row.is-bonus .hb-row-check {
-  background: repeating-linear-gradient(-45deg, var(--heat-3) 0 2px, var(--heat-2) 2px 5px);
-  border-color: var(--text-2);
+  background: var(--heat-1);
+  border-color: var(--text-3);
+  color: var(--text);
 }
 
 .hb-row-ident {
@@ -1108,9 +1136,11 @@
   transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
 }
 
-.hb-fold:hover {
-  background: var(--surface-2);
-  color: var(--text);
+@media (hover: hover) and (pointer: fine) {
+  .hb-fold:hover {
+    background: var(--surface-2);
+    color: var(--text);
+  }
 }
 
 .hb-fold-icon {
@@ -1211,28 +1241,6 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-}
-
-.hb-howto {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--space-3);
-}
-
-.hb-howto-step {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: var(--space-4);
-}
-
-.hb-howto-title {
-  font-weight: 600;
-}
-
-.hb-howto-text {
-  font-size: var(--fs-sm);
-  color: var(--text-2);
 }
 
 /* ==========================================================================
@@ -1350,10 +1358,12 @@ th.hb-plan-corner {
   transition: background var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
 }
 
-.hb-plan-colbtn:hover {
-  background: var(--surface-2);
-  border-color: var(--line);
-  color: var(--text-2);
+@media (hover: hover) and (pointer: fine) {
+  .hb-plan-colbtn:hover {
+    background: var(--surface-2);
+    border-color: var(--line);
+    color: var(--text-2);
+  }
 }
 
 .hb-plan-wd {
@@ -1400,7 +1410,7 @@ th.hb-plan-corner {
 
 .hb-plan-unit {
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: var(--fs-2xs);
   letter-spacing: calc(0.06em * var(--label-tracking));
   line-height: 1;
   text-transform: var(--label-case);
@@ -1408,9 +1418,6 @@ th.hb-plan-corner {
   color: var(--text-3);
 }
 
-.hb-plan-unit-s {
-  display: none;
-}
 
 .hb-plan-bar {
   width: 70%;
@@ -1499,7 +1506,11 @@ th.hb-plan-corner {
 }
 
 .hb-plan-sub {
-  font-size: 9px;
+  font-size: var(--fs-2xs);
+}
+
+.hb-plan-sub:empty {
+  display: none;
 }
 
 .hb-plan-row.is-idle .hb-plan-name {
@@ -1527,15 +1538,20 @@ th.hb-plan-corner {
   pointer-events: auto;
 }
 
-.hb-plan-row:hover > td {
-  background: var(--surface);
+@media (hover: hover) and (pointer: fine) {
+  .hb-plan-row:hover > td {
+    background: var(--surface);
+  }
 }
 
-.hb-plan-row:hover > td.is-today {
-  background: var(--surface-3);
+@media (hover: hover) and (pointer: fine) {
+  .hb-plan-row:hover > td.is-today {
+    background: var(--surface-3);
+  }
 }
 
-/* ---- Cells: a square that fills with signal ---- */
+/* ---- Cells: a plan, not a check-in. Planned is an outline with a small tick (filled squares
+   mean "done" on the Check in tab); a day off is a quiet dot, so the exceptions stand out ---- */
 
 .hb-plan-td {
   padding: 3px 2px;
@@ -1548,23 +1564,27 @@ th.hb-plan-corner {
   width: 100%;
   max-width: 44px;
   height: 34px;
-  border: 1px solid var(--line-strong);
+  border: 1px solid transparent;
   border-radius: var(--radius-xs);
-  background: radial-gradient(circle, var(--text-4) 0 1px, transparent 1.5px);
+  background: radial-gradient(circle, var(--line-strong) 0 2px, transparent 2.5px);
   color: transparent;
   transition: background var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease),
     box-shadow var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease);
 }
 
 .hb-plan-cell svg {
+  width: 12px;
+  height: 12px;
   opacity: 0;
   transform: scale(0.5);
   transition: opacity var(--dur-fast) var(--ease), transform var(--dur) var(--ease-out);
 }
 
-.hb-plan-cell:hover {
-  border-color: var(--text);
-  box-shadow: var(--glow);
+@media (hover: hover) and (pointer: fine) {
+  .hb-plan-cell:hover {
+    border-color: var(--text);
+    box-shadow: var(--glow);
+  }
 }
 
 .hb-plan-cell:active {
@@ -1572,10 +1592,16 @@ th.hb-plan-corner {
 }
 
 .hb-plan-cell[aria-pressed="true"] {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--accent-ink);
-  box-shadow: 0 0 12px var(--glow-c-soft);
+  background: none;
+  border-color: var(--line-strong);
+  color: var(--text-2);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .hb-plan-cell[aria-pressed="true"]:hover {
+    border-color: var(--text);
+    color: var(--text);
+  }
 }
 
 .hb-plan-cell[aria-pressed="true"] svg {
@@ -1588,13 +1614,11 @@ th.hb-plan-corner {
   outline-offset: -4px;
 }
 
-.hb-plan-cell[aria-pressed="true"]:not(.is-draft):focus-visible {
-  outline-color: var(--accent-ink);
-}
-
 /* Add-row toggles are a draft: dashed, hatched when on */
 .hb-plan-cell.is-draft {
   border-style: dashed;
+  border-color: var(--line-strong);
+  background: none;
 }
 
 .hb-plan-cell.is-draft[aria-pressed="true"] {
@@ -1827,9 +1851,11 @@ th.hb-plan-corner {
     color var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease);
 }
 
-.hb-wd:hover {
-  border-color: var(--text);
-  color: var(--text);
+@media (hover: hover) and (pointer: fine) {
+  .hb-wd:hover {
+    border-color: var(--text);
+    color: var(--text);
+  }
 }
 
 .hb-wd[aria-pressed="true"] {
@@ -1994,29 +2020,44 @@ th.hb-plan-corner {
   }
 }
 
-/* Touch targets >= 32px on any coarse pointer (tablets too, not only phone widths) */
+/* Touch targets on any coarse pointer (tablets too, not only phone widths): 40px controls, and the
+   Day list (a touch screen's first view) has tall rows with a big tick, the whole row a target */
 @media (pointer: coarse) {
   .hb-act,
   .hb-suggest-btn,
   .hb-bar-step,
   .hb-bar-today,
-  .hb-view-dd,
   .hb-dl-add,
   .hb-row-more,
   .hb-arch-acts .btn {
-    --btn-h: 36px;
+    --btn-h: 40px;
   }
 
   .hb-f-presets .seg-btn {
-    height: 32px;
-  }
-
-  .hb-tab {
     height: 36px;
   }
 
+  .hb-tab,
+  .hb-view-btn {
+    height: 40px;
+  }
+
+  .hb-row {
+    min-height: 56px;
+    gap: var(--space-3);
+  }
+
   .hb-row-check {
-    --size: 26px;
+    --size: 32px;
+  }
+
+  .hb-row-check > svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  .hb-row-name-text {
+    font-size: var(--fs-md);
   }
 }
 
@@ -2058,11 +2099,6 @@ th.hb-plan-corner {
     padding: 0 var(--space-2);
   }
 
-  /* Icons fill the tabs on a phone; the counts repeat what the views show right below */
-  .hb-tab-count {
-    display: none;
-  }
-
   .hb-ib {
     --ib-box: 22px;
   }
@@ -2081,14 +2117,40 @@ th.hb-plan-corner {
     gap: var(--space-2);
   }
 
-  /* ---- the bar: week range only (the tag and the Today word go) ---- */
+  /* ---- the bar: Day | Week | History on the left, ‹ › on the right (the week's dates are in
+     the columns and the day strip right below; away from today the range gives way to Today) ---- */
 
-  .hb-bar-rel {
+  .hb-bar {
+    flex-wrap: nowrap;
+    gap: var(--space-1);
+  }
+
+  /* Words only: three of them fit beside ‹ range › */
+  .hb-view-btn {
+    padding: 0 10px;
+  }
+
+  .hb-view-btn > svg {
     display: none;
+  }
+
+  .hb-bar-nav {
+    flex: none;
+    gap: 0;
+  }
+
+  .hb-bar-rel,
+  .hb-bar.is-away .hb-bar-when {
+    display: none;
+  }
+
+  .hb-bar-range {
+    font-size: var(--fs-xs);
   }
 
   .hb-bar-today {
     width: var(--btn-h);
+    margin-left: 0;
     padding: 0;
   }
 
@@ -2096,22 +2158,59 @@ th.hb-plan-corner {
     display: none;
   }
 
-  /* ---- overview tables: ~120px icons + names, seven ~31px days fit 341px; rows stay short ---- */
+  /* ---- overview tables. Week: seven >= 36px days (a thumb's width) leave 88px for the icon and
+     the name, which takes two lines; rows are 46px tall ---- */
 
   .hb-mx-panel {
-    --hb-mx-name: 120px;
-    --hb-mx-row: 35px;
+    --hb-mx-name: 88px;
+    --hb-mx-row: 46px;
+    --hb-mx-cell: 34px;
+  }
+
+  .hb-mx .hb-mx-name-text {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-height: 1.2;
+    white-space: normal;
+    hyphens: auto;
+    overflow-wrap: break-word;
+  }
+
+  .hb-mx:not(.hb-hi) .hb-ib {
+    --ib-box: 20px;
+  }
+
+  .hb-mx:not(.hb-hi) .hb-mx-rowin {
+    padding-left: 6px;
+  }
+
+  .hb-mx:not(.hb-hi) .hb-mx-name {
+    gap: 4px;
+  }
+
+  /* History: eight weeks of >= 28px squares, and room before the card's rounded edge */
+  .hb-hi {
+    --hb-mx-name: 104px;
+    --hb-mx-row: 40px;
     --hb-mx-cell: 28px;
   }
 
-  /* History: twelve weeks need the room (108px still fits "Drink water" beside its icon) */
-  .hb-hi {
-    --hb-mx-name: 108px;
-    --hb-mx-cell: 22px;
+  .hb-history .hb-mx-scroll {
+    padding-right: var(--space-2);
+  }
+
+  .hb-hi .hb-wk {
+    width: calc(100% - 3px);
   }
 
   .hb-mx-corner {
     padding: 4px var(--space-1) 4px var(--space-2);
+  }
+
+  /* The corner is the narrow name column now: done / planned only (each row has its flame) */
+  .hb-mx-corner .hb-ro-streak {
+    display: none;
   }
 
   .hb-mx-rowin {
@@ -2135,7 +2234,7 @@ th.hb-plan-corner {
      row's width beside its icon: "Drink water" fits even when every habit has a streak. Taps on
      it fall through to the name button. */
   .hb-mx-rowin {
-    --hb-streak-x: calc(var(--space-2) + 28px); /* the row's padding + the icon (22px) + its gap */
+    --hb-streak-x: 30px; /* the row's padding (6px) + the icon (20px) + its gap (4px) */
     position: relative;
   }
 
@@ -2148,7 +2247,7 @@ th.hb-plan-corner {
   }
 
   .hb-mx:not(.hb-hi) .hb-mx-rowin.has-streak .hb-mx-ident {
-    padding-bottom: 13px;
+    padding-bottom: 12px;
   }
 
   .hb-mx-th {
@@ -2229,15 +2328,22 @@ th.hb-plan-corner {
     margin-left: -2px;
   }
 
-  .hb-howto {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
   /* ---- week plan: 104px sticky names + seven >= 32px cells fit 341px ---- */
 
   .hb-plan {
-    --hb-name-w: 110px;
+    --hb-name-w: 104px;
     --hb-cell-min: 33px;
+  }
+
+  /* Names take two lines rather than an ellipsis */
+  .hb-plan-name {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-height: 1.2;
+    white-space: normal;
+    hyphens: auto;
+    overflow-wrap: break-word;
   }
 
   .hb-plan-rowin {
@@ -2302,17 +2408,9 @@ th.hb-plan-corner {
     font-size: var(--fs-sm);
   }
 
-  /* 33px columns: "HABITS" becomes "HB" */
+  /* 33px columns: the count alone ("12"), its unit stays in the button's name */
   .hb-plan-unit {
-    letter-spacing: 0.04em;
-  }
-
-  .hb-plan-unit-l {
     display: none;
-  }
-
-  .hb-plan-unit-s {
-    display: inline;
   }
 
   .hb-plan-more,
@@ -2367,22 +2465,23 @@ th.hb-plan-corner {
   }
 }
 
-/* The smallest phones (320px): a narrower name column keeps all seven days on screen */
+/* The smallest phones (320px): the days get a little narrower, so the names keep their column */
 @media (max-width: 360px) {
   .hb-mx-panel {
-    --hb-mx-name: 96px;
-    --hb-mx-cell: 26px;
+    --hb-mx-name: 80px;
+    --hb-mx-cell: 30px;
   }
 
   .hb-hi {
     --hb-mx-name: 84px;
+    --hb-mx-cell: 24px;
   }
 
   .hb-ib {
     --ib-box: 20px;
   }
 
-  .hb-mx-rowin {
-    --hb-streak-x: calc(var(--space-2) + 26px);
+  .hb-view-btn {
+    padding: 0 var(--space-2);
   }
 }
