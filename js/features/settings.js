@@ -563,6 +563,15 @@ function mount(root) {
     }
   }
 
+  // The welcome sheet a new device opens with (js/welcome.js): every page in a line, and the tab
+  // bar's pages (also More → Edit tabs on a phone)
+  const welcomeRow = row({
+    key: 'welcome',
+    title: 'Welcome',
+    hint: 'What each page does, and which ones the tab bar shows on a phone-sized screen.',
+    control: button('Show again', () => shell.openWelcome(), { iconName: 'sparkles' }),
+  });
+
   const elsewhereRow = row({
     title: 'Use it on another computer',
     hint: `Open ${SITE_URL.replace(/^https:\/\//, '')} in Chrome or Edge, install it, then turn on Sync there.`,
@@ -594,7 +603,7 @@ function mount(root) {
     sound: [soundRow, notifyRow, miniRow],
     startup: [startRow],
     sync: [syncRow, backupRow, restoreRow, storageRow, deleteRow],
-    about: [versionRow, elsewhereRow],
+    about: [versionRow, welcomeRow, elsewhereRow],
     legal: legalRows,
   };
   const cards = new Map(SETTINGS_SECTIONS.map((sec) => [sec.id, card(sec, rowsOf[sec.id])]));

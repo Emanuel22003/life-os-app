@@ -21,7 +21,7 @@
 //   }
 // A badge that changes without a store change (a running timer) dispatches `lifeos:badge`.
 
-import { h, icon, iconBadge, registerIcon, brandMark, emptyState, isTyping, modalOpen, openModal, closeAllModals, onDayChange, toast, ensureToastRegion, skin, num, term, WEEKDAYS_SHORT, MONTHS_SHORT, useSettings, gateTips, checkButton } from './ui.js';
+import { h, icon, iconBadge, registerIcon, brandMark, emptyState, isTyping, modalOpen, openModal, closeAllModals, onDayChange, toast, ensureToastRegion, skin, num, term, WEEKDAYS_SHORT, MONTHS_SHORT, useSettings, gateTips, checkButton, reducedMotion, uid } from './ui.js';
 import { settings } from './store.js';
 // The shared icon set (habits, sections, the ideas every page uses): before any page draws
 import './icons.js';
@@ -37,10 +37,11 @@ import { installContextMenu } from './contextmenu.js';
 import { LOCAL_ORIGIN, isRealCopy } from './origin.js';
 import { startSync, syncStatus, onSyncStatus } from './sync.js';
 import { openSyncPanel, syncLabel } from './sync.panel.js';
-import { provideShell, normalizeTabs, toggleTab, MAX_TABS } from './shell.js';
+import { provideShell, normalizeTabs, toggleTab, moveTab, tabBarFit, TAB_FIT_W, TAB_MIN_W, welcomeOnStart } from './shell.js';
+import { openWelcome } from './welcome.js';
 import { isNewerVersion, startPage, LEGAL_LINKS } from './features/settings.logic.js';
 
-const VERSION = 'v0.31';
+const VERSION = 'v0.32';
 
 // Read before any feature module can seed data: tells a first-ever run from an upgrade
 const hadSavedData = hasSavedData();
@@ -57,8 +58,9 @@ registerIcon('timer', '<circle cx="12" cy="13.5" r="7.5"/><path d="M12 9.5v4l2.5
 // Recovery: a leaf, for growing back (also the icon of a tracker whose name suggests none)
 registerIcon('leaf', '<path d="M8.6 15.4C6.9 9.1 11.3 4.6 19.8 4.2c.4 8.5-4.2 13-11.2 11.2Z"/><path d="M4.2 19.8c3-3.4 6.3-6.5 10.3-9.3"/>');
 
-// Order = nav order and number keys (1 Home … 8 Finance, 9 Recovery). The phone tab bar shows four
-// of them (settings.tabs, Edit tabs in More) under their own names, and More lists the rest.
+// Order = nav order and number keys (1 Home … 8 Finance, 9 Recovery). The phone tab bar shows the
+// ones picked (settings.tabs: Edit tabs in More, or the welcome sheet) under their own names, and
+// More lists the rest. A new page also needs its line in PAGE_INTROS (js/shell.js, the welcome).
 // `hidden`: a page outside the module nav (Settings: its own entry in the sidebar foot and in More).
 // `soon`: not available: grayed out at the end of the sidebar and in More ("Idea"), no number key or tab.
 const MANIFEST = [
@@ -140,6 +142,8 @@ function applyAppearance(s) {
   });
   if (previous !== next) window.dispatchEvent(new CustomEvent('lifeos:skin', { detail: { skin: next, previous: normalizeSkin(previous) } }));
   if (shownSkin && shownSkin !== next) refreshForSkin();
+  // The tab names' widths are the template's: the bar may fit them now, or need to scroll
+  if (previous !== next) fitTabs();
 }
 
 // The quick toggle flips what is showing (leaving System for an explicit mode)
@@ -381,7 +385,10 @@ const skipLink = h(
   'Skip to content',
 );
 
-/* ---- Phone tab bar: four pages of your choice (settings.tabs), then More ---- */
+/* ---- Phone tab bar: the pages of your choice (settings.tabs), then More ----
+   As many as you like. When they don't all fit, the pages scroll sideways (a tab at a time, half
+   of the next one in view, a soft fade on the side that has more) and More stays at the right
+   end; the open page's tab scrolls into view, and the arrow keys move along the bar. */
 
 const tabEls = new Map(
   NAV.map((f) => {
@@ -398,16 +405,112 @@ const moreBtn = h(
   h('span', { class: 'tab-label' }, 'More'),
   moreDot,
 );
-const tabbar = h('nav', { class: 'tabbar', 'aria-label': 'Pages' });
+// The pages' tabs scroll inside .tabbar-scroll; More sits after it, outside, so it never scrolls away
+const tabScroll = h('div', { class: 'tabbar-scroll' });
+const tabbar = h('nav', { class: 'tabbar', 'aria-label': 'Pages', onKeydown: onTabKey }, tabScroll, moreBtn);
 
 const pinnedTabs = () => normalizeTabs(settings.get().tabs, NAV.map((f) => f.id));
 
 function renderTabs() {
-  const ids = pinnedTabs();
-  const next = [...ids.map((id) => tabEls.get(id)), moreBtn];
-  if (next.length !== tabbar.children.length || next.some((el, i) => tabbar.children[i] !== el)) tabbar.replaceChildren(...next);
-  tabbar.style.setProperty('--tabs', String(next.length));
+  const next = pinnedTabs().map((id) => tabEls.get(id));
+  if (next.length !== tabScroll.children.length || next.some((el, i) => tabScroll.children[i] !== el)) {
+    tabScroll.replaceChildren(...next);
+    tabbar.style.setProperty('--tabs', String(next.length + 1));
+    fitTabs();
+  }
   syncMore();
+}
+
+// How the tabs share the bar (shell.js tabBarFit): evenly while each gets enough room, as always;
+// else the pages scroll, each --tab-w wide, More too. Enough room is also the widest name's (a
+// template's capitals can be wide: Old Money's POMODORO), so no name is cut short. Again whenever
+// the tabs change, the bar changes width (a phone turned, the window made narrow) or the template
+// does (and when its fonts arrive); a new layout brings the open page's tab into view.
+let shownFit = '';
+function fitTabs() {
+  const width = tabbar.getBoundingClientRect().width;
+  if (!width) return; // hidden: the window is wider than a phone
+  const need = labelRoom();
+  const { scroll, tab } = tabBarFit(width, tabScroll.children.length + 1, { fit: Math.max(TAB_FIT_W, need), min: Math.max(TAB_MIN_W, need) });
+  const fit = `${tabScroll.children.length}:${scroll}:${tab}`;
+  if (fit !== shownFit) {
+    shownFit = fit;
+    tabbar.classList.toggle('is-scroll', scroll);
+    if (scroll) tabbar.style.setProperty('--tab-w', `${tab}px`);
+    else tabbar.style.removeProperty('--tab-w');
+    revealTab();
+  }
+  syncTabFade();
+}
+
+// The widest name in the bar, as it is drawn (its 2px sides included; 1px to spare for rounding),
+// at most 96px (a longer one is cut with …). Minimal shows icons only: no names to fit.
+function labelRoom() {
+  let need = 0;
+  for (const el of [...tabScroll.children, moreBtn]) {
+    const label = el.querySelector('.tab-label');
+    if (!label || getComputedStyle(label).position === 'absolute') continue;
+    need = Math.max(need, label.scrollWidth - 1);
+  }
+  return Math.min(need, 96);
+}
+
+// The fade goes on the side that has more to scroll to
+function syncTabFade() {
+  const scroll = tabbar.classList.contains('is-scroll');
+  const left = tabScroll.scrollLeft;
+  const max = tabScroll.scrollWidth - tabScroll.clientWidth;
+  tabScroll.classList.toggle('has-more-start', scroll && left > 1);
+  tabScroll.classList.toggle('has-more-end', scroll && left < max - 1);
+}
+
+let fadeQueued = false;
+tabScroll.addEventListener(
+  'scroll',
+  () => {
+    if (fadeQueued) return;
+    fadeQueued = true;
+    requestAnimationFrame(() => {
+      fadeQueued = false;
+      syncTabFade();
+    });
+  },
+  { passive: true },
+);
+new ResizeObserver(() => fitTabs()).observe(tabbar);
+document.fonts?.addEventListener?.('loadingdone', () => fitTabs());
+
+/**
+ * Scroll the bar so `tab` shows whole, clear of the fades: the open page's after a navigation, a
+ * tab the keyboard reached. One to the left lines up at the start, one to the right becomes the
+ * last whole tab (both where the bar snaps to).
+ */
+function revealTab(tab = tabScroll.querySelector('.tab[aria-current="page"]'), smooth = false) {
+  if (!tab || tab.parentElement !== tabScroll || !tabbar.classList.contains('is-scroll')) return;
+  const w = tab.offsetWidth;
+  const view = tabScroll.clientWidth;
+  const left = tabScroll.scrollLeft;
+  const start = tab.offsetLeft;
+  let to = null;
+  if (start < left - 1) to = start;
+  else if (start + w > left + view + 1) to = start - (Math.max(1, Math.floor(view / w + 0.01)) - 1) * w;
+  if (to === null || !w) return;
+  tabScroll.scrollTo({ left: Math.max(0, to), behavior: smooth && !reducedMotion() ? 'smooth' : 'auto' });
+}
+
+// Tab (the key) reaching a tab half out of view brings it in
+tabScroll.addEventListener('focusin', (e) => revealTab(e.target.closest?.('.tab'), true));
+
+// ← → move along the bar, Home / End to its ends (Tab still stops at every tab)
+function onTabKey(e) {
+  if (e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
+  const all = [...tabScroll.children, moreBtn];
+  const at = all.indexOf(document.activeElement);
+  const to = at < 0 ? undefined : { ArrowLeft: at - 1, ArrowRight: at + 1, Home: 0, End: all.length - 1 }[e.key];
+  if (to === undefined) return;
+  e.preventDefault();
+  // (a page's tab brings itself into view: focusin above)
+  all[Math.max(0, Math.min(all.length - 1, to))].focus({ preventScroll: true });
 }
 
 /** More stands for the pages it holds: it is "current" on one of them, and dotted when one needs you. */
@@ -514,7 +617,7 @@ function moreMain(sheet) {
             },
           })
         : null,
-      moreRow({ iconName: 'edit', label: 'Edit tabs', hint: 'Up to four in the bar', onClick: () => moreEditTabs(sheet), className: 'more-edit' }),
+      moreRow({ iconName: 'edit', label: 'Edit tabs', hint: 'Pick pages and their order', onClick: () => moreEditTabs(sheet), className: 'more-edit' }),
     ),
     // How your data is doing (the sidebar's status line): opens Sync
     h(
@@ -527,51 +630,96 @@ function moreMain(sheet) {
   );
 }
 
-/** Edit tabs: tick up to four pages for the bar; Done goes back to the main view. */
+/**
+ * Edit tabs: tick the pages for the bar, as many as you like, and put them in order. The bar's
+ * pages come first, in its order, each with ↑ ↓ (up = further left); then the ones in More. A tick
+ * moves a page between the two lists, and the focus goes with it. Done goes back to the main view.
+ */
 function moreEditTabs(sheet) {
   const { body } = sheet;
   sheet.title.textContent = 'Tab bar';
   const ids = NAV.map((f) => f.id);
+  const byId = (id) => NAV.find((f) => f.id === id);
   const note = h('p', { class: 'more-tabs-note', role: 'status' });
-  const list = h('div', { class: 'more-tabs', role: 'group', 'aria-label': 'Pages in the tab bar' });
-  const paint = () => {
-    const tabs = pinnedTabs();
-    list.replaceChildren(
-      ...NAV.map((f) => {
-        const on = tabs.includes(f.id);
-        const full = !on && tabs.length >= MAX_TABS;
-        const check = checkButton({ checked: on, label: f.title, onToggle: () => pick(f.id) });
-        if (full) check.setAttribute('aria-disabled', 'true');
-        return h(
-          'div',
-          { class: ['more-tab', on && 'is-on', full && 'is-full'], onClick: (e) => e.target === check || check.contains(e.target) || pick(f.id) },
-          check,
-          iconBadge(f.icon, { tone: f.id, size: 16, box: 30 }),
-          h('span', { class: 'more-tab-label' }, f.title),
-          on ? h('span', { class: 'more-tab-pos', 'aria-hidden': 'true' }, String(tabs.indexOf(f.id) + 1)) : null,
-        );
-      }),
+  const inId = `more-tabs-${uid()}`;
+  const outId = `more-tabs-${uid()}`;
+  const headIn = h('h3', { class: 'more-tabs-head', id: inId });
+  const headOut = h('h3', { class: 'more-tabs-head', id: outId }, 'In More');
+  const inBar = h('div', { class: 'more-tabs', role: 'group', 'aria-labelledby': inId });
+  const inMore = h('div', { class: 'more-tabs', role: 'group', 'aria-labelledby': outId });
+
+  const row = (f, tabs) => {
+    const at = tabs.indexOf(f.id);
+    const check = checkButton({ checked: at >= 0, label: f.title, onToggle: () => pick(f.id) });
+    const move = (by, iconName, word) =>
+      h(
+        'button',
+        {
+          type: 'button',
+          class: 'btn btn--ghost btn--icon btn--sm more-tab-move',
+          dataset: { move: String(by) },
+          'aria-label': `Move ${f.title} ${word}`,
+          title: `Move ${word}`,
+          disabled: by < 0 ? at === 0 : at === tabs.length - 1,
+          onClick: () => shift(f.id, by),
+        },
+        icon(iconName, { size: 16 }),
+      );
+    return h(
+      'div',
+      // The whole row ticks; its buttons (the check, the arrows) do their own thing
+      { class: ['more-tab', at >= 0 && 'is-on'], dataset: { id: f.id }, onClick: (e) => e.target.closest('button') || pick(f.id) },
+      check,
+      iconBadge(f.icon, { tone: f.id, size: 16, box: 30 }),
+      h('span', { class: 'more-tab-label' }, f.title),
+      at >= 0 ? h('span', { class: 'more-tab-moves' }, move(-1, 'arrow-up', 'up'), move(1, 'arrow-down', 'down')) : null,
     );
-    note.textContent = `${tabs.length} of ${MAX_TABS} in the bar${tabs.length >= MAX_TABS ? '. Untick one to pick another.' : '.'}`;
   };
+
+  // focus: { id, what: 'check' | '-1' | '1' }: the control to focus again in the redrawn row
+  const paint = (focus = null) => {
+    const tabs = pinnedTabs();
+    headIn.textContent = `In the tab bar (${tabs.length})`;
+    inBar.replaceChildren(...tabs.map((id) => row(byId(id), tabs)));
+    inMore.replaceChildren(...NAV.filter((f) => !tabs.includes(f.id)).map((f) => row(f, tabs)));
+    headOut.hidden = inMore.hidden = !inMore.children.length;
+    if (!focus) return;
+    const r = body.querySelector(`.more-tab[data-id="${focus.id}"]`);
+    const target = (focus.what === 'check' ? null : r?.querySelector(`[data-move="${focus.what}"]:not(:disabled)`) ?? r?.querySelector('.more-tab-move:not(:disabled)')) ?? r?.querySelector('.check');
+    target?.focus();
+  };
+  const hadFocus = () => body.contains(document.activeElement);
   const pick = (id) => {
     const res = toggleTab(settings.get().tabs, id, ids);
-    if (res.changed) settings.update({ tabs: res.tabs });
-    else if (res.reason === 'full') note.textContent = `The bar holds ${MAX_TABS}. Untick one first.`;
-    else if (res.reason === 'last') note.textContent = 'The bar keeps at least one page.';
-    if (res.changed) {
-      const focused = document.activeElement?.closest?.('.more-tab');
-      const at = focused ? [...list.children].indexOf(focused) : -1;
-      paint();
-      if (at >= 0) list.children[at]?.querySelector('.check')?.focus();
-    }
+    if (res.reason === 'last') note.textContent = 'The bar keeps at least one page.';
+    if (!res.changed) return;
+    const focus = hadFocus() ? { id, what: 'check' } : null;
+    settings.update({ tabs: res.tabs });
+    paint(focus);
+    note.textContent = res.tabs.includes(id) ? `${byId(id).title} is in the tab bar, at the end.` : `${byId(id).title} is in More.`;
   };
-  body.replaceChildren(h('p', { class: 'more-tabs-lead' }, 'Pick up to four pages for the tab bar. The rest stay one tap away in More.'), list, note);
+  const shift = (id, by) => {
+    const res = moveTab(settings.get().tabs, id, by, ids);
+    if (!res.changed) return;
+    const focus = hadFocus() ? { id, what: String(by) } : null;
+    settings.update({ tabs: res.tabs });
+    paint(focus);
+    note.textContent = `${byId(id).title}: ${res.tabs.indexOf(id) + 1} of ${res.tabs.length} in the bar.`;
+  };
+
+  body.replaceChildren(
+    h('p', { class: 'more-tabs-lead' }, 'Tick as many pages as you like. The arrows set their order: the top one is first, on the left. When they don’t all fit, the bar scrolls sideways.'),
+    headIn,
+    inBar,
+    headOut,
+    inMore,
+    note,
+  );
   sheet.foot.replaceChildren(
     h('button', { type: 'button', class: 'btn btn--primary', onClick: () => (moreMain(sheet), body.querySelector('.more-edit')?.focus()) }, 'Done'),
   );
   paint();
-  list.querySelector('.check')?.focus();
+  inBar.querySelector('.check')?.focus();
 }
 
 function openMore() {
@@ -662,6 +810,7 @@ function routeId() {
 function render(force = false) {
   const id = routeId();
   if (id === activeId && !force) return;
+  const firstRender = activeId === null;
 
   try {
     cleanup?.();
@@ -694,6 +843,8 @@ function render(force = false) {
 
   shownSkin = skin();
   navLinks.forEach((a) => (a.dataset.id === id ? a.setAttribute('aria-current', 'page') : a.removeAttribute('aria-current')));
+  // A bar that scrolls: the open page's tab comes into view (it glides there after a tap)
+  revealTab(undefined, !firstRender);
   crumbCurrent.textContent = feature.title;
   syncMore();
   syncTitle();
@@ -1045,6 +1196,31 @@ function noteNewLook() {
   settings.update({ skin: DEFAULT_SKIN });
 }
 
+/* ---- First run: the welcome sheet (js/welcome.js) ----
+   The first time LIFE/OS opens on a device with nothing saved: every page in a line, and a tick
+   for the ones the tab bar shows. Once answered (settings.welcomed) it doesn't come back by itself;
+   a device that already had data never sees it. Settings → About → Welcome opens it again. */
+
+function noteWelcome() {
+  const { show, mark } = welcomeOnStart(settings.get().welcomed, hadSavedData);
+  if (mark) settings.update({ welcomed: true });
+  if (!show) return;
+  // Shown but not answered yet (the window closed meanwhile): it shows again next time
+  if (settings.get().welcomed !== false) settings.update({ welcomed: false });
+  openWelcomeSheet();
+}
+
+function openWelcomeSheet({ again = false } = {}) {
+  if (modalOpen()) closeAllModals();
+  openWelcome({
+    pages: NAV.map(({ id, title, icon: iconName }) => ({ id, title, icon: iconName })),
+    again,
+    // Home's Start card takes it from here (js/features/home.js): with the keyboard, its next step
+    // gets the focus
+    onClose: ({ saved, keyboard }) => window.dispatchEvent(new CustomEvent('lifeos:welcome-closed', { detail: { saved, keyboard, again } })),
+  });
+}
+
 /* ---- Update check: a newer version was deployed while this window is open ---- */
 
 const UPDATE_CHECK_MS = 10 * 60 * 1000;
@@ -1120,6 +1296,7 @@ provideShell({
   version: VERSION,
   pages: NAV.map(({ id, title }) => ({ id, title })),
   openAppearance: openPicker,
+  openWelcome: () => openWelcomeSheet({ again: true }),
   latestVersion: fetchLatestVersion,
   storageState: () => storageState,
 });
@@ -1132,6 +1309,7 @@ render(true);
 refreshBadges();
 noteVersion();
 noteNewLook();
+noteWelcome();
 requestPersistence();
 
 if (document.readyState === 'complete') startOfflineSupport();

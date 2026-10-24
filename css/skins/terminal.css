@@ -939,6 +939,13 @@
   border-top: 1px dashed var(--line-strong);
 }
 
+/* The welcome sheet's title, [ Welcome to LIFE/OS ], on one line on a phone */
+@media (max-width: 640px) {
+  [data-skin="terminal"] .welcome-sheet .modal-title {
+    font-size: 26px;
+  }
+}
+
 /* ==========================================================================
    Inverse video: the selected or open item becomes a phosphor block.
    These containers flip the color tokens, so everything inside them (counts,

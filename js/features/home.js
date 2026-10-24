@@ -2188,6 +2188,14 @@ function mount(root) {
   }
   document.addEventListener('keydown', onKeydown);
 
+  // The welcome sheet (js/welcome.js) comes first on a new device; once it's answered from the
+  // keyboard, the Start card's next step takes the focus, so the start goes on from here
+  function onWelcomeClosed(e) {
+    if (!e.detail?.keyboard || e.detail.again || startCard.hidden) return;
+    startList.querySelector('.hm-start-step:not(.is-done) .hm-start-btn')?.focus({ preventScroll: true });
+  }
+  window.addEventListener('lifeos:welcome-closed', onWelcomeClosed);
+
   return () => {
     stopDrag?.(true);
     // A menu lives on <body>: it goes with the page
@@ -2202,6 +2210,7 @@ function mount(root) {
     clearTimeout(todoTimer);
     clearTimeout(habitTimer);
     document.removeEventListener('keydown', onKeydown);
+    window.removeEventListener('lifeos:welcome-closed', onWelcomeClosed);
   };
 }
 

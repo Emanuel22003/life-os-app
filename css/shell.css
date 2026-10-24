@@ -946,17 +946,71 @@
     padding: var(--space-3) var(--space-4) var(--space-8);
   }
 
-  /* ---- Tab bar: four pages of your choice and More, under their own names ---- */
+  /* ---- Tab bar: the pages of your choice and More, under their own names ----
+     The pages are in .tabbar-scroll, More after it. While they fit, every tab (More too) gets an
+     equal share (--tabs counts them); when they don't (.is-scroll, js/app.js fitTabs), each is
+     --tab-w wide, the pages scroll sideways a tab at a time and More stays at the end. */
   .tabbar {
     grid-area: tabbar;
-    display: grid;
-    grid-template-columns: repeat(var(--tabs, 5), minmax(0, 1fr));
+    display: flex;
     border-top: 1px solid var(--line);
     background: color-mix(in srgb, var(--bg-elev) 88%, transparent);
     backdrop-filter: blur(14px);
     -webkit-backdrop-filter: blur(14px);
     padding-bottom: env(safe-area-inset-bottom);
     z-index: var(--z-nav);
+  }
+
+  /* Up 1px over the bar's top line, so an open tab's mark drawn there (::before, top: -1px)
+     isn't cut off by the scrolling box; the tabs themselves stay where they were */
+  .tabbar-scroll {
+    position: relative;
+    flex: 1 1 0;
+    min-width: 0;
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
+    margin-top: -1px;
+    padding-top: 1px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+  }
+
+  .tabbar-scroll::-webkit-scrollbar {
+    display: none;
+  }
+
+  .tabbar > .tab--more {
+    flex: none;
+    width: calc(100% / var(--tabs, 5));
+  }
+
+  .tabbar.is-scroll > .tabbar-scroll {
+    grid-auto-columns: var(--tab-w, 64px);
+    scroll-snap-type: x mandatory;
+    /* A soft fade on the side with more to see (the half tab there is still readable) */
+    --fade-start: #000;
+    --fade-end: #000;
+    -webkit-mask-image: linear-gradient(to right, var(--fade-start), #000 28px, #000 calc(100% - 28px), var(--fade-end));
+    mask-image: linear-gradient(to right, var(--fade-start), #000 28px, #000 calc(100% - 28px), var(--fade-end));
+  }
+
+  .tabbar.is-scroll > .tabbar-scroll.has-more-start {
+    --fade-start: rgb(0 0 0 / 0.15);
+  }
+
+  .tabbar.is-scroll > .tabbar-scroll.has-more-end {
+    --fade-end: rgb(0 0 0 / 0.15);
+  }
+
+  .tabbar.is-scroll > .tabbar-scroll > .tab {
+    scroll-snap-align: start;
+  }
+
+  .tabbar.is-scroll > .tab--more {
+    width: var(--tab-w, 64px);
   }
 
   .tab {
@@ -1160,21 +1214,22 @@
   font-size: var(--fs-md);
 }
 
-.more-tab.is-full .more-tab-label {
-  color: var(--text-3);
+.more-tabs-head {
+  margin-bottom: calc(-1 * var(--space-2));
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+  font-weight: 600;
 }
 
-.more-tab .check[aria-disabled="true"] {
-  opacity: 0.55;
-}
-
-.more-tab-pos {
+/* A page in the bar: ↑ ↓ at the row's end (the first can't go up, the last can't go down) */
+.more-tab-moves {
+  display: flex;
   flex: none;
-  min-width: 22px;
-  color: var(--text-3);
-  font-family: var(--font-mono);
-  font-size: var(--fs-xs);
-  text-align: right;
+  gap: 2px;
+}
+
+.more-tab-move:disabled {
+  visibility: hidden;
 }
 
 .more-foot {
@@ -1199,6 +1254,91 @@
   .more-page:hover,
   .more-row:hover,
   .more-tab:hover {
+    background: var(--surface-2);
+  }
+}
+
+/* ---- The welcome sheet (js/welcome.js): every page with its icon, name and a line on what it
+   does, and a tick at the row's end for the tab bar. A dialog, a sheet from the bottom on a
+   phone (components.css); the list scrolls, Skip and Start stay in reach. ---- */
+.modal.welcome-sheet {
+  width: min(560px, 100%);
+}
+
+.wl-lead {
+  color: var(--text);
+  font-size: var(--fs-md);
+}
+
+.wl-how,
+.wl-bar,
+.wl-later {
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+}
+
+.wl-how {
+  margin-top: calc(-1 * var(--space-2));
+}
+
+.wl-pages {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--line);
+}
+
+.wl-page {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 60px;
+  padding: var(--space-2);
+  border-bottom: 1px solid var(--line);
+  cursor: pointer;
+}
+
+.wl-page-text {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.wl-page-name {
+  color: var(--text);
+  font-size: var(--fs-md);
+  font-weight: 600;
+}
+
+.wl-page-desc {
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+  line-height: 1.35;
+}
+
+.wl-page > .check {
+  flex: none;
+}
+
+.wl-bar-head {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.wl-later {
+  margin-top: calc(-1 * var(--space-2));
+}
+
+.wl-page:active {
+  background: var(--surface-2);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .wl-page:hover {
     background: var(--surface-2);
   }
 }

@@ -722,18 +722,12 @@
   color: var(--text-2);
 }
 
-[data-skin="brutalist"] .more-tab.is-full .more-tab-label {
-  color: var(--text-2);
-}
-
-/* The tab's place in the bar: an ink stamp */
-[data-skin="brutalist"] .more-tab-pos:not(:empty) {
-  min-width: 22px;
-  padding: 1px 4px;
-  background: var(--text);
-  color: var(--bg);
-  font-weight: 700;
-  text-align: center;
+/* Edit tabs' two lists are headed in the menu's caps */
+[data-skin="brutalist"] .more-tabs-head {
+  color: var(--text);
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
 }
 
 [data-skin="brutalist"] .more-tabs-lead,

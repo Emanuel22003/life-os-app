@@ -1475,9 +1475,13 @@
   font-style: italic;
 }
 
-[data-skin="oldmoney"] .more-tab-pos {
-  font-family: var(--font-sans);
-  font-style: italic;
+/* Edit tabs' two lists: small wide-spaced capitals, as the page's captions */
+[data-skin="oldmoney"] .more-tabs-head {
+  font-family: var(--om-caps);
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
 }
 
 [data-skin="oldmoney"] :is(.more-page, .more-row, .more-tab):active {
