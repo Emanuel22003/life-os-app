@@ -1,17 +1,15 @@
 // LIFE/OS — what the shell (js/app.js) offers pages that can't import it, since it imports them.
 // app.js fills these in before the first page renders; pages read them when they mount.
 // Also the shell's pure rules: the phone tab bar (normalizeTabs, toggleTab, moveTab, tabBarFit)
-// and the first-run welcome (welcomeOnStart, PAGE_INTROS). No DOM, tested in
-// tools/tests/shell.test.js.
+// and the first run (welcomeOnStart; PAGE_INTROS, the tab picker's line per page). No DOM, tested
+// in tools/tests/shell.test.js.
 
 export const shell = {
   version: '',
-  /** The pages a person can start on: [{ id, title }] in nav order. */
+  /** The pages a person can start on (and pick for the tab bar): [{ id, title, icon }] in nav order. */
   pages: [],
   /** Opens the Appearance dialog (template, light / dark). */
   openAppearance() {},
-  /** Opens the welcome sheet again (every page in a line, and the tab bar's pages). */
-  openWelcome() {},
   /** The newest deployed version ('v0.11'), or null when it can't be checked (offline). */
   async latestVersion() {
     return null;
@@ -52,7 +50,7 @@ export function normalizeTabs(value, pageIds = DEFAULT_TABS) {
 }
 
 /**
- * Tick or untick page `id` in the tab bar (Edit tabs, the welcome sheet). Ticking adds it at the
+ * Tick or untick page `id` in the tab bar (Edit tabs, the tours' tab picker). Ticking adds it at the
  * end; the last page can't be unticked (the bar keeps one).
  * -> { tabs, changed, reason: null | 'last' | 'unknown' }
  */
@@ -103,12 +101,13 @@ export function tabBarFit(width, count, { fit = TAB_FIT_W, min = TAB_MIN_W } = {
 }
 
 /* ---- First run: the welcome sheet ----
-   The first time LIFE/OS opens on a device with nothing saved, a sheet shows every page in a line
-   and lets you tick the ones for the tab bar. settings.welcomed (this device only) remembers it. */
+   The first time LIFE/OS opens on a device with nothing saved, a sheet offers three ways in: No
+   tutorial, Quick tutorial or Tutorial (js/welcome.js, the tours in js/tour.js).
+   settings.welcomed (this device only) remembers that it was answered. */
 
 /**
- * Each page in a line, for the welcome sheet: what it is for, in plain words. A page without one
- * shows only its name.
+ * Each page in a line, for the tab picker (a step of the tours, js/welcome.js tabPicker): what it
+ * is for, in plain words. A page without one shows only its name.
  */
 export const PAGE_INTROS = Object.freeze({
   home: 'Today at a glance: to-dos, events, habits and a timer on one board you arrange.',
@@ -124,8 +123,8 @@ export const PAGE_INTROS = Object.freeze({
 
 /**
  * Whether this start opens the welcome sheet. `welcomed` is settings.welcomed: true once the sheet
- * was answered (Start or Skip), false while it was shown but not answered (it shows again), unset
- * before. `hadSavedData`: LIFE/OS had saved something on this device before this start, so it is
+ * was answered (one of its three choices, Esc or ✕), false while it was shown but not answered (it
+ * shows again), unset before. `hadSavedData`: LIFE/OS had saved something on this device before this start, so it is
  * already in use: no sheet, and `mark` says to set welcomed now, so it never shows there.
  * -> { show, mark }
  */

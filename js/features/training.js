@@ -1623,10 +1623,11 @@ function mount(root) {
   let shown = LOG_PAGE;
   const cleanups = [];
 
-  // "Start workout"; a phone's title row says "Start" (the name stays "Start workout")
+  // "Start workout"; a phone's title row says "Start" (the name stays "Start workout"). data-tour:
+  // the full tutorial points at it (js/tour.logic.js)
   const startBtn = h(
     'button',
-    { type: 'button', class: 'btn btn--primary', onClick: () => startSession() },
+    { type: 'button', class: 'btn btn--primary', dataset: { tour: 'training-start' }, onClick: () => startSession() },
     icon('play', { size: 14 }),
     h('span', null, 'Start', h('span', { class: 'tr-start-more' }, ' workout')),
   );

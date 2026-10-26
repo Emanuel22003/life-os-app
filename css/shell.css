@@ -1258,9 +1258,9 @@
   }
 }
 
-/* ---- The welcome sheet (js/welcome.js): every page with its icon, name and a line on what it
-   does, and a tick at the row's end for the tab bar. A dialog, a sheet from the bottom on a
-   phone (components.css); the list scrolls, Skip and Start stay in reach. ---- */
+/* ---- The welcome sheet (js/welcome.js): three ways in (No tutorial, Quick tutorial, Tutorial),
+   each a big button with its icon, its name and a line on what you get and how long it takes. A
+   dialog, a sheet from the bottom on a phone (components.css). ---- */
 .modal.welcome-sheet {
   width: min(560px, 100%);
 }
@@ -1270,15 +1270,75 @@
   font-size: var(--fs-md);
 }
 
-.wl-how,
+.wl-options {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.wl-option {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  min-height: 68px;
+  padding: var(--space-3) var(--space-4) var(--space-3) var(--space-3);
+  border: var(--border-w) solid var(--line-strong);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  text-align: left;
+}
+
+.wl-option-ib {
+  flex: none;
+}
+
+.wl-option-text {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.wl-option-name {
+  font-size: var(--fs-md);
+  font-weight: 600;
+}
+
+.wl-option-desc {
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+  line-height: 1.35;
+}
+
+.wl-option-go {
+  flex: none;
+  color: var(--text-3);
+}
+
+.wl-option:active {
+  background: var(--surface-2);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .wl-option:hover {
+    background: var(--surface-2);
+    border-color: var(--text-3);
+  }
+
+  .wl-option:hover .wl-option-go {
+    color: var(--text);
+  }
+}
+
+/* ---- The tab picker (welcome.js tabPicker, a step of the tours): every page with its icon,
+   name and a line on what it does, and a tick at the row's end for the tab bar. ---- */
 .wl-bar,
 .wl-later {
   color: var(--text-2);
   font-size: var(--fs-sm);
-}
-
-.wl-how {
-  margin-top: calc(-1 * var(--space-2));
 }
 
 .wl-pages {

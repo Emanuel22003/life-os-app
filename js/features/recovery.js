@@ -81,10 +81,11 @@ function sinceText(t, s, today) {
    Small builders
    ========================================================================== */
 
-const btn = (label, onClick, { iconName, primary = false, ghost = false, small = true, title, aria, fid, className, disabled = false } = {}) =>
+// `tour`: data-tour, what the full tutorial points at (js/tour.logic.js)
+const btn = (label, onClick, { iconName, primary = false, ghost = false, small = true, title, aria, fid, className, disabled = false, tour } = {}) =>
   h(
     'button',
-    { type: 'button', class: ['btn', small && 'btn--sm', primary && 'btn--primary', ghost && 'btn--ghost', !label && 'btn--icon', className], title: title ?? null, 'aria-label': aria ?? null, dataset: fid ? { fid } : null, disabled, onClick },
+    { type: 'button', class: ['btn', small && 'btn--sm', primary && 'btn--primary', ghost && 'btn--ghost', !label && 'btn--icon', className], title: title ?? null, 'aria-label': aria ?? null, dataset: fid || tour ? { ...(fid ? { fid } : {}), ...(tour ? { tour } : {}) } : null, disabled, onClick },
     iconName ? icon(iconName, { size: 14 }) : null,
     label ? h('span', null, label) : null,
   );
@@ -114,7 +115,7 @@ function mount(root) {
     title: 'Recovery',
     subtitle: 'Count the days you stay away from something. If you relapse, mark the day on the calendar: the days before it still count.',
     tipId: 'recovery.intro',
-    actions: [btn('New tracker', () => openEditor(), { iconName: 'plus', primary: true, small: false })],
+    actions: [btn('New tracker', () => openEditor(), { iconName: 'plus', primary: true, small: false, tour: 'recovery-new' })],
   });
   const bodyEl = h('div', { class: 'rc-body' });
   root.append(header, bodyEl);

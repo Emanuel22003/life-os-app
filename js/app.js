@@ -39,9 +39,10 @@ import { startSync, syncStatus, onSyncStatus } from './sync.js';
 import { openSyncPanel, syncLabel } from './sync.panel.js';
 import { provideShell, normalizeTabs, toggleTab, moveTab, tabBarFit, TAB_FIT_W, TAB_MIN_W, welcomeOnStart } from './shell.js';
 import { openWelcome } from './welcome.js';
+import { startTour } from './tour.js';
 import { isNewerVersion, startPage, LEGAL_LINKS } from './features/settings.logic.js';
 
-const VERSION = 'v0.32';
+const VERSION = 'v0.33';
 
 // Read before any feature module can seed data: tells a first-ever run from an upgrade
 const hadSavedData = hasSavedData();
@@ -59,8 +60,9 @@ registerIcon('timer', '<circle cx="12" cy="13.5" r="7.5"/><path d="M12 9.5v4l2.5
 registerIcon('leaf', '<path d="M8.6 15.4C6.9 9.1 11.3 4.6 19.8 4.2c.4 8.5-4.2 13-11.2 11.2Z"/><path d="M4.2 19.8c3-3.4 6.3-6.5 10.3-9.3"/>');
 
 // Order = nav order and number keys (1 Home … 8 Finance, 9 Recovery). The phone tab bar shows the
-// ones picked (settings.tabs: Edit tabs in More, or the welcome sheet) under their own names, and
-// More lists the rest. A new page also needs its line in PAGE_INTROS (js/shell.js, the welcome).
+// ones picked (settings.tabs: Edit tabs in More, or the tours' tab picker) under their own names,
+// and More lists the rest. A new page also needs its line in PAGE_INTROS (js/shell.js, the picker)
+// and, in the full tutorial, a chapter of its own (js/tour.logic.js).
 // `hidden`: a page outside the module nav (Settings: its own entry in the sidebar foot and in More).
 // `soon`: not available: grayed out at the end of the sidebar and in More ("Idea"), no number key or tab.
 const MANIFEST = [
@@ -172,6 +174,8 @@ function remountView() {
 }
 
 function openPicker() {
+  // Home's Start card ticks "Pick a look" however Appearance was opened (the card, a tour, the sidebar)
+  window.dispatchEvent(new CustomEvent('lifeos:appearance-open'));
   openAppearance({
     onClose: () => {
       if (shownSkin !== skin()) remountView();
@@ -1197,9 +1201,9 @@ function noteNewLook() {
 }
 
 /* ---- First run: the welcome sheet (js/welcome.js) ----
-   The first time LIFE/OS opens on a device with nothing saved: every page in a line, and a tick
-   for the ones the tab bar shows. Once answered (settings.welcomed) it doesn't come back by itself;
-   a device that already had data never sees it. Settings → About → Welcome opens it again. */
+   The first time LIFE/OS opens on a device with nothing saved: No tutorial, Quick tutorial or
+   Tutorial. Once answered (settings.welcomed) it doesn't come back by itself; a device that
+   already had data never sees it. Settings → About → Tutorial starts either tour again. */
 
 function noteWelcome() {
   const { show, mark } = welcomeOnStart(settings.get().welcomed, hadSavedData);
@@ -1207,17 +1211,14 @@ function noteWelcome() {
   if (!show) return;
   // Shown but not answered yet (the window closed meanwhile): it shows again next time
   if (settings.get().welcomed !== false) settings.update({ welcomed: false });
-  openWelcomeSheet();
-}
-
-function openWelcomeSheet({ again = false } = {}) {
   if (modalOpen()) closeAllModals();
   openWelcome({
-    pages: NAV.map(({ id, title, icon: iconName }) => ({ id, title, icon: iconName })),
-    again,
-    // Home's Start card takes it from here (js/features/home.js): with the keyboard, its next step
-    // gets the focus
-    onClose: ({ saved, keyboard }) => window.dispatchEvent(new CustomEvent('lifeos:welcome-closed', { detail: { saved, keyboard, again } })),
+    onChoose: ({ choice, keyboard }) => {
+      if (choice === 'quick' || choice === 'full') startTour(choice);
+      // No tutorial: Home's Start card takes it from here (js/features/home.js); answered from the
+      // keyboard, its next step gets the focus
+      window.dispatchEvent(new CustomEvent('lifeos:welcome-closed', { detail: { choice, keyboard } }));
+    },
   });
 }
 
@@ -1294,9 +1295,8 @@ window.launchQueue?.setConsumer((params) => {
 
 provideShell({
   version: VERSION,
-  pages: NAV.map(({ id, title }) => ({ id, title })),
+  pages: NAV.map(({ id, title, icon: iconName }) => ({ id, title, icon: iconName })),
   openAppearance: openPicker,
-  openWelcome: () => openWelcomeSheet({ again: true }),
   latestVersion: fetchLatestVersion,
   storageState: () => storageState,
 });

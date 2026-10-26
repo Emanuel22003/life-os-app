@@ -77,6 +77,14 @@ const prefs = createStore('home', { quickNoteSection: null });
 // The Start card's ✓ (settings.tips): hidden for good on this device
 const START_TIP = 'home.start';
 
+// The Start card's "Pick a look" ticks itself however Appearance was opened: from the card, the
+// sidebar, More or a tour that pointed there (app.js says so), so the card never asks again for
+// what was just done. Only once the card has begun on this device (prefs.start).
+window.addEventListener('lifeos:appearance-open', () => {
+  const start = prefs.get().start;
+  if (start && !start.look) prefs.update({ start: { ...start, look: true } });
+});
+
 registerIcon('hm-layout', '<rect x="3.5" y="3.5" width="7.5" height="9" rx="1.5"/><rect x="13" y="3.5" width="7.5" height="5" rx="1.5"/><rect x="13" y="10.5" width="7.5" height="10" rx="1.5"/><rect x="3.5" y="14.5" width="7.5" height="6" rx="1.5"/>');
 
 /**
@@ -2188,13 +2196,16 @@ function mount(root) {
   }
   document.addEventListener('keydown', onKeydown);
 
-  // The welcome sheet (js/welcome.js) comes first on a new device; once it's answered from the
-  // keyboard, the Start card's next step takes the focus, so the start goes on from here
-  function onWelcomeClosed(e) {
-    if (!e.detail?.keyboard || e.detail.again || startCard.hidden) return;
+  // The welcome sheet (js/welcome.js) comes first on a new device. Answered from the keyboard with
+  // No tutorial, or once a tour (js/tour.js) ended from the keyboard, the Start card's next step
+  // takes the focus, so the start goes on from here (a tour only points: the steps are still yours)
+  function startNext(e) {
+    if (!e.detail?.keyboard || startCard.hidden || !root.isConnected) return;
+    if (e.type === 'lifeos:welcome-closed' && e.detail.choice !== 'none') return;
     startList.querySelector('.hm-start-step:not(.is-done) .hm-start-btn')?.focus({ preventScroll: true });
   }
-  window.addEventListener('lifeos:welcome-closed', onWelcomeClosed);
+  window.addEventListener('lifeos:welcome-closed', startNext);
+  window.addEventListener('lifeos:tour-ended', startNext);
 
   return () => {
     stopDrag?.(true);
@@ -2210,7 +2221,8 @@ function mount(root) {
     clearTimeout(todoTimer);
     clearTimeout(habitTimer);
     document.removeEventListener('keydown', onKeydown);
-    window.removeEventListener('lifeos:welcome-closed', onWelcomeClosed);
+    window.removeEventListener('lifeos:welcome-closed', startNext);
+    window.removeEventListener('lifeos:tour-ended', startNext);
   };
 }
 

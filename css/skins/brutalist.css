@@ -7069,3 +7069,10 @@
   stroke: var(--text);
   stroke-width: 2;
 }
+
+/* ---- The guided tours (css/tour.css): the spotlight is a 3px ink frame, like every edge here;
+   the bubble is the dialog slab with its yellow title bar ---- */
+[data-skin="brutalist"] .tour {
+  --tour-ring: var(--text);
+  --tour-ring-w: 3px;
+}

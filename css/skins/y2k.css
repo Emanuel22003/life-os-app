@@ -1770,3 +1770,9 @@
     outline-offset: -2px;
   }
 }
+
+/* ---- The guided tours (css/tour.css): the bubble floats over the page, so it is glass too ---- */
+[data-skin="y2k"] .tour-bubble {
+  -webkit-backdrop-filter: var(--pearl-blur);
+  backdrop-filter: var(--pearl-blur);
+}

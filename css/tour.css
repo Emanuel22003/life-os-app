@@ -1,0 +1,277 @@
+/* ==========================================================================
+   LIFE/OS — the guided tours (js/tour.js)
+   A spotlight rings the control a step is about and the rest of the page dims (it stays
+   usable: the layer lets every click through, only the bubble takes them). The bubble is a
+   .modal, so each template draws it as its own dialog (paper, edge, corners, title type),
+   floating beside its target instead of over a scrim, with a small pointer on the side that
+   faces it. Linked before the templates: a template restyles .tour-* in css/skins/<id>.css.
+   ========================================================================== */
+
+.tour {
+  /* The dim around the spotlight: the template's dialog scrim, lighter (the page stays usable) */
+  --tour-dim: color-mix(in srgb, var(--scrim) 78%, transparent);
+  /* The ring: the template's focus color, so it keeps 3:1 against the page (WCAG 1.4.11) */
+  --tour-ring: var(--line-focus);
+  --tour-ring-w: 2px;
+  --tour-spot-radius: var(--radius);
+  --tour-arrow-size: 14px;
+  position: fixed;
+  inset: 0;
+  /* Over the page, the bars and a task's page; under dialogs, menus, the right-click menu and
+     the messages at the bottom (the tour steps aside while a dialog is open) */
+  z-index: calc(var(--z-overlay) - 2);
+  pointer-events: none;
+}
+
+/* ---- The spotlight: a hole in the dim, ringed ---- */
+.tour-spot {
+  position: fixed;
+  border-radius: var(--tour-spot-radius);
+  box-shadow:
+    0 0 0 var(--tour-ring-w) var(--tour-ring),
+    0 0 0 200vmax var(--tour-dim);
+  pointer-events: none;
+}
+
+/* Nothing to point at (a centred step): the dim alone, over the whole window */
+.tour-spot.is-none {
+  inset: 0;
+  border-radius: 0;
+  background: var(--tour-dim);
+  box-shadow: none;
+}
+
+/* From one step to the next the ring glides (never while the page scrolls under it) */
+.tour.is-moving .tour-spot,
+.tour.is-moving .tour-bubble {
+  transition:
+    top var(--dur) var(--ease-out),
+    left var(--dur) var(--ease-out),
+    width var(--dur) var(--ease-out),
+    height var(--dur) var(--ease-out);
+}
+
+/* ---- The bubble: the template's dialog, small and placed by js/tour.js ---- */
+.tour-bubble.modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: min(380px, calc(100vw - 24px));
+  max-height: calc(100dvh - 24px);
+  pointer-events: auto;
+  animation: lo-tour-in var(--dur) var(--ease-out) both;
+}
+
+/* The tab picker's step: room for a page's name and its line */
+.tour-bubble.modal.is-wide {
+  width: min(460px, calc(100vw - 24px));
+}
+
+.tour-bubble:focus {
+  outline: none;
+}
+
+@keyframes lo-tour-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.tour-head {
+  align-items: flex-start;
+}
+
+.tour-head-text {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.tour-chapter {
+  color: var(--text-2);
+}
+
+.tour-title {
+  overflow-wrap: anywhere;
+}
+
+.tour-close {
+  flex: none;
+  margin: -4px -6px 0 0;
+}
+
+.tour-body {
+  gap: var(--space-3);
+}
+
+.tour-text {
+  color: var(--text);
+  font-size: var(--fs-md);
+  line-height: 1.5;
+}
+
+.tour-done {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--text);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+
+.tour-done svg {
+  flex: none;
+}
+
+.tour-extra:empty {
+  display: none;
+}
+
+/* Where you are: "Step 3 of 8" and a thin bar, a row of its own over the buttons */
+.tour-progress {
+  display: flex;
+  flex: 1 0 100%;
+  align-items: center;
+  gap: var(--space-3);
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+.tour-count {
+  flex: none;
+}
+
+.tour-bar {
+  position: relative;
+  flex: 1 1 auto;
+  height: 4px;
+  overflow: hidden;
+  border-radius: var(--radius-pill);
+  background: var(--surface-3);
+}
+
+.tour-bar-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: inherit;
+  background: var(--accent);
+}
+
+/* Skip on the left, Back and Next on the right */
+.tour-foot {
+  flex-wrap: wrap;
+  align-items: center;
+  row-gap: var(--space-3);
+}
+
+.tour-skip {
+  margin-right: auto;
+}
+
+/* ---- The pointer: a small square turned 45°, in the bubble's own paper and edge ---- */
+.tour-arrow {
+  position: absolute;
+  width: var(--tour-arrow-size);
+  height: var(--tour-arrow-size);
+  background: inherit;
+  border: inherit;
+  border-radius: 0;
+  transform: rotate(45deg);
+  pointer-events: none;
+}
+
+/* Bubble under its target: the pointer on its top edge, pointing up */
+.tour-bubble[data-side="bottom"] .tour-arrow {
+  top: calc(var(--tour-arrow-size) / -2);
+  left: calc(var(--tour-arrow, 50%) - var(--tour-arrow-size) / 2);
+  border-right-color: transparent;
+  border-bottom-color: transparent;
+}
+
+.tour-bubble[data-side="top"] .tour-arrow {
+  bottom: calc(var(--tour-arrow-size) / -2);
+  left: calc(var(--tour-arrow, 50%) - var(--tour-arrow-size) / 2);
+  border-top-color: transparent;
+  border-left-color: transparent;
+}
+
+.tour-bubble[data-side="right"] .tour-arrow {
+  left: calc(var(--tour-arrow-size) / -2);
+  top: calc(var(--tour-arrow, 50%) - var(--tour-arrow-size) / 2);
+  border-top-color: transparent;
+  border-right-color: transparent;
+}
+
+.tour-bubble[data-side="left"] .tour-arrow {
+  right: calc(var(--tour-arrow-size) / -2);
+  top: calc(var(--tour-arrow, 50%) - var(--tour-arrow-size) / 2);
+  border-bottom-color: transparent;
+  border-left-color: transparent;
+}
+
+.tour-bubble:is([data-side="over"], [data-side="center"]) .tour-arrow {
+  display: none;
+}
+
+/* ---- The tab picker in its step: the welcome's list, a little tighter ---- */
+.tour-bubble .wl-picker {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.tour-bubble .wl-page {
+  min-height: 52px;
+  padding-block: 6px;
+}
+
+/* ---- Phones: the bubble is nearly the screen's width; its buttons stay in reach ---- */
+@media (max-width: 640px) {
+  .tour-bubble.modal,
+  .tour-bubble.modal.is-wide {
+    width: calc(100vw - 24px);
+  }
+
+  .tour-foot .btn {
+    min-height: 44px;
+  }
+}
+
+/* Reduced motion: no glide and no rise (base.css shortens them; here they go) */
+@media (prefers-reduced-motion: reduce) {
+  .tour-bubble.modal {
+    animation: none;
+  }
+
+  .tour.is-moving :is(.tour-spot, .tour-bubble) {
+    transition: none;
+  }
+}
+
+:root[data-motion="reduced"] .tour-bubble.modal {
+  animation: none;
+}
+
+:root[data-motion="reduced"] .tour.is-moving :is(.tour-spot, .tour-bubble) {
+  transition: none;
+}
+
+/* Forced colors (Windows high contrast): the dim goes, the ring stays a real outline */
+@media (forced-colors: active) {
+  .tour-spot {
+    outline: 3px solid Highlight;
+    box-shadow: none;
+  }
+
+  .tour-spot.is-none {
+    outline: none;
+  }
+}

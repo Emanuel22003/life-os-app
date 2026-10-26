@@ -12,6 +12,7 @@ import { SKINS, normalizeSkin, THEMES } from '../skins.js';
 import { COLOR_KINDS, normalizeColorPrefs } from '../colors.logic.js';
 import { paletteEditor } from '../palette.js';
 import { shell } from '../shell.js';
+import { startTour, tutorialState } from '../tour.js';
 import { SITE_URL } from '../origin.js';
 import { syncConfig, syncStatus, onSyncStatus, disconnect } from '../sync.js';
 import { openSyncPanel, syncLabel } from '../sync.panel.js';
@@ -563,14 +564,42 @@ function mount(root) {
     }
   }
 
-  // The welcome sheet a new device opens with (js/welcome.js): every page in a line, and the tab
-  // bar's pages (also More → Edit tabs on a phone)
-  const welcomeRow = row({
-    key: 'welcome',
-    title: 'Welcome',
-    hint: 'What each page does, and which ones the tab bar shows on a phone-sized screen.',
-    control: button('Show again', () => shell.openWelcome(), { iconName: 'sparkles' }),
-  });
+  // The tutorials (js/tour.js): the quick one, the full one, or the full one from where it was
+  // left on this device (Continue, or Start over). The tab bar's pages are also in More → Edit tabs.
+  const TOUR_HINT = 'A guided tour that points at the real buttons. Quick: the basics in about a minute. Full: every page, about 10 minutes.';
+  const tourRow = row({ key: 'tutorial', title: 'Tutorial', hint: TOUR_HINT, control: [] });
+  // Two or three buttons: under the words, as the color swatches are
+  tourRow.el.classList.add('st-row--wide');
+  const tourControl = tourRow.el.querySelector('.st-row-control');
+  tourControl.classList.add('st-tour-btns');
+  let tourSig = '';
+  function paintTour() {
+    const state = tutorialState();
+    // (while the full tour is on screen it isn't "left" anywhere)
+    const full = state.running === 'full' ? null : state.full;
+    const sig = full ? `${full.n}/${full.of}` : '';
+    if (sig === tourSig && tourControl.childElementCount) return;
+    tourSig = sig;
+    const hadFocus = tourControl.contains(document.activeElement) ? document.activeElement.dataset.tour : null;
+    tourRow.hint(full ? `${TOUR_HINT} You left the full one at step ${full.n} of ${full.of}.` : TOUR_HINT);
+    const btn = (label, id, run, { iconName, primary = false, name = null } = {}) => {
+      const el = button(label, run, { iconName, primary });
+      el.dataset.tour = id;
+      if (name) el.setAttribute('aria-label', name);
+      return el;
+    };
+    tourControl.replaceChildren(
+      btn('Quick tutorial', 'quick', () => startTour('quick'), { iconName: 'wl-quick' }),
+      ...(full
+        ? [
+            btn('Start over', 'full', () => startTour('full'), { iconName: 'wl-map', name: 'Start the full tutorial over' }),
+            btn(`Continue (${full.n} of ${full.of})`, 'continue', () => startTour('full', { resume: true }), { iconName: 'chevron-right', primary: true, name: `Continue the full tutorial, step ${full.n} of ${full.of}` }),
+          ]
+        : [btn('Full tutorial', 'full', () => startTour('full'), { iconName: 'wl-map' })]),
+    );
+    describeByTitle(tourControl, tourRow.id);
+    if (hadFocus) (tourControl.querySelector(`[data-tour="${hadFocus}"]`) ?? tourControl.querySelector('button'))?.focus({ preventScroll: true });
+  }
 
   const elsewhereRow = row({
     title: 'Use it on another computer',
@@ -603,7 +632,7 @@ function mount(root) {
     sound: [soundRow, notifyRow, miniRow],
     startup: [startRow],
     sync: [syncRow, backupRow, restoreRow, storageRow, deleteRow],
-    about: [versionRow, welcomeRow, elsewhereRow],
+    about: [versionRow, tourRow, elsewhereRow],
     legal: legalRows,
   };
   const cards = new Map(SETTINGS_SECTIONS.map((sec) => [sec.id, card(sec, rowsOf[sec.id])]));
@@ -694,6 +723,8 @@ function mount(root) {
   cleanups.push(settings.subscribe(paintSettings));
   paintTips();
   cleanups.push(settings.subscribe(paintTips));
+  paintTour();
+  cleanups.push(settings.subscribe(paintTour));
   cleanups.push(() => palette.destroy());
   paintSync();
   cleanups.push(onSyncStatus(paintSync));
