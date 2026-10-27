@@ -84,6 +84,7 @@ export function startPage(saved, pageIds) {
 export const SETTINGS_SECTIONS = Object.freeze(
   [
     { id: 'appearance', title: 'Appearance', icon: 'palette' },
+    { id: 'formats', title: 'Dates & units', icon: 'calendar' },
     { id: 'colors', title: 'Color coding', icon: 'tag' },
     { id: 'sound', title: 'Sound & notifications', icon: 'volume' },
     { id: 'reminders', title: 'Reminders', icon: 'bell' },

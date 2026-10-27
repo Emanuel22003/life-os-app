@@ -1,79 +1,756 @@
 /* ==========================================================================
-   LIFE/OS — Health (not available): the grayed "Idea" item in the sidebar and its placeholder page.
+   LIFE/OS — Health (js/features/health.js): your weight. The add line, then two columns: the
+   graph and every weight on the left, the numbers on the right (one column on narrow windows:
+   the graph, the numbers, then every weight). Built from the shared kit (.panel, .panel-head,
+   .seg, .btn, .field, .stat-value, .empty) and the tokens only, so every template draws it
+   without rules of its own (Brutalist, Atelier and Minimal add a few to the graph). Nothing here
+   says which way a change went with a color: it is a signed number in the text color.
+   Also Home's Weight widget (.hl-w-*).
    ========================================================================== */
 
-/* On stand-by, but still a link that opens its page: gray words, not a faded item (at 0.45 its
-   name fell to 2–3:1, WCAG 1.4.3) */
-.nav-item.is-soon {
-  color: var(--text-3);
+.hl-root {
+  /* The graph's plate: opaque, so no backdrop art (Old Money's horse) runs through the line; a
+     template without art may give it the page's own color (Minimal) */
+  --hl-ch-bg: var(--surface-solid);
 }
 
-.nav-item.is-soon:hover,
-.nav-item.is-soon[aria-current="page"] {
+.hl-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1.7fr) minmax(280px, 1fr);
+  gap: var(--space-5);
+  align-items: start;
+  margin-top: var(--space-5);
+}
+
+.hl-main,
+.hl-side {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  min-width: 0;
+}
+
+/* ---- The page-top status ('82.4 kg · −1.2 kg in 30 days'): on a phone the title and Goal fill
+   the title row and cut it short, so it takes its own line under them (as Finance's totals and
+   Recovery's count do; :not([hidden]) outranks css/compact.css, which comes later) ---- */
+@media (max-width: 640px) {
+  html[data-skin] .main .view.hl-root > .page-header .page-heading > .page-stat:not([hidden]) {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+}
+
+/* ---- The add line: weight and unit, the day, a note, Add (one row on a wide window) ---- */
+.hl-qa {
+  padding: var(--space-4);
+}
+
+.hl-qa-grid {
+  display: grid;
+  grid-template-columns: minmax(210px, 260px) 160px minmax(160px, 1fr) auto;
+  align-items: end;
+  gap: var(--space-3);
+}
+
+.hl-qa-grid > .field {
+  min-width: 0;
+}
+
+.hl-qa-pair {
+  display: flex;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.hl-qa-pair > .input {
+  flex: 1 1 auto;
+  min-width: 80px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* kg · lb: as tall as the field beside it */
+.hl-unit-seg {
+  flex: none;
+  align-items: center;
+  height: 40px;
+}
+
+.hl-unit-seg .seg-btn {
+  height: 32px;
+  min-width: 40px;
+  justify-content: center;
+}
+
+.hl-qa-add {
+  height: 40px;
+}
+
+.hl-qa-hint,
+.hl-qa-error {
+  margin: var(--space-3) 0 0;
+  font-size: var(--fs-sm);
+}
+
+.hl-qa-hint {
   color: var(--text-2);
 }
 
-.nav-soon {
-  margin-left: auto;
-  padding: 0 5px;
-  border: 1px dashed var(--line-strong);
-  border-radius: var(--radius-xs);
-  line-height: 16px;
+.hl-qa-hint[hidden],
+.hl-qa-error[hidden] {
+  display: none;
 }
 
-/* On the open page's lit item (a filled pill in some templates) the tag takes the item's own
-   text color, which each template keeps readable there (a gray caption fell to 1.5–2.4:1) */
-.nav-item[aria-current="page"] .nav-soon {
-  border-color: currentColor;
-  color: inherit;
+.hl-qa-error {
+  font-weight: 600;
+  color: var(--text);
 }
 
-/* ---- The page: the shared empty state (ui.emptyState), and the ideas as plain words ----
-   "Sleep · Body weight · Water …": no borders, no fills, nothing that looks like a button
-   (they aren't: nothing here can be pressed). Aligned like the empty state's own text. */
-.hl-ideas {
-  display: grid;
-  gap: var(--space-2);
-  max-width: 46ch;
-  margin-top: var(--space-2);
+/* ---- Nothing yet: the shared empty state under the add line ---- */
+.hl-empty .empty-text {
+  max-width: 54ch;
 }
 
-.hl-ideas-title {
+/* ---- Panels ---- */
+.hl-panel {
+  padding: 0;
+  overflow: hidden;
+}
+
+.hl-panel-head {
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-3);
+  padding: var(--space-3) var(--space-4);
+}
+
+/* The head holds a title and a figure or a choice: plain text, whatever a template does to heads */
+.hl-root .hl-panel .hl-panel-head {
+  font-family: var(--font-sans);
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+/* Titled like the template's captions (mono capitals in Mission Control, plain in Simple) */
+.hl-root .hl-panel-title {
   margin: 0;
-  color: var(--text-3);
   font-family: var(--label-font);
   font-size: max(var(--label-size), var(--fs-xs));
-  font-weight: var(--label-weight);
-  letter-spacing: calc(0.12em * var(--label-tracking));
+  font-weight: 600;
+  letter-spacing: calc(0.14em * var(--label-tracking));
   text-transform: var(--label-case);
+  color: var(--text);
 }
 
-.hl-list {
+.hl-due {
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.hl-none {
+  margin: 0;
+  padding: var(--space-4);
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+}
+
+/* ---- The graph ---- */
+.hl-ch {
+  position: relative;
+  margin: var(--space-2) var(--space-4) 0;
+  border-radius: var(--radius-sm);
+  background: var(--hl-ch-bg);
+}
+
+.hl-ch:focus-visible {
+  outline: 1px solid var(--line-focus);
+  outline-offset: 4px;
+}
+
+.hl-ch-svg {
+  display: block;
+  max-width: 100%;
+  overflow: visible;
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.hl-ch-grid line {
+  stroke: var(--line);
+  stroke-width: 1;
+  shape-rendering: crispEdges;
+}
+
+.hl-ch-axis {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  fill: var(--text-3);
+}
+
+/* The goal: dashed, in the quieter gray (a line to aim for, not a limit) */
+.hl-ch-goal {
+  stroke: var(--text-3);
+  stroke-width: 1.5;
+  stroke-dasharray: 6 4;
+}
+
+.hl-ch-goal-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  fill: var(--text-2);
+}
+
+.hl-ch-trend {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2.25;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+/* Each day's weight: a ring of the text's second color on the plate, so the trend shows through
+   the gaps between them and neither direction stands out */
+.hl-ch-dot {
+  fill: var(--hl-ch-bg);
+  stroke: var(--text-2);
+  stroke-width: 1.5;
+}
+
+.hl-ch-dot.is-active {
+  fill: var(--text);
+  stroke: var(--hl-ch-bg);
+  stroke-width: 2;
+  r: 5px;
+}
+
+.hl-ch-cross {
+  stroke: var(--line-strong);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+}
+
+.hl-ch-tip {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 2;
+  display: grid;
+  gap: 2px;
+  max-width: 240px;
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-w) solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface-solid);
+  box-shadow: var(--shadow-sm);
+  font-size: var(--fs-xs);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--dur-fast) var(--ease);
+}
+
+.hl-ch-tip.is-on {
+  opacity: 1;
+}
+
+.hl-ch-tip-main {
+  color: var(--text);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.hl-ch-tip-sub {
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The key: what the dots, the line and the dashes mean, in their own shapes */
+.hl-ch-key {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px var(--space-4);
+  margin: 0;
+  padding: var(--space-3) var(--space-4) var(--space-4);
+  font-size: var(--fs-xs);
+  color: var(--text-2);
+}
+
+.hl-key-item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.hl-key {
+  flex: none;
+  display: inline-block;
+}
+
+.hl-key--dot {
+  width: 9px;
+  height: 9px;
+  border: 1.5px solid var(--text-2);
+  border-radius: 50%;
+}
+
+.hl-key--line {
+  width: 16px;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--accent);
+}
+
+.hl-key--goal {
+  width: 16px;
+  height: 0;
+  border-top: 2px dashed var(--text-3);
+}
+
+/* ---- The numbers: two to a row ---- */
+.hl-stat-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 0;
+}
+
+.hl-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  padding: var(--space-3) var(--space-4);
+  border-top: 1px solid var(--line);
+}
+
+.hl-stat:nth-child(-n + 2) {
+  border-top: 0;
+}
+
+.hl-stat:nth-child(even) {
+  border-left: 1px solid var(--line);
+}
+
+.hl-stat-label {
+  font-size: var(--fs-xs);
+  color: var(--text-2);
+}
+
+.hl-stat-value,
+.hl-stat-sub {
+  margin: 0;
+}
+
+/* The template's own figures (.stat-value), at this page's size (some templates size every
+   .stat-value: html[data-skin] keeps these) */
+html[data-skin] .hl-root .hl-stat-value {
+  font-size: var(--fs-lg);
+  line-height: 1.2;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.hl-stat-sub {
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+}
+
+/* The goal's figure is its button: it opens the goal (the same size as the other figures) */
+html[data-skin] .hl-root .hl-goal-link {
+  display: inline;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 4px;
+  text-decoration-color: var(--line-strong);
+  cursor: pointer;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  html[data-skin] .hl-root .hl-goal-link:hover {
+    text-decoration-color: currentColor;
+  }
+}
+
+.hl-goal-link:focus-visible {
+  outline: 2px solid var(--line-focus);
+  outline-offset: 2px;
+}
+
+/* A finger's 44px, without moving the tile's lines (the room comes out of the gaps around it) */
+@media (pointer: coarse) {
+  html[data-skin] .hl-root .hl-goal-link {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    margin: -11px 0;
+  }
+}
+
+/* ---- Every weight, by month ---- */
+.hl-month + .hl-month {
+  border-top: 1px solid var(--line);
+}
+
+.hl-month-head {
+  margin: 0;
+  padding: var(--space-3) var(--space-4) var(--space-2);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--text);
+}
+
+.hl-rows {
   margin: 0;
   padding: 0;
   list-style: none;
-  color: var(--text-2);
-  font-size: var(--fs-sm);
-  line-height: 1.8;
 }
 
-/* Words stay whole; the dot goes with the word after it (li + li), so a wrapped line never ends
-   with one ("Mood ·"). It is only a mark: silent where alt text for content is supported */
-.hl-list li {
-  display: inline-block;
+.hl-row {
+  display: grid;
+  grid-template-columns: 82px 74px 70px minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 44px;
+  padding: 6px var(--space-4);
+  border-top: 1px solid var(--line);
+  font-size: var(--fs-sm);
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .hl-row:hover {
+    background: var(--surface-2);
+  }
+}
+
+.hl-row:focus-visible {
+  outline: 2px solid var(--line-focus);
+  outline-offset: -2px;
+}
+
+.hl-row-date {
+  color: var(--text-2);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.hl-row-date.is-today {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.hl-row-kg {
+  justify-self: end;
+  color: var(--text);
+  font-weight: 600;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.hl-row-change {
+  justify-self: end;
+  color: var(--text-2);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.hl-row-note {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-3);
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.hl-list li + li::before {
-  content: "·";
-  content: "·" / "";
-  margin: 0 var(--space-2);
+.hl-more {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  width: 100%;
+  min-height: 44px;
+  padding: var(--space-2) var(--space-4);
+  border: 0;
+  border-top: 1px solid var(--line);
+  background: transparent;
+  color: var(--text-2);
+  font: inherit;
+  font-size: var(--fs-sm);
+  cursor: pointer;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .hl-more:hover {
+    color: var(--text);
+  }
+}
+
+.hl-more:focus-visible {
+  outline: 2px solid var(--line-focus);
+  outline-offset: -2px;
+}
+
+/* ---- Ideas for later: one quiet line at the end ---- */
+.hl-later {
+  margin: var(--space-6) 0 0;
+  font-size: var(--fs-xs);
   color: var(--text-3);
 }
 
-/* The collapsed sidebar has no room for the tag */
-@media (max-width: 900px) {
-  .nav-soon {
+/* ---- The dialogs: a weight, the goal ---- */
+.hl-ed {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.hl-ed-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+.hl-ed-weight {
+  font-variant-numeric: tabular-nums;
+}
+
+.hl-ed-hint {
+  margin: var(--space-2) 0 0;
+  font-size: var(--fs-xs);
+  color: var(--text-2);
+}
+
+.hl-ed-error {
+  margin: 0;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--text);
+}
+
+.hl-ed-error[hidden] {
+  display: none;
+}
+
+/* ---- Home's Weight widget: the latest weight, a small line of the last 30 days, the change ---- */
+.hl-w-body {
+  display: flex;
+  flex-direction: column;
+}
+
+.hl-w-open {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  width: 100%;
+  min-height: 44px;
+  padding: 2px 0;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.hl-w-open:focus-visible {
+  outline: 2px solid var(--line-focus);
+  outline-offset: 2px;
+}
+
+.hl-w-now {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0 2px;
+}
+
+html[data-skin] .hl-w-now .stat-value {
+  font-size: var(--fs-2xl);
+  line-height: 1.05;
+  font-variant-numeric: tabular-nums;
+}
+
+.hl-w-unit {
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+  white-space: pre;
+}
+
+.hl-w-spark {
+  display: block;
+  width: 100%;
+  height: 34px;
+  overflow: visible;
+}
+
+.hl-w-line {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.hl-w-dot {
+  fill: none;
+  stroke: var(--text);
+  stroke-width: 7;
+  stroke-linecap: round;
+}
+
+.hl-w-change {
+  font-size: var(--fs-xs);
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .hl-w-open:hover .hl-w-change {
+    color: var(--text);
+  }
+}
+
+/* ---- Narrower windows ---- */
+@media (max-width: 1100px) {
+  .hl-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* One column in reading order: the graph, the numbers, then every weight */
+  .hl-main,
+  .hl-side {
+    display: contents;
+  }
+
+  .hl-body > * > .hl-ch-panel {
+    order: 1;
+  }
+
+  .hl-body > * > .hl-stats {
+    order: 2;
+  }
+
+  .hl-body > * > .hl-history {
+    order: 3;
+  }
+
+  /* The add line: weight and day on a row, the note and Add on the next */
+  .hl-qa-grid {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  }
+
+  .hl-qa-f-note {
+    grid-column: 1 / 3;
+  }
+}
+
+@media (max-width: 640px) {
+  .hl-body {
+    gap: var(--space-4);
+    margin-top: var(--space-4);
+  }
+
+  .hl-qa {
+    padding: var(--space-3);
+  }
+
+  /* The weight and its unit the whole width, the day and the note side by side, Add the full width */
+  .hl-qa-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .hl-qa-f-weight,
+  .hl-qa-add {
+    grid-column: 1 / -1;
+  }
+
+  .hl-qa-f-note {
+    grid-column: auto;
+  }
+
+  .hl-qa-add {
+    width: 100%;
+    height: 44px;
+  }
+
+  .hl-unit-seg {
+    height: 44px;
+  }
+
+  .hl-unit-seg .seg-btn {
+    height: 36px;
+    min-width: 48px;
+  }
+
+  .hl-panel-head {
+    padding: var(--space-3);
+  }
+
+  /* The four ranges share the row under the title */
+  .hl-ch-panel .hl-panel-head > .hl-range-seg {
+    flex: 1 1 100%;
+  }
+
+  .hl-range-seg .seg-btn {
+    flex: 1;
+    justify-content: center;
+    padding: 0 8px;
+  }
+
+  .hl-ch {
+    margin-inline: var(--space-2);
+  }
+
+  .hl-ch-key {
+    padding-inline: var(--space-3);
+  }
+
+  .hl-stat {
+    padding-inline: var(--space-3);
+  }
+
+  .hl-month-head {
+    padding-inline: var(--space-3);
+  }
+
+  /* The day, the weight and the change on a line, the note under them */
+  .hl-row {
+    grid-template-columns: 64px minmax(0, auto) minmax(0, 1fr);
+    gap: 2px var(--space-3);
+    padding-inline: var(--space-3);
+  }
+
+  .hl-row-change {
+    justify-self: start;
+  }
+
+  .hl-row-note {
+    grid-column: 2 / -1;
+  }
+
+  .hl-row-note:empty {
     display: none;
+  }
+
+  .hl-ed-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hl-row,
+  .hl-ch-tip {
+    transition: none;
   }
 }

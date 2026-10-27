@@ -418,17 +418,6 @@
   color: var(--accent);
 }
 
-[data-skin="y2k"] .nav-soon {
-  padding: 0 7px;
-  border: 1px solid var(--line-strong);
-  border-radius: var(--radius-pill);
-  color: var(--text-3);
-}
-
-[data-skin="y2k"] .nav-item[aria-current="page"] .nav-soon {
-  color: var(--text-2);
-}
-
 [data-skin="y2k"] .sidebar-foot {
   gap: 6px;
 }
@@ -1745,13 +1734,6 @@
     -webkit-backdrop-filter: var(--pearl-blur);
     backdrop-filter: var(--pearl-blur);
   }
-}
-
-/* ---- Health ---- */
-[data-skin="y2k"] .hl-ideas-title {
-  font-size: var(--fs-sm);
-  font-weight: 600;
-  color: var(--text-2);
 }
 
 /* ==========================================================================

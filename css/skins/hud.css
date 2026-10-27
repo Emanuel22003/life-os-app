@@ -69,9 +69,10 @@
   border-radius: 0;
 }
 
-/* An empty page's placeholder (Health, a first Training log, Finance before the first
-   subscription) is that page's one card: the same ticks over its dashed frame. Placeholders
-   inside a card (an empty list, "No routines yet") stay plain, as the card already has them. */
+/* An empty page's placeholder (Health before a first weight, a first Training log, Finance
+   before the first subscription) is that page's one card: the same ticks over its dashed frame.
+   Placeholders inside a card (an empty list, "No routines yet") stay plain, as the card already
+   has them. */
 [data-skin="hud"] .main .empty:not(.panel .empty, .tr-empty-sm) {
   position: relative;
 }
@@ -299,16 +300,6 @@
   font-weight: 500;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-}
-
-/* Health's "Idea" tag sits in its tile's corner, clear of the page icon (it overlapped it) */
-[data-skin="hud"] .more-page .nav-soon {
-  top: 4px;
-  right: 4px;
-  padding: 0 3px;
-  font-size: 9px;
-  letter-spacing: 0.06em;
-  line-height: 14px;
 }
 
 /* Search (⌘K) and Training's exercise type-ahead: the lit result is where you are (the one Enter

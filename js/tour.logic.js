@@ -55,6 +55,7 @@ export const CHAPTERS = Object.freeze(
     { id: 'training', title: 'Training' },
     { id: 'finance', title: 'Finance' },
     { id: 'recovery', title: 'Recovery' },
+    { id: 'health', title: 'Health' },
     { id: 'settings', title: 'Settings' },
     { id: 'end', title: 'Finish' },
   ].map((c) => Object.freeze(c)),
@@ -407,6 +408,18 @@ const FULL = [
       { sel: '.rc-cal', text: 'Tap a day on the calendar to mark a relapse, and again to take it back. Every clean day before it still counts.' },
     ],
     text: 'Once you have a tracker, mark a relapse on its calendar. Every clean day before it still counts.',
+  },
+
+  /* Health (one step: the page is one thing so far) */
+  {
+    id: 'hl-weight',
+    chapter: 'health',
+    page: 'health',
+    title: 'Log your weight',
+    target: '.hl-qa',
+    tryIt: '.hl-qa-weight',
+    text: 'Type your weight and press Enter, once a day at most. The graph’s trend line evens out the ups and downs. Try it, or press Next.',
+    advanceOn: { store: 'health', list: 'weights' },
   },
 
   /* Settings */

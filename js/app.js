@@ -21,7 +21,7 @@
 //   }
 // A badge that changes without a store change (a running timer) dispatches `lifeos:badge`.
 
-import { h, icon, iconBadge, registerIcon, brandMark, emptyState, isTyping, modalOpen, openModal, closeAllModals, onDayChange, toast, ensureToastRegion, skin, num, term, WEEKDAYS_SHORT, MONTHS_SHORT, useSettings, gateTips, checkButton, reducedMotion, uid } from './ui.js';
+import { h, icon, iconBadge, registerIcon, brandMark, dayMonth, dateFormat, unitSystem, emptyState, isTyping, modalOpen, openModal, closeAllModals, onDayChange, toast, ensureToastRegion, skin, num, term, WEEKDAYS_SHORT, useSettings, gateTips, checkButton, reducedMotion, uid } from './ui.js';
 import { settings } from './store.js';
 // The shared icon set (habits, sections, the ideas every page uses): before any page draws
 import './icons.js';
@@ -43,7 +43,7 @@ import { startTour, tutorialState } from './tour.js';
 import { isNewerVersion, startPage, LEGAL_LINKS } from './features/settings.logic.js';
 import { startReminders } from './reminders.js';
 
-const VERSION = 'v0.35';
+const VERSION = 'v0.36';
 
 // Read before any feature module can seed data: tells a first-ever run from an upgrade
 const hadSavedData = hasSavedData();
@@ -60,12 +60,12 @@ registerIcon('timer', '<circle cx="12" cy="13.5" r="7.5"/><path d="M12 9.5v4l2.5
 // Recovery: a leaf, for growing back (also the icon of a tracker whose name suggests none)
 registerIcon('leaf', '<path d="M8.6 15.4C6.9 9.1 11.3 4.6 19.8 4.2c.4 8.5-4.2 13-11.2 11.2Z"/><path d="M4.2 19.8c3-3.4 6.3-6.5 10.3-9.3"/>');
 
-// Order = nav order and number keys (1 Home … 8 Finance, 9 Recovery). The phone tab bar shows the
-// ones picked (settings.tabs: Edit tabs in More, or the tours' tab picker) under their own names,
-// and More lists the rest. A new page also needs its line in PAGE_INTROS (js/shell.js, the picker)
-// and, in the full tutorial, a chapter of its own (js/tour.logic.js).
+// Order = nav order and number keys (1 Home … 8 Finance, 9 Recovery; the keys stop at 9, so a
+// tenth page, Health, has none). The phone tab bar shows the ones picked (settings.tabs: Edit tabs
+// in More, or the tours' tab picker) under their own names, and More lists the rest. A new page
+// also needs its line in PAGE_INTROS (js/shell.js, the picker) and, in the full tutorial, a
+// chapter of its own (js/tour.logic.js).
 // `hidden`: a page outside the module nav (Settings: its own entry in the sidebar foot and in More).
-// `soon`: not available: grayed out at the end of the sidebar and in More ("Idea"), no number key or tab.
 const MANIFEST = [
   { id: 'home', title: 'Home', icon: 'home' },
   { id: 'tasks', title: 'Tasks', icon: 'list' },
@@ -76,7 +76,7 @@ const MANIFEST = [
   { id: 'training', title: 'Training', icon: 'dumbbell' },
   { id: 'finance', title: 'Finance', icon: 'wallet' },
   { id: 'recovery', title: 'Recovery', icon: 'leaf' },
-  { id: 'health', title: 'Health', icon: 'heart', soon: true },
+  { id: 'health', title: 'Health', icon: 'heart' },
   { id: 'settings', title: 'Settings', icon: 'gear', hidden: true },
 ];
 
@@ -101,10 +101,9 @@ const FEATURES = MANIFEST.map((m, i) => {
     },
   };
 });
-// The modules: nav, phone tabs, number keys and start pages
-const NAV = FEATURES.filter((f) => !f.hidden && !f.soon);
-// The sidebar also lists what's on stand-by, grayed out, after the modules
-const SOON = FEATURES.filter((f) => f.soon && !f.hidden);
+// The modules: nav, phone tabs, number keys (the first nine) and start pages
+const NAV = FEATURES.filter((f) => !f.hidden);
+const KEYED = 9;
 
 /* ---- Appearance: template (settings.skin) + light/dark (settings.theme) ----
    Cosmetic only. index.html's head script applies both before the first paint; this keeps
@@ -113,6 +112,8 @@ const SOON = FEATURES.filter((f) => f.soon && !f.hidden);
 const themeButtons = [];
 const installButtons = [];
 let shownSkin = null; // the template the current page was rendered with
+let shownFormats = null; // and the date format and units ('dmy|metric')
+const formatsNow = () => `${dateFormat()}|${unitSystem()}`;
 
 const prefersLight = matchMedia('(prefers-color-scheme: light)');
 
@@ -167,6 +168,19 @@ function refreshForSkin() {
   syncShellCopy();
   if (!modalOpen()) remountView();
 }
+
+// Dates and measures read as this device chose (Settings → Dates & units, the welcome's Your
+// formats): the page shown is drawn again in them, once no dialog is open over it
+let formatsTimer = 0;
+function refreshForFormats() {
+  clearTimeout(formatsTimer);
+  if (!shownFormats || shownFormats === formatsNow()) return;
+  // (Settings paints its own example as you pick; drawn again, it would drop the focus)
+  if (activeId === 'settings') return void (shownFormats = formatsNow());
+  if (modalOpen()) formatsTimer = setTimeout(refreshForFormats, 300);
+  else remountView();
+}
+settings.subscribe(refreshForFormats);
 
 function remountView() {
   const top = main.scrollTop;
@@ -288,7 +302,7 @@ const sidebar = h(
     NAV.map((f, i) => {
       const a = h(
         'a',
-        { class: 'nav-item', href: `#/${f.id}`, dataset: { id: f.id }, 'aria-keyshortcuts': String(i + 1) },
+        { class: 'nav-item', href: `#/${f.id}`, dataset: { id: f.id }, 'aria-keyshortcuts': i < KEYED ? String(i + 1) : null },
         h('span', { class: 'nav-index lo-deco' }, String(i + 1).padStart(2, '0')),
         icon(f.icon),
         h('span', { class: 'nav-label' }, f.title),
@@ -297,18 +311,6 @@ const sidebar = h(
       );
       navLinks.push(a);
       return markLink(f.id, a, f.title);
-    }),
-    SOON.map((f) => {
-      const a = h(
-        'a',
-        { class: 'nav-item is-soon', href: `#/${f.id}`, dataset: { id: f.id }, title: `${f.title}: not available (an idea, no promise)` },
-        h('span', { class: 'nav-index lo-deco' }, '··'),
-        icon(f.icon),
-        h('span', { class: 'nav-label' }, f.title),
-        h('span', { class: 'nav-soon label' }, 'Idea'),
-      );
-      navLinks.push(a);
-      return a;
     }),
   ),
   h(
@@ -556,18 +558,18 @@ function moreRow({ iconName, label, hint = null, onClick = null, href = null, id
 function morePages() {
   const ids = pinnedTabs();
   const pages = NAV.filter((f) => !ids.includes(f.id));
-  const tile = (f, { soon = false } = {}) => {
-    const value = soon ? '' : marks.get(f.id).value;
+  const tile = (f) => {
+    const value = marks.get(f.id).value;
     const name = value ? `${f.title} (${marks.get(f.id).spoken})` : f.title;
     return h(
       'a',
-      { class: ['more-page', soon && 'is-soon'], href: `#/${f.id}`, dataset: { id: f.id }, 'aria-current': activeId === f.id ? 'page' : null, 'aria-label': soon ? `${f.title}: not available yet` : name, onClick: stayOnPage },
+      { class: 'more-page', href: `#/${f.id}`, dataset: { id: f.id }, 'aria-current': activeId === f.id ? 'page' : null, 'aria-label': name, onClick: stayOnPage },
       iconBadge(f.icon, { tone: f.id, size: 18, box: 34 }),
       h('span', { class: 'more-page-label' }, f.title),
-      soon ? h('span', { class: 'nav-soon label' }, 'Idea') : value ? h('span', { class: 'more-page-count nav-badge mono', 'aria-hidden': 'true' }, value) : null,
+      value ? h('span', { class: 'more-page-count nav-badge mono', 'aria-hidden': 'true' }, value) : null,
     );
   };
-  return h('div', { class: 'more-pages' }, pages.map((f) => tile(f)), SOON.map((f) => tile(f, { soon: true })));
+  return h('div', { class: 'more-pages' }, pages.map((f) => tile(f)));
 }
 
 /** The sheet's main view. sheet: { body, foot, title, close } (openMore). */
@@ -640,7 +642,7 @@ function moreMain(sheet) {
 /**
  * Help: the two tutorials, as Settings → About → Tutorial has them (js/tour.js). The quick one
  * and the full one, each with its length; after the full one was left part-way, Continue (14 of
- * 32) and Start over instead. A tour starts once More has closed (the tour steps aside while a
+ * 33) and Start over instead. A tour starts once More has closed (the tour steps aside while a
  * dialog is open).
  */
 function moreHelp(close) {
@@ -882,6 +884,7 @@ function render(force = false) {
   if (pageTitle && !pageTitle.querySelector('.ib')) pageTitle.prepend(iconBadge(feature.icon, { tone: id, size: 18, className: 'page-ib' }));
 
   shownSkin = skin();
+  shownFormats = formatsNow();
   navLinks.forEach((a) => (a.dataset.id === id ? a.setAttribute('aria-current', 'page') : a.removeAttribute('aria-current')));
   // A bar that scrolls: the open page's tab comes into view (it glides there after a tap)
   revealTab(undefined, !firstRender);
@@ -956,19 +959,20 @@ const pad = (n) => String(n).padStart(2, '0');
 
 function tick() {
   const d = new Date();
-  clockDate.textContent = `${WEEKDAYS_SHORT[d.getDay()]} ${num(d.getDate())} ${MONTHS_SHORT[d.getMonth()]} ${d.getFullYear()}`;
+  // (in this device's date format; the template's own digits for the day)
+  clockDate.textContent = `${WEEKDAYS_SHORT[d.getDay()]} ${dayMonth(d.getFullYear(), d.getMonth() + 1, num(d.getDate()), { year: true })}`;
   clockTime.replaceChildren(`${pad(d.getHours())}:${pad(d.getMinutes())}`, h('span', { class: 'clock-seconds lo-deco' }, `:${pad(d.getSeconds())}`));
 }
 
 tick();
 setInterval(tick, 1000);
 
-/* ---- Global shortcuts: 1..n switch modules ---- */
+/* ---- Global shortcuts: 1..9 switch modules (a page after the ninth has no key) ---- */
 
 document.addEventListener('keydown', (e) => {
   if (e.metaKey || e.ctrlKey || e.altKey || isTyping(e) || modalOpen()) return;
   const n = Number(e.key);
-  if (Number.isInteger(n) && n >= 1 && n <= NAV.length) {
+  if (Number.isInteger(n) && n >= 1 && n <= Math.min(KEYED, NAV.length)) {
     e.preventDefault();
     location.hash = `#/${NAV[n - 1].id}`;
   }

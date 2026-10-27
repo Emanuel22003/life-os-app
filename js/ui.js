@@ -2,6 +2,9 @@
 // Features import from here instead of re-implementing. Keep it dependency-free (skins.js is pure).
 
 import { DEFAULT_SKIN, normalizeSkin, formatIndex, formatCount, termFor, isPlainSkin } from './skins.js';
+import { useFormats, weekdayDate } from './formats.js';
+// How dates and measures read (settings.dateFormat, settings.units): js/formats.js
+export { DATE_FORMATS, UNIT_SYSTEMS, DATE_FORMAT_CHOICES, UNIT_CHOICES, dateFormat, unitSystem, weightUnitFor, dayMonth, dayRange, weekdayDate, numericDate, dateFormatExample, normalizeDateFormat, normalizeUnits } from './formats.js';
 
 /* ==========================================================================
    DOM builder
@@ -301,6 +304,8 @@ let settingsStore = null;
 
 export function useSettings(store) {
   settingsStore = store;
+  // Dates and measures follow this device's choices from now on (js/formats.js)
+  useFormats(() => store.get());
 }
 
 
@@ -1079,14 +1084,13 @@ export function weekday(key) {
   return parseKey(key).getDay();
 }
 
-/** formatDay(key) -> 'Sun 4 Oct'; formatDay(key, 'long') -> 'Sunday 4 October 2026' */
+/**
+ * formatDay(key) -> 'Sun 4 Oct' ('Sun 4 Oct 2025' in another year); formatDay(key, 'long') ->
+ * 'Sunday 4 October 2026'. In this device's date format (js/formats.js: 'Sun Oct 4' in the US one,
+ * 'Sun 10-04' in year-month-day).
+ */
 export function formatDay(key, style = 'short') {
-  const d = parseKey(key);
-  if (style === 'long') {
-    return d.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
-  }
-  const sameYear = d.getFullYear() === new Date().getFullYear();
-  return `${WEEKDAYS_SHORT[d.getDay()]} ${d.getDate()} ${MONTHS_SHORT[d.getMonth()]}${sameYear ? '' : ` ${d.getFullYear()}`}`;
+  return weekdayDate(key, { long: style === 'long' });
 }
 
 /** 'Today' | 'Tomorrow' | 'Yesterday' | 'In 3 days' | '3 days ago' | 'Sun 4 Oct' */

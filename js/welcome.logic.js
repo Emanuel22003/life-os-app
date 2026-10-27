@@ -1,21 +1,57 @@
-// LIFE/OS — the first run: the pure parts of the welcome sheet (js/welcome.js). Its two steps
-// (Pick your look, then the three ways in), the step it opens on, what "Use this look" saves, the
+// LIFE/OS — the first run: the pure parts of the welcome sheet (js/welcome.js). Its three steps
+// (Pick your look, Your formats, then the three ways in), the step it opens on, what "Use this
+// look" and the formats save, the
 // look picker's demo (fake data, never yours) and which card of the carousel is in the middle.
 // No DOM: tested in tools/tests/welcome.test.js. The demo is drawn by js/appearance.js (buildDemo).
 
 import { SKIN_IDS, normalizeSkin } from './skins.js';
+import { DATE_FORMAT_CHOICES, UNIT_CHOICES, normalizeDateFormat, normalizeUnits, dateFormatExample } from './formats.js';
 
 /* ---- The steps ---- */
 
-/** The welcome's two steps, in order: the looks, then No tutorial / Quick tutorial / Tutorial. */
-export const WELCOME_STEPS = Object.freeze(['look', 'choice']);
+/**
+ * The welcome's three steps, in order: the looks, your formats (date format and units), then No
+ * tutorial / Quick tutorial / Tutorial.
+ */
+export const WELCOME_STEPS = Object.freeze(['look', 'formats', 'choice']);
 
 /**
  * The step the welcome opens on: the looks, unless a look was picked there already (the window
- * closed on the second step, so the sheet shows again): then the three ways in, with Back.
+ * closed on a later step, so the sheet shows again): then the formats, or once those were saved
+ * (formatsPicked) the three ways in; Back goes the other way.
  */
-export function welcomeStart({ lookPicked = false } = {}) {
-  return lookPicked === true ? 'choice' : 'look';
+export function welcomeStart({ lookPicked = false, formatsPicked = false } = {}) {
+  if (lookPicked !== true) return 'look';
+  return formatsPicked === true ? 'choice' : 'formats';
+}
+
+/** The step after `step` (null after the last) and the one before it (null before the first). */
+export function stepAfter(step) {
+  const i = WELCOME_STEPS.indexOf(step);
+  return i >= 0 && i < WELCOME_STEPS.length - 1 ? WELCOME_STEPS[i + 1] : null;
+}
+
+export function stepBefore(step) {
+  const i = WELCOME_STEPS.indexOf(step);
+  return i > 0 ? WELCOME_STEPS[i - 1] : null;
+}
+
+/* ---- Your formats ---- */
+
+/**
+ * The formats step's choices with today as their example: { dates: [{ id, label, example }],
+ * units: [{ id, label, example }] } ('27/10/2026 · Tue 27 Oct'; 'kg, km').
+ */
+export function formatChoices(today) {
+  return {
+    dates: DATE_FORMAT_CHOICES.map((c) => ({ id: c.id, label: c.label, example: dateFormatExample(c.id, today) })),
+    units: UNIT_CHOICES.map((c) => ({ id: c.id, label: c.label, example: c.hint })),
+  };
+}
+
+/** What Next on the formats step saves (this device only): the two choices, and that they were made. */
+export function formatsPatch(dateFormat, units) {
+  return { dateFormat: normalizeDateFormat(dateFormat), units: normalizeUnits(units), formatsPicked: true };
 }
 
 /**

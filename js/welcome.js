@@ -1,6 +1,7 @@
 // LIFE/OS — the first run: the welcome sheet. The first time LIFE/OS opens on a device with
-// nothing saved, one sheet in two steps: "Pick your look" (the eight templates as live demos in a
-// carousel, light or dark), then three ways in: No tutorial (straight in), Quick tutorial (about a
+// nothing saved, one sheet in three steps: "Pick your look" (the eight templates as live demos in
+// a carousel, light or dark), "Your formats" (date format and units, defaults day/month/year and
+// metric), then three ways in: No tutorial (straight in), Quick tutorial (about a
 // minute) or Tutorial (every page). app.js decides when (shell.js welcomeOnStart) and starts the
 // tour picked (js/tour.js); the choices' words are WELCOME_CHOICES in js/tour.logic.js, the steps
 // and the carousel's rules js/welcome.logic.js, and each demo is appearance.js buildDemo.
@@ -9,13 +10,13 @@
 // Styles: css/shell.css (.wl-*: the choices, the tab picker) and css/welcome.css (the looks). The
 // sheet is a dialog: from the bottom on a phone.
 
-import { h, icon, openModal, checkButton, iconBadge, registerIcon, reducedMotion, uid } from './ui.js';
+import { h, icon, openModal, checkButton, iconBadge, registerIcon, reducedMotion, uid, todayKey, normalizeDateFormat, normalizeUnits } from './ui.js';
 import { settings } from './store.js';
 import { normalizeTabs, toggleTab, PAGE_INTROS } from './shell.js';
 import { welcomeChoices } from './tour.logic.js';
 import { SKINS, resolveTheme } from './skins.js';
 import { buildDemo, loadSkinFonts } from './appearance.js';
-import { welcomeStart, demoMode, lookPatch, nearestCard, cardForKey, cardsNear, positionText, startCard } from './welcome.logic.js';
+import { welcomeStart, stepAfter, stepBefore, formatChoices, formatsPatch, demoMode, lookPatch, nearestCard, cardForKey, cardsNear, positionText, startCard } from './welcome.logic.js';
 
 // The three ways in: straight in (an arrow), quick (a stopwatch), the whole tour (a map)
 registerIcon('wl-go', '<path d="M4 12h15M13 6l6 6-6 6"/>');
@@ -41,7 +42,7 @@ const prefersLight = matchMedia('(prefers-color-scheme: light)');
  */
 export function openWelcome({ onChoose } = {}) {
   let choice = 'none';
-  let step = welcomeStart({ lookPicked: settings.get().lookPicked });
+  let step = welcomeStart({ lookPicked: settings.get().lookPicked, formatsPicked: settings.get().formatsPicked });
   let m = null;
   const leadId = `wl-${uid()}`;
 
@@ -95,6 +96,45 @@ export function openWelcome({ onChoose } = {}) {
     h('div', { class: 'wl-options', role: 'group', 'aria-labelledby': leadId, onKeydown: onArrow }, options),
   );
 
+  /* ---- Step 2: your formats (dates and units), with today as the example ---- */
+
+  let pickedDate = normalizeDateFormat(settings.get().dateFormat);
+  let pickedUnits = normalizeUnits(settings.get().units);
+  const fmt = formatChoices(todayKey());
+  // A group of choices: each a button that says its example; ← → ↑ ↓ move between them
+  const choiceGroup = (label, items, value, onPick) => {
+    const labelId = `wl-${uid()}`;
+    const buttons = items.map((it) =>
+      h(
+        'button',
+        { type: 'button', class: 'wl-fmt-opt', 'aria-pressed': String(it.id === value), dataset: { value: it.id }, onClick: () => paint(it.id) },
+        h('span', { class: 'wl-fmt-name' }, it.label),
+        h('span', { class: 'wl-fmt-example' }, it.example),
+      ),
+    );
+    function paint(v) {
+      buttons.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.value === v)));
+      onPick(v);
+    }
+    const onKey = (e) => {
+      const at = buttons.indexOf(document.activeElement);
+      const by = { ArrowDown: 1, ArrowRight: 1, ArrowUp: -1, ArrowLeft: -1 }[e.key];
+      if (at < 0 || !by) return;
+      e.preventDefault();
+      const next = buttons[(at + by + buttons.length) % buttons.length];
+      next.focus();
+      paint(next.dataset.value);
+    };
+    return h('div', { class: 'wl-fmt' }, h('p', { class: 'wl-fmt-label', id: labelId }, label), h('div', { class: 'wl-fmt-opts', role: 'group', 'aria-labelledby': labelId, onKeydown: onKey }, buttons));
+  };
+  const formatsPanel = h(
+    'div',
+    { class: 'wl-step wl-step--formats' },
+    h('p', { class: 'wl-lead' }, 'How should dates and measures read? You can change this any time in Settings → Dates & units.'),
+    choiceGroup('Date format', fmt.dates, pickedDate, (v) => (pickedDate = v)),
+    choiceGroup('Units', fmt.units, pickedUnits, (v) => (pickedUnits = v)),
+  );
+
   /* ---- Step 1: the looks (built the first time it shows) ---- */
 
   let looks = null;
@@ -102,7 +142,7 @@ export function openWelcome({ onChoose } = {}) {
 
   /* ---- The footer: Skip · Use this look, or Back ---- */
 
-  const skipBtn = h('button', { type: 'button', class: 'btn btn--ghost wl-skip', title: 'Keep the look as it is', onClick: () => show('choice') }, 'Skip');
+  const skipBtn = h('button', { type: 'button', class: 'btn btn--ghost wl-skip', title: 'Keep the look as it is', onClick: () => show(stepAfter('look')) }, 'Skip');
   const useBtn = h(
     'button',
     {
@@ -113,13 +153,27 @@ export function openWelcome({ onChoose } = {}) {
         // data-theme on the page, the template's fonts, the title-bar color
         settings.update(lookPatch(looks.picked(), looks.mode()));
         syncCounts();
-        show('choice');
+        show(stepAfter('look'));
       },
     },
     'Use this look',
   );
-  const backBtn = h('button', { type: 'button', class: 'btn btn--ghost wl-back', onClick: () => show('look') }, icon('chevron-left', { size: 16 }), h('span', null, 'Back'));
-  const foot = h('div', { class: 'wl-foot' }, backBtn, skipBtn, useBtn);
+  const backBtn = h('button', { type: 'button', class: 'btn btn--ghost wl-back', onClick: () => show(stepBefore(step) ?? 'look') }, icon('chevron-left', { size: 16 }), h('span', null, 'Back'));
+  // Your formats: Next saves them (an unanswered sheet keeps the defaults, day/month/year and metric)
+  const nextBtn = h(
+    'button',
+    {
+      type: 'button',
+      class: 'btn btn--primary wl-next',
+      onClick: () => {
+        settings.update(formatsPatch(pickedDate, pickedUnits));
+        show(stepAfter('formats'));
+      },
+    },
+    h('span', null, 'Next'),
+    icon('chevron-right', { size: 16 }),
+  );
+  const foot = h('div', { class: 'wl-foot' }, backBtn, skipBtn, useBtn, nextBtn);
   const title = h('span');
 
   function show(next, { focus = true } = {}) {
@@ -129,22 +183,24 @@ export function openWelcome({ onChoose } = {}) {
       looks = lookPicker({ onUse: () => useBtn.click() });
       lookPanel.append(looks.el);
     }
-    title.textContent = isLook ? 'Pick your look' : 'Welcome to LIFE/OS';
+    title.textContent = isLook ? 'Pick your look' : next === 'formats' ? 'Your formats' : 'Welcome to LIFE/OS';
     lookPanel.hidden = !isLook;
-    choicePanel.hidden = isLook;
+    formatsPanel.hidden = next !== 'formats';
+    choicePanel.hidden = next !== 'choice';
     skipBtn.hidden = useBtn.hidden = !isLook;
+    nextBtn.hidden = next !== 'formats';
     backBtn.hidden = isLook;
     m?.el.classList.toggle('is-look', isLook);
     if (isLook && m) looks.reveal();
     if (focus && m) focusTarget().focus({ preventScroll: true });
   }
-  const focusTarget = () => (step === 'look' ? looks.card() : options[0]);
+  const focusTarget = () => (step === 'look' ? looks.card() : step === 'formats' ? formatsPanel.querySelector('[aria-pressed="true"]') : options[0]);
 
   show(step, { focus: false });
   m = openModal({
     title,
     className: ['welcome-sheet', 'wl-choice', step === 'look' && 'is-look'].filter(Boolean).join(' '),
-    body: [lookPanel, choicePanel],
+    body: [lookPanel, formatsPanel, choicePanel],
     footer: foot,
     initialFocus: focusTarget(),
     onClose: () => {

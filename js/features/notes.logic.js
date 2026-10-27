@@ -1010,8 +1010,8 @@ export const WELCOME_NOTE = {
     'LIFE/OS keeps your **tasks**, **notes**, **habits** and your days in one place. Everything is saved in this browser on this device, and only leaves it if you turn on **Sync**.',
     '',
     '## Getting around',
-    '- 8 pages: Home, Tasks, Notes, Habits, Calendar, Pomodoro, Training and Finance. Health is an idea for later.',
-    '- Press `1` to `8` to jump to a page, and `⌘K` (`Ctrl K` on Windows) to search everything.',
+    '- 10 pages: Home, Tasks, Notes, Habits, Calendar, Pomodoro, Training, Finance, Recovery and Health.',
+    '- Press `1` to `9` to jump to a page, and `⌘K` (`Ctrl K` on Windows) to search everything.',
     '- **Appearance** changes how it looks: 8 templates, each one light or dark.',
     '- **Sync** in Settings keeps your computers in step, if you want that.',
     '',
@@ -1085,8 +1085,14 @@ const WELCOME_BODY_V029 = [
   'Delete this note whenever you like. It will not come back.',
 ].join('\n');
 
+// v0.29 to v0.35: eight pages and Health an idea (only those two lines differ from today's)
+const WELCOME_BODY_V035 = WELCOME_NOTE.body
+  .replace('- 10 pages: Home, Tasks, Notes, Habits, Calendar, Pomodoro, Training, Finance, Recovery and Health.', '- 8 pages: Home, Tasks, Notes, Habits, Calendar, Pomodoro, Training and Finance. Health is an idea for later.')
+  .replace('- Press `1` to `9` to jump to a page,', '- Press `1` to `8` to jump to a page,');
+
 export const WELCOME_NOTE_EARLIER_BODIES = Object.freeze([
   WELCOME_BODY_V029,
   // Before v0.29 only its first sentence about storage differed
   WELCOME_BODY_V029.replace('Everything is saved in this browser on this device, and only leaves it if you turn on **Sync**.', 'Everything stays on this device, stored locally in your browser.'),
+  WELCOME_BODY_V035,
 ]);

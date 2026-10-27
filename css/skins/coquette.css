@@ -362,23 +362,6 @@
   background: var(--accent);
 }
 
-/* "Idea" (Health): a small hairline badge in spaced capitals, no dashes */
-[data-skin="coquette"] .nav-soon {
-  padding: 0 5px;
-  border: 1px solid var(--line-strong);
-  border-radius: var(--radius-xs);
-  background: transparent;
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.1em;
-  color: var(--text-3);
-}
-
-[data-skin="coquette"] .nav-item[aria-current="page"] .nav-soon {
-  border-color: var(--field-line);
-  color: var(--text);
-}
-
 [data-skin="coquette"] .sidebar-foot {
   gap: 4px;
   padding-top: 10px;
@@ -1746,6 +1729,43 @@
   border-radius: var(--radius-lg);
 }
 
+/* Health's graph in the same language: an ink trend line over warm-taupe rings (the weights), the
+   one read in rosewood */
+[data-skin="coquette"] .hl-ch {
+  border-radius: var(--radius-lg);
+}
+
+[data-skin="coquette"] .hl-ch-trend {
+  stroke: var(--text);
+  stroke-width: 1.75;
+}
+
+[data-skin="coquette"] .hl-key--line {
+  height: 1.5px;
+  background: var(--text);
+}
+
+[data-skin="coquette"] .hl-ch-dot {
+  stroke: var(--at-taupe);
+}
+
+[data-skin="coquette"] .hl-key--dot {
+  border-color: var(--at-taupe);
+}
+
+[data-skin="coquette"] .hl-ch-dot.is-active {
+  fill: var(--accent);
+}
+
+[data-skin="coquette"] .hl-w-line {
+  stroke: var(--text);
+  stroke-width: 1.75;
+}
+
+[data-skin="coquette"] .hl-w-dot {
+  stroke: var(--accent);
+}
+
 /* ---- Settings: Playfair section titles, the index in the picked look ---- */
 [data-skin="coquette"] .st-root .st-card-title {
   margin-top: var(--space-5);
@@ -1770,11 +1790,6 @@
   [data-skin="coquette"] .st-index {
     background: var(--bg);
   }
-}
-
-/* ---- Health ---- */
-[data-skin="coquette"] .hl-ideas-title {
-  color: var(--text-2);
 }
 
 /* ==========================================================================

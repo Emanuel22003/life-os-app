@@ -32,13 +32,14 @@
   --mod-finance: var(--cc-teal);
   /* Recovery: the eight colors are taken, so a calm indigo between blue and purple */
   --mod-recovery: color-mix(in srgb, var(--cc-blue) 50%, var(--cc-purple));
-  /* Health is an idea, not a page yet: a quiet gray, not the Calendar's red */
-  --mod-health: var(--text-3);
+  /* Health: a rose between the Calendar's red and Training's pink (a heart, not an alarm) */
+  --mod-health: color-mix(in srgb, var(--cc-red) 50%, var(--cc-pink));
 }
 
 /* Atelier (id coquette): muted editorial tones, Home in the house's own accent (rosewood by day,
-   rose gold by night), then slate, ochre, sage, rust, plum, teal, a bronze taupe and a lilac. Each
-   is 5:1 or more on the paper and 4.4:1 or more on its own tint (icons need 3:1, WCAG 1.4.11). */
+   rose gold by night), then slate, ochre, sage, rust, plum, teal, a bronze taupe, a lilac and an
+   orchid (Health). Each is 5:1 or more on the paper and 4.4:1 or more on its own tint (icons need
+   3:1, WCAG 1.4.11). */
 :root[data-skin="coquette"] {
   --mod-home: var(--accent);
   --mod-tasks: #a3b6d0;
@@ -49,7 +50,7 @@
   --mod-training: #92c0b9;
   --mod-finance: #c9b296;
   --mod-recovery: #b0acd9;
-  --mod-health: var(--text-3);
+  --mod-health: #dc9cbf;
 }
 
 :root[data-skin="coquette"][data-theme="light"] {
@@ -61,11 +62,12 @@
   --mod-training: #386663;
   --mod-finance: #6f5b47;
   --mod-recovery: #55508a;
+  --mod-health: #8f3f6c;
 }
 
 /* Pearl (id y2k): cool, muted tones around its violet-blue: Home in the accent, then steel blue,
-   a soft gold, sea green, dusty rose, mauve, teal, slate and a warm peach. 4.9:1 or more on the
-   pearl paper, 4.5:1 or more on their own tint. */
+   a soft gold, sea green, dusty rose, mauve, teal, slate, a warm peach and a coral (Health).
+   4.9:1 or more on the pearl paper, 4.4:1 or more on their own tint. */
 :root[data-skin="y2k"] {
   --mod-home: var(--accent);
   --mod-tasks: #93aedb;
@@ -76,7 +78,7 @@
   --mod-training: #8cc3cc;
   --mod-finance: #aab4c8;
   --mod-recovery: #e3b08e;
-  --mod-health: var(--text-3);
+  --mod-health: #f0948f;
 }
 
 :root[data-skin="y2k"][data-theme="light"] {
@@ -88,6 +90,7 @@
   --mod-training: #2d6a76;
   --mod-finance: #535f78;
   --mod-recovery: #8a4c24;
+  --mod-health: #a8403a;
 }
 
 :root[data-skin="oldmoney"] {

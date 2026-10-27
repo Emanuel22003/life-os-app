@@ -1,8 +1,8 @@
 // LIFE/OS — 01 // Home: the start page, today at a glance. A greeting, the Today strip (a tile
 // each for events, tasks, habits and the timer: the first place to look), and a board of widgets
 // you arrange yourself (Customize): the week, the Pomodoro timer, today's habits, the to-do list,
-// a quick note, the habit graph, a clock, the agenda, payments, training and recovery (not on the
-// board until added). Every widget wears
+// a quick note, the habit graph, a clock, the agenda, payments, training, recovery and weight
+// (not on the board until added). Every widget wears
 // its page's badge (icon + color), so you can tell them apart without reading.
 // Drag a widget by its handle (or move it with the arrow keys), pick its size, remove it, or add
 // one from the shelf; the layout is per device (store 'home'.layout, rules in home.logic.js).
@@ -44,7 +44,8 @@ import {
   dismissTip,
   emptyState,
   menuOpen,
-  MONTHS_SHORT,
+  dayMonth,
+  dayRange,
 } from '../ui.js';
 import { shell } from '../shell.js';
 import { createStore, settings } from '../store.js';
@@ -69,6 +70,8 @@ import { trainingApi } from './training.js';
 import { weekStats, lastDone, sessionElapsed, restLeft, formatDuration } from './training.logic.js';
 import { recoveryApi } from './recovery.js';
 import { orderedTrackers, stats as recoveryStats, trackerIcon } from './recovery.logic.js';
+import { healthApi } from './health.js';
+import { trendSeries, trendChange, changeWords, weightText, numberText, chartPoints } from './health.logic.js';
 import { PHASE_LABEL, focusStats } from './pomodoro.logic.js';
 import { iconOf } from '../icons.logic.js';
 import { bellMark } from '../reminders.ui.js';
@@ -122,6 +125,14 @@ const nowMinutes = () => {
   const d = new Date();
   return d.getHours() * 60 + d.getMinutes();
 };
+
+const SVG_NS = 'http://www.w3.org/2000/svg';
+/** An SVG element with its attributes (the Weight widget's small line). */
+function svgEl(tag, attrs) {
+  const el = document.createElementNS(SVG_NS, tag);
+  for (const [k, v] of Object.entries(attrs ?? {})) if (v != null) el.setAttribute(k, String(v));
+  return el;
+}
 
 /**
  * Repaint a part of the page and give focus back to the control it had (by data-fid). When that
@@ -904,7 +915,7 @@ function mount(root) {
             { type: 'button', class: 'hm-up-head', 'aria-label': label, dataset: { open: d.key, fid: `up:${d.key}` } },
             icon(d.isToday ? 'sun' : d.key === tomorrow ? 'sunrise' : 'calendar', { size: 14 }),
             h('span', { class: 'hm-up-when' }, word),
-            h('span', { class: 'hm-up-date tnum' }, `${date.getDate()} ${MONTHS_SHORT[date.getMonth()]}`),
+            h('span', { class: 'hm-up-date tnum' }, dayMonth(date.getFullYear(), date.getMonth() + 1, date.getDate())),
           ),
           h(
             'div',
@@ -954,7 +965,7 @@ function mount(root) {
     weekKicker.textContent = HM.CAL_VIEW_LABEL[view];
     const head = periodHeading(view, state.cursor, { weekNumber: !simple });
     // "Today & next" while it starts today; after ‹ ›, its month and its own seven days
-    const shownHead = agenda ? { month: start === state.today ? 'Today & next' : head.month, year: start === state.today ? '' : String(from).slice(0, 4), sub: HM.rangeText(from, to, MONTHS_SHORT) } : head;
+    const shownHead = agenda ? { month: start === state.today ? 'Today & next' : head.month, year: start === state.today ? '' : String(from).slice(0, 4), sub: dayRange(String(from).split('-').map(Number), String(to).split('-').map(Number)) } : head;
     const headText = `${shownHead.month} ${shownHead.year}|${shownHead.sub}`;
     if (weekTitle.dataset.text !== headText) {
       weekTitle.dataset.text = headText;
@@ -1644,6 +1655,72 @@ function mount(root) {
     );
   }
 
+  /* ---- Weight: the latest weight, its last 30 days as a small line, and the change ---- */
+
+  const wtBody = h('div', { class: 'hl-w-body' });
+  const wtCard = h(
+    'section',
+    { class: 'panel hm-card hl-w', 'aria-labelledby': 'hm-wt-title' },
+    cardHead('hm-wt-title', 'weight', 'Weight', moreLink({ href: '#/health', label: 'Health' })),
+    wtBody,
+  );
+
+  function paintWeight() {
+    const s = healthApi.state();
+    if (!s.weights.length) {
+      wtBody.replaceChildren(
+        miniEmpty({
+          iconName: 'hl-scale',
+          title: 'No weights yet',
+          text: 'Log one and see its trend.',
+          action: h('button', { type: 'button', class: 'btn btn--sm', onClick: () => healthApi.focusAdd() }, icon('plus', { size: 14 }), 'Log weight'),
+        }),
+      );
+      return;
+    }
+    const series = trendSeries(s.weights);
+    const latest = series[series.length - 1];
+    const change = changeWords(trendChange(series, 30), 30, s.unit);
+    const from = shiftKey(state.today, -29);
+    const points = chartPoints(series, from, state.today, s.unit);
+    const when = latest.date === state.today ? 'Today' : formatDay(latest.date);
+    keepFocus(wtBody, () =>
+      wtBody.replaceChildren(
+        h(
+          'button',
+          {
+            type: 'button',
+            class: 'hl-w-open',
+            dataset: { fid: 'wt-open' },
+            'aria-label': `Weight: ${weightText(latest.kg, s.unit)}, ${latest.date === state.today ? 'today' : formatDay(latest.date)}${change ? `; ${change}` : ''}. Open Health`,
+            onClick: () => (location.hash = '#/health'),
+          },
+          h('span', { class: 'hl-w-now' }, h('span', { class: 'stat-value' }, numberText(latest.kg, s.unit)), h('span', { class: 'hl-w-unit' }, ` ${s.unit} · ${when}`)),
+          weightSpark(points, 30),
+          h('span', { class: 'hl-w-change' }, change || 'One weight so far'),
+        ),
+      ),
+    );
+  }
+
+  /** The trend over the last `days` days as a small line (the latest weight a dot at its end). */
+  function weightSpark(points, days) {
+    const svg = svgEl('svg', { class: 'hl-w-spark', viewBox: '0 0 100 30', preserveAspectRatio: 'none', 'aria-hidden': 'true', focusable: 'false' });
+    if (!points.length) return svg;
+    const vals = points.flatMap((p) => [p.trend, p.value]);
+    const lo = Math.min(...vals);
+    const hi = Math.max(...vals);
+    const span = Math.max(hi - lo, 1);
+    const mid = (lo + hi) / 2;
+    const x = (i) => (days > 1 ? (i / (days - 1)) * 100 : 50);
+    const y = (v) => 15 - ((v - mid) / span) * 24;
+    if (points.length > 1) svg.append(svgEl('path', { class: 'hl-w-line', d: points.map((p, j) => `${j ? 'L' : 'M'}${x(p.i).toFixed(2)} ${y(p.trend).toFixed(2)}`).join(' '), 'vector-effect': 'non-scaling-stroke' }));
+    const last = points[points.length - 1];
+    // (a dot drawn as a stroke, so the stretched box keeps it round)
+    svg.append(svgEl('path', { class: 'hl-w-dot', d: `M${x(last.i).toFixed(2)} ${y(last.value).toFixed(2)}h0`, 'vector-effect': 'non-scaling-stroke' }));
+    return svg;
+  }
+
   /* ---- Your own Home: the board of widgets ----
      home.logic.js places the widgets (placeWidgets): each in its columns, as high as it fits,
      at its own height, so a short widget leaves room under it. The board sizes and measures
@@ -1651,7 +1728,7 @@ function mount(root) {
      Customize shows a bar on each (drag handle, size, remove) and the Add shelf below; the
      widgets themselves are inert meanwhile, so a drag never presses a button inside them. */
 
-  const CARDS = { week: weekCard, pomodoro: pomo.card, todo: todoCard, habits: habitsCard, graph: graphCard, note: noteCard, clock: clockCard, agenda: agendaCard, payments: payCard, training: trainCard, recovery: rcCard };
+  const CARDS = { week: weekCard, pomodoro: pomo.card, todo: todoCard, habits: habitsCard, graph: graphCard, note: noteCard, clock: clockCard, agenda: agendaCard, payments: payCard, training: trainCard, recovery: rcCard, weight: wtCard };
   const board = h('div', { class: 'hm-board' });
   const below = h('div', { class: 'hm-below' });
   const announce = h('p', { class: 'sr-only', role: 'status', 'aria-live': 'polite' });
@@ -2018,6 +2095,7 @@ function mount(root) {
     paintPayments();
     paintTraining();
     paintRecovery();
+    paintWeight();
   }
   paintAll();
   // Now that the widgets have their content, place them by their real heights
@@ -2133,6 +2211,7 @@ function mount(root) {
     }),
     financeApi.subscribe(() => paintPayments()),
     recoveryApi.subscribe(() => paintRecovery()),
+    healthApi.subscribe(() => paintWeight()),
     trainingApi.subscribe(() => paintTraining()),
     // The layout or the calendar's view changed (here, or in another window); a Start step too
     prefs.subscribe(() => {

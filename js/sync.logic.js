@@ -19,11 +19,13 @@ export const SYNCED = Object.freeze({
   finance: Object.freeze(['view']),
   // (the tracker shown and its calendar's month are this window's choice)
   recovery: Object.freeze(['view']),
+  // (the weights, the goal and kg or lb sync; the graph's range is this window's choice)
+  health: Object.freeze(['view']),
 });
 export const SYNCED_KEYS = Object.freeze(Object.keys(SYNCED));
 
 /** How each store is named in the repo's history ("Notes · Mac"). */
-export const STORE_LABELS = Object.freeze({ tasks: 'Tasks', notes: 'Notes', habits: 'Habits', calendar: 'Calendar', pomodoro: 'Pomodoro', training: 'Training', finance: 'Finance', recovery: 'Recovery' });
+export const STORE_LABELS = Object.freeze({ tasks: 'Tasks', notes: 'Notes', habits: 'Habits', calendar: 'Calendar', pomodoro: 'Pomodoro', training: 'Training', finance: 'Finance', recovery: 'Recovery', health: 'Health' });
 
 const isObject = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 const hasOwn = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
@@ -84,8 +86,9 @@ function preferFor(local, remote, prefer) {
  * - Whatever only one side changed since base is taken from that side.
  * - Objects merge key by key. A key one side deleted stays deleted, unless the other side
  *   changed it: an edit beats a delete, so nothing anyone wrote is lost.
- * - Lists of records with ids (tasks, notes, events, habits, sessions) merge record by record by
- *   the same rules. Order follows `local`; records new from `remote` follow, in remote's order.
+ * - Lists of records with ids (tasks, notes, events, habits, sessions, weights) merge record by
+ *   record by the same rules. Order follows `local`; records new from `remote` follow, in
+ *   remote's order.
  * - Lists of days (a recovery tracker's relapses) merge day by day, like habit ticks: a day one
  *   side added or removed is added or removed, so two devices marking days between syncs keep both.
  * - A value both changed differently (a title, a plain list): the record with the later updatedAt
@@ -179,6 +182,7 @@ export function countData(docs = {}) {
     // copy over them as if it were empty (firstSyncPlan)
     results: list(docs.finance?.entries).length,
     trackers: list(docs.recovery?.items).length,
+    weights: list(docs.health?.weights).length,
   };
 }
 
@@ -194,6 +198,7 @@ const COUNT_WORDS = [
   ['subscriptions', 'subscription'],
   ['results', 'daily result'],
   ['trackers', 'recovery tracker'],
+  ['weights', 'weight'],
 ];
 
 /** '88 tasks · 61 notes · 9 habits' (what there is; sections go with notes) or 'nothing yet' */

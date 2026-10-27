@@ -1109,10 +1109,6 @@
   font-weight: 600;
 }
 
-.more-page.is-soon {
-  color: var(--text-3);
-}
-
 .more-page-label {
   max-width: 100%;
   overflow: hidden;
@@ -1120,8 +1116,7 @@
   white-space: nowrap;
 }
 
-.more-page .more-page-count,
-.more-page .nav-soon {
+.more-page .more-page-count {
   display: inline-block;
   position: absolute;
   top: 6px;

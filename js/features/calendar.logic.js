@@ -44,7 +44,7 @@
 // - monthGrid holds exactly the weeks that touch the month (4–6 rows), or 6 rows with
 //   { rows: 6 }. viewRange('month') covers the same days as the default grid.
 
-import { uid, MONTHS_SHORT, WEEKDAYS_SHORT } from '../ui.js';
+import { uid, MONTHS_SHORT, WEEKDAYS_SHORT, dayMonth, dayRange, weekdayDate } from '../ui.js';
 import { isValidKey, toDayNum, fromDayNum, weekdayOf, normalizeDays, compileHabit, scheduledAt, activeAt } from './habits.logic.js';
 import { iconOf } from '../icons.logic.js';
 import { cleanItemReminders, sameReminders, hasOwnReminders } from '../reminders.logic.js';
@@ -1019,11 +1019,11 @@ export function describeRepeat(repeat, start) {
   } else if (r.freq === 'monthly') {
     text = `${k === 1 ? 'Monthly' : `Every ${k} months`} on day ${d}${d > 28 ? ' · skips shorter months' : ''}`;
   } else {
-    text = `${k === 1 ? 'Yearly' : `Every ${k} years`} on ${d} ${MONTHS_SHORT[m - 1]}${m === 2 && d === 29 ? ' · leap years only' : ''}`;
+    text = `${k === 1 ? 'Yearly' : `Every ${k} years`} on ${dayMonth(null, m, d)}${m === 2 && d === 29 ? ' · leap years only' : ''}`;
   }
   if (r.until) {
     const [uy, um, ud] = ymd(r.until);
-    text += ` · until ${ud} ${MONTHS_SHORT[um - 1]} ${uy}`;
+    text += ` · until ${dayMonth(uy, um, ud, { year: true })}`;
   }
   return text;
 }
@@ -1281,17 +1281,15 @@ export function viewTitle(view, cursor, { short = false, weekNumber = true } = {
   const [y, m, d] = ymd(cursor);
   if (view === 'day') {
     const wd = weekdayOf(toDayNum(cursor));
-    return short ? `${WEEKDAYS_SHORT[wd]} ${d} ${MONTHS_SHORT[m - 1]}` : `${WEEKDAYS_LONG[wd]} ${d} ${MONTHS_LONG[m - 1]} ${y}`;
+    return short ? `${WEEKDAYS_SHORT[wd]} ${dayMonth(y, m, d)}` : weekdayDate(cursor, { long: true });
   }
   if (view === 'week') {
     const keys = weekKeys(cursor);
     const [ay, am, ad] = ymd(keys[0]);
     const [by, bm, bd] = ymd(keys[6]);
     const w = isoWeek(keys[0]);
-    let range;
-    if (am === bm) range = `${ad}–${bd} ${MONTHS_SHORT[bm - 1]}${short ? '' : ` ${by}`}`;
-    else if (ay === by || short) range = `${ad} ${MONTHS_SHORT[am - 1]} – ${bd} ${MONTHS_SHORT[bm - 1]}${short ? '' : ` ${by}`}`;
-    else range = `${ad} ${MONTHS_SHORT[am - 1]} ${ay} – ${bd} ${MONTHS_SHORT[bm - 1]} ${by}`;
+    // (in this device's date format: '5–11 Oct 2026', 'Oct 5–11, 2026', '2026-10-05 – 2026-10-11')
+    const range = dayRange([ay, am, ad], [by, bm, bd], { year: !short });
     if (!weekNumber) return range;
     return short ? `W${w} · ${range}` : `Week ${w} · ${range}`;
   }
@@ -1321,7 +1319,7 @@ export function periodHeading(view, cursor, { short = false, weekNumber = true }
     const name = (n) => (short ? MONTHS_SHORT[n - 1] : MONTHS_LONG[n - 1]);
     let month = MONTHS_LONG[bm - 1];
     if (am !== bm) month = ay === by ? `${name(am)} – ${name(bm)}` : `${name(am)} ${ay} – ${name(bm)}`;
-    const range = am === bm ? `${ad}–${bd} ${MONTHS_SHORT[bm - 1]}` : `${ad} ${MONTHS_SHORT[am - 1]} – ${bd} ${MONTHS_SHORT[bm - 1]}`;
+    const range = dayRange([ay, am, ad], [by, bm, bd]);
     const w = isoWeek(keys[0]);
     return { month, year: String(by), sub: weekNumber ? `${short ? `W${w}` : `Week ${w}`} · ${range}` : range };
   }

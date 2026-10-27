@@ -2021,23 +2021,6 @@
   font-weight: 600;
 }
 
-/* ---- Health: "Idea" in the menu is a soft pill like the menu's counts (no dashes in Simple);
-   the ideas under the empty state are words with a small heading ---- */
-[data-skin="simple"] .nav-soon {
-  padding: 0 7px;
-  border: 0;
-  border-radius: var(--radius-pill);
-  background: var(--surface-3);
-  font-size: var(--fs-2xs);
-  font-weight: 500;
-  color: var(--text-2);
-}
-
-[data-skin="simple"] :is(.nav-item, .more-page)[aria-current="page"] .nav-soon {
-  background: var(--surface);
-  color: var(--text);
-}
-
 /* ---- A workout going on: Training's mark in the menu and in More is the same small red dot as
    "Workout in progress" and the top bar's pill (its "●" sat in a count's pill, which read as a
    switch, black on white where Training is open) ---- */
@@ -2050,17 +2033,6 @@
   background: var(--alert);
   font-size: 0;
   line-height: 0;
-}
-
-[data-skin="simple"] .hl-ideas-title {
-  font-size: var(--fs-sm);
-  font-weight: 600;
-  color: var(--text-2);
-}
-
-/* Wide enough for the six ideas on one line (at 46ch "Mood ·" ended a line on its own dot) */
-[data-skin="simple"] .hl-ideas {
-  max-width: 64ch;
 }
 
 /* ---- Settings: the section's title (semibold) leads its rows (medium, a step below it) ---- */

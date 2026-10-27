@@ -60,6 +60,7 @@ const MODULES = {
   training: () => import('./features/training.js'),
   recovery: () => import('./features/recovery.js'),
   recoveryLogic: () => import('./features/recovery.logic.js'),
+  health: () => import('./features/health.js'),
   settingsLogic: () => import('./features/settings.logic.js'),
   syncPanel: () => import('./sync.panel.js'),
 };
@@ -206,7 +207,7 @@ const PAGE_INFO = {
   training: { icon: 'dumbbell', keywords: 'workout gym exercise lifting running' },
   finance: { icon: 'wallet', keywords: 'money subscriptions payments bills' },
   recovery: { icon: 'leaf', keywords: 'addiction quit stop sober clean days relapse smoking alcohol' },
-  health: { icon: 'heart', keywords: 'idea' },
+  health: { icon: 'heart', keywords: 'weight weigh scale body kg lb pounds kilos trend goal' },
   settings: { icon: 'gear', keywords: 'preferences options backup export import data delete' },
 };
 
@@ -261,6 +262,8 @@ function newActions(text = '') {
     { id: 'habit', page: 'habits', title: 'New habit', keywords: 'add routine', icon: 'target', idle: true },
     { id: 'subscription', page: 'finance', title: 'New subscription', keywords: 'add payment money finance', icon: 'wallet', add: () => mods.finance?.financeApi?.add },
     { id: 'tracker', page: 'recovery', title: 'New tracker', keywords: 'add recovery addiction quit stop sober', icon: 'leaf', add: () => mods.recovery?.recoveryApi?.add },
+    // (the Health page's weight field, in focus)
+    { id: 'weight', page: 'health', title: 'Log weight', keywords: 'add health weigh weight scale body kg lb', icon: 'heart', noText: true, add: () => mods.health?.healthApi?.focusAdd },
     // (N on Training starts one; while one is going, it is there to open)
     { id: 'workout', page: 'training', title: live ? 'Open the workout' : 'Start a workout', keywords: 'training gym log exercise new', icon: 'dumbbell', noText: true, add: () => (live ? null : mods.training?.trainingApi?.startSession) },
   ];
@@ -321,7 +324,6 @@ function pageEntries() {
         shell.openAppearance();
       },
     },
-    { id: 'page:health', group: 'pages', title: 'Health', meta: 'An idea, not available yet', keywords: PAGE_INFO.health.keywords, icon: 'heart', tone: 'health', later: true, run: () => go('health') },
     {
       id: 'page:shortcuts',
       group: 'pages',
@@ -886,7 +888,7 @@ function everywhere() {
   return [
     [[`${MOD} K`], 'Search, and go anywhere (writing in a task’s page: a link)'],
     [['?'], 'This list'],
-    pages.length ? [['1', '…', String(pages.length)], 'Go to a page (its number in the menu)'] : null,
+    pages.length ? [['1', '…', String(Math.min(9, pages.length))], 'Go to a page (its number in the menu)'] : null,
     [['N'], 'New item on the page you are on (task, note, habit, event…)'],
     [['Esc'], 'Close a dialog, menu or the editor'],
     [['Shift F10'], 'The right-click menu of the item in focus'],
@@ -956,6 +958,12 @@ const pageKeys = () => ({
     [['T'], 'The calendar: back to this month'],
     [['←', '→', '↑', '↓'], 'The calendar: move between days (PageUp / PageDown: a month)'],
     [['Enter', 'Space'], 'The calendar: mark or remove a relapse on that day'],
+  ],
+  health: [
+    [['N'], 'Log a weight (the weight field)'],
+    [['Enter'], 'In the add line: add (a day that has a weight: replace it)'],
+    [['←', '→', 'Home', 'End'], 'The graph: read each weight · the first / last'],
+    [['Enter'], 'On a weight in the list: edit it'],
   ],
 });
 

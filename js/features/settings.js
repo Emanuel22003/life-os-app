@@ -6,7 +6,7 @@
 // defaults in `settings` (this computer only). Changes made elsewhere (the Pomodoro page, another
 // window) show here at once.
 
-import { h, icon, pageHeader, dropdown, toast, confirmDialog, openModal, formatDay, dateKey, uid, hiddenTipCount, resetTips, reducedMotion } from '../ui.js';
+import { h, icon, pageHeader, dropdown, toast, confirmDialog, openModal, formatDay, dateKey, todayKey, uid, hiddenTipCount, resetTips, reducedMotion, DATE_FORMAT_CHOICES, UNIT_CHOICES, normalizeDateFormat, normalizeUnits, numericDate, weekdayDate } from '../ui.js';
 import { settings, stopSaving } from '../store.js';
 import { deleteAllFiles } from '../files.js';
 import { SKINS, normalizeSkin, THEMES } from '../skins.js';
@@ -299,7 +299,7 @@ function openDeleteAll() {
       h(
         'ul',
         { class: 'st-delete-list' },
-        h('li', null, 'Your tasks, notes, habits, calendar events, focus sessions, workouts, subscriptions, recovery trackers and settings.'),
+        h('li', null, 'Your tasks, notes, habits, calendar events, focus sessions, workouts, subscriptions, recovery trackers, weights and settings.'),
         h('li', null, 'The safety backups LIFE/OS keeps here (made before a restore or a first sync).'),
         h('li', null, config ? 'Your sync key and sync state: Sync turns off on this device.' : 'Sync’s key and state, if this device was ever connected.'),
         h('li', null, 'The offline copy of the app. It downloads again the next time LIFE/OS opens online.'),
@@ -511,6 +511,38 @@ function mount(root) {
     },
   });
 
+  /* Dates & units (this device): how dates read everywhere, and kg or lb (km or miles) */
+  let dateSeg;
+  const dateRow = row({
+    key: 'date-format',
+    title: 'Date format',
+    hint: '',
+    stack: true,
+    control: (id) => {
+      dateSeg = segControl(id, DATE_FORMAT_CHOICES.map((c) => ({ value: c.id, label: numericDate(todayKey(), c.id), title: c.label })), (f) => settings.update({ dateFormat: f }));
+      return dateSeg.el;
+    },
+  });
+  let unitSeg;
+  const unitsRow = row({
+    key: 'units',
+    title: 'Units',
+    hint: 'Health shows weights in kg or lb to match (its own kg / lb switch changes only Health). Training stays in kg and km for now.',
+    stack: true,
+    control: (id) => {
+      unitSeg = segControl(id, UNIT_CHOICES.map((c) => ({ value: c.id, label: `${c.label} · ${c.hint}` })), (u) => settings.update({ units: u }));
+      return unitSeg.el;
+    },
+  });
+  const paintFormats = () => {
+    const s = settings.get();
+    const f = normalizeDateFormat(s.dateFormat);
+    dateSeg.set(f);
+    // A live example of today in the format picked
+    dateRow.hint(`Today reads ${weekdayDate(todayKey())} and ${numericDate(todayKey())}. Month and weekday names stay words. This device only.`);
+    unitSeg.set(normalizeUnits(s.units));
+  };
+
   let motion;
   const motionRow = row({
     title: 'Reduce animations',
@@ -606,7 +638,7 @@ function mount(root) {
 
   const backupRow = row({
     title: 'Download a backup',
-    hint: 'One file with all your tasks, notes, habits, events, workouts, subscriptions, recovery trackers, timer history and settings. Keep it somewhere safe.',
+    hint: 'One file with all your tasks, notes, habits, events, workouts, subscriptions, recovery trackers, weights, timer history and settings. Keep it somewhere safe.',
     control: button('Download', downloadBackup, { iconName: 'arrow-down' }),
   });
 
@@ -732,6 +764,7 @@ function mount(root) {
 
   const rowsOf = {
     appearance: [templateRow, themeRow, paletteRow, motionRow, tipsRow],
+    formats: [dateRow, unitsRow],
     colors: [colorsRow, ...colorKindRows],
     sound: [soundRow, notifyRow, miniRow],
     reminders: [remOnRow, permRow, remSoundRow, allDayRow, remEventsRow, remTimedRow, remDateRow, remTestRow],
@@ -838,6 +871,8 @@ function mount(root) {
   );
   paintTips();
   cleanups.push(settings.subscribe(paintTips));
+  paintFormats();
+  cleanups.push(settings.subscribe(paintFormats));
   paintTour();
   cleanups.push(settings.subscribe(paintTour));
   cleanups.push(() => palette.destroy());

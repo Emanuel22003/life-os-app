@@ -265,3 +265,73 @@
     flex: 0 1 auto;
   }
 }
+
+/* ---- Your formats (the second step): the date formats and the units, each a column of choices
+   that say their example of today; the picked one has the template's picked edge ---- */
+.wl-fmt {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.wl-fmt-label {
+  margin: 0;
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+
+.wl-fmt-opts {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.wl-fmt-opt {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 2px var(--space-3);
+  width: 100%;
+  min-height: 48px;
+  padding: var(--space-2) var(--space-4);
+  border: var(--border-w) solid var(--line-strong);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.wl-fmt-opt[aria-pressed="true"] {
+  border-color: var(--text);
+  box-shadow: inset 0 0 0 1px var(--text);
+  background: var(--surface-2);
+}
+
+.wl-fmt-name {
+  font-size: var(--fs-md);
+  font-weight: 600;
+}
+
+.wl-fmt-example {
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .wl-fmt-opt:hover {
+    border-color: var(--text-3);
+  }
+}
+
+.wl-fmt-opt:focus-visible {
+  outline: 2px solid var(--line-focus);
+  outline-offset: 2px;
+}
+
+.welcome-sheet .wl-next {
+  margin-left: auto;
+}

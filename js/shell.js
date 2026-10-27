@@ -119,6 +119,7 @@ export const PAGE_INTROS = Object.freeze({
   training: 'Log workouts and routines, with a rest timer and your progress per exercise.',
   finance: 'Your subscriptions: what they cost a month and which payment is next.',
   recovery: 'Count the days you stay away from something, such as smoking or alcohol.',
+  health: 'Log your weight once a day and follow its trend on a graph.',
 });
 
 /**

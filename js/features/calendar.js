@@ -10,7 +10,7 @@
 //   height that shows the whole day without scrolling).
 // - Which day-plan lists are open is a preference of this device ('calendar-prefs', not synced).
 
-import { h, icon, iconBadge, pageHeader, term, toast, openModal, isTyping, modalOpen, menuOpen, todayKey, onDayChange, debounce, weekday, uid, MONTHS_SHORT, reducedMotion, plainSkin, promptDialog, dropdown, tip, tipHidden, dismissTip } from '../ui.js';
+import { h, icon, iconBadge, pageHeader, term, toast, openModal, isTyping, modalOpen, menuOpen, todayKey, onDayChange, debounce, weekday, uid, dayMonth, reducedMotion, plainSkin, promptDialog, dropdown, tip, tipHidden, dismissTip } from '../ui.js';
 import { createStore } from '../store.js';
 import { tasksApi } from './tasks.js';
 import { habitsApi } from './habits.js';
@@ -366,7 +366,7 @@ function openTaskSheet(id, cursor, onClose) {
         { type: 'button', class: ['btn btn--sm', task.due === key && 'is-current'], 'aria-pressed': String(task.due === key), title: L.viewTitle('day', key), onClick: () => set(key) },
         icon(L.dayIcon(key, today), { size: 14 }),
         h('span', { class: 'cal-sheet-word' }, label),
-        label === shortDay(key) ? null : h('span', { class: 'cal-sheet-date label tnum' }, `${Number(key.slice(8))} ${MONTHS_SHORT[Number(key.slice(5, 7)) - 1]}`),
+        label === shortDay(key) ? null : h('span', { class: 'cal-sheet-date label tnum' }, dayMonth(Number(key.slice(0, 4)), Number(key.slice(5, 7)), Number(key.slice(8)))),
       ),
     ),
     task.due ? h('button', { type: 'button', class: 'btn btn--sm btn--ghost', onClick: () => set(null) }, icon('circle-slash', { size: 14 }), h('span', null, 'No date')) : null,

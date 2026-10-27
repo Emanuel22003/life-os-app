@@ -595,20 +595,6 @@
   line-height: 0;
 }
 
-[data-skin="minimal"] .nav-soon {
-  padding: 0;
-  border: 0;
-  color: var(--text-3);
-}
-
-/* In More, "Idea" sits under its page's name as a small gray word (not a tag in the corner) */
-[data-skin="minimal"] .more-page .nav-soon {
-  position: static;
-  margin-top: -2px;
-  font-size: var(--fs-2xs);
-  line-height: 1.2;
-}
-
 [data-skin="minimal"] .more-row-icon {
   color: var(--text-3);
 }
@@ -6194,31 +6180,62 @@
 
 /* ==========================================================================
    Health (minimal)
-   Not available yet: the shared empty state as one left-aligned sentence (as every empty state
-   here), then the ideas as gray words with a small title. Its explanation is a tip, so it never
-   shows here; "Idea" in the menu is a gray word.
+   Your weight in the same quiet lists as Finance's results: everything starts on the titles'
+   edge (the panels' inner padding goes), the graph without its plate, rows reaching 8px past
+   the words for their hover.
    ========================================================================== */
 
-/* (wide enough for the six ideas on one line: at 46ch "Mood ·" ended a line on its own dot) */
-[data-skin="minimal"] .hl-root .hl-ideas {
-  gap: var(--space-1);
-  max-width: 64ch;
-  margin-top: var(--space-3);
+[data-skin="minimal"] .hl-root :is(.hl-qa, .hl-ch-key, .hl-stat, .hl-month-head) {
+  padding-inline: 0;
 }
 
-[data-skin="minimal"] .hl-root .hl-ideas-title {
+[data-skin="minimal"] .hl-root .hl-side {
+  gap: var(--space-7);
+}
+
+[data-skin="minimal"] .hl-root .hl-panel {
+  overflow: visible;
+}
+
+[data-skin="minimal"] .hl-root .hl-panel .hl-panel-head {
+  padding: 0 0 var(--space-2);
+  border-bottom: 0;
+}
+
+[data-skin="minimal"] .hl-root .hl-panel-title {
+  color: var(--text-2);
   font-family: var(--font-sans);
-  font-size: var(--fs-xs);
-  font-weight: 400;
+  font-size: var(--fs-sm);
+  font-weight: 500;
   letter-spacing: 0;
   text-transform: none;
-  color: var(--text-3);
 }
 
-/* The ideas in the size of the sentence above them (16px made them louder than it) */
-[data-skin="minimal"] .hl-root .hl-list {
-  font-size: var(--fs-sm);
-  color: var(--text-2);
+[data-skin="minimal"] .hl-root :is(.hl-none, .hl-more) {
+  padding-inline: 0;
+}
+
+[data-skin="minimal"] .hl-root {
+  --hl-ch-bg: var(--bg);
+}
+
+[data-skin="minimal"] .hl-root .hl-ch {
+  margin-inline: 0;
+}
+
+[data-skin="minimal"] .hl-root .hl-stat:nth-child(even) {
+  padding-left: var(--space-4);
+}
+
+[data-skin="minimal"] .hl-root .hl-month + .hl-month {
+  margin-top: var(--space-4);
+  border-top: 0;
+}
+
+[data-skin="minimal"] .hl-root .hl-row {
+  margin-inline: -8px;
+  padding-inline: 8px;
+  border-radius: var(--radius-sm);
 }
 
 /* end Health */

@@ -670,26 +670,6 @@
   font-weight: 900;
 }
 
-[data-skin="brutalist"] .more-page.is-soon {
-  border-style: dashed;
-  box-shadow: none;
-  color: var(--text-2);
-}
-
-/* Its "Idea" stamp: a small tab tucked into the tile's corner (in the shared corner spot, at this
-   template's wide caps, it lay over the heart icon) */
-[data-skin="brutalist"] .more-page .nav-soon {
-  top: 0;
-  right: 0;
-  padding: 0 4px;
-  border-width: 0 0 2px 2px;
-  border-style: dashed;
-  border-color: var(--text-2);
-  font-size: 10px;
-  letter-spacing: 0.02em;
-  line-height: 14px;
-}
-
 [data-skin="brutalist"] .more-list,
 [data-skin="brutalist"] .more-tabs {
   border-top: 3px solid var(--text);
@@ -6867,6 +6847,85 @@
   border-top: 2px solid var(--text);
 }
 
+/* Health: the graph like Training's and Finance's (a fat ink line with square joints, a quiet
+   dashed grid, the weights as ink rings, the one read in hazard yellow, the tip a slab), the
+   goal a heavy dash; the weights ruled in ink like the results */
+[data-skin="brutalist"] .hl-ch {
+  border-radius: 0;
+}
+
+[data-skin="brutalist"] .hl-ch-grid line {
+  stroke: var(--heat-1);
+  stroke-dasharray: 2 4;
+}
+
+[data-skin="brutalist"] :is(.hl-ch-axis, .hl-ch-goal-label) {
+  font-family: var(--font-sans);
+  font-weight: 700;
+  fill: var(--text-2);
+}
+
+[data-skin="brutalist"] .hl-ch-trend {
+  stroke: var(--text);
+  stroke-width: 3;
+  stroke-linejoin: miter;
+  stroke-linecap: square;
+}
+
+[data-skin="brutalist"] .hl-key--line {
+  height: 3px;
+  border-radius: 0;
+  background: var(--text);
+}
+
+[data-skin="brutalist"] .hl-ch-dot {
+  stroke: var(--text);
+  stroke-width: 2;
+}
+
+[data-skin="brutalist"] .hl-ch-dot.is-active {
+  fill: var(--bru-hi);
+  stroke: var(--text);
+}
+
+[data-skin="brutalist"] .hl-key--dot {
+  border: 2px solid var(--text);
+}
+
+[data-skin="brutalist"] .hl-ch-goal {
+  stroke: var(--text);
+  stroke-width: 2;
+  stroke-dasharray: 8 5;
+}
+
+[data-skin="brutalist"] .hl-key--goal {
+  border-top: 2px dashed var(--text);
+}
+
+[data-skin="brutalist"] .hl-ch-cross {
+  stroke: var(--text);
+  stroke-width: 2;
+}
+
+[data-skin="brutalist"] .hl-ch-tip {
+  border: 3px solid var(--text);
+  border-radius: 0;
+  background: var(--bg);
+  box-shadow: 6px 6px 0 var(--text);
+}
+
+[data-skin="brutalist"] .hl-row,
+[data-skin="brutalist"] .hl-month + .hl-month {
+  border-top: 2px solid var(--text);
+}
+
+[data-skin="brutalist"] .hl-w-line {
+  stroke: var(--text);
+  stroke-width: 3;
+  stroke-linejoin: miter;
+  stroke-linecap: square;
+}
+
 [data-skin="brutalist"] .fn-entry-list > .fn-entry {
   border-top: 0;
 }
@@ -6924,11 +6983,6 @@
 }
 
 [data-skin="brutalist"] .st-card-title > .icon {
-  color: var(--text);
-}
-
-/* Health (an idea, nothing to press): its caption full ink */
-[data-skin="brutalist"] .hl-ideas-title {
   color: var(--text);
 }
 

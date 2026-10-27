@@ -17,7 +17,7 @@
 // the app's shared icons (calendar.logic VIEW_ICON / LAYER_ICON / dayIcon): a task is a checked
 // square, a habit a target (or its own icon), overdue an alert, today a sun, time a clock.
 
-import { h, icon, iconBadge, registerIcon, idx, term, plural, tip, weekday, WEEKDAYS_SHORT, MONTHS_SHORT } from '../ui.js';
+import { h, icon, iconBadge, registerIcon, idx, term, plural, tip, weekday, WEEKDAYS_SHORT, MONTHS_SHORT, dayMonth } from '../ui.js';
 import { paintColor } from '../colors.js';
 import {
   WEEK_ORDER,
@@ -313,7 +313,7 @@ function weekNumberButton(ctx, week) {
 }
 
 function dateText(day, compact) {
-  if (day.date === 1 && !compact) return `${day.date} ${MONTHS_SHORT[Number(day.key.slice(5, 7)) - 1]}`;
+  if (day.date === 1 && !compact) return dayMonth(Number(day.key.slice(0, 4)), Number(day.key.slice(5, 7)), day.date);
   return String(day.date);
 }
 

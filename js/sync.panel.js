@@ -230,7 +230,7 @@ export function openSyncPanel() {
         h(
           'p',
           { class: 'sync-consent' },
-          'Connect sends your LIFE/OS data (tasks, notes, habits, events, focus sessions, workouts, subscriptions and recovery trackers, each version named after the kind of device, like “Mac”) from this device to your own private GitHub repository, where GitHub keeps it under its ',
+          'Connect sends your LIFE/OS data (tasks, notes, habits, events, focus sessions, workouts, subscriptions, recovery trackers and weights, each version named after the kind of device, like “Mac”) from this device to your own private GitHub repository, where GitHub keeps it under its ',
           inlineLink(GITHUB_TERMS, 'Terms of Service'),
           ' and ',
           inlineLink(GITHUB_PRIVACY, 'Privacy Statement'),
@@ -356,7 +356,7 @@ export function openSyncPanel() {
           h('dt', null, isComputer() ? 'This computer' : 'This device'),
           h('dd', null, DEVICE === 'Browser' ? 'This browser' : DEVICE),
         ),
-        h('p', { class: 'sync-hint' }, 'What syncs: tasks, notes, habits, calendar events, focus sessions, workouts, subscriptions and recovery trackers. Each computer keeps its own appearance and what’s on screen. Changes upload a few seconds after you make them.'),
+        h('p', { class: 'sync-hint' }, 'What syncs: tasks, notes, habits, calendar events, focus sessions, workouts, subscriptions, recovery trackers and weights. Each computer keeps its own appearance and what’s on screen. Changes upload a few seconds after you make them.'),
       ],
       [offBtn, syncBtn],
     );

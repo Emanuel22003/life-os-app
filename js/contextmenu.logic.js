@@ -15,6 +15,8 @@
 // - copyName() / pasteName()                "Run (copy)", "Run (copy 2)" …
 // - insertAfter()       a new item right after another one, by id
 
+import { weekdayDate } from './formats.js';
+
 export const ACTIONS = Object.freeze(['copy', 'paste', 'delete', 'duplicate']);
 export const KINDS = Object.freeze(['task', 'note', 'habit', 'event', 'subscription']);
 
@@ -243,8 +245,6 @@ export function sameText(a, b) {
   return norm(a) === norm(b);
 }
 
-const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const KEY_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
 
 /** 'Tue 6 Oct 2026' for '2026-10-06'; '' for anything else. */
@@ -253,7 +253,8 @@ export function dayText(key) {
   if (!m) return '';
   const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
   if (d.getMonth() !== Number(m[2]) - 1) return '';
-  return `${WEEKDAYS[d.getDay()]} ${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+  // (in this device's date format: 'Tue 6 Oct 2026', 'Tue Oct 6, 2026', 'Tue 2026-10-06')
+  return weekdayDate(key, { year: true });
 }
 
 /** 'Dentist — Tue 6 Oct 2026, 09:00–10:00' · 'Trip — Tue 6 Oct 2026 – Thu 8 Oct 2026' · 'Gym — Tue 6 Oct 2026'. */

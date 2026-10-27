@@ -359,6 +359,7 @@ export const WIDGETS = Object.freeze(
     { id: 'payments', name: 'Payments', text: 'Subscriptions due soon and what they cost a month.', size: 's', icon: 'coins', tone: 'finance' },
     { id: 'training', name: 'Training', text: 'Start a routine, or get back to the workout in progress.', size: 's', icon: 'dumbbell', tone: 'training' },
     { id: 'recovery', name: 'Recovery', text: 'Days clean for each thing you stay away from.', size: 's', icon: 'leaf', tone: 'recovery' },
+    { id: 'weight', name: 'Weight', text: 'Your latest weight, its last 30 days as a small line and how it changed.', size: 's', icon: 'hl-scale', tone: 'health' },
   ].map((w) => Object.freeze(w)),
 );
 
