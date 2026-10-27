@@ -1,0 +1,267 @@
+/* ==========================================================================
+   LIFE/OS — the welcome's first step: "Pick your look" (js/welcome.js lookPicker)
+   The eight templates as a carousel: one big card in the middle (the pick) with its neighbours
+   peeking in at the sides, scroll-snapped. A card is a live demo (appearance.js buildDemo; its
+   inside is css/appearance.css .look-demo) over the template's name and line. Above it Light /
+   Dark, under it the dots and "3 of 8"; arrows beside it on a computer. The second step (the three
+   ways in) and the tab picker are css/shell.css (.wl-*). Linked before the templates, so they
+   can restyle it.
+   ========================================================================== */
+
+/* A computer: a wide dialog, one big card and the peeks; the second step is the usual 560px */
+.modal.welcome-sheet.is-look {
+  width: min(820px, 100%);
+}
+
+.wl-step {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+/* The footer: Skip on the left, Use this look on the right; on the second step, Back */
+.wl-foot {
+  display: contents;
+}
+
+.welcome-sheet :is(.wl-skip, .wl-back) {
+  margin-right: auto;
+}
+
+.wl-back > svg {
+  flex: none;
+}
+
+/* The carousel reaches the dialog's edges (the body's padding), so the neighbours peek in from
+   them; its sizes are in the picker's own width (cqi) */
+.wl-looks {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-inline: calc(-1 * var(--space-5));
+  container-type: inline-size;
+}
+
+.wl-looks-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3) var(--space-4);
+  padding-inline: var(--space-5);
+}
+
+.wl-looks-top > .wl-lead {
+  flex: 1 1 280px;
+  margin: 0;
+}
+
+.wl-mode {
+  flex: none;
+}
+
+.wl-mode .seg-btn > svg {
+  flex: none;
+}
+
+/* The card's width: most of the picker on a phone; on a computer as big as the window's height
+   lets it be (the dialog never needs to scroll), at most 520px */
+.wl-stage {
+  --wl-card: min(520px, 64cqi, max(260px, calc((100dvh - 395px) * 1.04)));
+  position: relative;
+}
+
+.wl-track {
+  position: relative;
+  display: flex;
+  gap: var(--space-4);
+  padding: 10px calc((100cqi - var(--wl-card)) / 2);
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+  /* Room for the pick's ring and the focus outline */
+  scroll-padding-inline: calc((100cqi - var(--wl-card)) / 2);
+}
+
+.wl-track::-webkit-scrollbar {
+  display: none;
+}
+
+.wl-look {
+  position: relative;
+  display: flex;
+  flex: 0 0 var(--wl-card);
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+  padding: var(--space-2) var(--space-2) var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  cursor: pointer;
+  user-select: none;
+  scroll-snap-align: center;
+  scroll-snap-stop: always;
+  transition: border-color var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease);
+}
+
+/* The pick: ringed, as the template in use is in Appearance */
+.wl-look.is-current {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+  cursor: default;
+}
+
+.wl-look:focus-visible {
+  outline: 2px solid var(--line-focus);
+  outline-offset: 3px;
+}
+
+/* The demo's place, its own shape before it is drawn (so nothing moves when it comes) */
+.wl-look-frame {
+  overflow: hidden;
+  aspect-ratio: 440 / 420;
+  border: 1px solid var(--line);
+  border-radius: max(0px, calc(var(--radius) - 3px));
+  background: var(--surface-2);
+}
+
+.wl-look-frame > .look-demo-host {
+  width: 100%;
+}
+
+/* The neighbours' demos step back a little; their words stay readable */
+.wl-look:not(.is-current) .wl-look-frame {
+  opacity: 0.72;
+  transition: opacity var(--dur) var(--ease);
+}
+
+.wl-look-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding: 0 var(--space-2);
+}
+
+.wl-look-name {
+  color: var(--text);
+  font-size: var(--fs-md);
+  font-weight: 600;
+}
+
+/* Two lines for every card, so the cards are one height (a screen reader hears all of it) */
+.wl-look-desc {
+  display: -webkit-box;
+  min-height: calc(2 * 1.4em);
+  overflow: hidden;
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+  line-height: 1.4;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+
+/* The arrows: in the middle of the peeks at either side */
+.wl-arrow.btn {
+  position: absolute;
+  top: calc(50% - 22px);
+  z-index: 1;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-solid);
+  box-shadow: var(--shadow-sm);
+}
+
+.wl-arrow--prev.btn {
+  left: max(var(--space-2), calc((100cqi - var(--wl-card)) / 4 - 30px));
+}
+
+.wl-arrow--next.btn {
+  right: max(var(--space-2), calc((100cqi - var(--wl-card)) / 4 - 30px));
+}
+
+.wl-arrow[aria-disabled="true"] {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.wl-where {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  padding-inline: var(--space-5);
+}
+
+.wl-dots {
+  display: flex;
+}
+
+/* A dot answers to a click (the keyboard has the cards and the arrows) */
+.wl-dot {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 24px;
+  cursor: pointer;
+}
+
+.wl-dot::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: var(--radius-pill);
+  background: var(--line-strong);
+  transition: width var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease);
+}
+
+.wl-dot.is-on::before {
+  width: 16px;
+  background: var(--text);
+}
+
+.wl-pos {
+  min-width: 4.5ch;
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .wl-look:not(.is-current):hover {
+    border-color: var(--line-strong);
+  }
+
+  .wl-look:not(.is-current):hover .wl-look-frame {
+    opacity: 1;
+  }
+}
+
+/* A phone: the card is most of the sheet's width (a finger swipes; no arrows), and the two
+   buttons share the footer */
+@media (max-width: 640px) {
+  .wl-stage {
+    --wl-card: min(80cqi, max(220px, calc((100dvh - 420px) * 1.04)));
+  }
+
+  .wl-track {
+    gap: var(--space-3);
+  }
+
+  .wl-arrow.btn {
+    display: none;
+  }
+
+  .welcome-sheet .wl-foot > .btn {
+    flex: 1 1 0;
+    min-height: 44px;
+  }
+
+  .welcome-sheet .wl-foot > .wl-back {
+    flex: 0 1 auto;
+  }
+}

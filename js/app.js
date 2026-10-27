@@ -39,10 +39,10 @@ import { startSync, syncStatus, onSyncStatus } from './sync.js';
 import { openSyncPanel, syncLabel } from './sync.panel.js';
 import { provideShell, normalizeTabs, toggleTab, moveTab, tabBarFit, TAB_FIT_W, TAB_MIN_W, welcomeOnStart } from './shell.js';
 import { openWelcome } from './welcome.js';
-import { startTour } from './tour.js';
+import { startTour, tutorialState } from './tour.js';
 import { isNewerVersion, startPage, LEGAL_LINKS } from './features/settings.logic.js';
 
-const VERSION = 'v0.33';
+const VERSION = 'v0.34';
 
 // Read before any feature module can seed data: tells a first-ever run from an upgrade
 const hadSavedData = hasSavedData();
@@ -531,7 +531,8 @@ function syncMore() {
   moreBtn.title = label;
 }
 
-/* ---- More: every other page, Search, Settings, Appearance, light / dark, Edit tabs ----
+/* ---- More: every other page, Search, Settings, Appearance, light / dark, Edit tabs, and
+   under Help the two tutorials ----
    A dialog (a sheet from the bottom on a phone, css/components.css). Its pages are links, so
    choosing one navigates and the shell closes the dialog. */
 
@@ -544,11 +545,11 @@ const stayOnPage = (e) => {
   moreDialog?.close();
 };
 
-function moreRow({ iconName, label, hint = null, onClick = null, href = null, id = null, current = false, className = '', extra = null }) {
+function moreRow({ iconName, label, hint = null, onClick = null, href = null, id = null, current = false, className = '', extra = null, dataset = null }) {
   const content = [h('span', { class: 'more-row-icon', 'aria-hidden': 'true' }, icon(iconName, { size: 18 })), h('span', { class: 'more-row-label' }, label), hint ? h('span', { class: 'more-row-hint' }, hint) : null, extra];
   return href
     ? h('a', { class: ['more-row', className], href, dataset: id ? { id } : null, 'aria-current': current ? 'page' : null, onClick: stayOnPage }, content)
-    : h('button', { type: 'button', class: ['more-row', className], onClick }, content);
+    : h('button', { type: 'button', class: ['more-row', className], dataset, onClick }, content);
 }
 
 function morePages() {
@@ -623,6 +624,7 @@ function moreMain(sheet) {
         : null,
       moreRow({ iconName: 'edit', label: 'Edit tabs', hint: 'Pick pages and their order', onClick: () => moreEditTabs(sheet), className: 'more-edit' }),
     ),
+    moreHelp(close),
     // How your data is doing (the sidebar's status line): opens Sync
     h(
       'button',
@@ -630,6 +632,39 @@ function moreMain(sheet) {
       h('span', { class: 'sys-dot', 'aria-hidden': 'true' }),
       h('span', null, sysText.textContent),
       isStandalone() ? h('span', { class: 'sys-app' }, 'App') : null,
+    ),
+  );
+}
+
+/**
+ * Help: the two tutorials, as Settings → About → Tutorial has them (js/tour.js). The quick one
+ * and the full one, each with its length; after the full one was left part-way, Continue (14 of
+ * 32) and Start over instead. A tour starts once More has closed (the tour steps aside while a
+ * dialog is open).
+ */
+function moreHelp(close) {
+  const state = tutorialState();
+  // (while the full tour is on screen it isn't "left" anywhere)
+  const full = state.running === 'full' ? null : state.full;
+  const begin = (kind, resume = false) => () => {
+    close();
+    setTimeout(() => startTour(kind, { resume }), 0);
+  };
+  const headId = `more-help-${uid()}`;
+  return h(
+    'section',
+    { class: 'more-help', 'aria-labelledby': headId },
+    h('h3', { class: 'more-head', id: headId }, 'Help'),
+    h(
+      'div',
+      { class: 'more-list' },
+      moreRow({ iconName: 'wl-quick', label: 'Quick tutorial', hint: `${state.steps.quick} steps · 1 min`, onClick: begin('quick'), className: 'more-tour', dataset: { tour: 'quick' } }),
+      ...(full
+        ? [
+            moreRow({ iconName: 'play', label: `Continue tutorial (${full.n} of ${full.of})`, onClick: begin('full', true), className: 'more-tour', dataset: { tour: 'continue' } }),
+            moreRow({ iconName: 'wl-map', label: 'Start tutorial over', hint: 'Every page · 10 min', onClick: begin('full'), className: 'more-tour', dataset: { tour: 'full' } }),
+          ]
+        : [moreRow({ iconName: 'wl-map', label: 'Tutorial', hint: 'Every page · 10 min', onClick: begin('full'), className: 'more-tour', dataset: { tour: 'full' } })]),
     ),
   );
 }
@@ -1201,9 +1236,10 @@ function noteNewLook() {
 }
 
 /* ---- First run: the welcome sheet (js/welcome.js) ----
-   The first time LIFE/OS opens on a device with nothing saved: No tutorial, Quick tutorial or
-   Tutorial. Once answered (settings.welcomed) it doesn't come back by itself; a device that
-   already had data never sees it. Settings → About → Tutorial starts either tour again. */
+   The first time LIFE/OS opens on a device with nothing saved: Pick your look, then No tutorial,
+   Quick tutorial or Tutorial. Once answered (settings.welcomed) it doesn't come back by itself; a
+   device that already had data never sees it. Settings → About → Tutorial (and More → Help on a
+   phone) starts either tour again. */
 
 function noteWelcome() {
   const { show, mark } = welcomeOnStart(settings.get().welcomed, hadSavedData);
@@ -1214,6 +1250,9 @@ function noteWelcome() {
   if (modalOpen()) closeAllModals();
   openWelcome({
     onChoose: ({ choice, keyboard }) => {
+      // A look picked in the welcome: the page behind it waited (a dialog was open), now it draws
+      // in it (its numbers and words are the template's)
+      if (shownSkin !== skin()) remountView();
       if (choice === 'quick' || choice === 'full') startTour(choice);
       // No tutorial: Home's Start card takes it from here (js/features/home.js); answered from the
       // keyboard, its next step gets the focus

@@ -47,7 +47,7 @@ import {
   MONTHS_SHORT,
 } from '../ui.js';
 import { shell } from '../shell.js';
-import { createStore } from '../store.js';
+import { createStore, settings } from '../store.js';
 import { registerContextProvider } from '../contextmenu.js';
 import { splitText } from '../contextmenu.logic.js';
 import { tasksApi } from './tasks.js';
@@ -374,7 +374,8 @@ function mount(root) {
     if (!begun && (tasksApi.getItems().length || habitsApi.source.getItems().length || getEvents().length)) return null;
     const c = appCounts();
     if (!begun && !HM.isEmptyApp(c)) return null;
-    const steps = HM.startSteps({ tasks: c.tasks, habits: c.habits, look: prefs.get().start?.look });
+    // (a look picked in the first run's welcome counts too: settings.lookPicked, this device)
+    const steps = HM.startSteps({ tasks: c.tasks, habits: c.habits, look: prefs.get().start?.look || settings.get().lookPicked === true });
     if (steps.every((st) => st.done)) {
       if (begun) dismissTip(START_TIP);
       return null;
@@ -2200,6 +2201,8 @@ function mount(root) {
   // No tutorial, or once a tour (js/tour.js) ended from the keyboard, the Start card's next step
   // takes the focus, so the start goes on from here (a tour only points: the steps are still yours)
   function startNext(e) {
+    // A look picked in the welcome ticks "Pick a look"
+    if (root.isConnected) paintStart();
     if (!e.detail?.keyboard || startCard.hidden || !root.isConnected) return;
     if (e.type === 'lifeos:welcome-closed' && e.detail.choice !== 'none') return;
     startList.querySelector('.hm-start-step:not(.is-done) .hm-start-btn')?.focus({ preventScroll: true });

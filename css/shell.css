@@ -1221,6 +1221,20 @@
   font-weight: 600;
 }
 
+/* Help: a small heading over the tutorials' rows */
+.more-help {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.more-head {
+  padding: 0 var(--space-2);
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+
 /* A page in the bar: ↑ ↓ at the row's end (the first can't go up, the last can't go down) */
 .more-tab-moves {
   display: flex;

@@ -32,7 +32,8 @@ const RECHECK_MS = 500;
 /** The tour on screen, or null. */
 let run = null;
 
-const stepsFor = (kind) => tourSteps(kind, { phone: phoneQuery.matches, mac: IS_MAC });
+// (a look picked in the welcome leaves out the quick tour's "Pick a look", settings.lookPicked)
+const stepsFor = (kind) => tourSteps(kind, { phone: phoneQuery.matches, mac: IS_MAC, lookPicked: settings.get().lookPicked === true });
 // A dialog is open (More, Search, an editor): the tour steps aside until it closes
 const dialogUp = () => !!document.querySelector('.modal-root:not(.is-leaving)');
 // The page on screen (the router's .view), so a step waits for its own page
@@ -44,15 +45,19 @@ export function tourRunning() {
 }
 
 /**
- * Where the tours stand on this device, for Settings → About → Tutorial: the one on screen, and
- * for each tour whether it can continue ({ index, n, of } at the step it was left on) or null.
+ * Where the tours stand on this device, for Settings → About → Tutorial and More: the one on
+ * screen, for each tour whether it can continue ({ index, n, of } at the step it was left on) or
+ * null, and how many steps each has on this screen (steps: { quick, full }).
  */
 export function tutorialState() {
   const tours = normalizeTours(settings.get().tours);
+  const quick = stepsFor('quick');
+  const full = stepsFor('full');
   return {
     running: run?.kind ?? null,
-    quick: continueInfo(stepsFor('quick'), tours.quick),
-    full: continueInfo(stepsFor('full'), tours.full),
+    quick: continueInfo(quick, tours.quick),
+    full: continueInfo(full, tours.full),
+    steps: { quick: quick.length, full: full.length },
   };
 }
 
@@ -580,7 +585,7 @@ function finish(status, { quiet = false } = {}) {
     else focusPage(null);
   }
   if (status === 'left' && !quiet && r.index >= 0) {
-    const where = phoneQuery.matches ? 'More → Settings → Tutorial' : 'Settings → About → Tutorial';
+    const where = phoneQuery.matches ? 'More' : 'Settings → About → Tutorial';
     if (r.kind === 'full' && r.index > 0) {
       toast(`Tutorial paused at step ${r.index + 1} of ${r.steps.length}. Continue any time in ${where}.`, {
         duration: 8000,

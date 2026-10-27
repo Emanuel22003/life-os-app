@@ -276,3 +276,104 @@
   gap: 10px;
   margin-top: 14px;
 }
+
+/* ---- The first run's demo (appearance.js buildDemo, in the welcome's look picker) ----
+   The host is in the page (css/welcome.css sizes it in its card); inside its shadow root a small
+   Home at a fixed design size (DEMO_W × DEMO_H in appearance.js), scaled with `zoom`: the
+   greeting, then Home's own widgets on a 2 × 2 board, drawn by css/features/home.css and the
+   template. The design size is fixed, so a late font never changes the card's size. */
+
+.look-demo-host {
+  display: block;
+  aspect-ratio: 440 / 420;
+  overflow: hidden;
+  background: var(--bg);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity var(--dur) var(--ease);
+}
+
+.look-demo-host.is-ready {
+  opacity: 1;
+}
+
+.look-demo {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 440px;
+  height: 420px;
+  padding: 12px 14px 14px;
+  overflow: hidden;
+  /* A skin's page-level overlay (position: fixed, e.g. scanlines) stays inside the card */
+  contain: layout paint;
+  background-attachment: scroll;
+  /* Nothing from the dialog around it leaks in */
+  text-align: start;
+  text-transform: none;
+  letter-spacing: normal;
+  font-style: normal;
+  font-weight: 400;
+  white-space: normal;
+}
+
+.look-demo > .page-header {
+  flex: none;
+  flex-wrap: nowrap;
+  margin: 0;
+  padding: 0 0 2px;
+}
+
+.look-demo .page-title {
+  font-size: 26px;
+}
+
+/* As on the real page: no "01 // HOME" kicker over the greeting (the previews keep it) */
+.look-demo .page-kicker {
+  display: none;
+}
+
+.look-demo-board {
+  display: grid;
+  flex: 1 1 auto;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: minmax(0, 1.08fr) minmax(0, 1fr);
+  gap: 10px;
+  min-height: 0;
+}
+
+/* Home places its widgets itself (absolute, measured); here the grid does */
+.look-demo .look-demo-slot {
+  position: relative;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.look-demo .look-demo-slot > .hm-card {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* Two weeks of bars in what is left of the card */
+.look-demo .hm-graph-body {
+  flex: 1 1 auto;
+  grid-template-rows: minmax(0, 1fr) auto;
+  min-height: 0;
+}
+
+.look-demo .hm-bars {
+  height: auto;
+  min-height: 0;
+}
+
+/* The next payment: its name and amount (the date under them would need a taller card) */
+.look-demo .hm-pay-when {
+  display: none;
+}
+
+/* A demo is looked at, not used: no 44px finger targets (Home's phone rules) to stretch it */
+.look-demo.hm-page :is(.hm-task, .hm-pay-row) {
+  min-height: 0;
+}

@@ -9,11 +9,20 @@ export const TOUR_KINDS = Object.freeze(['quick', 'full']);
 
 export const WELCOME_CHOICES = Object.freeze(
   [
-    { id: 'none', title: 'No tutorial', text: 'Straight in, no steps. The tours wait in Settings.', icon: 'wl-go' },
+    { id: 'none', title: 'No tutorial', text: 'Straight in, no steps. The tours wait in More and Settings.', icon: 'wl-go' },
     { id: 'quick', title: 'Quick tutorial', text: 'The basics in 8 short steps, about a minute.', icon: 'wl-quick' },
     { id: 'full', title: 'Tutorial', text: 'Every page, step by step, about 10 minutes. Stop any time.', icon: 'wl-map' },
   ].map((c) => Object.freeze(c)),
 );
+
+/**
+ * The three choices as the welcome shows them: the quick one counts its steps for this device (7
+ * once a look was picked in the welcome, which leaves out its "Pick a look" step).
+ */
+export function welcomeChoices({ lookPicked = false } = {}) {
+  const n = tourSteps('quick', { lookPicked }).length;
+  return WELCOME_CHOICES.map((c) => (c.id === 'quick' ? { ...c, text: c.text.replace(/\d+ short steps/, `${n} short steps`) } : c));
+}
 
 /* ---- Steps ----
    A step: { id, chapter, page, target, title, text, missingText, only, ifMissing, picker, tryIt,
@@ -26,6 +35,7 @@ export const WELCOME_CHOICES = Object.freeze(
    - title, text, missingText: words, or { phone, wide }. missingText is said when no target is on
      screen (the bubble is then centred). {search} and {undo} become ⌘K / Ctrl K, ⌘Z / Ctrl Z.
    - only: 'phone' | 'wide': the step is left out on the other kind of screen.
+   - unlessLook: left out once a look was picked in the welcome (settings.lookPicked).
    - ifMissing: 'centre' (the default: centred, without a pointer) or 'skip' (left out).
    - picker: the tab picker (js/welcome.js tabPicker) goes in the bubble.
    - tryIt: a field the bubble's "Try it" puts the cursor in.
@@ -126,6 +136,8 @@ const QUICK = [
   {
     id: 'look',
     chapter: 'start',
+    // (picked in the welcome already: nothing to ask)
+    unlessLook: true,
     title: 'Pick a look',
     target: { wide: '.appearance-row', phone: '.tab--more' },
     text: {
@@ -141,7 +153,7 @@ const QUICK = [
     target: { wide: '.settings-btn', phone: '.tab--more' },
     text: {
       wide: 'Take this tour again, or the full one with every page, in Settings → About → Tutorial.',
-      phone: 'Take this tour again, or the full one with every page, in More → Settings → Tutorial.',
+      phone: 'Take this tour again, or the full one with every page, in More → Quick tutorial or Tutorial.',
     },
     place: { wide: 'right', phone: 'top' },
   },
@@ -468,14 +480,16 @@ function targetsOf(step, phone, mac) {
 
 /**
  * The steps of tour `kind` ('quick' | 'full') for this screen: phone (640px or narrower) or a
- * computer, and the keys' names (mac). Each with its words and targets worked out:
+ * computer, the keys' names (mac) and whether a look was picked in the welcome (lookPicked). Each
+ * with its words and targets worked out:
  * { id, chapter, page, targets: [{ sel, title, text }], title, text, missingText, ifMissing,
  *   picker, tryIt, advanceOn, place }
  */
-export function tourSteps(kind, { phone = false, mac = true } = {}) {
+export function tourSteps(kind, { phone = false, mac = true, lookPicked = false } = {}) {
   const list = LISTS[kind] ?? [];
   return list
     .filter((s) => !s.only || s.only === (phone ? 'phone' : 'wide'))
+    .filter((s) => !(s.unlessLook && lookPicked === true))
     .map((s) => {
       const text = fillKeys(pick(s.text, phone), { mac });
       return Object.freeze({
