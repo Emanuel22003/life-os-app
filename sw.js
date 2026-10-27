@@ -14,8 +14,9 @@
 // - Everything else (other origins, non-GET, other schemes) is left to the browser. The app
 //   itself asks other hosts for nothing but GitHub's API, and only with Sync on (js/sync.js).
 // - This worker never reads or writes localStorage: app data is not its business.
-// - The timer's notifications are shown through it (js/features/pomodoro.js; phone browsers only
-//   allow that kind), so a click on one lands here: see notificationclick at the end.
+// - The timer's notifications and the reminders' are shown through it (js/features/pomodoro.js,
+//   js/reminders.js; phone browsers only allow that kind), so a click on one lands here: see
+//   notificationclick at the end.
 //
 // The offline copy is a snapshot: one cache holding one matching set of the app's files.
 // - A snapshot is written whole or not at all. Every file is fetched from the server into a
@@ -98,6 +99,11 @@ const CORE = [
   'js/palette.logic.js',
   'js/command.js',
   'js/command.logic.js',
+  'js/reminders.js',
+  'js/reminders.logic.js',
+  'js/reminders.plan.js',
+  'js/reminders.ui.js',
+  'js/sounds.js',
   'css/tokens.css',
   'css/base.css',
   'css/shell.css',
@@ -107,6 +113,7 @@ const CORE = [
   'css/command.css',
   'css/tour.css',
   'css/welcome.css',
+  'css/reminders.css',
   'css/skins/simple.css',
   'css/skins/hud.css',
   'css/skins/brutalist.css',
@@ -473,19 +480,23 @@ async function cacheFonts(urls) {
   );
 }
 
-/* ---- A click on a notification (the timer's, js/features/pomodoro.js) ---- */
+/* ---- A click on a notification (the timer's, js/features/pomodoro.js; a reminder's, js/reminders.js) ---- */
 
 // Brings LIFE/OS's window to the front on the page the notification names (the timer), or opens
 // the app there when no window is open. Only the app's own page counts: on the website other
 // GitHub Pages sites of the account share this origin, and a legal page isn't the app.
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const asked = event.notification.data?.route;
+  const data = event.notification.data;
+  if (data?.reminder === true) {
+    event.waitUntil(reminderClick(data, event.action));
+    return;
+  }
+  const asked = data?.route;
   const route = typeof asked === 'string' && /^#\/[a-z-]+$/.test(asked) ? asked : '';
   event.waitUntil(
     (async () => {
-      const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
-      const app = windows.find((client) => PAGE_PATHS.includes(new URL(client.url).pathname));
+      const app = await appWindow();
       if (app) {
         if (route) app.postMessage({ type: 'lifeos:notification-click', route });
         try {
@@ -499,3 +510,40 @@ self.addEventListener('notificationclick', (event) => {
     })(),
   );
 });
+
+async function appWindow() {
+  const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+  return windows.find((client) => PAGE_PATHS.includes(new URL(client.url).pathname));
+}
+
+/**
+ * A reminder's notification: a click opens the item (an event's day, a task's page), Snooze and
+ * Done (its buttons, where the browser shows them) act on it. An open LIFE/OS window is told
+ * (js/reminders.js listens) and, for a click, brought to the front; with none open, a new window
+ * opens with the reminder in its address (?reminder=open|snooze|done&kind=…&id=…), which the app
+ * reads once it has started. The address must stay inside the app.
+ */
+async function reminderClick(data, action) {
+  const act = action === 'snooze' || action === 'done' ? action : 'open';
+  const app = await appWindow();
+  if (app) {
+    app.postMessage({ type: 'lifeos:reminder', act, data });
+    if (act === 'open') {
+      try {
+        await app.focus();
+      } catch {
+        // Not allowed to focus it: the window still opened the item
+      }
+    }
+    return;
+  }
+  let url;
+  try {
+    url = new URL(typeof data.url === 'string' ? data.url : '', SCOPE);
+  } catch {
+    url = new URL(SCOPE);
+  }
+  if (url.origin !== self.location.origin || !url.href.startsWith(SCOPE)) url = new URL(SCOPE);
+  if (act !== 'open' && url.searchParams.get('reminder') === 'open') url.searchParams.set('reminder', act);
+  await self.clients.openWindow(url.href);
+}

@@ -64,6 +64,7 @@ import {
 } from './calendar.logic.js';
 import { getEvents, getEvent, saveEvent, replaceEvents, subscribeCalendar, isNewerFormat } from './calendar.store.js';
 import { undoToast, snapshot, revertEvents } from './calendar.undo.js';
+import { reminderEditor } from '../reminders.ui.js';
 
 
 const STEP = SNAP_MINUTES;
@@ -414,6 +415,7 @@ function fromDefaults(raw, today) {
     style: STYLES.includes(d.style) ? d.style : 'solid',
     color: colorKey(d.color),
     repeat: null,
+    reminders: null,
   };
 }
 
@@ -434,6 +436,7 @@ function fromEvent(ev, occ) {
     style: STYLES.includes(ev.style) ? ev.style : 'solid',
     color: colorKey(ev.color),
     repeat: ev.repeat ?? null,
+    reminders: ev.reminders ?? null,
   };
 }
 
@@ -636,6 +639,9 @@ export function openEventEditor({ event = null, occurrenceKey = null, defaults =
     summary,
   );
 
+  /* ---- Reminders (js/reminders.ui.js): a repeating event's apply to every date of it ---- */
+  const remEd = reminderEditor({ value: init.reminders, kind: 'event' });
+
   /* ---- Details ---- */
   const locIn = h('input', {
     id: fid('loc'),
@@ -730,6 +736,7 @@ export function openEventEditor({ event = null, occurrenceKey = null, defaults =
       whenErr,
     ),
     h('div', { class: 'cal-ed-group' }, lab('repeat', 'Repeat', { id: fid('repeat-label') }), freqSeg.el, repeatBox, repeatErr),
+    h('div', { class: 'cal-ed-group cal-ed-remind' }, remEd.el),
     h(
       'div',
       { class: 'cal-ed-details' },
@@ -868,6 +875,7 @@ export function openEventEditor({ event = null, occurrenceKey = null, defaults =
 
   function syncRepeat() {
     repeatBox.hidden = freq === 'none';
+    remEd.setHint(freq === 'none' ? '' : 'Every date of the series gets these reminders.');
     daysRow.hidden = freq !== 'weekly';
     untilIn.hidden = endsSeg.get() !== 'on';
     const k = Number(intervalIn.value);
@@ -908,6 +916,7 @@ export function openEventEditor({ event = null, occurrenceKey = null, defaults =
       style: selectedStyle(),
       color: colorIn.get(),
       repeat: readRepeat(),
+      reminders: remEd.get(),
     };
   }
 
@@ -928,6 +937,7 @@ export function openEventEditor({ event = null, occurrenceKey = null, defaults =
     if (input.style !== initial.style) p.style = input.style;
     if ((input.color ?? null) !== (initial.color ?? null)) p.color = input.color;
     if (JSON.stringify(input.repeat) !== JSON.stringify(initial.repeat)) p.repeat = input.repeat;
+    if (JSON.stringify(input.reminders) !== JSON.stringify(initial.reminders)) p.reminders = input.reminders;
     return p;
   }
 
@@ -1020,15 +1030,31 @@ export function openEventEditor({ event = null, occurrenceKey = null, defaults =
       return saveNew({ ...input, repeat: null }, 'That date was removed from the series in another window, so this was saved as a separate event.');
     }
 
+    // Reminders belong to the whole series: they never ask which dates. Changed alone, they are
+    // saved at once; with other changes they ride along with whichever dates those apply to.
+    if ('reminders' in patch) {
+      const { reminders, ...rest } = patch;
+      if (!Object.keys(rest).length) {
+        const res = updateEvent(live, { reminders }, { now: Date.now() });
+        if (res.error) return showError(res.field ?? 'title', res.error);
+        const undo = commitBatch({ put: [res.event] }, quote(live.title));
+        undoToast(`Changed the reminders of ${quote(live.title)}`, undo);
+        return finish({ action: 'updated', scope: 'all', event: getEvent(live.id) ?? res.event, eventId: live.id, key: occKey });
+      }
+    }
+    const withReminders = (ev) => ('reminders' in patch ? { ...ev, reminders: patch.reminders } : ev);
+    const scopedPatch = { ...patch };
+    delete scopedPatch.reminders;
+
     // Changing the rule itself only makes sense for this-and-following or the whole series
-    const ruleChanged = 'repeat' in patch && !sameRepeat(patch.repeat ? normalizeRepeat(patch.repeat, live.start) : null, live.repeat);
+    const ruleChanged = 'repeat' in scopedPatch && !sameRepeat(scopedPatch.repeat ? normalizeRepeat(scopedPatch.repeat, live.start) : null, live.repeat);
     // An every-N-weeks rule can't always follow a date move (shiftFits): then only this date moves
-    const fits = ruleChanged || !('start' in patch) || shiftFits(live, daysBetween(occKey, patch.start));
+    const fits = ruleChanged || !('start' in scopedPatch) || shiftFits(live, daysBetween(occKey, scopedPatch.start));
     const options = [];
     if (!ruleChanged) options.push('only');
     if (fits && hasOccurrenceBefore(live, occKey)) options.push('following');
     if (fits) options.push('all');
-    if (options.length === 1 && options[0] === 'all') return applyScoped(live, occKey, patch, 'all', input);
+    if (options.length === 1 && options[0] === 'all') return applyScoped(withReminders(live), occKey, scopedPatch, 'all', input);
 
     busy = true;
     pendingAsk = askScope({ mode: 'save', key: occKey, title: live.title, options, note: fits ? '' : SPLIT_NOTE });
@@ -1039,7 +1065,7 @@ export function openEventEditor({ event = null, occurrenceKey = null, defaults =
       const fresh = getEvent(live.id);
       if (!fresh) return saveNew({ ...input, repeat: null }, 'The original was deleted in another window, so this was saved as a new event.');
       if (!occursOn(fresh, occKey)) return saveNew({ ...input, repeat: null }, 'That date was removed from the series in another window, so this was saved as a separate event.');
-      applyScoped(fresh, occKey, patch, scope, input);
+      applyScoped(withReminders(fresh), occKey, scopedPatch, scope, input);
     });
   }
 

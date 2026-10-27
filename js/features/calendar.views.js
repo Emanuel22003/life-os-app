@@ -80,6 +80,7 @@ function occTooltip(occ) {
   const parts = [occ.title, occ.allDay ? (occ.spanDays > 1 ? `All day · ${occ.spanDays} days` : 'All day') : timeLabel(occ)];
   if (occ.location) parts.push(occ.location);
   if (occ.recurring) parts.push('Repeats');
+  if (occ.remind) parts.push('Reminders set');
   return parts.join(' · ');
 }
 
@@ -90,7 +91,7 @@ export function occLabel(occ) {
       ? `all day, ${shortDay(occ.start)} to ${shortDay(occ.end)}`
       : `all day, ${longDay(occ.start)}`
     : `${longDay(occ.start)}, ${occ.startTime} to ${occ.endTime}`;
-  return `Event: ${occ.title}, ${when}${occ.location ? `, ${occ.location}` : ''}${occ.recurring ? ', repeats' : ''}`;
+  return `Event: ${occ.title}, ${when}${occ.location ? `, ${occ.location}` : ''}${occ.recurring ? ', repeats' : ''}${occ.remind ? ', reminders set' : ''}`;
 }
 
 /** 'Task: Call bank, due Monday 5 October 2026, high priority, overdue' (no "Task:" with bare). */
@@ -127,6 +128,8 @@ export function eventBar(occ, ctx, { prefix = 'm', tab = '-1', cl = false, cr = 
     timeFirst ? null : time,
     extra,
     glyph && occ.recurring ? h('span', { class: 'cal-ev-rep', 'aria-hidden': 'true' }, icon('repeat', { size: 10, stroke: 2 })) : null,
+    // Reminders of its own: a small bell, as quiet as the repeat mark
+    glyph && occ.remind ? h('span', { class: 'cal-ev-bell', 'aria-hidden': 'true' }, icon('bell', { size: 10, stroke: 2 })) : null,
   );
   return paintColor(bar, 'events', occ.color);
 }
@@ -695,6 +698,8 @@ function timedBlock(b, ctx, wide, { band = false, inset = false } = {}) {
     short || narrow ? [titleEl, timeEl] : [timeEl, titleEl],
     showLoc ? h('span', { class: 'cal-tlev-loc' }, icon('map-pin', { size: 10 }), occ.location) : null,
     occ.recurring && !short && !narrow ? h('span', { class: 'cal-ev-rep', 'aria-hidden': 'true' }, icon('repeat', { size: 10, stroke: 2 })) : null,
+    // (a short block has it at the end of its one line; a squeezed one has no room for it)
+    occ.remind && !narrow && !tiny ? h('span', { class: 'cal-ev-bell', 'aria-hidden': 'true' }, icon('bell', { size: 10, stroke: 2 })) : null,
     h('span', { class: 'cal-tlev-resize', dataset: { tlResize: '' }, 'aria-hidden': 'true' }),
   );
   block.style.setProperty('--cal-lines', String(lines));

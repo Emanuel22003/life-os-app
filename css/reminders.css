@@ -1,0 +1,544 @@
+/* ==========================================================================
+   LIFE/OS — reminders: the editor (js/reminders.ui.js) in the event editor, a task's Details,
+   the Reminders dialog and Settings; the quiet bell on items with reminders of their own; the
+   in-app banners (js/reminders.js). Built from the shared kit (seg, dropdown, buttons, fields,
+   toast), so every template draws them its own way; linked before the templates' stylesheets.
+   ========================================================================== */
+
+/* ---- The editor ---- */
+
+.rm-ed {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.rm-ed-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-3);
+}
+
+.rm-ed-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.rm-ed-label > .icon {
+  flex: none;
+}
+
+.rm-ed-note,
+.rm-ed-hint {
+  margin: 0;
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+  line-height: 1.45;
+}
+
+.rm-ed-hint {
+  color: var(--text-2);
+}
+
+.rm-ed-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rm-ed-list[hidden] {
+  display: none;
+}
+
+.rm-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.rm-when,
+.rm-sound {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.rm-when .dd-btn,
+.rm-sound .dd-btn {
+  justify-content: space-between;
+}
+
+/* One width each on a computer, so the rows' ▶ and × line up under each other */
+@media (min-width: 641px) {
+  .rm-when .dd-btn {
+    width: 176px;
+  }
+
+  .rm-sound .dd-btn {
+    width: 152px;
+  }
+}
+
+.rm-x {
+  margin-left: auto;
+}
+
+/* Custom…: a number, its unit and "before" */
+.rm-when--custom .rm-num {
+  width: 64px;
+  height: 30px;
+  padding-inline: 8px;
+}
+
+.rm-when--custom .rm-unit {
+  width: auto;
+  height: 30px;
+}
+
+.rm-num[aria-invalid] {
+  border-color: var(--tk-alert, var(--cc-red));
+}
+
+.rm-before {
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+}
+
+.rm-ed-add {
+  display: flex;
+}
+
+/* In the event editor and the task's Details: a group of its own, like Repeat */
+.cal-ed-remind .rm-ed-label,
+.tk-field-remind .rm-ed-label {
+  margin: 0;
+}
+
+/* The Reminders dialog: whose they are, then the editor */
+.rm-dialog .modal-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+/* The dialog's title says "Reminders", a Settings row's title what they are for: the editor's
+   own label stays for screen readers only */
+.rm-dialog .rm-ed-label,
+.st-row--rem .rm-ed-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.rm-dialog .rm-ed-head {
+  justify-content: flex-start;
+}
+
+.st-row--rem .rm-ed-head {
+  display: contents;
+}
+
+.rm-dialog-for {
+  margin: 0;
+  color: var(--text);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+@media (min-width: 641px) {
+  .modal.rm-dialog {
+    width: min(520px, calc(100vw - 32px));
+  }
+}
+
+/* Settings: the default reminders take the width under their row's words */
+.st-row--rem .st-row-control {
+  justify-content: stretch;
+  width: 100%;
+}
+
+.st-row--rem .rm-ed {
+  width: 100%;
+}
+
+.st-rem-time {
+  width: 112px;
+}
+
+/* Finger-sized on a touch screen: every row and every part of it reaches 44px */
+@media (pointer: coarse) {
+  .rm-row {
+    min-height: 44px;
+  }
+
+  .rm-ed :is(.dd-btn, .rm-play, .rm-x, .seg-btn),
+  .rm-when--custom :is(.rm-num, .rm-unit) {
+    min-height: 44px;
+  }
+
+  .rm-ed :is(.rm-play, .rm-x) {
+    min-width: 44px;
+  }
+}
+
+/* A phone: the when takes its own line, the sound with ▶ and × the line under it */
+@media (max-width: 640px) {
+  .rm-row {
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .rm-when {
+    flex: 1 1 100%;
+  }
+
+  .rm-when .dd,
+  .rm-when .dd-btn {
+    width: 100%;
+  }
+
+  .rm-sound {
+    flex: 1 1 0;
+  }
+
+  .rm-sound .dd {
+    flex: 1;
+  }
+
+  .rm-sound .dd-btn {
+    width: 100%;
+  }
+}
+
+/* ---- The bell: an item with reminders of its own (quiet: its text's color, small) ---- */
+
+.rm-bell {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  color: var(--text-3);
+}
+
+.rm-bell > .icon {
+  flex: none;
+}
+
+.tk-meta > .rm-bell {
+  margin-left: -2px;
+}
+
+.cal-ev-bell {
+  display: inline-flex;
+  flex: none;
+  opacity: 0.6;
+}
+
+.cal-ev-rep + .cal-ev-bell {
+  margin-left: 2px;
+}
+
+/* Without a repeat mark before it, the bell takes the end of the bar */
+.cal-ev > .cal-ev-bell:not(.cal-ev-rep + .cal-ev-bell) {
+  margin-left: auto;
+}
+
+.cal-tlev .cal-ev-bell {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+}
+
+.cal-tlev .cal-ev-rep + .cal-ev-bell {
+  right: 17px;
+}
+
+/* A short block is one line: the bell at its end */
+.cal-tlev.is-short .cal-ev-bell {
+  position: static;
+  margin-left: auto;
+}
+
+.hm-agenda-item:has(> .rm-bell) {
+  grid-template-columns: 64px minmax(0, 1fr) auto;
+}
+
+.hm-agenda-item > .rm-bell {
+  padding-top: 3px;
+}
+
+/* A task's page: its reminders in words under the chips (a click opens the Reminders dialog) */
+.tk-page-remind {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  gap: 6px;
+  max-width: 100%;
+  margin: -8px -6px -4px;
+  padding: 4px 6px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text-2);
+  font: inherit;
+  font-size: var(--fs-xs);
+  text-align: left;
+  cursor: pointer;
+}
+
+.tk-page-remind > .icon {
+  flex: none;
+}
+
+.tk-page-remind.is-own {
+  color: var(--text);
+}
+
+.tk-page-remind[hidden] {
+  display: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .tk-page-remind:hover {
+    background: var(--surface-2);
+  }
+}
+
+.tk-page-remind:focus-visible {
+  box-shadow: inset 0 0 0 1px var(--line-focus);
+}
+
+@media (pointer: coarse) {
+  .tk-page-remind {
+    min-height: 44px;
+  }
+}
+
+/* ---- The banners: a reminder that came, the ones missed while LIFE/OS was closed ----
+   Cards in the toast's look (each template draws .toast its own way), under the top bar on the
+   right; on a phone across the top. They stay until closed. Over a task's page, under a dialog
+   (its scrim dims them; they are back in full when it closes). */
+
+.rm-stack {
+  position: fixed;
+  top: calc(var(--topbar-h) + var(--space-3));
+  right: var(--space-5);
+  z-index: calc(var(--z-overlay) - 1);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-2);
+  width: min(400px, calc(100vw - 32px));
+  pointer-events: none;
+}
+
+.rm-stack:empty {
+  display: none;
+}
+
+.toast.rm-card {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: var(--space-2) var(--space-3);
+  width: 100%;
+  min-width: 0;
+  max-width: none;
+  padding-right: 40px;
+}
+
+.rm-card-icon {
+  display: grid;
+  place-items: center;
+  padding-top: 1px;
+}
+
+.rm-card-msg {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.rm-card-title {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+/* The line under the name: the card's own color, a step quieter (each template's card is a
+   different shade: currentColor keeps it readable on all of them) */
+.rm-card-sub {
+  color: color-mix(in srgb, currentColor 82%, transparent);
+  font-size: var(--fs-xs);
+}
+
+.rm-card-acts {
+  grid-column: 2;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.rm-act {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.rm-card-x {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-xs);
+  color: inherit;
+  opacity: 0.85;
+}
+
+.rm-card-x:focus-visible {
+  outline-color: currentColor;
+  outline-offset: -3px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .rm-card-x:hover {
+    opacity: 1;
+    background: color-mix(in srgb, currentColor 14%, transparent);
+  }
+}
+
+@media (pointer: coarse) {
+  .rm-card-x {
+    width: 44px;
+    height: 44px;
+    top: 0;
+    right: 0;
+  }
+
+  .toast.rm-card {
+    padding-right: 48px;
+  }
+}
+
+/* Missed: the items, each a button that opens it */
+.rm-missed-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rm-missed-item {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  width: 100%;
+  min-height: 30px;
+  padding: 4px 6px;
+  margin-inline: -6px;
+  border-radius: var(--radius-xs);
+  color: inherit;
+  font: inherit;
+  font-size: var(--fs-sm);
+  text-align: left;
+}
+
+.rm-missed-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rm-missed-when {
+  flex: none;
+  color: color-mix(in srgb, currentColor 82%, transparent);
+  font-size: var(--fs-xs);
+}
+
+.rm-missed-more {
+  color: color-mix(in srgb, currentColor 82%, transparent);
+  font-size: var(--fs-xs);
+  padding: 2px 0;
+}
+
+.rm-missed-item:focus-visible {
+  outline-color: currentColor;
+  outline-offset: -2px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .rm-missed-item:hover {
+    background: color-mix(in srgb, currentColor 12%, transparent);
+  }
+}
+
+@media (pointer: coarse) {
+  .rm-missed-item {
+    min-height: 44px;
+    align-items: center;
+  }
+}
+
+@media (max-width: 640px) {
+  .rm-stack {
+    top: calc(var(--topbar-h) + env(safe-area-inset-top) + var(--space-2));
+    left: var(--space-4);
+    right: var(--space-4);
+    width: auto;
+    align-items: stretch;
+  }
+}
+
+/* ---- Minimal: no secondary marks in the calendar's grids (as its repeat mark) ---- */
+[data-skin="minimal"] .cal .cal-ev-bell {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toast.rm-card {
+    animation: none;
+  }
+}
+
+:root[data-motion="reduced"] .toast.rm-card {
+  animation: none;
+}
+
+/* ---- Terminal: the card's "> " prompt goes before its name, not on a line of its own ---- */
+[data-skin="terminal"] .rm-card-msg::before {
+  content: none;
+}
+
+[data-skin="terminal"] .rm-card-title::before {
+  content: "> ";
+  color: var(--text-3);
+}
+
+/* ---- Minimal: its words are joined with " · ": the bell joins its date without one ---- */
+html[data-skin="minimal"] .tk-meta > .rm-bell.rm-bell::before {
+  content: none;
+}
+
+[data-skin="minimal"] .tk-meta > .rm-bell {
+  margin-left: 0;
+}

@@ -1,9 +1,10 @@
 // LIFE/OS — Settings (#/settings, the gear at the bottom of the sidebar): sound and notifications,
-// appearance, the start page, sync and backups (and deleting all your data), version, the legal
-// documents. Every control writes where its setting
+// reminders, appearance, the start page, sync and backups (and deleting all your data), version,
+// the legal documents. Every control writes where its setting
 // already lives: the timer's sound, notifications and mini timer in the Pomodoro store (they
-// sync with your other computers); appearance, motion and the start page in `settings` (this
-// computer only). Changes made elsewhere (the Pomodoro page, another window) show here at once.
+// sync with your other computers); appearance, motion, the start page and the reminders'
+// defaults in `settings` (this computer only). Changes made elsewhere (the Pomodoro page, another
+// window) show here at once.
 
 import { h, icon, pageHeader, dropdown, toast, confirmDialog, openModal, formatDay, dateKey, uid, hiddenTipCount, resetTips, reducedMotion } from '../ui.js';
 import { settings, stopSaving } from '../store.js';
@@ -18,6 +19,9 @@ import { syncConfig, syncStatus, onSyncStatus, disconnect } from '../sync.js';
 import { openSyncPanel, syncLabel } from '../sync.panel.js';
 import { describeCounts } from '../sync.logic.js';
 import { pomodoroApi } from './pomodoro.js';
+import { remindersApi } from '../reminders.js';
+import { reminderEditor, reminderSettings, previewSound } from '../reminders.ui.js';
+import { SOUNDS, normalizeSettings as normalizeReminderSettings } from '../reminders.logic.js';
 import { buildBackup, parseBackup, backupFileName, startPage, isNewerVersion, isDataKey, keysToDelete, cachesToDelete, storageKeys, pruneBackups, LEGAL_LINKS, SETTINGS_SECTIONS, sectionAt } from './settings.logic.js';
 
 const STORAGE_TEXT = {
@@ -386,6 +390,106 @@ function mount(root) {
     );
   }
 
+  /* Reminders (this device: settings.reminders). The reminders themselves sit on each event and
+     task (and sync with them); here: on or off, the browser's permission, the default sound, the
+     time all-day items remind at, and the default reminders of each kind. */
+  const setReminders = (patch) => settings.update((prev) => ({ reminders: { ...normalizeReminderSettings(prev.reminders), ...patch } }));
+
+  let remOn;
+  const remOnRow = row({
+    title: 'Reminders on this device',
+    // The honest limit, in one sentence (a state line: Minimal keeps it)
+    hint: 'They come only while LIFE/OS is open on this device (also in the background); one that came while it was closed shows when it opens.',
+    state: true,
+    control: (id) => {
+      remOn = switchControl(id, (on) => setReminders({ on }));
+      return remOn.el;
+    },
+  });
+
+  const allowBtn = button('Allow notifications', async () => {
+    const perm = await remindersApi.askPermission();
+    if (perm === 'granted') toast('Notifications are allowed.');
+    else if (perm === 'denied') toast('Notifications are blocked for LIFE/OS. Allow them in the browser’s site settings.', { duration: 7000 });
+    paintReminders();
+  }, { iconName: 'bell' });
+  const permRow = row({ title: 'Notifications', hint: '', control: allowBtn });
+  const IPHONE_NOTE = 'On an iPhone or iPad, add LIFE/OS to the Home Screen first (Share → Add to Home Screen).';
+
+  const remSound = dropdown({
+    items: SOUNDS.map((x) => ({ value: x.id, label: x.label, icon: x.id === 'none' ? 'bell-off' : 'volume' })),
+    value: reminderSettings().sound,
+    className: 'st-rem-sound',
+    menuLabel: 'Default sound',
+    ariaLabel: ({ picked }) => `Default sound: ${picked?.label ?? ''}`,
+    onSelect: (v) => {
+      setReminders({ sound: v });
+      previewSound(v);
+    },
+  });
+  const remSoundRow = row({
+    title: 'Sound',
+    hint: 'What a reminder plays when it doesn’t pick its own sound.',
+    control: [button('Test', () => previewSound(reminderSettings().sound), { iconName: 'play' }), remSound.el],
+  });
+
+  const allDayIn = h('input', {
+    class: 'input st-rem-time tnum',
+    type: 'time',
+    step: '300',
+    value: reminderSettings().allDayTime,
+    onChange: () => {
+      if (/^\d{2}:\d{2}$/.test(allDayIn.value)) setReminders({ allDayTime: allDayIn.value });
+      else allDayIn.value = reminderSettings().allDayTime;
+    },
+  });
+  const allDayRow = row({ title: 'Time for all-day items', hint: 'All-day events and tasks with only a date remind from this time on their day.', control: allDayIn });
+  allDayIn.setAttribute('aria-labelledby', allDayRow.id);
+
+  // The default reminders of each kind: the same editor as an event's or a task's, in its defaults mode
+  const defaultsRow = (kind, title, hint) => {
+    // (its label is for screen readers: the row's title says it)
+    const editor = reminderEditor({ value: reminderSettings()[kind], kind, mode: 'defaults', label: `Default reminders: ${title}`, onChange: (list) => setReminders({ [kind]: list.map((r) => ({ before: r.before, sound: r.sound ?? null })) }) });
+    const r = row({ title, hint, control: editor.el });
+    r.el.classList.add('st-row--wide', 'st-row--rem');
+    r.editor = editor;
+    return r;
+  };
+  const remEventsRow = defaultsRow('event', 'Events', 'For every event without reminders of its own.');
+  const remTimedRow = defaultsRow('timedTask', 'Tasks with a time', 'For a task with a due date and a time.');
+  const remDateRow = defaultsRow('dateTask', 'Tasks with only a date', 'For a task with a due date and no time: its time is the all-day time above.');
+
+  const remTestRow = row({
+    title: 'Try it',
+    hint: 'A real reminder in a few seconds: the notification and the sound.',
+    control: button('Send a test reminder', () => {
+      const ms = remindersApi.sendTestReminder();
+      toast(`A test reminder comes in ${Math.round(ms / 1000)} seconds.`);
+    }, { iconName: 'bell' }),
+  });
+
+  function paintReminders() {
+    const s = reminderSettings();
+    const perm = remindersApi.notificationState();
+    remOn.set(s.on);
+    remSound.update({ value: s.sound });
+    if (document.activeElement !== allDayIn && allDayIn.value !== s.allDayTime) allDayIn.value = s.allDayTime;
+    allowBtn.hidden = perm !== 'default';
+    const state = {
+      granted: 'Allowed: a reminder also shows when you’re in another app or tab.',
+      default: 'Not allowed yet. Without them, reminders still ring and show in LIFE/OS.',
+      denied: 'Blocked by the browser. Allow notifications for this site in its site settings; until then reminders ring and show in LIFE/OS.',
+      unsupported: 'This browser can’t show notifications: reminders ring and show in LIFE/OS.',
+    }[perm];
+    permRow.hint(`${state} ${IPHONE_NOTE}`, { state: true });
+    // Defaults changed in another window: the editors follow (not the one being used)
+    for (const [r, kind] of [[remEventsRow, 'event'], [remTimedRow, 'timedTask'], [remDateRow, 'dateTask']]) {
+      if (!r.el.contains(document.activeElement) && JSON.stringify(r.editor.get().map((x) => [x.before, x.sound ?? null])) !== JSON.stringify(s[kind].map((x) => [x.before, x.sound ?? null]))) r.editor.set(s[kind]);
+    }
+    // With reminders off, the rest waits out of sight (kept, so nothing set is lost)
+    for (const r of [permRow, remSoundRow, allDayRow, remEventsRow, remTimedRow, remDateRow, remTestRow]) r.el.hidden = !s.on;
+  }
+
   /* Appearance (this computer). The button names the template in use and opens the Appearance
      dialog (every template shows the name, Minimal too, which hides the explanations) */
   const templateName = h('span', { class: 'st-value' });
@@ -630,6 +734,7 @@ function mount(root) {
     appearance: [templateRow, themeRow, paletteRow, motionRow, tipsRow],
     colors: [colorsRow, ...colorKindRows],
     sound: [soundRow, notifyRow, miniRow],
+    reminders: [remOnRow, permRow, remSoundRow, allDayRow, remEventsRow, remTimedRow, remDateRow, remTestRow],
     startup: [startRow],
     sync: [syncRow, backupRow, restoreRow, storageRow, deleteRow],
     about: [versionRow, tourRow, elsewhereRow],
@@ -721,6 +826,16 @@ function mount(root) {
   );
   paintSettings();
   cleanups.push(settings.subscribe(paintSettings));
+  paintReminders();
+  let remSig = JSON.stringify(settings.get().reminders ?? null);
+  cleanups.push(
+    settings.subscribe((next) => {
+      const sig = JSON.stringify(next.reminders ?? null);
+      if (sig === remSig) return;
+      remSig = sig;
+      paintReminders();
+    }),
+  );
   paintTips();
   cleanups.push(settings.subscribe(paintTips));
   paintTour();
@@ -731,7 +846,9 @@ function mount(root) {
   paintStorage();
   // A permission changed in the browser's own settings while LIFE/OS was in the background
   const onVisible = () => {
-    if (!document.hidden) paintTimer();
+    if (document.hidden) return;
+    paintTimer();
+    paintReminders();
   };
   document.addEventListener('visibilitychange', onVisible);
   cleanups.push(() => document.removeEventListener('visibilitychange', onVisible));

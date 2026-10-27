@@ -85,7 +85,8 @@ export const SETTINGS_SECTIONS = Object.freeze(
   [
     { id: 'appearance', title: 'Appearance', icon: 'palette' },
     { id: 'colors', title: 'Color coding', icon: 'tag' },
-    { id: 'sound', title: 'Sound & notifications', icon: 'bell' },
+    { id: 'sound', title: 'Sound & notifications', icon: 'volume' },
+    { id: 'reminders', title: 'Reminders', icon: 'bell' },
     { id: 'startup', title: 'Start-up', icon: 'home' },
     { id: 'sync', title: 'Sync & backup', icon: 'sync' },
     { id: 'about', title: 'About', icon: 'tip' },

@@ -93,6 +93,8 @@ import { registerContextProvider } from '../contextmenu.js';
 import { splitText } from '../contextmenu.logic.js';
 import { createTaskPanel } from './tasks.panel.js';
 import { pagePreview } from './tasks.panel.logic.js';
+import { reminderEditor, openRemindersDialog, remindMenu, bellMark, reminderSettings } from '../reminders.ui.js';
+import { hasOwnReminders, remindersSummary } from '../reminders.logic.js';
 
 const LINGER_MS = 900; // how long a just-toggled row holds its place
 const DRAG_THRESHOLD = 4;
@@ -226,7 +228,10 @@ const TITLE_MAX = 500; // the quick-add input's maxlength
 
 /** What a copy of a task carries. The copy is a new, open task: done state and dates stay behind. */
 function taskSnapshot(t) {
-  return { title: t.title, notes: t.notes, priority: t.priority, due: t.due, sectionId: t.sectionId, color: t.color ?? null };
+  const snap = { title: t.title, notes: t.notes, priority: t.priority, due: t.due, sectionId: t.sectionId, color: t.color ?? null };
+  // Reminders of its own go with a copy (a copy that follows the defaults keeps following them)
+  if (Array.isArray(t.reminders)) snap.reminders = t.reminders;
+  return snap;
 }
 
 /** Same task, field by field (its position aside). */
@@ -246,7 +251,7 @@ function insertCopy(snap, { afterId = null, due, sectionId } = {}) {
   if (!title) return null;
   const wanted = sectionId !== undefined ? sectionId : src.sectionId;
   const section = getState().sections.some((sec) => sec.id === wanted) ? wanted : null;
-  const task = createTask({ title, notes: src.notes, priority: src.priority, due: due !== undefined ? due : src.due, sectionId: section, color: src.color });
+  const task = createTask({ title, notes: src.notes, priority: src.priority, due: due !== undefined ? due : src.due, sectionId: section, color: src.color, reminders: src.reminders });
   setItems((items) => insertTaskAfter(items, task, afterId));
   return findTask(task.id) ?? null;
 }
@@ -380,6 +385,63 @@ function changeWithUndo(id, patch, message) {
     return true;
   });
   return true;
+}
+
+/**
+ * A task's reminders set from a menu or a dialog (null: the defaults, []: none, or a list), with
+ * Undo while they still stand. -> changed?
+ */
+function remindersWithUndo(id, list, message) {
+  const task = findTask(id);
+  if (!task) return false;
+  const was = task.reminders;
+  let after;
+  const changed = setItems((items) => {
+    const next = updateTask(items, id, { reminders: list });
+    after = next.find((t) => t.id === id).reminders;
+    return JSON.stringify(after) === JSON.stringify(was) ? items : next;
+  });
+  if (!changed) return false;
+  offerUndo(message || `Changed the reminders of “${clip(task.title, 28)}”.`, () => {
+    const cur = findTask(id);
+    if (!cur || JSON.stringify(cur.reminders) !== JSON.stringify(after)) {
+      toast(`Nothing undone: “${clip(task.title, 28)}” ${cur ? 'changed' : 'was deleted'} since.`);
+      return false;
+    }
+    setItems((items) => updateTask(items, id, { reminders: Array.isArray(was) ? was : null }));
+    return true;
+  });
+  return true;
+}
+
+/** A task's reminders: which defaults apply (a time of day or only a date), and the hint without a date. */
+const reminderKind = (t) => (t?.time ? 'timedTask' : 'dateTask');
+const NO_DATE_HINT = 'Add a date to get reminders.';
+
+/** The Reminders dialog for a task (its page, the right-click menu's Custom…). */
+function openTaskReminders(id) {
+  const task = findTask(id);
+  if (!task) return false;
+  openRemindersDialog({
+    title: task.title,
+    kind: reminderKind(task),
+    value: Array.isArray(task.reminders) ? task.reminders : null,
+    hint: task.due ? '' : NO_DATE_HINT,
+    onSave: (list) => remindersWithUndo(id, list, `Changed the reminders of “${clip(task.title, 28)}”.`),
+  });
+  return true;
+}
+
+/** "Remind me ▸" for a task's right-click menu (here and in the Calendar). */
+function taskRemindMenu(task) {
+  return remindMenu({
+    value: Array.isArray(task.reminders) ? task.reminders : null,
+    kind: reminderKind(task),
+    name: `“${clip(task.title, 28)}”`,
+    onSet: (list, message) => remindersWithUndo(task.id, list, message),
+    onCustom: () => openTaskReminders(task.id),
+    disabledHint: task.due ? '' : NO_DATE_HINT.replace(/\.$/, ''),
+  });
 }
 
 /* ==========================================================================
@@ -1094,7 +1156,7 @@ function mount(root) {
   function updateRow(r, t, { index, today, draggable, section = null, secColor = null }) {
     const overdue = isOverdue(t, today);
     const doneAgo = t.done && t.completedAt ? timeAgo(t.completedAt) : '';
-    const sig = [t.title, t.done, t.priority, t.due, t.time, t.notes, doneAgo, today, index, draggable, editingId === t.id, section?.name, section?.icon, section?.color, t.color, secColor].join('␟');
+    const sig = [t.title, t.done, t.priority, t.due, t.time, t.notes, doneAgo, today, index, draggable, editingId === t.id, section?.name, section?.icon, section?.color, t.color, secColor, hasOwnReminders(t)].join('␟');
     if (r.sig === sig) return;
     r.sig = sig;
 
@@ -1153,6 +1215,8 @@ function mount(root) {
       );
     }
     const kind = dueKind(t, today);
+    // Reminders of its own: a quiet bell after its date (an open task: a done one rings no more)
+    const bell = !t.done && hasOwnReminders(t) ? bellMark({ size: 12 }) : null;
     if (kind) {
       // A timed task says when: 'Today · 17:30'
       const rel = t.time ? `${relativeDay(t.due, today)} · ${t.time}` : relativeDay(t.due, today);
@@ -1185,6 +1249,8 @@ function mount(root) {
         );
       }
     }
+    // After its date: the bell of a task with reminders of its own
+    if (bell && kind) out.push(bell);
     if (doneAgo) out.push(h('span', { class: 'tk-done-ago label' }, icon('check-circle', { size: 12 }), `Done ${doneAgo}`));
     // The page's first words, without its markup (a heading's #, a checklist's box, a picture)
     const preview = pagePreview(t.notes);
@@ -2076,6 +2142,7 @@ function mount(root) {
     ];
     if (!task.done) {
       out.push(when(today, 'Today', DUE_ICON.today, 'today'), when(shiftKey(today, 1), 'Tomorrow', DUE_ICON.tomorrow, 'tomorrow'), when(next, 'Next week', DUE_ICON.date, formatDay(next)));
+      out.push(taskRemindMenu(task));
     }
     // The one it has now is ticked; picking it again changes nothing
     out.push({ separator: true });
@@ -2179,6 +2246,7 @@ function mount(root) {
     r.row.focus({ preventScroll: true });
     bump(r.row, 'tk-row--enter');
     if (ask.details) openDetails(id);
+    else if (ask.page) page.open(id);
   }
 
   function moveByKeyboard(id, delta, repeat = false) {
@@ -2323,12 +2391,18 @@ function mount(root) {
     lengthSel.value = String(length);
     // Said only when it applies: a time needs a day first
     const timeHint = h('p', { class: 'tk-field-hint', id: 'tk-d-time-hint' });
+    // Reminders (js/reminders.ui.js): a task with a time follows the timed defaults, one with only
+    // a date the date defaults; without a date there is nothing to remind of yet
+    const remEd = reminderEditor({ value: Array.isArray(task.reminders) ? task.reminders : null, kind: reminderKind(task) });
+    const remInitial = JSON.stringify(remEd.get());
     const paintTime = () => {
       const hasDate = !!due.get();
       timeIn.disabled = !hasDate;
       lengthSel.disabled = !hasDate || !timeIn.value;
       timeHint.textContent = hasDate ? '' : 'Pick a day first.';
       timeHint.hidden = hasDate;
+      remEd.setKind(hasDate && timeIn.value ? 'timedTask' : 'dateTask');
+      remEd.setHint(hasDate ? '' : NO_DATE_HINT);
     };
     timeIn.addEventListener('input', paintTime);
     // The due picker has no change hook: re-check after any click or edit in it
@@ -2373,7 +2447,10 @@ function mount(root) {
       // A section deleted while the dialog was open counts as none
       const sectionId = secSel && getState().sections.some((sec) => sec.id === secSel.value) ? secSel.value : null;
       const time = due.get() && isTimeOfDay(timeIn.value) ? timeIn.value : null;
-      setItems((items) => updateTask(items, id, { title, notes: notesIn.value.replace(/\s+$/, ''), priority: pri.get(), due: due.get(), time, minutes: Number(lengthSel.value), color: colorIn.get(), ...(secSel ? { sectionId } : {}) }));
+      // The reminders only when changed here (another window may have changed them meanwhile)
+      const reminders = remEd.get();
+      const remPatch = JSON.stringify(reminders) !== remInitial ? { reminders } : {};
+      setItems((items) => updateTask(items, id, { title, notes: notesIn.value.replace(/\s+$/, ''), priority: pri.get(), due: due.get(), time, minutes: Number(lengthSel.value), color: colorIn.get(), ...(secSel ? { sectionId } : {}), ...remPatch }));
       m.close();
     };
 
@@ -2420,6 +2497,7 @@ function mount(root) {
         h('div', { class: 'field tk-field-due' }, fieldLabel('calendar', 'Due'), due.el),
         h('div', { class: 'field tk-field-when' }, fieldLabel('clock', 'Time', 'tk-d-time'), timeIn, timeHint),
       ),
+      h('div', { class: 'field tk-field-remind' }, remEd.el),
       more,
       h('div', { class: 'tk-detail-foot' }, meta, h('span', { class: 'tk-detail-keys lo-hint' }, kbd(MOD_KEY), kbd('⏎'), 'Save')),
     );
@@ -2720,8 +2798,18 @@ function mount(root) {
     chipsFor: (t) => {
       const sec = getState().sections.find((x) => x.id === t.sectionId);
       const info = sec ? { name: sec.name, icon: sectionIcon(sec), color: sec.color ?? null } : null;
-      return metaNodes(t, todayKey(), '', info).filter((n) => !n.classList?.contains('tk-note'));
+      // (its reminders have a row of their own under the chips)
+      return metaNodes(t, todayKey(), '', info).filter((n) => !n.classList?.contains('tk-note') && !n.classList?.contains('rm-bell'));
     },
+    // Its reminders in words; without a date there's nothing to remind of yet
+    remindFor: (t) => {
+      const words = remindersSummary(Array.isArray(t.reminders) ? t.reminders : null, reminderKind(t), reminderSettings());
+      if (!reminderSettings().on) return { text: `${words} · reminders are off in Settings`, own: false, off: true };
+      if (t.done) return { text: `${words} · done, so no reminders`, own: false, off: true };
+      if (!t.due) return { text: `${words} · ${NO_DATE_HINT.replace(/\.$/, '').toLowerCase()}`, own: false, off: true };
+      return { text: words, own: hasOwnReminders(t), off: false };
+    },
+    onReminders: (id) => openTaskReminders(id),
     onTitle: (id, title) => setField(id, 'title', title),
     onNotes: (id, notes) => setField(id, 'notes', notes),
     onDone: (id, done) => toggleDone(id, done),
@@ -2887,11 +2975,11 @@ function apiAddTask({ title, due = null, priority = 'none', notes = '' } = {}) {
 
 /**
  * Open the Tasks page with this task in view, focused and flashed; `{ details: true }` opens its
- * details too (Search). False when there is no such task.
+ * details too (Search), `{ page: true }` its page (a reminder). False when there is no such task.
  */
-function apiReveal(id, { details = false } = {}) {
+function apiReveal(id, { details = false, page = false } = {}) {
   if (!findTask(id)) return false;
-  pendingReveal = { id, at: Date.now(), details: !!details };
+  pendingReveal = { id, at: Date.now(), details: !!details, page: !!page };
   if (revealInView) revealInView();
   else location.hash = '#/tasks';
   return true;
@@ -2948,7 +3036,26 @@ function apiSectionIcons() {
   return new Map(getState().sections.map((sec) => [sec.id, sectionIcon(sec)]));
 }
 
-/** The reveal still waiting ({ id, details }), or null (none, or too old). */
+/**
+ * A task's reminders (null: the defaults, []: none, or [{ id, before, sound }]), with the Tasks
+ * page's Undo toast; `message` is the toast's text. True when they changed.
+ */
+function apiSetReminders(id, list, message) {
+  return remindersWithUndo(id, list, message);
+}
+
+/** The Reminders dialog for a task (the Calendar's right-click menu). False when there is no such task. */
+function apiOpenReminders(id) {
+  return openTaskReminders(id);
+}
+
+/** "Remind me ▸" for a task, for another page's right-click menu. Null when there is no such task. */
+function apiRemindMenu(id) {
+  const task = findTask(id);
+  return task ? taskRemindMenu(task) : null;
+}
+
+/** The reveal still waiting ({ id, details, page }), or null (none, or too old). */
 function takePendingReveal() {
   const p = pendingReveal;
   pendingReveal = null;
@@ -2990,6 +3097,9 @@ export const tasksApi = Object.freeze({
   remove: apiRemove,
   setColor: apiSetColor,
   rename: apiRename,
+  setReminders: apiSetReminders,
+  openReminders: apiOpenReminders,
+  remindMenu: apiRemindMenu,
   sectionColors: apiSectionColors,
   sectionIcons: apiSectionIcons,
 });

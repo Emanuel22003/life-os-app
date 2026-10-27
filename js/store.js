@@ -16,6 +16,11 @@ export function stopSaving() {
   saving = false;
 }
 
+/** False once stopSaving() ran: code that writes its own keys (js/reminders.js) stops too. */
+export function savingAllowed() {
+  return saving;
+}
+
 function read(key, fallback) {
   try {
     const raw = localStorage.getItem(PREFIX + key);

@@ -33,14 +33,16 @@ registerIcon('tk-heading', '<path d="M6 4v16M18 4v16M6 12h12"/>');
 registerIcon('tk-bold', '<path d="M7 5h6a3.5 3.5 0 0 1 0 7H7Z"/><path d="M7 12h7a3.5 3.5 0 0 1 0 7H7Z"/>');
 
 /**
- * createTaskPanel({ getTask, chipsFor, onTitle, onNotes, onDone, onDetails, onDelete, onChange })
+ * createTaskPanel({ getTask, chipsFor, remindFor, onTitle, onNotes, onDone, onDetails, onReminders, onDelete, onChange })
  *   getTask(id)        the task, or null once it is gone
  *   chipsFor(task)     the row's chips (due, priority, section) to show under the title
+ *   remindFor(task)    its reminders in words ({ text, own, off }: 'Default: at the time', no date…)
  *   onTitle / onNotes  save a new title / page text; onDone(id, done); onDetails(id); onDelete(id)
+ *   onReminders(id)    the Reminders dialog (the row under the chips)
  *   onChange(id, was)  the task shown changed (null: closed; `was` had focus inside when closed)
  * -> { open(id), close(), refresh(), flush(), destroy(), get id() }
  */
-export function createTaskPanel({ getTask, chipsFor, onTitle, onNotes, onDone, onDetails, onDelete, onChange }) {
+export function createTaskPanel({ getTask, chipsFor, remindFor = null, onTitle, onNotes, onDone, onDetails, onReminders = null, onDelete, onChange }) {
   let id = null;
   let editing = false;
   let rendered = null; // the text the page view was drawn from
@@ -68,6 +70,15 @@ export function createTaskPanel({ getTask, chipsFor, onTitle, onNotes, onDone, o
 
   const titleIn = h('textarea', { class: 'tk-page-title', rows: '1', maxlength: '500', 'aria-label': 'Title', placeholder: 'Task title', spellcheck: 'true' });
   const chips = h('button', { type: 'button', class: 'tk-page-meta', title: 'Change the date, priority or section', onClick: () => id && onDetails(id) });
+  // Its reminders, in words: a click opens the Reminders dialog
+  const remindText = h('span', { class: 'tk-page-remind-text' });
+  const remind = h(
+    'button',
+    { type: 'button', class: 'tk-page-remind', hidden: !remindFor, onClick: () => id && onReminders?.(id) },
+    icon('bell', { size: 13 }),
+    h('span', { class: 'sr-only' }, 'Reminders: '),
+    remindText,
+  );
 
   const fileIn = h('input', { type: 'file', accept: IMAGE_TYPES.join(','), multiple: true, hidden: true, tabindex: '-1', 'aria-hidden': 'true' });
   const tool = (name, label, run) =>
@@ -113,7 +124,7 @@ export function createTaskPanel({ getTask, chipsFor, onTitle, onNotes, onDone, o
     'aside',
     { class: 'tk-page hud', role: 'dialog', 'aria-modal': 'false', 'aria-label': 'Task page', tabindex: '-1', hidden: true },
     h('div', { class: 'tk-page-head' }, done, h('span', { class: 'spacer' }), detailsBtn, deleteBtn, closeBtn),
-    h('div', { class: 'tk-page-scroll' }, titleIn, chips, bodyWrap, foot),
+    h('div', { class: 'tk-page-scroll' }, titleIn, chips, remind, bodyWrap, foot),
     fileIn,
   );
   const scrim = h('div', {
@@ -144,6 +155,13 @@ export function createTaskPanel({ getTask, chipsFor, onTitle, onNotes, onDone, o
     }
     const parts = chipsFor(task);
     chips.replaceChildren(...(parts.length ? parts : [h('span', { class: 'tk-page-meta-empty' }, icon('calendar', { size: 13 }), 'No date. Add one, a priority or a section…')]));
+    if (remindFor) {
+      const r = remindFor(task);
+      remindText.textContent = r.text;
+      remind.classList.toggle('is-own', !!r.own);
+      remind.classList.toggle('is-off', !!r.off);
+      remind.title = r.off ? 'Reminders come once the task has a date' : 'Change the reminders';
+    }
     if ((force || document.activeElement !== text) && !notesTimer && text.value !== task.notes) {
       text.value = task.notes;
       fit(text);

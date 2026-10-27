@@ -34,5 +34,5 @@ window.LIFEOS_LEGAL = {
   priceYearly: '',
   // The day the legal texts last changed (YYYY-MM-DD): shown as "Last updated" on every page.
   // Change it whenever you change what a page says.
-  updated: '2026-10-23',
+  updated: '2026-10-27',
 };

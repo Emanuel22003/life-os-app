@@ -71,6 +71,7 @@ import { recoveryApi } from './recovery.js';
 import { orderedTrackers, stats as recoveryStats, trackerIcon } from './recovery.logic.js';
 import { PHASE_LABEL, focusStats } from './pomodoro.logic.js';
 import { iconOf } from '../icons.logic.js';
+import { bellMark } from '../reminders.ui.js';
 import * as HM from './home.logic.js';
 
 const prefs = createStore('home', { quickNoteSection: null });
@@ -1462,6 +1463,8 @@ function mount(root) {
                     { type: 'button', class: 'hm-agenda-item', dataset: { fid: `ag:${o.occId}` }, title: 'Open this day in the Calendar', onClick: () => calendarApi.open(g.day, 'day') },
                     h('span', { class: 'hm-agenda-time tnum' }, o.allDay ? null : icon('clock', { size: 11 }), o.allDay ? 'All day' : o.startTime),
                     h('span', { class: 'hm-agenda-title' }, o.title),
+                    // Reminders of its own: the quiet bell
+                    o.remind ? bellMark() : null,
                   ),
                 ),
               ),

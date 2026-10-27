@@ -9,7 +9,11 @@
 //   { events: Event[], view: 'month' | 'week' | 'day',
 //     layers: { tasks, habits, events, completed }, seeded? }
 //   Event = { id, title, allDay, start, end, startTime, endTime, location, notes, style,
-//             repeat: null | { freq, interval, days, until }, exdates, createdAt, updatedAt }
+//             repeat: null | { freq, interval, days, until }, exdates, createdAt, updatedAt,
+//             reminders? }
+//   reminders (js/reminders.logic.js): absent / null = the defaults for events (Settings →
+//   Reminders), [] = none, or [{ id, before, sound }]. A repeating event's reminders apply to
+//   every date of it.
 //
 // Event rules
 // - `end` is inclusive (equals `start` for one day). Only all-day events span days.
@@ -43,6 +47,7 @@
 import { uid, MONTHS_SHORT, WEEKDAYS_SHORT } from '../ui.js';
 import { isValidKey, toDayNum, fromDayNum, weekdayOf, normalizeDays, compileHabit, scheduledAt, activeAt } from './habits.logic.js';
 import { iconOf } from '../icons.logic.js';
+import { cleanItemReminders, sameReminders, hasOwnReminders } from '../reminders.logic.js';
 
 /* ==========================================================================
    Vocabulary
@@ -309,6 +314,9 @@ export function normalizeEvent(raw, { now = Date.now(), makeId = uid } = {}) {
   const style = STYLES.includes(raw.style) ? raw.style : 'solid';
   const createdAt = Number.isFinite(raw.createdAt) ? raw.createdAt : now;
   const updatedAt = Number.isFinite(raw.updatedAt) ? raw.updatedAt : createdAt;
+  // Reminders: a list is cleaned (js/reminders.logic.js); absent, null or a newer shape stays as it is
+  const reminders = cleanItemReminders(raw.reminders);
+  const sameReminderList = !Array.isArray(raw.reminders) || sameReminders(reminders, raw.reminders);
 
   const unchanged =
     id === raw.id &&
@@ -324,9 +332,12 @@ export function normalizeEvent(raw, { now = Date.now(), makeId = uid } = {}) {
     isCanonicalRepeat(raw.repeat, repeat) &&
     sameArray(exdates, raw.exdates) &&
     createdAt === raw.createdAt &&
-    updatedAt === raw.updatedAt;
+    updatedAt === raw.updatedAt &&
+    sameReminderList;
   if (unchanged) return raw;
-  return { ...raw, id, title, allDay, start, end, startTime, endTime, location, notes, style, repeat, exdates, createdAt, updatedAt };
+  const out = { ...raw, id, title, allDay, start, end, startTime, endTime, location, notes, style, repeat, exdates, createdAt, updatedAt };
+  if (Array.isArray(raw.reminders)) out.reminders = reminders;
+  return out;
 }
 
 const REPEAT_KEYS = new Set(['freq', 'interval', 'days', 'until']);
@@ -496,6 +507,7 @@ export function createEvent(input, { now = Date.now(), makeId = uid } = {}) {
       notes: src.notes,
       style: src.style,
       ...(typeof src.color === 'string' && src.color ? { color: src.color } : {}),
+      ...(Array.isArray(src.reminders) ? { reminders: src.reminders } : {}),
       repeat: src.repeat ?? null,
       exdates: [],
       createdAt: now,
@@ -506,7 +518,7 @@ export function createEvent(input, { now = Date.now(), makeId = uid } = {}) {
   return { event };
 }
 
-const EDITABLE = ['title', 'allDay', 'start', 'end', 'startTime', 'endTime', 'location', 'notes', 'style', 'color', 'repeat', 'exdates'];
+const EDITABLE = ['title', 'allDay', 'start', 'end', 'startTime', 'endTime', 'location', 'notes', 'style', 'color', 'repeat', 'exdates', 'reminders'];
 
 /**
  * Apply a patch to an event's editable fields, keeping what the user did not touch:
@@ -562,6 +574,8 @@ export function updateEvent(event, patch, { now = Date.now() } = {}) {
   const merged = { ...event, ...d, id: event.id, createdAt: event.createdAt, updatedAt: now };
   // Color coding: no color is no field (a color set by a newer version is kept until changed here)
   if (merged.color == null) delete merged.color;
+  // Reminders back to the defaults: no field either
+  if (merged.reminders == null) delete merged.reminders;
   const next = normalizeEvent(merged, { now });
   return { event: next };
 }
@@ -791,6 +805,8 @@ function makeOcc(c, n) {
     location: typeof ev.location === 'string' ? ev.location : '',
     recurring: !!c.repeat,
     spanDays: c.span,
+    // Reminders of its own (the quiet bell on chips, blocks and Home's agenda)
+    remind: hasOwnReminders(ev),
   };
 }
 
@@ -812,7 +828,7 @@ const usable = (ev) => isObject(ev) && isValidKey(ev.start) && (typeof ev.id ===
 /**
  * Every occurrence overlapping [from, to] (inclusive keys), sorted (compareOcc):
  * [{ occId: eventId + '@' + start, eventId, start, end, startTime, endTime, startMin,
- *    endMin, allDay, title, style, location, recurring, spanDays }]
+ *    endMin, allDay, title, style, location, recurring, spanDays, remind }]
  * startMin / endMin are minutes for timed occurrences, null for all-day ones.
  */
 export function occurrencesInRange(events, from, to) {
@@ -883,6 +899,7 @@ function occurrenceFields(series, key) {
     location: series.location,
     notes: series.notes,
     style: series.style,
+    ...(series.reminders !== undefined ? { reminders: series.reminders } : {}),
     repeat: null,
     exdates: [],
   };

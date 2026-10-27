@@ -41,8 +41,9 @@ import { provideShell, normalizeTabs, toggleTab, moveTab, tabBarFit, TAB_FIT_W, 
 import { openWelcome } from './welcome.js';
 import { startTour, tutorialState } from './tour.js';
 import { isNewerVersion, startPage, LEGAL_LINKS } from './features/settings.logic.js';
+import { startReminders } from './reminders.js';
 
-const VERSION = 'v0.34';
+const VERSION = 'v0.35';
 
 // Read before any feature module can seed data: tells a first-ever run from an upgrade
 const hadSavedData = hasSavedData();
@@ -1350,6 +1351,8 @@ noteVersion();
 noteNewLook();
 noteWelcome();
 requestPersistence();
+// Reminders for events and tasks (js/reminders.js): they fire while LIFE/OS is open on this device
+startReminders().catch((err) => console.error('[life-os] reminders unavailable', err));
 
 if (document.readyState === 'complete') startOfflineSupport();
 else window.addEventListener('load', startOfflineSupport, { once: true });

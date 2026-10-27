@@ -4,6 +4,7 @@
 import { dateKey, parseKey, shiftKey, weekday, clamp, uid } from '../ui.js';
 import { colorKey, withColor } from '../colors.logic.js';
 import { cleanIcon, iconOf } from '../icons.logic.js';
+import { cleanItemReminders } from '../reminders.logic.js';
 
 /* ==========================================================================
    Vocabulary
@@ -93,6 +94,9 @@ export function normalizeTask(raw, i = 0, now = Date.now()) {
 
   const due = isDateKey(raw.due) ? raw.due : null;
   const time = due && isTimeOfDay(raw.time) ? raw.time : null;
+  // Reminders (js/reminders.logic.js): absent / null = the defaults for tasks, [] = none, or
+  // [{ id, before, sound }]; a list is cleaned, anything else (a newer shape) stays as it is
+  if (Array.isArray(extra.reminders)) extra.reminders = cleanItemReminders(extra.reminders);
   return {
     ...extra,
     id,
@@ -412,7 +416,7 @@ export function computeStats(items, today) {
    Mutations (pure: items in, items out)
    ========================================================================== */
 
-export function createTask({ title, priority = 'none', due = null, notes = '', sectionId = null, time = null, minutes = null, color = null } = {}, now = Date.now()) {
+export function createTask({ title, priority = 'none', due = null, notes = '', sectionId = null, time = null, minutes = null, color = null, reminders = null } = {}, now = Date.now()) {
   const day = isDateKey(due) ? due : null;
   const at = day && isTimeOfDay(time) ? time : null;
   const task = {
@@ -429,6 +433,8 @@ export function createTask({ title, priority = 'none', due = null, notes = '', s
     order: 0,
     sectionId: typeof sectionId === 'string' && sectionId ? sectionId : null,
   };
+  // A copy keeps the reminders of the task it was made from
+  if (Array.isArray(reminders)) task.reminders = cleanItemReminders(reminders);
   return colorKey(color) ? { ...task, color: colorKey(color) } : task;
 }
 
@@ -449,9 +455,9 @@ export function toggleTask(items, id, done, now = Date.now()) {
 }
 
 /**
- * Patch title / notes / priority / due / time / minutes / sectionId. Invalid values are ignored; an
- * empty title keeps the old one. A task without a due date has no time either; a new time without
- * a length gets the default length.
+ * Patch title / notes / priority / due / time / minutes / sectionId / reminders. Invalid values
+ * are ignored; an empty title keeps the old one. A task without a due date has no time either; a
+ * new time without a length gets the default length.
  */
 export function updateTask(items, id, patch = {}) {
   return items.map((t) => {
@@ -469,6 +475,11 @@ export function updateTask(items, id, patch = {}) {
     if (!next.due) next.time = null;
     next.minutes = next.time ? taskMinutes(next.minutes) : null;
     if ('sectionId' in patch) next.sectionId = typeof patch.sectionId === 'string' && patch.sectionId ? patch.sectionId : null;
+    // Reminders: a list (cleaned), [] for none, or null: back to the defaults (no field)
+    if ('reminders' in patch) {
+      if (Array.isArray(patch.reminders)) next.reminders = cleanItemReminders(patch.reminders);
+      else if (patch.reminders === null) delete next.reminders;
+    }
     // Color coding: a palette id, or null to clear it (the field is then left out)
     if ('color' in patch) return withColor(next, patch.color);
     return next;

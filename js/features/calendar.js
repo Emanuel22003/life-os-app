@@ -23,6 +23,7 @@ import { undoToast, undoLast, snapshot, revertEvents } from './calendar.undo.js'
 import { trackPointer, dropTargetAt, ghostOf, edgeScroller, cancelDrag, isDragging } from './calendar.drag.js';
 import { registerContextProvider } from '../contextmenu.js';
 import { clipText, slotMinute } from '../contextmenu.logic.js';
+import { remindMenu, openRemindersDialog } from '../reminders.ui.js';
 
 const DEPTH = { month: 0, week: 1, day: 2 };
 // The Show menu: each layer with the app's own icon for it (L.LAYER_ICON), so it reads at a glance
@@ -174,6 +175,41 @@ const refuse = (message) => {
   toast(message);
   return false;
 };
+
+/**
+ * An event's reminders (null: the defaults, []: none, or a list), for every date of a repeating
+ * one, with Undo. The right-click menu's "Remind me ▸" and its Custom… dialog come here.
+ */
+function setEventReminders(id, list, message) {
+  const ev = getEvent(id);
+  if (!ev) return refuse('That event no longer exists.');
+  if (isNewerFormat(id)) return refuse(NEWER_COPY);
+  const res = L.updateEvent(ev, { reminders: list });
+  if (res.error) return refuse(res.error);
+  if (JSON.stringify(res.event.reminders) === JSON.stringify(ev.reminders)) return false;
+  const what = `“${clip(ev.title)}”`;
+  return commitEvents({ save: [res.event] }, message || `Changed the reminders of ${what}`, what);
+}
+
+/** "Remind me ▸" for an event's right-click menu. */
+function eventRemindMenu(ev) {
+  const what = `“${clip(ev.title)}”`;
+  const own = Array.isArray(ev.reminders) ? ev.reminders : null;
+  return remindMenu({
+    value: own,
+    kind: 'event',
+    name: what,
+    onSet: (list, message) => setEventReminders(ev.id, list, message),
+    onCustom: () =>
+      openRemindersDialog({
+        title: ev.title,
+        kind: 'event',
+        value: own,
+        hint: ev.repeat ? 'Every date of the series gets these reminders.' : '',
+        onSave: (list) => setEventReminders(ev.id, list, `Changed the reminders of ${what}`),
+      }),
+  });
+}
 
 /** Where a drag put an occurrence, in words: 'Thu 8 Oct, 09:00' · 'Thu 8 Oct' · '09:00–10:30'. */
 function whereTo(changes) {
@@ -1493,6 +1529,7 @@ function mount(root) {
           : [
               occ.start !== today ? { id: 'today', label: 'Move to today', icon: 'sun', run: () => moveOccurrenceTo(occ, today) } : null,
               { id: 'dup-tomorrow', label: 'Duplicate to the next day', icon: 'sunrise', run: () => duplicateTo(occ, L.shiftDays(occ.start, 1)) },
+              eventRemindMenu(ev),
             ].filter(Boolean),
         accepts,
         paste: (c) => pasteOnDay(c, occ.start),
@@ -1528,6 +1565,7 @@ function mount(root) {
           task.due !== today ? { id: 'today', label: 'Move to today', icon: 'sun', run: () => applyDue(id, today) } : null,
           task.due !== tomorrow ? { id: 'tomorrow', label: 'Move to tomorrow', icon: 'sunrise', run: () => applyDue(id, tomorrow) } : null,
           task.due ? { id: 'unschedule', label: 'Unschedule', icon: 'inbox', run: () => applySchedule(id, { due: null, time: null }) } : null,
+          task.done ? null : tasksApi.remindMenu(id),
         ].filter(Boolean),
         accepts: key ? accepts : ['task'],
         paste: (c) => (c.kind === 'task' ? pasteTask(c.snapshot, key, { afterId: id }) : pasteOnDay(c, key)),
