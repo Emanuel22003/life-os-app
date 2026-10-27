@@ -77,6 +77,7 @@ const CORE = [
   'icons/apple-touch-icon.png',
   'js/app.js',
   'js/ui.js',
+  'js/formats.js',
   'js/icons.js',
   'js/icons.logic.js',
   'js/store.js',
