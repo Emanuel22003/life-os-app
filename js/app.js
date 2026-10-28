@@ -43,7 +43,7 @@ import { startTour, tutorialState } from './tour.js';
 import { isNewerVersion, startPage, LEGAL_LINKS } from './features/settings.logic.js';
 import { startReminders } from './reminders.js';
 
-const VERSION = 'v0.36.2';
+const VERSION = 'v0.36.3';
 
 // Read before any feature module can seed data: tells a first-ever run from an upgrade
 const hadSavedData = hasSavedData();

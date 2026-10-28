@@ -79,7 +79,8 @@
     <a href="#iphone">iPhone / iPad</a>
     <a href="#android">Android</a>
     <a href="#computer">Computer</a>
-    <a href="#first">First time you open it</a>
+    <a href="#github">Make a GitHub account</a>
+    <a href="#sync">Sync your devices</a>
   </nav>
 
   <!-- ===================== iPhone ===================== -->
@@ -178,34 +179,105 @@
   </ol>
   <div class="tip"><p><strong>Safari on a Mac:</strong> File → Add to Dock → Add.</p></div>
 
-  <!-- ===================== First open ===================== -->
-  <h2 id="first">The first time you open it</h2>
-  <p>Three quick choices, then you're in.</p>
+  <!-- ===================== GitHub account ===================== -->
+  <h2 id="github">Make a GitHub account (for Sync)</h2>
+  <p>Only needed if you want LIFE/OS the same on your phone and your computer. GitHub is free; your LIFE/OS data goes into a <strong>private</strong> folder there (a “repository”) that only you can see.</p>
   <ol class="steps">
     <li>
-      <div class="step-body"><h3>Pick your look</h3><p>Swipe left and right through 8 looks. Each card is a live preview. Switch Light / Dark at the top, then tap <strong>Use this look</strong>.</p></div>
-      <div class="shot"><img src="install/02-look-pearl.jpg" alt="The Pick your look screen showing the Pearl look with a to-do list, habit graph, clock and payments" loading="lazy" width="390" height="844" /></div>
+      <div class="step-body"><h3>Go to github.com/signup</h3><p><a href="https://github.com/signup" target="_blank" rel="noopener">github.com/signup</a> — on your computer is easiest.</p></div>
     </li>
     <li>
-      <div class="step-body"><h3>Choose your formats</h3><p>How dates look (day/month/year is the default) and Metric or US units. Tap <strong>Next</strong>.</p></div>
-      <div class="shot"><img src="install/03-formats.jpg" alt="The Your formats screen with date format and units choices" loading="lazy" width="390" height="844" /></div>
-    </li>
-    <li>
-      <div class="step-body"><h3>Tutorial or not</h3><p><strong>No tutorial</strong>, a <strong>Quick tutorial</strong> (about a minute) or the full <strong>Tutorial</strong>. You can start them later from <strong>More</strong>.</p></div>
-      <div class="shot"><img src="install/04-tutorial.jpg" alt="The welcome screen with No tutorial, Quick tutorial and Tutorial" loading="lazy" width="390" height="844" /></div>
-    </li>
-    <li>
-      <div class="step-body"><h3>You're in</h3><p>Home shows your day. The bar at the bottom has your main pages; <strong>More</strong> has everything else, Settings and the tutorials.</p></div>
-      <div class="gallery">
-        <figure><img src="install/05-home.jpg" alt="LIFE/OS Home on a phone with the Start here card, To do and the tab bar" loading="lazy" width="390" height="844" /><figcaption>Home</figcaption></figure>
-        <figure><img src="install/06-more.jpg" alt="The More sheet with the other pages, Search, Settings and Appearance" loading="lazy" width="390" height="844" /><figcaption>More</figcaption></figure>
+      <div class="step-body"><h3>Type your email, a password and a username</h3><p>Click <strong>Continue</strong> after each one. The username can be anything (it's not shown in LIFE/OS).</p></div>
+      <div class="mock" aria-hidden="true">
+        <div class="mock-dialog">
+          <div class="row"><span>Sign up for GitHub</span></div>
+          <div class="mock-list">
+            <div><span>Email</span><span>you@mail.com</span></div>
+            <div><span>Password</span><span>••••••••••</span></div>
+            <div><span>Username</span><span>yourname</span></div>
+          </div>
+          <div class="row" style="margin:10px 0 0;justify-content:flex-end"><span class="hl">Continue</span></div>
+        </div>
       </div>
+    </li>
+    <li>
+      <div class="step-body"><h3>Solve the quick check and enter the code from your email</h3><p>GitHub sends a code to your email to make sure it's you.</p></div>
+    </li>
+    <li>
+      <div class="step-body"><h3>Skip the questions, pick the free plan</h3><p>If GitHub asks about your team or interests, you can skip. <strong>Free</strong> is all you need.</p></div>
     </li>
   </ol>
 
+  <!-- ===================== Sync ===================== -->
+  <h2 id="sync">Sync your phone and computer</h2>
+  <p>Do this once on your first device, then once on every other device. You need to be signed in to GitHub in the same browser.</p>
+
+  <h3 style="margin-top:20px">On your first device</h3>
+  <ol class="steps">
+    <li>
+      <div class="step-body"><h3>Open Sync in LIFE/OS</h3><p><strong>Settings → Sync &amp; backup → Open Sync</strong>. (On a computer you can also click the line at the bottom of the menu that says how your data is saved.)</p></div>
+    </li>
+    <li>
+      <div class="step-body"><h3>Step 1: create your private repository</h3><p>Click <strong>New repository on GitHub</strong>. The name <code>life-os-data</code> and <strong>Private</strong> are already filled in. Click <strong>Create repository</strong>, then come back to LIFE/OS.</p></div>
+      <div class="mock" aria-hidden="true">
+        <div class="mock-dialog">
+          <div class="row"><span>Create a new repository</span></div>
+          <div class="mock-list">
+            <div><span>Repository name</span><span>life-os-data</span></div>
+            <div class="hl"><span>◉ Private</span><span>only you</span></div>
+            <div><span>○ Public</span><span></span></div>
+          </div>
+          <div class="row" style="margin:10px 0 0;justify-content:flex-end"><span class="hl">Create repository</span></div>
+        </div>
+      </div>
+    </li>
+    <li>
+      <div class="step-body"><h3>Step 2: make a sync key</h3><p>Click <strong>New key on GitHub</strong>. Almost everything is filled in. Under <strong>Repository access</strong> choose <strong>Only select repositories</strong> and pick <code>life-os-data</code>. Then click <strong>Generate token</strong> at the bottom.</p></div>
+      <div class="mock" aria-hidden="true">
+        <div class="mock-dialog">
+          <div class="row"><span>Repository access</span></div>
+          <div class="mock-list">
+            <div><span>○ Public repositories</span></div>
+            <div><span>○ All repositories</span></div>
+            <div class="hl"><span>◉ Only select repositories</span></div>
+            <div><span>Selected</span><span>life-os-data ✓</span></div>
+          </div>
+          <div class="row" style="margin:10px 0 0;justify-content:flex-end"><span class="hl">Generate token</span></div>
+        </div>
+      </div>
+    </li>
+    <li>
+      <div class="step-body"><h3>Copy the key</h3><p>GitHub shows a long key that starts with <code>github_pat_</code>. Click the copy button next to it. <strong>It's shown only once</strong> — if you lose it, just make a new one.</p></div>
+    </li>
+    <li>
+      <div class="step-body"><h3>Step 3: paste it in LIFE/OS and click Connect</h3><p>Back in the Sync window, paste the key and click <strong>Connect</strong>. The line at the bottom of the menu now says <strong>Synced · just now</strong>.</p></div>
+    </li>
+  </ol>
+
+  <h3 style="margin-top:28px">On every other device</h3>
+  <ol class="steps">
+    <li>
+      <div class="step-body"><h3>Install LIFE/OS there and open Sync</h3><p>Same as above: <strong>Settings → Sync &amp; backup → Open Sync</strong>.</p></div>
+    </li>
+    <li>
+      <div class="step-body"><h3>Skip step 1, make a new key (step 2)</h3><p>Your repository already exists. Make a new key for this device the same way (Only select repositories → <code>life-os-data</code> → Generate token) and copy it.</p></div>
+    </li>
+    <li>
+      <div class="step-body"><h3>Paste and Connect</h3><p>If this device already has things in it, LIFE/OS asks what to do. Pick <strong>Combine both</strong>: nothing is lost. On a fresh device it just downloads everything.</p></div>
+      <div class="mock" aria-hidden="true">
+        <div class="mock-list">
+          <div class="hl"><span>Combine both</span><span>keeps everything</span></div>
+          <div><span>Use the data from GitHub</span></div>
+          <div><span>Use this device's data</span></div>
+        </div>
+      </div>
+    </li>
+  </ol>
+  <div class="tip"><p><strong>Keep your key secret.</strong> Never send it to anyone (not even me). It only opens your <code>life-os-data</code> repository and lasts a year; when it runs out, LIFE/OS says “Sync key expired” and you make a new one the same way.</p></div>
+
   <h2>Good to know</h2>
   <ul class="facts">
-    <li><strong>Your data stays on your device.</strong> Nothing you type is sent to anyone. No account, no tracking.</li>
+    <li><strong>Your data stays on your device.</strong> No account, no tracking. With Sync on, it also goes to your own private GitHub repository — nowhere else.</li>
     <li><strong>Updates come by themselves.</strong> When there's a new version you'll see “LIFE/OS … is ready · Reload”.</li>
     <li><strong>Make a backup now and then:</strong> Settings → Download a backup. If you delete the app or clear your browser, the data on that device is gone.</li>
     <li><strong>Pick your tabs:</strong> More → Edit tabs.</li>
