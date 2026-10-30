@@ -39,16 +39,18 @@ import { startSync, syncStatus, onSyncStatus } from './sync.js';
 import { openSyncPanel, syncLabel } from './sync.panel.js';
 import { provideShell, normalizeTabs, toggleTab, moveTab, tabBarFit, TAB_FIT_W, TAB_MIN_W, welcomeOnStart } from './shell.js';
 import { openWelcome } from './welcome.js';
+import { phoneKind, iosBrowser, getAppFirst } from './welcome.logic.js';
 import { startTour, tutorialState } from './tour.js';
 import { isNewerVersion, startPage, LEGAL_LINKS } from './features/settings.logic.js';
 import { startReminders } from './reminders.js';
 
-const VERSION = 'v0.36.4';
+const VERSION = 'v0.37';
 
 // Read before any feature module can seed data: tells a first-ever run from an upgrade
 const hadSavedData = hasSavedData();
 
 registerIcon('install', '<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4M12 7v5.5M9.5 10l2.5 2.5 2.5-2.5"/>');
+registerIcon('ios-share', '<path d="M12 3v12M8 7l4-4 4 4"/><path d="M5 11v9h14v-9"/>');
 registerIcon('open-app', '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 8h18M10 16l5-5M11 11h4v4"/>');
 // Nav icons live here, so the nav draws them even if their module fails to load
 registerIcon('home', '<path d="M3.5 10.5 12 3.5l8.5 7"/><path d="M5.5 9v10.5a1 1 0 0 0 1 1H10v-6h4v6h3.5a1 1 0 0 0 1-1V9"/>');
@@ -984,6 +986,7 @@ const standaloneQuery = matchMedia('(display-mode: standalone)');
 const isStandalone = () => standaloneQuery.matches || navigator.standalone === true;
 
 let installPrompt = null; // Chrome's beforeinstallprompt event, usable once
+let getAppPaint = null; // the open Get the app sheet's repaint (the prompt arrived, or was used)
 let helpReady = false; // offer help only after Chrome had a moment to offer its prompt
 // The Mac's own copy (start.command's background service) may speak of the Dock and Launchpad;
 // the website can be open on any computer or phone, so its words stay general
@@ -1055,6 +1058,7 @@ function syncInstallUi() {
     btn.title = title;
   }
   appMarkers.forEach((el) => (el.hidden = !isStandalone()));
+  getAppPaint?.();
 }
 
 function onInstallClick() {
@@ -1163,6 +1167,62 @@ function openAppHelp() {
   });
 }
 
+/* ---- One link: on a phone's browser, the first run starts with getting the app ----
+   The link people are sent is the app's own address. Opened in a phone's browser with nothing
+   saved, it first shows how to add LIFE/OS to the Home Screen; the welcome then runs in the app.
+   "Use it in the browser" (or closing the sheet) goes on to the welcome here. The full guide
+   (install.html) has pictures, a GitHub account and Sync. */
+
+function openGetApp({ onSkip }) {
+  const phone = phoneKind(navigator.userAgent, navigator.maxTouchPoints);
+  const browser = phone === 'ios' ? iosBrowser(navigator.userAgent) : null;
+  const shareIcon = () => h('span', { class: 'kbd getapp-share', 'aria-label': 'Share' }, icon('ios-share', { size: 14 }));
+  const body = h('div', { class: 'getapp' });
+  const installBtn = h('button', { type: 'button', class: 'btn btn--primary', onClick: () => promptInstall() }, icon('install'), 'Install LIFE/OS');
+  const skipBtn = h('button', { type: 'button', class: 'btn btn--ghost', onClick: () => m.close() }, 'Use it in the browser');
+
+  const iosSteps = () =>
+    helpSteps(
+      browser === 'elsewhere' ? ['Open this page in ', helpStrong('Safari'), ': tap ', h('span', { class: 'kbd' }, '⋯'), ' or the compass, then ', helpStrong('Open in Safari'), '.'] : null,
+      browser === 'chrome' ? ['Tap ', shareIcon(), ' ', helpStrong('Share'), ' at the right of the address bar.'] : ['Tap ', shareIcon(), ' ', helpStrong('Share'), ' in Safari’s bar (at the top on an iPad).'],
+      ['Tap ', helpStrong('Add to Home Screen'), '. Scroll down a little if you don’t see it.'],
+      ['Tap ', helpStrong('Add'), ', then open LIFE/OS from its new icon.'],
+    );
+  const androidSteps = () =>
+    installPrompt
+      ? helpSteps(['Tap ', helpStrong('Install LIFE/OS'), ' below, then ', helpStrong('Install'), '.'], ['Open LIFE/OS from its new icon.'])
+      : helpSteps(['Tap ', h('span', { class: 'kbd' }, '⋮'), ' at the top right of Chrome.'], ['Tap ', helpStrong('Add to Home screen'), ' or ', helpStrong('Install app'), ', then ', helpStrong('Install'), '.'], ['Open LIFE/OS from its new icon.']);
+
+  const paint = () => {
+    const installed = phone === 'android' && settings.get().appInstalled;
+    const parts = [
+      installed
+        ? h('p', { class: 'getapp-lead' }, helpStrong('LIFE/OS is installed. '), 'Open it from your Home Screen or app list. It has the same data as this tab.')
+        : h('p', { class: 'getapp-lead' }, 'Add it to your Home Screen: it opens like a normal app, works without internet and can remind you of tasks and events. It takes a minute.'),
+      installed ? null : phone === 'ios' ? iosSteps() : androidSteps(),
+      phone === 'ios' ? helpNote(helpStrong('Set it up in the app, not here: '), 'the Home Screen app keeps its own data, apart from the browser.') : null,
+      h('p', { class: 'getapp-guide' }, h('a', { href: './install.html', target: '_blank', rel: 'noopener' }, 'The full guide'), ': pictures, a GitHub account and Sync between your devices.'),
+    ];
+    body.replaceChildren(...parts.filter(Boolean));
+    installBtn.hidden = phone !== 'android' || !installPrompt || installed;
+  };
+  getAppPaint = paint;
+  paint();
+
+  const m = openModal({
+    title: 'Get the LIFE/OS app',
+    className: 'install-modal getapp-sheet',
+    body,
+    footer: [skipBtn, installBtn],
+    initialFocus: installBtn.hidden ? skipBtn : installBtn,
+    onClose: () => {
+      getAppPaint = null;
+      onSkip?.();
+    },
+  });
+  return m;
+}
+
 /* ---- Storage: ask Chrome not to evict this app's data under disk pressure ---- */
 
 let storageState = 'checking';
@@ -1253,6 +1313,12 @@ function noteWelcome() {
   // Shown but not answered yet (the window closed meanwhile): it shows again next time
   if (settings.get().welcomed !== false) settings.update({ welcomed: false });
   if (modalOpen()) closeAllModals();
+  const phone = phoneKind(navigator.userAgent, navigator.maxTouchPoints);
+  if (getAppFirst({ phone, standalone: isStandalone(), realCopy: isRealCopy })) openGetApp({ onSkip: welcome });
+  else welcome();
+}
+
+function welcome() {
   openWelcome({
     onChoose: ({ choice, keyboard }) => {
       // A look picked in the welcome: the page behind it waited (a dialog was open), now it draws

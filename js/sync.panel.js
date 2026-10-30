@@ -199,6 +199,7 @@ export function openSyncPanel() {
     show(
       [
         h('p', { class: 'sync-lead' }, `Keep LIFE/OS the same on all your computers. Your data goes to a private repository called ${DATA_REPO} in your own GitHub account, and every sync is kept there as a version. Only you, and anyone you give access, can see it.`),
+        h('p', { class: 'sync-hint' }, 'No GitHub account yet? It’s free: ', inlineLink('./install.html#github', 'how to make one'), ', then come back here.'),
         h(
           'ol',
           { class: 'sync-steps' },

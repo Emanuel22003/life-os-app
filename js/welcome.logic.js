@@ -161,3 +161,38 @@ export function demoAverage(bars = LOOK_DEMO.bars) {
 export function demoTotal(payments = LOOK_DEMO.payments) {
   return payments.reduce((sum, p) => sum + p.amount, 0);
 }
+
+/* ---- One link: on a phone's browser, get the app first ---- */
+
+/**
+ * Which phone this browser is on: 'ios' (iPhone and iPad: an iPad's Safari calls itself a Mac
+ * with a touch screen) or 'android'; null on a computer.
+ */
+export function phoneKind(ua = '', touchPoints = 0) {
+  if (/iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && touchPoints > 1)) return 'ios';
+  if (/Android/.test(ua)) return 'android';
+  return null;
+}
+
+/**
+ * Where an iPhone's Share button is: 'safari' (its bar), 'chrome' (the address bar, iOS 16.4 or
+ * later) or 'elsewhere': a browser inside another app (Instagram, TikTok, Facebook…) or one
+ * without Add to Home Screen, so the page opens in Safari first.
+ */
+export function iosBrowser(ua = '') {
+  if (/FBAN|FBAV|FB_IAB|Instagram|TikTok|BytedanceWebview|musical_ly|Snapchat|LinkedInApp|Line\/|GSA\//.test(ua)) return 'elsewhere';
+  if (/CriOS/.test(ua)) return 'chrome';
+  if (/FxiOS|EdgiOS|OPiOS|DuckDuckGo/.test(ua)) return 'elsewhere';
+  return 'safari';
+}
+
+/**
+ * Before the welcome: add LIFE/OS to the Home Screen. Only in a phone's browser on a real copy
+ * (the one link people are sent): an iPhone's Home Screen app keeps its own data, apart from
+ * Safari, so a welcome answered in Safari would be asked again in the app. Not in the installed
+ * app, nor on a computer (the tab and the app share their data there, and the sidebar offers
+ * Install).
+ */
+export function getAppFirst({ phone = null, standalone = false, realCopy = false } = {}) {
+  return Boolean(phone) && !standalone && realCopy;
+}

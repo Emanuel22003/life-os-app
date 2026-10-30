@@ -398,6 +398,44 @@
   color: var(--text-2);
 }
 
+/* ---- One link: Get the app, before the welcome on a phone's browser ---- */
+
+.getapp {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.getapp-lead {
+  margin: 0;
+  font-size: var(--fs-sm);
+  line-height: 1.55;
+  color: var(--text-2);
+}
+
+.getapp-lead strong {
+  color: var(--text);
+  font-weight: 500;
+}
+
+.getapp-share {
+  display: inline-flex;
+  align-items: center;
+  vertical-align: -3px;
+}
+
+.getapp-guide {
+  margin: 0;
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+}
+
+.getapp-guide a {
+  color: var(--text);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
 /* index.html's fallback when the app's files couldn't all be loaded */
 .boot-error {
   min-height: 100vh;
