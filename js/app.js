@@ -40,11 +40,12 @@ import { openSyncPanel, syncLabel } from './sync.panel.js';
 import { provideShell, normalizeTabs, toggleTab, moveTab, tabBarFit, TAB_FIT_W, TAB_MIN_W, welcomeOnStart } from './shell.js';
 import { openWelcome } from './welcome.js';
 import { phoneKind, iosBrowser, getAppFirst } from './welcome.logic.js';
-import { startTour, tutorialState } from './tour.js';
+import { startTour, tutorialState, maybeGuide } from './tour.js';
+import { allGuidesSeen } from './tour.logic.js';
 import { isNewerVersion, startPage, LEGAL_LINKS } from './features/settings.logic.js';
 import { startReminders } from './reminders.js';
 
-const VERSION = 'v0.37';
+const VERSION = 'v0.38';
 
 // Read before any feature module can seed data: tells a first-ever run from an upgrade
 const hadSavedData = hasSavedData();
@@ -663,13 +664,13 @@ function moreHelp(close) {
     h(
       'div',
       { class: 'more-list' },
-      moreRow({ iconName: 'wl-quick', label: 'Quick tutorial', hint: `${state.steps.quick} steps · 1 min`, onClick: begin('quick'), className: 'more-tour', dataset: { tour: 'quick' } }),
+      moreRow({ iconName: 'wl-quick', label: 'Quick tutorial', hint: `${state.steps.quick} steps · 3 min`, onClick: begin('quick'), className: 'more-tour', dataset: { tour: 'quick' } }),
       ...(full
         ? [
             moreRow({ iconName: 'play', label: `Continue tutorial (${full.n} of ${full.of})`, onClick: begin('full', true), className: 'more-tour', dataset: { tour: 'continue' } }),
-            moreRow({ iconName: 'wl-map', label: 'Start tutorial over', hint: 'Every page · 10 min', onClick: begin('full'), className: 'more-tour', dataset: { tour: 'full' } }),
+            moreRow({ iconName: 'wl-map', label: 'Start tutorial over', hint: 'Main pages · 10 min', onClick: begin('full'), className: 'more-tour', dataset: { tour: 'full' } }),
           ]
-        : [moreRow({ iconName: 'wl-map', label: 'Tutorial', hint: 'Every page · 10 min', onClick: begin('full'), className: 'more-tour', dataset: { tour: 'full' } })]),
+        : [moreRow({ iconName: 'wl-map', label: 'Tutorial', hint: 'Main pages · 10 min', onClick: begin('full'), className: 'more-tour', dataset: { tour: 'full' } })]),
     ),
   );
 }
@@ -893,6 +894,8 @@ function render(force = false) {
   crumbCurrent.textContent = feature.title;
   syncMore();
   syncTitle();
+  // Training, Finance, Recovery and Health: their guide, the first time they open here
+  maybeGuide(id);
   if (!location.hash.startsWith(`#/${id}`)) history.replaceState(null, '', `#/${id}`);
 }
 
@@ -1306,6 +1309,12 @@ function noteNewLook() {
    device that already had data never sees it. Settings → About → Tutorial (and More → Help on a
    phone) starts either tour again. */
 
+// v0.37: Training, Finance, Recovery and Health explain themselves the first time they open
+// (js/tour.js maybeGuide). A device that had LIFE/OS before knows them: its guides count as seen.
+function noteGuides() {
+  if (settings.get().guides === undefined) settings.update({ guides: hadSavedData ? allGuidesSeen() : {} });
+}
+
 function noteWelcome() {
   const { show, mark } = welcomeOnStart(settings.get().welcomed, hadSavedData);
   if (mark) settings.update({ welcomed: true });
@@ -1419,6 +1428,7 @@ render(true);
 refreshBadges();
 noteVersion();
 noteNewLook();
+noteGuides();
 noteWelcome();
 requestPersistence();
 // Reminders for events and tasks (js/reminders.js): they fire while LIFE/OS is open on this device

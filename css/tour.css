@@ -130,6 +130,37 @@
   flex: none;
 }
 
+/* A step you do: one dot per thing to add, filled as each one comes in, and "1 of 2 added" */
+.tour-goal {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+}
+
+.tour-goal[hidden] {
+  display: none;
+}
+
+.tour-goal-dots {
+  display: inline-flex;
+  gap: 5px;
+}
+
+.tour-goal-dot {
+  width: 9px;
+  height: 9px;
+  border: 1.5px solid var(--line-strong);
+  border-radius: 50%;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.tour-goal-dot.is-on {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+
 .tour-extra:empty {
   display: none;
 }

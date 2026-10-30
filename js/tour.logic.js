@@ -1,7 +1,10 @@
 // LIFE/OS — the guided tours: the pure parts. The step lists of the quick and the full tutorial
 // (what each step says and which real control it points at), which steps a phone or a computer
-// gets, chapters and progress, where to continue, and where the bubble goes on the screen. No
-// DOM: tested in tools/tests/tour.test.js. js/tour.js draws the tours; js/welcome.js offers them.
+// gets, chapters and progress, where to continue, and where the bubble goes on the screen. Both
+// tutorials have you set up your first two tasks, three habits, a note and an event. Training,
+// Finance, Recovery and Health have a page guide instead, shown the first time each is opened
+// (PAGE_GUIDES). No DOM: tested in tools/tests/tour.test.js. js/tour.js draws the tours;
+// js/welcome.js offers them.
 
 export const TOUR_KINDS = Object.freeze(['quick', 'full']);
 
@@ -10,13 +13,13 @@ export const TOUR_KINDS = Object.freeze(['quick', 'full']);
 export const WELCOME_CHOICES = Object.freeze(
   [
     { id: 'none', title: 'No tutorial', text: 'Straight in, no steps. The tours wait in More and Settings.', icon: 'wl-go' },
-    { id: 'quick', title: 'Quick tutorial', text: 'The basics in 8 short steps, about a minute.', icon: 'wl-quick' },
-    { id: 'full', title: 'Tutorial', text: 'Every page, step by step, about 10 minutes. Stop any time.', icon: 'wl-map' },
+    { id: 'quick', title: 'Quick tutorial', text: 'Your first tasks, habits, note and event: 11 short steps, 3 minutes.', icon: 'wl-quick' },
+    { id: 'full', title: 'Tutorial', text: 'The main pages, set up as you go, about 10 minutes. Stop any time.', icon: 'wl-map' },
   ].map((c) => Object.freeze(c)),
 );
 
 /**
- * The three choices as the welcome shows them: the quick one counts its steps for this device (7
+ * The three choices as the welcome shows them: the quick one counts its steps for this device (10
  * once a look was picked in the welcome, which leaves out its "Pick a look" step).
  */
 export function welcomeChoices({ lookPicked = false } = {}) {
@@ -31,7 +34,9 @@ export function welcomeChoices({ lookPicked = false } = {}) {
    - target: what it points at: a selector, a list of them (the first one on screen wins), and a
      list item may be { sel, title, text } with its own words for that match. Any of these may be
      { phone, wide }: a phone (640px wide or less, the tab bar) and a computer (the sidebar) point
-     at different controls. No target: the bubble sits in the middle, without a pointer.
+     at different controls. No target: the bubble sits in the middle, without a pointer. A step
+     with more than one target looks again as you go, so the spotlight follows (the editor once
+     you write in it); a list item's own place overrides the step's.
    - title, text, missingText: words, or { phone, wide }. missingText is said when no target is on
      screen (the bubble is then centred). {search} and {undo} become ⌘K / Ctrl K, ⌘Z / Ctrl Z.
    - only: 'phone' | 'wide': the step is left out on the other kind of screen.
@@ -39,8 +44,11 @@ export function welcomeChoices({ lookPicked = false } = {}) {
    - ifMissing: 'centre' (the default: centred, without a pointer) or 'skip' (left out).
    - picker: the tab picker (js/welcome.js tabPicker) goes in the bubble.
    - tryIt: a field the bubble's "Try it" puts the cursor in.
-   - advanceOn: { store, list }: the step moves on by itself once that list grew (a task added).
-     The tour only watches: it never adds, changes or deletes anything itself.
+   - advanceOn: { store, list, goal, filled, auto }: a step you do. It counts what you add to that
+     list (goal of them, 1 if not said; filled: only items with words in one of those fields, a
+     note you wrote) and moves on by itself once they're in (auto: false waits for Next, as for a
+     note you may still be writing). The tour only watches: it never adds, changes or deletes
+     anything itself.
    - place: the side of the target the bubble prefers ('top', 'bottom', 'left', 'right'). */
 
 export const CHAPTERS = Object.freeze(
@@ -52,16 +60,16 @@ export const CHAPTERS = Object.freeze(
     { id: 'habits', title: 'Habits' },
     { id: 'calendar', title: 'Calendar' },
     { id: 'pomodoro', title: 'Pomodoro' },
-    { id: 'training', title: 'Training' },
-    { id: 'finance', title: 'Finance' },
-    { id: 'recovery', title: 'Recovery' },
-    { id: 'health', title: 'Health' },
     { id: 'settings', title: 'Settings' },
     { id: 'end', title: 'Finish' },
   ].map((c) => Object.freeze(c)),
 );
 
-const ADD_TASK = { store: 'tasks', list: 'items' };
+// What the tutorials have you set up: two tasks, three habits, a note with words in it, an event
+const ADD_TASKS = Object.freeze({ store: 'tasks', list: 'items', goal: 2 });
+const ADD_HABITS = Object.freeze({ store: 'habits', list: 'items', goal: 3 });
+const WRITE_NOTE = Object.freeze({ store: 'notes', list: 'items', goal: 1, filled: Object.freeze(['title', 'body']), auto: false });
+const ADD_EVENT = Object.freeze({ store: 'calendar', list: 'events', goal: 1 });
 
 // The steps both tutorials share (the full one has them in its first chapter)
 const PAGES = {
@@ -101,12 +109,52 @@ const SEARCH = {
   place: { wide: 'right', phone: 'top' },
 };
 
+const HABITS_ADD = {
+  id: 'habits-add',
+  page: 'habits',
+  title: 'Add three habits',
+  target: [
+    { sel: '.hb-suggest-list', text: 'Tap an idea to add it, or New habit for one of your own. Add three.' },
+    '.hb-add',
+  ],
+  text: 'Press New habit, give it a name and its days, then Create habit. Add three, like reading or a walk.',
+  advanceOn: ADD_HABITS,
+};
+
+const NOTE_WRITE = {
+  id: 'notes-new',
+  page: 'notes',
+  title: 'Write a note',
+  // While you write, the editor (the bubble moves aside, over the list); else New note. A phone's
+  // open note covers the list and its New: then the whole editor, so the bubble keeps clear of
+  // its top bar (‹ back to the list)
+  target: [
+    { sel: '.nt-editor:focus-within', text: 'Write anything: it saves as you type. Press Next when you’re done.', place: { wide: 'left' } },
+    '.nt-new',
+    { sel: '.nt-editor', text: 'Write in this note, or tap ‹ and then New for a fresh one. It saves as you type.' },
+  ],
+  text: 'Press New note and write anything: an idea, a list, a plan. It saves as you type; press Next when you’re done.',
+  advanceOn: WRITE_NOTE,
+};
+
+const EVENT_ADD = {
+  id: 'cal-new',
+  page: 'calendar',
+  title: 'Add an event',
+  target: '.cal-new',
+  text: {
+    wide: 'Press New event, or click a day. Give it a name and a time, then Create event.',
+    phone: 'Press New event, give it a name and a time, then Create event.',
+  },
+  advanceOn: ADD_EVENT,
+};
+
 const QUICK = [
   {
     id: 'hello',
     chapter: 'start',
     title: 'Welcome to LIFE/OS',
-    text: 'Your day in one place: tasks, notes, habits, a calendar, a focus timer and more. This short tour points at the real buttons and changes nothing by itself.',
+    text: 'Your day in one place: tasks, notes, habits, a calendar, a focus timer and more. This tour shows you where things are while you add your first tasks, habits, a note and an event.',
   },
   PAGES,
   TABS,
@@ -126,13 +174,16 @@ const QUICK = [
     id: 'task',
     chapter: 'start',
     page: 'home',
-    title: 'Add your first task',
+    title: 'Add two tasks',
     target: '.hm-add',
     tryIt: '.hm-add-input',
-    text: 'Type a task here and press Enter. Add !h to make it high priority. Try it, or press Next.',
-    missingText: 'Type a task in To do on Home, or on the Tasks page, and press Enter.',
-    advanceOn: ADD_TASK,
+    text: 'Type a task, like Call the dentist, and press Enter. Add two; !h makes one high priority.',
+    missingText: 'Type two tasks in To do on Home, or on the Tasks page, pressing Enter after each.',
+    advanceOn: ADD_TASKS,
   },
+  { ...HABITS_ADD, chapter: 'start' },
+  { ...NOTE_WRITE, chapter: 'start' },
+  { ...EVENT_ADD, chapter: 'start' },
   SEARCH,
   {
     id: 'look',
@@ -166,7 +217,7 @@ const FULL = [
     id: 'hello',
     chapter: 'start',
     title: 'Welcome to LIFE/OS',
-    text: 'This tour visits every page, a few steps each, about 10 minutes. It points at the real buttons and changes nothing by itself. Leave whenever you like: it remembers where you were.',
+    text: 'This tour visits the main pages while you set up your first tasks, habits, a note and an event. Leave whenever you like: it remembers where you were.',
   },
   PAGES,
   TABS,
@@ -207,11 +258,11 @@ const FULL = [
     id: 'tasks-add',
     chapter: 'tasks',
     page: 'tasks',
-    title: 'Add a task',
+    title: 'Add two tasks',
     target: '.tk-command',
     tryIt: '.tk-add-input',
-    text: 'Type a task and press Enter. Then pick its priority, when it’s due and its section, one step at a time. Try it, or press Next.',
-    advanceOn: ADD_TASK,
+    text: 'Type a task and press Enter, then pick its priority, when it’s due and its section. Add two.',
+    advanceOn: ADD_TASKS,
   },
   {
     id: 'tasks-order',
@@ -258,14 +309,7 @@ const FULL = [
     text: 'Sections keep notes apart, like Work or Recipes. All notes shows every one of them.',
     place: { wide: 'right' },
   },
-  {
-    id: 'notes-new',
-    chapter: 'notes',
-    page: 'notes',
-    title: 'New note',
-    target: '.nt-new',
-    text: 'New note starts one in the open section. It saves as you type.',
-  },
+  { ...NOTE_WRITE, chapter: 'notes' },
   {
     id: 'notes-mode',
     chapter: 'notes',
@@ -285,6 +329,7 @@ const FULL = [
     target: '.hb-tabs',
     text: 'Check in to tick today’s habits, Plan to choose their days, Insights for streaks and charts.',
   },
+  { ...HABITS_ADD, chapter: 'habits' },
   {
     id: 'habits-tick',
     chapter: 'habits',
@@ -311,17 +356,7 @@ const FULL = [
       phone: 'Switch between month, week and day. Your tasks and habits show beside your events.',
     },
   },
-  {
-    id: 'cal-new',
-    chapter: 'calendar',
-    page: 'calendar',
-    title: 'Add an event',
-    target: '.cal-new',
-    text: {
-      wide: 'New event, or click a day, or drag on the week’s timeline.',
-      phone: 'New event adds one, or tap a day to see it and add one there.',
-    },
-  },
+  { ...EVENT_ADD, chapter: 'calendar' },
   {
     id: 'cal-tray',
     chapter: 'calendar',
@@ -351,75 +386,6 @@ const FULL = [
     title: 'Set it up',
     target: '.pm-setup-btn',
     text: 'Set up how long focus and breaks last, the bell and notifications.',
-  },
-
-  /* Training */
-  {
-    id: 'tr-start',
-    chapter: 'training',
-    page: 'training',
-    title: 'Start a workout',
-    target: '[data-tour="training-start"]',
-    text: 'Start workout opens it right here: add exercises, tick sets, and a rest timer starts. It saves as you go.',
-  },
-  {
-    id: 'tr-routines',
-    chapter: 'training',
-    page: 'training',
-    title: 'Routines',
-    target: ['.tr-routines', '.tr-log .empty'],
-    text: 'Routines save the exercises you repeat, like Push day. Start one in a click, with last time’s numbers ready.',
-  },
-
-  /* Finance */
-  {
-    id: 'fn-subs',
-    chapter: 'finance',
-    page: 'finance',
-    title: 'Subscriptions',
-    target: '.fn-add-sub',
-    text: 'Add your subscriptions to see what they cost a month and which payment comes next.',
-  },
-  {
-    id: 'fn-results',
-    chapter: 'finance',
-    page: 'finance',
-    title: 'Daily results',
-    target: '.fn-show-btn',
-    text: 'Show → Daily results tracks what you make or lose each day, on a graph. It’s off until you turn it on.',
-  },
-
-  /* Recovery */
-  {
-    id: 'rc-trackers',
-    chapter: 'recovery',
-    page: 'recovery',
-    title: 'Trackers',
-    target: '[data-tour="recovery-new"]',
-    text: 'A tracker counts the days you stay away from something, like smoking or alcohol. It’s for you alone.',
-  },
-  {
-    id: 'rc-relapse',
-    chapter: 'recovery',
-    page: 'recovery',
-    title: 'A slip is one day',
-    target: [
-      { sel: '.rc-relapse-btn', text: 'I relapsed today marks today; any other day, tap it on the calendar. Every clean day before it still counts.' },
-      { sel: '.rc-cal', text: 'Tap a day on the calendar to mark a relapse, and again to take it back. Every clean day before it still counts.' },
-    ],
-    text: 'Once you have a tracker, mark a relapse on its calendar. Every clean day before it still counts.',
-  },
-
-  /* Health (one step: the page is one thing so far) */
-  {
-    id: 'hl-weight',
-    chapter: 'health',
-    page: 'health',
-    title: 'Log your weight',
-    target: '.hl-qa',
-    tryIt: '.hl-qa-weight',
-    text: 'Type your weight and press Enter, once a day at most. The graph’s trend line evens out the ups and downs. Try it, or press Next.',
-    advanceOn: { store: 'health', list: 'weights' },
   },
 
   /* Settings */
@@ -461,11 +427,151 @@ const FULL = [
     id: 'done',
     chapter: 'end',
     title: 'You’re all set',
-    text: 'That’s every page. Start small: one task, one habit or a note. Have a good day!',
+    text: 'That’s the main pages. Training, Finance, Recovery and Health show a short guide when you first open them. Have a good day!',
   },
 ];
 
-const LISTS = { quick: QUICK, full: FULL };
+
+/* ---- Page guides: Training, Finance, Recovery and Health ----
+   Not in the tutorials: each shows its own short guide the first time it's opened on a device
+   (settings.guides, js/tour.js maybeGuide). A guide is a tour of kind 'guide:<page>'. */
+
+export const PAGE_GUIDES = Object.freeze(['training', 'finance', 'recovery', 'health']);
+
+const GUIDES = {
+  training: [
+    {
+      id: 'tr-hello',
+      page: 'training',
+      title: 'Training',
+      text: 'Log your workouts here: exercises, sets and rest times. Two things to know.',
+    },
+    {
+      id: 'tr-start',
+      page: 'training',
+      title: 'Start a workout',
+      target: '[data-tour="training-start"]',
+      text: 'Start workout opens it right here: add exercises, tick sets, and a rest timer starts. It saves as you go.',
+    },
+    {
+      id: 'tr-routines',
+      page: 'training',
+      title: 'Routines',
+      target: ['.tr-routines', '.tr-log .empty'],
+      text: 'Routines save the exercises you repeat, like Push day. Start one in a click, with last time’s numbers ready.',
+    },
+  ],
+  finance: [
+    {
+      id: 'fn-hello',
+      page: 'finance',
+      title: 'Finance',
+      text: 'See what your subscriptions cost and which payment comes next. Daily results, for a business or trading, is there if you want it.',
+    },
+    {
+      id: 'fn-subs',
+      page: 'finance',
+      title: 'Subscriptions',
+      target: '.fn-add-sub',
+      text: 'Add your subscriptions to see what they cost a month and which payment comes next.',
+    },
+    {
+      id: 'fn-results',
+      page: 'finance',
+      title: 'Daily results',
+      target: '.fn-show-btn',
+      text: 'Show → Daily results tracks what you make or lose each day, on a graph. It’s off until you turn it on.',
+    },
+  ],
+  recovery: [
+    {
+      id: 'rc-hello',
+      page: 'recovery',
+      title: 'Recovery',
+      text: 'Count the days you stay away from something, and see how long each clean run lasted.',
+    },
+    {
+      id: 'rc-trackers',
+      page: 'recovery',
+      title: 'Trackers',
+      target: '[data-tour="recovery-new"]',
+      text: 'A tracker counts the days you stay away from something, like smoking or alcohol. It’s for you alone.',
+    },
+    {
+      id: 'rc-relapse',
+      page: 'recovery',
+      title: 'A slip is one day',
+      target: [
+        { sel: '.rc-relapse-btn', text: 'I relapsed today marks today; any other day, tap it on the calendar. Every clean day before it still counts.' },
+        { sel: '.rc-cal', text: 'Tap a day on the calendar to mark a relapse, and again to take it back. Every clean day before it still counts.' },
+      ],
+      text: 'Once you have a tracker, mark a relapse on its calendar. Every clean day before it still counts.',
+    },
+  ],
+  health: [
+    {
+      id: 'hl-hello',
+      page: 'health',
+      title: 'Health',
+      text: 'Track your weight and watch the trend, in kg or lb.',
+    },
+    {
+      id: 'hl-weight',
+      page: 'health',
+      title: 'Log your weight',
+      target: '.hl-qa',
+      tryIt: '.hl-qa-weight',
+      text: 'Type your weight and press Enter, once a day at most. The graph’s trend line evens out the ups and downs. Try it, or press Next.',
+      advanceOn: { store: 'health', list: 'weights' },
+    },
+  ],
+};
+
+/** A page's guide as a tour kind ('guide:training'), or null for a page without one. */
+export const guideKind = (page) => (PAGE_GUIDES.includes(page) ? `guide:${page}` : null);
+
+/** Whether tour kind `kind` is a page guide. */
+export const isGuide = (kind) => PAGE_GUIDES.some((p) => kind === `guide:${p}`);
+
+/** settings.guides, kept to what this version knows: { training: true, … } (seen on this device). */
+export function normalizeGuides(value) {
+  const out = {};
+  for (const page of PAGE_GUIDES) if (value && typeof value === 'object' && value[page] === true) out[page] = true;
+  return out;
+}
+
+/** The guide to show on opening `page`: its kind, or null (a page without one, or seen already). */
+export function guideFor(page, seen) {
+  const kind = guideKind(page);
+  return kind && !normalizeGuides(seen)[page] ? kind : null;
+}
+
+/** settings.guides with `page` seen. Never changes `seen`. */
+export function markGuide(seen, page) {
+  const out = normalizeGuides(seen);
+  if (PAGE_GUIDES.includes(page)) out[page] = true;
+  return out;
+}
+
+/** Every guide seen: a device that had LIFE/OS before the guides came (v0.37) isn't shown them. */
+export const allGuidesSeen = () => Object.fromEntries(PAGE_GUIDES.map((p) => [p, true]));
+
+/* ---- Steps you do: counting what you add ---- */
+
+/** How many items of advanceOn.list a store's saved value has (filled: only those with words). */
+export function countFor(value, { list, filled = null } = {}) {
+  const items = value && typeof value === 'object' ? value[list] : null;
+  if (!Array.isArray(items)) return 0;
+  if (!filled) return items.length;
+  return items.filter((it) => filled.some((k) => typeof it?.[k] === 'string' && it[k].trim())).length;
+}
+
+/** "1 of 2 added": `n` added since the step began, of its goal. */
+export function goalText(n, goal = 1) {
+  return `${Math.max(0, Math.min(Math.trunc(n) || 0, goal))} of ${goal} added`;
+}
+
+const LISTS = { quick: QUICK, full: FULL, ...Object.fromEntries(PAGE_GUIDES.map((p) => [`guide:${p}`, GUIDES[p]])) };
 
 /** The words for this screen: a string, or { phone, wide }. */
 function pick(value, phone) {
@@ -481,14 +587,14 @@ export function fillKeys(text, { mac = true } = {}) {
   return text.replace(/\{search\}/g, mac ? '⌘K' : 'Ctrl K').replace(/\{undo\}/g, mac ? '⌘Z' : 'Ctrl Z');
 }
 
-/** A step's targets for this screen: [{ sel, title, text }] (empty: centred, no pointer). */
+/** A step's targets for this screen: [{ sel, title, text, place }] (empty: centred, no pointer). */
 function targetsOf(step, phone, mac) {
   const raw = pick(step.target, phone);
   const list = raw == null ? [] : Array.isArray(raw) ? raw : [raw];
   return list
     .map((t) => (typeof t === 'string' ? { sel: t } : t && typeof t.sel === 'string' ? t : null))
     .filter(Boolean)
-    .map((t) => ({ sel: t.sel, title: fillKeys(pick(t.title, phone), { mac }), text: fillKeys(pick(t.text, phone), { mac }) }));
+    .map((t) => ({ sel: t.sel, title: fillKeys(pick(t.title, phone), { mac }), text: fillKeys(pick(t.text, phone), { mac }), place: pick(t.place, phone) ?? null }));
 }
 
 /**

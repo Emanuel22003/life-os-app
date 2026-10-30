@@ -5,14 +5,20 @@
 // The steps, their words and the geometry are pure (js/tour.logic.js). Started by the first-run
 // choice (js/welcome.js, via app.js) and Settings → About → Tutorial. Styles: css/tour.css.
 //
+// The steps you do (two tasks, three habits, a note, an event) count what you add, "1 of 2
+// added", and move on once it's in; until then Next is "Skip step". Training, Finance, Recovery
+// and Health each have a page guide, a short tour of its own shown the first time the page opens
+// on this device (maybeGuide, from app.js).
+//
 // The tour never creates, changes or deletes anything by itself: it opens pages (location.hash),
 // points, and "Try it" puts the cursor in a field. Its only writes are its own place
-// (settings.tours, this device) and the tab bar's pages when you tick them in its picker step.
+// (settings.tours, settings.guides: this device) and the tab bar's pages when you tick them in
+// its picker step.
 
 import { h, icon, isTyping, menuOpen, reducedMotion, toast, uid } from './ui.js';
 import { settings, readSaved } from './store.js';
 import { shell } from './shell.js';
-import { TOUR_KINDS, tourSteps, chapterOf, progressText, normalizeTours, recordTour, resumeIndex, continueInfo, placeBubble, spotRect, visiblePart } from './tour.logic.js';
+import { TOUR_KINDS, tourSteps, chapterOf, progressText, normalizeTours, recordTour, resumeIndex, continueInfo, placeBubble, spotRect, visiblePart, isGuide, guideFor, markGuide, countFor, goalText } from './tour.logic.js';
 import { tabPicker } from './welcome.js';
 
 // A phone: the tab bar and More instead of the sidebar (css/shell.css, 640px)
@@ -73,7 +79,7 @@ export function tourDebug() {
  * this device. A tour already on screen ends first, quietly.
  */
 export function startTour(kind, { resume = false } = {}) {
-  if (!TOUR_KINDS.includes(kind)) return;
+  if (!TOUR_KINDS.includes(kind) && !isGuide(kind)) return;
   if (run) finish('left', { quiet: true });
   const steps = stepsFor(kind);
   const index = resume ? resumeIndex(steps, normalizeTours(settings.get().tours)[kind]) : 0;
@@ -123,6 +129,26 @@ export function endTour() {
   if (run) finish('left', { quiet: true });
 }
 
+/**
+ * The guide of page `page` (Training, Finance, Recovery, Health) the first time it opens on this
+ * device: once the welcome is answered, and not over a tour or a dialog (then it waits for the
+ * next visit). Shown once, however it ends (settings.guides).
+ */
+export function maybeGuide(page) {
+  setTimeout(() => {
+    if (run || dialogUp() || pageNow() !== page || settings.get().welcomed !== true) return;
+    const kind = guideFor(page, settings.get().guides);
+    if (!kind) return;
+    settings.update({ guides: markGuide(settings.get().guides, page) });
+    startTour(kind);
+  }, 350);
+}
+
+/** Settings → About → Tutorial: every page guide shows again the next time its page opens. */
+export function resetGuides() {
+  settings.update({ guides: {} });
+}
+
 /* ---- Drawing ---- */
 
 function build(kind) {
@@ -132,6 +158,7 @@ function build(kind) {
     chapter: h('p', { class: 'tour-chapter label' }),
     title: h('h2', { class: 'modal-title tour-title', id: titleId }),
     text: h('p', { class: 'tour-text', id: textId }),
+    goal: h('p', { class: 'tour-goal', hidden: true }),
     done: h('p', { class: 'tour-done', hidden: true }, icon('check', { size: 14, stroke: 2.5 }), h('span', null, 'Done. On to the next step.')),
     extra: h('div', { class: 'tour-extra' }),
     count: h('span', { class: 'tour-count' }),
@@ -149,7 +176,7 @@ function build(kind) {
     { class: 'modal hud tour-bubble', role: 'dialog', 'aria-modal': 'false', 'aria-labelledby': titleId, 'aria-describedby': textId, tabindex: '-1', onKeydown: onBubbleKey },
     els.arrow,
     h('div', { class: 'modal-head tour-head' }, h('div', { class: 'tour-head-text' }, els.chapter, els.title), els.close),
-    h('div', { class: 'modal-body tour-body' }, els.text, els.done, els.extra, h('p', { class: 'sr-only' }, 'F6 moves between the tour and the page.')),
+    h('div', { class: 'modal-body tour-body' }, els.text, els.goal, els.done, els.extra, h('p', { class: 'sr-only' }, 'F6 moves between the tour and the page.')),
     // Where you are stays in view over the buttons, also while a long step's words scroll
     h(
       'div',
@@ -173,7 +200,7 @@ function shown(el) {
   return r.width >= 1 && r.height >= 1 && getComputedStyle(el).visibility !== 'hidden';
 }
 
-/** The step's control: the first of its targets on screen. -> { el, sel, title, text } | null */
+/** The step's control: the first of its targets on screen. -> { el, sel, title, text, place } | null */
 function findTarget(step) {
   for (const t of step.targets) {
     let list = [];
@@ -182,7 +209,7 @@ function findTarget(step) {
     } catch {
       continue;
     }
-    for (const el of list) if (shown(el)) return { el, sel: t.sel, title: t.title, text: t.text };
+    for (const el of list) if (shown(el)) return { el, sel: t.sel, title: t.title, text: t.text, place: t.place };
   }
   return null;
 }
@@ -267,10 +294,7 @@ function render(index, match) {
   }
   bubble.classList.toggle('is-wide', step.picker);
 
-  const last = index === steps.length - 1;
   els.back.hidden = index === 0;
-  els.skip.hidden = last;
-  els.next.textContent = last ? 'End' : 'Next';
   syncTry(step);
   watch(step);
 
@@ -341,8 +365,9 @@ function place() {
   if (phoneQuery.matches !== run.phone) return onViewport();
   const { spot, bubble, els } = run;
   const step = run.steps[run.index];
-  // The page drew its control again, or it went (you opened another page): look again
-  if (step.targets.length && !(run.match && shown(run.match.el)) && (!step.page || pageNow() === step.page)) {
+  // The page drew its control again, or it went (you opened another page): look again. A step
+  // with more than one target always looks, so the spotlight follows (the editor you write in)
+  if (step.targets.length && (step.targets.length > 1 || !(run.match && shown(run.match.el))) && (!step.page || pageNow() === step.page)) {
     const again = findTarget(step);
     if (again?.el !== run.match?.el) {
       run.match = again;
@@ -363,11 +388,12 @@ function place() {
   // On the side the step asks for (the tab picker above the tab bar), the bubble takes the room
   // there and its list scrolls, rather than covering the bar
   bubble.style.maxHeight = '';
-  if (hole && (step.place === 'top' || step.place === 'bottom')) {
-    const room = step.place === 'top' ? hole.top - GAP - MARGIN : view.height - MARGIN - (hole.top + hole.height + GAP);
+  const prefer = run.match?.place ?? step.place;
+  if (hole && (prefer === 'top' || prefer === 'bottom')) {
+    const room = prefer === 'top' ? hole.top - GAP - MARGIN : view.height - MARGIN - (hole.top + hole.height + GAP);
     if (room >= 240) bubble.style.maxHeight = `${Math.floor(room)}px`;
   }
-  const at = placeBubble(hole, { width: bubble.offsetWidth, height: bubble.offsetHeight }, view, { prefer: step.place, gap: GAP, margin: MARGIN });
+  const at = placeBubble(hole, { width: bubble.offsetWidth, height: bubble.offsetHeight }, view, { prefer, gap: GAP, margin: MARGIN });
   bubble.style.left = `${Math.round(at.left)}px`;
   bubble.style.top = `${Math.round(at.top)}px`;
   bubble.dataset.side = at.side;
@@ -423,26 +449,72 @@ function syncTry(step) {
   run.els.tryBtn.hidden = !tryField(step);
 }
 
+/** A step you do (it has a goal): until it's reached, its count shows and Next is "Skip step". */
+const doing = (step) => Number.isInteger(step?.advanceOn?.goal);
+
 /**
- * A step that waits for you (add a task): once its list grew it says so and moves on after a
- * moment. The tour only listens; you do the adding.
+ * The buttons and the count for `n` added so far: Next (End on the last step) and Skip, or, on a
+ * step you do whose goal isn't reached, "1 of 2 added" and a quieter Skip step in Next's place.
+ */
+function paintGoal(step, n) {
+  const { els } = run;
+  const last = run.steps.indexOf(step) === run.steps.length - 1;
+  const goal = step.advanceOn?.goal ?? 1;
+  const open = doing(step) && n < goal;
+  els.goal.hidden = !doing(step);
+  if (doing(step)) {
+    const dots = Array.from({ length: goal }, (_, i) => h('span', { class: `tour-goal-dot${i < n ? ' is-on' : ''}`, 'aria-hidden': 'true' }));
+    els.goal.replaceChildren(h('span', { class: 'tour-goal-dots' }, dots), h('span', null, goalText(n, goal)));
+  }
+  els.next.textContent = open ? 'Skip step' : last ? 'End' : 'Next';
+  els.next.classList.toggle('btn--primary', !open);
+  els.skip.hidden = last || open;
+}
+
+/**
+ * A step that waits for you (add two tasks, write a note): it counts what you add from the moment
+ * it shows, and once its goal is reached it says so and moves on after a moment (or, auto: false,
+ * waits for Next). The tour only listens; you do the adding.
  */
 function watch(step) {
   run.offWatch?.();
   run.offWatch = null;
+  paintGoal(step, 0);
   if (!step.advanceOn) return;
-  const { store, list } = step.advanceOn;
-  const count = () => {
-    const value = readSaved(store);
-    return Array.isArray(value?.[list]) ? value[list].length : 0;
-  };
+  const on = step.advanceOn;
+  const goal = on.goal ?? 1;
+  const count = () => countFor(readSaved(on.store), on);
   const before = count();
+  let shownN = 0;
   const onChange = (e) => {
-    if (e.detail?.key !== store || !run || run.steps[run.index] !== step || count() <= before) return;
+    if (e.detail?.key !== on.store || !run || run.steps[run.index] !== step) return;
+    const n = Math.max(0, count() - before);
+    if (doing(step) && n !== shownN) {
+      shownN = n;
+      paintGoal(step, n);
+      if (n < goal) announce(goalText(n, goal));
+      schedule();
+    }
+    if (n < goal) {
+      // More to add from the same field: if the page drew it again and the cursor fell out (Home's
+      // Start card ticks off a first task), it goes back in for the next one
+      const active = document.activeElement;
+      const typing = !!(step.tryIt && (!active || active === document.body || active.matches?.(step.tryIt)));
+      if (typing)
+        later(() => {
+          if (run?.steps[run.index] === step && (!document.activeElement || document.activeElement === document.body)) tryField(step)?.focus({ preventScroll: true });
+        }, 80);
+      return;
+    }
     run.offWatch?.();
     run.offWatch = null;
+    run.els.done.lastChild.textContent = on.auto === false ? 'Done. Press Next when you’re ready.' : 'Done. On to the next step.';
     run.els.done.hidden = false;
     schedule();
+    if (on.auto === false) {
+      announce(run.els.done.textContent);
+      return;
+    }
     // You did it from the field (or the page drew it again and the focus fell out): the focus
     // comes back to the tour, which goes on from here
     const active = document.activeElement;
@@ -545,6 +617,8 @@ function later(fn, ms) {
 
 /** This tour's place on this device (settings.tours): the step on screen and how it stands. */
 function save(status) {
+  // (a page guide has no place to keep: it shows once, settings.guides)
+  if (!TOUR_KINDS.includes(run.kind)) return;
   const step = run.steps[run.index];
   const before = normalizeTours(settings.get().tours)[run.kind];
   if (before?.step === step?.id && before?.status === status) return;
@@ -584,7 +658,7 @@ function finish(status, { quiet = false } = {}) {
     if (back && back !== document.body && shown(back)) back.focus({ preventScroll: true });
     else focusPage(null);
   }
-  if (status === 'left' && !quiet && r.index >= 0) {
+  if (status === 'left' && !quiet && r.index >= 0 && TOUR_KINDS.includes(r.kind)) {
     const where = phoneQuery.matches ? 'More' : 'Settings → About → Tutorial';
     if (r.kind === 'full' && r.index > 0) {
       toast(`Tutorial paused at step ${r.index + 1} of ${r.steps.length}. Continue any time in ${where}.`, {

@@ -13,7 +13,7 @@ import { SKINS, normalizeSkin, THEMES } from '../skins.js';
 import { COLOR_KINDS, normalizeColorPrefs } from '../colors.logic.js';
 import { paletteEditor } from '../palette.js';
 import { shell } from '../shell.js';
-import { startTour, tutorialState } from '../tour.js';
+import { startTour, tutorialState, resetGuides } from '../tour.js';
 import { SITE_URL } from '../origin.js';
 import { syncConfig, syncStatus, onSyncStatus, disconnect } from '../sync.js';
 import { openSyncPanel, syncLabel } from '../sync.panel.js';
@@ -702,7 +702,7 @@ function mount(root) {
 
   // The tutorials (js/tour.js): the quick one, the full one, or the full one from where it was
   // left on this device (Continue, or Start over). The tab bar's pages are also in More → Edit tabs.
-  const TOUR_HINT = 'A guided tour that points at the real buttons. Quick: the basics in about a minute. Full: every page, about 10 minutes.';
+  const TOUR_HINT = 'A guided tour that points at the real buttons while you add your first tasks, habits, a note and an event. Quick: about 3 minutes. Full: the main pages, about 10 minutes. Page guides: Training, Finance, Recovery and Health explain themselves the first time you open them.';
   const tourRow = row({ key: 'tutorial', title: 'Tutorial', hint: TOUR_HINT, control: [] });
   // Two or three buttons: under the words, as the color swatches are
   tourRow.el.classList.add('st-row--wide');
@@ -732,6 +732,15 @@ function mount(root) {
             btn(`Continue (${full.n} of ${full.of})`, 'continue', () => startTour('full', { resume: true }), { iconName: 'chevron-right', primary: true, name: `Continue the full tutorial, step ${full.n} of ${full.of}` }),
           ]
         : [btn('Full tutorial', 'full', () => startTour('full'), { iconName: 'wl-map' })]),
+      btn(
+        'Page guides again',
+        'guides',
+        () => {
+          resetGuides();
+          toast('Training, Finance, Recovery and Health show their guide again the next time you open them.', { duration: 6000 });
+        },
+        { iconName: 'undo', name: 'Show the page guides again' },
+      ),
     );
     describeByTitle(tourControl, tourRow.id);
     if (hadFocus) (tourControl.querySelector(`[data-tour="${hadFocus}"]`) ?? tourControl.querySelector('button'))?.focus({ preventScroll: true });
