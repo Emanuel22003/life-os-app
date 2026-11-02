@@ -1,12 +1,12 @@
 // LIFE/OS — Settings (#/settings, the gear at the bottom of the sidebar): sound and notifications,
 // reminders, appearance, the start page, sync and backups (and deleting all your data), version,
-// the legal documents. Every control writes where its setting
+// the legal documents, and a search over all of it. Every control writes where its setting
 // already lives: the timer's sound, notifications and mini timer in the Pomodoro store (they
 // sync with your other computers); appearance, motion, the start page and the reminders'
 // defaults in `settings` (this computer only). Changes made elsewhere (the Pomodoro page, another
 // window) show here at once.
 
-import { h, icon, pageHeader, dropdown, toast, confirmDialog, openModal, formatDay, dateKey, todayKey, uid, hiddenTipCount, resetTips, reducedMotion, DATE_FORMAT_CHOICES, UNIT_CHOICES, normalizeDateFormat, normalizeUnits, numericDate, weekdayDate } from '../ui.js';
+import { h, icon, pageHeader, dropdown, toast, confirmDialog, openModal, formatDay, dateKey, todayKey, uid, hiddenTipCount, resetTips, reducedMotion, isTyping, modalOpen, DATE_FORMAT_CHOICES, UNIT_CHOICES, normalizeDateFormat, normalizeUnits, numericDate, weekdayDate } from '../ui.js';
 import { settings, stopSaving } from '../store.js';
 import { deleteAllFiles } from '../files.js';
 import { SKINS, normalizeSkin, THEMES } from '../skins.js';
@@ -18,11 +18,14 @@ import { SITE_URL } from '../origin.js';
 import { syncConfig, syncStatus, onSyncStatus, disconnect } from '../sync.js';
 import { openSyncPanel, syncLabel } from '../sync.panel.js';
 import { describeCounts } from '../sync.logic.js';
+import { googleReady, googleState, googleStatus, subscribeGoogle, connectGoogle, refreshGoogle, setCalendarOn, disconnectGoogle } from '../google.js';
+import { updatedText, problemText } from '../google.logic.js';
 import { pomodoroApi } from './pomodoro.js';
 import { remindersApi } from '../reminders.js';
 import { reminderEditor, reminderSettings, previewSound } from '../reminders.ui.js';
 import { SOUNDS, normalizeSettings as normalizeReminderSettings } from '../reminders.logic.js';
-import { buildBackup, parseBackup, backupFileName, startPage, isNewerVersion, isDataKey, keysToDelete, cachesToDelete, storageKeys, pruneBackups, LEGAL_LINKS, SETTINGS_SECTIONS, sectionAt } from './settings.logic.js';
+import { runs } from '../command.logic.js';
+import { buildBackup, parseBackup, backupFileName, startPage, isNewerVersion, isDataKey, keysToDelete, cachesToDelete, storageKeys, pruneBackups, LEGAL_LINKS, SETTINGS_SECTIONS, sectionAt, searchRows, textHits } from './settings.logic.js';
 
 const STORAGE_TEXT = {
   checking: 'Checking how the browser keeps your data…',
@@ -40,33 +43,59 @@ const BACKUP_ERRORS = {
 
 /* ---- Small builders ---- */
 
+// The words the page's search is looking for (null: none), marked in the rows' titles and
+// explanations; a row's explanation that changes (Sync's status) gets them marked again
+let searchWords = null;
+// What was searched when the page was drawn again in place (another template picked): it stays.
+// Leaving the page forgets it.
+let carriedQuery = '';
+
+/** `text` into `el`, the searched words in it marked (titles: inside a word from 2 letters). */
+function paintHits(el, text, { inner = 4 } = {}) {
+  const hits = searchWords ? textHits(text, searchWords, { inner }) : [];
+  if (!hits.length) el.textContent = text;
+  else el.replaceChildren(...runs(text, hits).map((r) => (r.hit ? h('mark', { class: 'st-hit' }, r.text) : r.text)));
+}
+
 /**
  * A settings row: title + explanation on the left, the control on the right (on a phone too,
  * on the title's line; `stack` puts a wide control, like a three-way choice, under the text
  * there). Styling hooks only (no behavior): a hint that reports how things are (Sync's status,
  * the version, storage, blocked notifications) rather than explaining the row carries
  * st-row-hint--state (`state`, or per update), so a template that hides explanations (Minimal)
- * keeps it; `key` names the row (data-row) for a template's own rules.
+ * keeps it; `key` names the row (data-row) for a template's own rules. `keywords`: other words
+ * the page's search finds it by ('dark mode', 'export'); its title, explanation and card do too.
  */
-function row({ title, hint, control, state = false, key = null, stack = false }) {
+function row({ title, hint, control, state = false, key = null, stack = false, keywords = '' }) {
   const id = `st-${uid()}`;
-  const hintEl = h('p', { class: ['st-row-hint', state && 'st-row-hint--state'] }, hint ?? '');
+  let hintText = hint ?? '';
+  const titleEl = h('div', { class: 'st-row-title', id }, title);
+  const hintEl = h('p', { class: ['st-row-hint', state && 'st-row-hint--state'] }, hintText);
   hintEl.hidden = !hint;
   const controlEl = h('div', { class: 'st-row-control' }, typeof control === 'function' ? control(id) : control);
   const el = h(
     'div',
     { class: ['st-row', stack && 'st-row--stack'], dataset: key ? { row: key } : null },
-    h('div', { class: 'st-row-text' }, h('div', { class: 'st-row-title', id }, title), hintEl),
+    h('div', { class: 'st-row-text' }, titleEl, hintEl),
     controlEl,
   );
   describeByTitle(controlEl, id);
   return {
     el,
     id,
+    title,
+    keywords,
+    hintText: () => hintText,
     hint(text, { state: isState } = {}) {
-      hintEl.textContent = text ?? '';
+      hintText = text ?? '';
+      paintHits(hintEl, hintText);
       hintEl.hidden = !text;
       if (isState !== undefined) hintEl.classList.toggle('st-row-hint--state', isState);
+    },
+    /** Mark the searched words again (or take the marks away) */
+    marks() {
+      paintHits(titleEl, title, { inner: 2 });
+      paintHits(hintEl, hintText);
     },
   };
 }
@@ -302,6 +331,7 @@ function openDeleteAll() {
         h('li', null, 'Your tasks, notes, habits, calendar events, focus sessions, workouts, subscriptions, recovery trackers, weights and settings.'),
         h('li', null, 'The safety backups LIFE/OS keeps here (made before a restore or a first sync).'),
         h('li', null, config ? 'Your sync key and sync state: Sync turns off on this device.' : 'Sync’s key and state, if this device was ever connected.'),
+        googleState().connected ? h('li', null, 'The connection to Google Calendar and the copy of its events. Your Google Calendar itself stays as it is.') : null,
         h('li', null, 'The offline copy of the app. It downloads again the next time LIFE/OS opens online.'),
       ),
       h('h3', { class: 'st-delete-head' }, 'Not deleted'),
@@ -337,6 +367,7 @@ function mount(root) {
   const soundRow = row({
     title: 'Sound',
     hint: 'A soft bell when a focus session or a break ends.',
+    keywords: 'audio volume chime ding mute pomodoro focus timer break',
     control: (id) => {
       sound = switchControl(id, (on) => pomodoroApi.setSettings({ sound: on }));
       return [button('Test', () => {
@@ -349,6 +380,7 @@ function mount(root) {
   const notifyRow = row({
     title: 'Notifications',
     hint: '',
+    keywords: 'alerts push popup banner permission pomodoro focus timer',
     control: (id) => {
       notify = switchControl(id, async (on) => {
         if (!on) return pomodoroApi.setSettings({ notify: false });
@@ -365,6 +397,7 @@ function mount(root) {
   const miniRow = row({
     title: 'Mini timer',
     hint: 'The small timer that stays in view on every page.',
+    keywords: 'pomodoro focus floating clock countdown top bar',
     stack: true,
     control: (id) => {
       mini = segControl(id, [{ value: 'active', label: 'While running' }, { value: 'always', label: 'Always' }], (v) => pomodoroApi.setSettings({ showMini: v }));
@@ -398,6 +431,7 @@ function mount(root) {
   let remOn;
   const remOnRow = row({
     title: 'Reminders on this device',
+    keywords: 'alarm alerts remind',
     // The honest limit, in one sentence (a state line: Minimal keeps it)
     hint: 'They come only while LIFE/OS is open on this device (also in the background); one that came while it was closed shows when it opens.',
     state: true,
@@ -413,7 +447,7 @@ function mount(root) {
     else if (perm === 'denied') toast('Notifications are blocked for LIFE/OS. Allow them in the browser’s site settings.', { duration: 7000 });
     paintReminders();
   }, { iconName: 'bell' });
-  const permRow = row({ title: 'Notifications', hint: '', control: allowBtn });
+  const permRow = row({ title: 'Notifications', hint: '', control: allowBtn, keywords: 'permission allow alerts push popup iphone ipad home screen' });
   const IPHONE_NOTE = 'On an iPhone or iPad, add LIFE/OS to the Home Screen first (Share → Add to Home Screen).';
 
   const remSound = dropdown({
@@ -430,6 +464,7 @@ function mount(root) {
   const remSoundRow = row({
     title: 'Sound',
     hint: 'What a reminder plays when it doesn’t pick its own sound.',
+    keywords: 'audio alarm tone ringtone ring chime bell volume',
     control: [button('Test', () => previewSound(reminderSettings().sound), { iconName: 'play' }), remSound.el],
   });
 
@@ -443,25 +478,26 @@ function mount(root) {
       else allDayIn.value = reminderSettings().allDayTime;
     },
   });
-  const allDayRow = row({ title: 'Time for all-day items', hint: 'All-day events and tasks with only a date remind from this time on their day.', control: allDayIn });
+  const allDayRow = row({ title: 'Time for all-day items', hint: 'All-day events and tasks with only a date remind from this time on their day.', control: allDayIn, keywords: 'morning hour clock' });
   allDayIn.setAttribute('aria-labelledby', allDayRow.id);
 
   // The default reminders of each kind: the same editor as an event's or a task's, in its defaults mode
-  const defaultsRow = (kind, title, hint) => {
+  const defaultsRow = (kind, title, hint, keywords) => {
     // (its label is for screen readers: the row's title says it)
     const editor = reminderEditor({ value: reminderSettings()[kind], kind, mode: 'defaults', label: `Default reminders: ${title}`, onChange: (list) => setReminders({ [kind]: list.map((r) => ({ before: r.before, sound: r.sound ?? null })) }) });
-    const r = row({ title, hint, control: editor.el });
+    const r = row({ title, hint, control: editor.el, keywords: `default before minutes hours ${keywords}` });
     r.el.classList.add('st-row--wide', 'st-row--rem');
     r.editor = editor;
     return r;
   };
-  const remEventsRow = defaultsRow('event', 'Events', 'For every event without reminders of its own.');
-  const remTimedRow = defaultsRow('timedTask', 'Tasks with a time', 'For a task with a due date and a time.');
-  const remDateRow = defaultsRow('dateTask', 'Tasks with only a date', 'For a task with a due date and no time: its time is the all-day time above.');
+  const remEventsRow = defaultsRow('event', 'Events', 'For every event without reminders of its own.', 'calendar appointments meetings');
+  const remTimedRow = defaultsRow('timedTask', 'Tasks with a time', 'For a task with a due date and a time.', 'to-do todo');
+  const remDateRow = defaultsRow('dateTask', 'Tasks with only a date', 'For a task with a due date and no time: its time is the all-day time above.', 'to-do todo due');
 
   const remTestRow = row({
     title: 'Try it',
     hint: 'A real reminder in a few seconds: the notification and the sound.',
+    keywords: 'test check demo',
     control: button('Send a test reminder', () => {
       const ms = remindersApi.sendTestReminder();
       toast(`A test reminder comes in ${Math.round(ms / 1000)} seconds.`);
@@ -487,19 +523,24 @@ function mount(root) {
       if (!r.el.contains(document.activeElement) && JSON.stringify(r.editor.get().map((x) => [x.before, x.sound ?? null])) !== JSON.stringify(s[kind].map((x) => [x.before, x.sound ?? null]))) r.editor.set(s[kind]);
     }
     // With reminders off, the rest waits out of sight (kept, so nothing set is lost)
-    for (const r of [permRow, remSoundRow, allDayRow, remEventsRow, remTimedRow, remDateRow, remTestRow]) r.el.hidden = !s.on;
+    for (const r of remFollowers) r.el.hidden = !s.on;
+    refilter();
   }
+  // (found by the search while reminders are off: their switch shows in their place)
+  const remFollowers = [permRow, remSoundRow, allDayRow, remEventsRow, remTimedRow, remDateRow, remTestRow];
+  for (const r of remFollowers) r.via = remOnRow;
 
   /* Appearance (this computer). The button names the template in use and opens the Appearance
      dialog (every template shows the name, Minimal too, which hides the explanations) */
   const templateName = h('span', { class: 'st-value' });
   const templateBtn = h('button', { type: 'button', class: 'btn btn--sm st-template-btn', 'aria-label': 'Change the template…', onClick: () => shell.openAppearance() }, icon('palette', { size: 14 }), templateName, icon('chevron-right', { size: 14, className: 'st-chev' }));
-  const templateRow = row({ title: 'Template', hint: '', control: templateBtn });
+  const templateRow = row({ title: 'Template', hint: '', control: templateBtn, keywords: `theme skin style look design font ${SKINS.map((k) => k.name).join(' ')}` });
 
   let theme;
   const themeRow = row({
     title: 'Light or dark',
     hint: 'System follows your computer’s setting.',
+    keywords: 'dark mode light mode night theme black white system',
     stack: true,
     control: (id) => {
       theme = segControl(
@@ -517,6 +558,7 @@ function mount(root) {
     key: 'date-format',
     title: 'Date format',
     hint: '',
+    keywords: 'dates day month year dd mm yyyy american european iso order',
     stack: true,
     control: (id) => {
       dateSeg = segControl(id, DATE_FORMAT_CHOICES.map((c) => ({ value: c.id, label: numericDate(todayKey(), c.id), title: c.label })), (f) => settings.update({ dateFormat: f }));
@@ -527,6 +569,7 @@ function mount(root) {
   const unitsRow = row({
     key: 'units',
     title: 'Units',
+    keywords: 'kg lb lbs pounds kilos kilograms km miles metric imperial us american weight distance measurements',
     hint: 'Health shows weights in kg or lb to match (its own kg / lb switch changes only Health). Training stays in kg and km for now.',
     stack: true,
     control: (id) => {
@@ -546,6 +589,7 @@ function mount(root) {
   let motion;
   const motionRow = row({
     title: 'Reduce animations',
+    keywords: 'motion animation effects transitions accessibility calm',
     hint: 'Turns off sliding, fading and pulsing. If your computer asks for less motion, LIFE/OS already follows it.',
     control: (id) => {
       motion = switchControl(id, (on) => settings.update({ motion: on ? 'reduced' : 'system' }));
@@ -558,6 +602,7 @@ function mount(root) {
   const tipsRow = row({
     key: 'tips',
     title: 'Tips',
+    keywords: 'hints help explanations got it hidden again',
     hint: 'Short explanations on the pages. “✓ Got it” hides one for good on this device.',
     control: tipsBtn,
   });
@@ -572,6 +617,7 @@ function mount(root) {
   const paletteRow = row({
     title: 'Colors',
     hint: 'Change the template’s two or three main colors. Reset brings its own back.',
+    keywords: 'colours palette accent background text custom own',
     control: palette.el,
   });
   paletteRow.el.classList.add('st-row--wide');
@@ -581,6 +627,7 @@ function mount(root) {
   const setColorPref = (key, on) => settings.update({ colors: { ...normalizeColorPrefs(settings.get().colors), [key]: on } });
   const colorsRow = row({
     title: 'Color coding',
+    keywords: 'colours colors labels categories highlight',
     hint: 'Give sections, tasks, notes, events and days a color, from their right-click menu or their edit dialog. Off shows everything in the template’s own colors; your colors are kept.',
     control: (id) => {
       const sw = switchControl(id, (on) => setColorPref('on', on));
@@ -593,6 +640,7 @@ function mount(root) {
       key: `color-${k.id}`,
       title: k.name,
       hint: k.hint,
+      keywords: 'colours colors',
       control: (id) => {
         const sw = switchControl(id, (on) => setColorPref(k.id, on));
         colorSwitches.set(k.id, sw);
@@ -609,6 +657,7 @@ function mount(root) {
   const startRow = row({
     title: 'Open on',
     hint: 'The page LIFE/OS shows when it starts.',
+    keywords: 'start page startup home page default first page launch',
     control: (id) => {
       startSelect = h(
         'select',
@@ -632,12 +681,81 @@ function mount(root) {
     if (pageIds.length && document.activeElement !== startSelect) startSelect.value = startPage(s.startPage, pageIds);
   }
 
+  /* Google Calendar (this device): connect, which calendars show, refresh, disconnect */
+  const googleRow = row({ key: 'google', title: 'Connection', hint: '', state: true, control: [], keywords: 'gmail account connect sign in disconnect refresh events' });
+  const googleControl = googleRow.el.querySelector('.st-row-control');
+  const googleList = h('div', { class: 'st-gcal-list' });
+  const googleCals = new Map(); // calendar id -> { el, sw }
+  let googleSig = '';
+  let googleListSig = '';
+  function paintGoogle() {
+    const g = googleState();
+    const st = googleStatus();
+    const busy = st.state === 'busy';
+    const sig = JSON.stringify([googleReady(), g.connected, g.account, g.updatedAt, st, Math.floor(Date.now() / 60000)]);
+    if (sig !== googleSig) {
+      googleSig = sig;
+      const problem = st.problem && !busy ? ` ${problemText(st.problem)}` : '';
+      if (!googleReady()) {
+        googleRow.hint('Not set up in this copy of LIFE/OS yet.');
+        googleControl.replaceChildren();
+      } else if (!g.connected) {
+        googleRow.hint(busy ? 'Waiting for Google…' : `See your Google Calendar’s events in LIFE/OS (read-only). Google’s window asks which account, and lets LIFE/OS see your calendars. The events stay on this device: they don’t sync and aren’t in backups.${problem}`, { state: busy || !!problem });
+        const connect = button(busy ? 'Connecting…' : 'Connect', () => connectGoogle(), { iconName: 'calendar', primary: true });
+        connect.disabled = busy;
+        googleControl.replaceChildren(connect);
+      } else {
+        googleRow.hint(`${g.account ? `Connected: ${g.account}` : 'Connected'} · ${busy ? 'Updating…' : updatedText(g.updatedAt)}.${problem}`, { state: true });
+        const refresh = button('Refresh', () => refreshGoogle({ tap: true }), { iconName: 'sync' });
+        refresh.disabled = busy;
+        googleControl.replaceChildren(refresh, button('Disconnect', confirmGoogleDisconnect));
+      }
+      describeByTitle(googleControl, googleRow.id);
+    }
+    // One switch per calendar (rebuilt only when the list changes, so focus stays on a switch)
+    const cals = g.connected ? g.calendars : [];
+    const listSig = JSON.stringify(cals.map((c) => [c.id, c.name, c.primary]));
+    if (listSig !== googleListSig) {
+      googleListSig = listSig;
+      googleCals.clear();
+      for (const c of cals) {
+        let sw;
+        const r = row({
+          key: 'gcal',
+          title: c.name,
+          hint: c.primary ? 'Your main calendar.' : '',
+          control: (id) => {
+            sw = switchControl(id, (on) => setCalendarOn(c.id, on));
+            return sw.el;
+          },
+        });
+        r.el.classList.add('st-row--sub');
+        googleCals.set(c.id, { el: r.el, sw, row: r });
+      }
+      googleList.replaceChildren(...[...googleCals.values()].map((x) => x.el));
+      refilter();
+    }
+    for (const c of cals) googleCals.get(c.id)?.sw.set(c.on);
+  }
+  async function confirmGoogleDisconnect() {
+    const yes = await confirmDialog({
+      title: 'Disconnect Google Calendar?',
+      message: 'Its events leave LIFE/OS on this device, and LIFE/OS gives back its access. Nothing changes in your Google Calendar. (LIFE/OS also shows in your Google Account’s security settings under third-party connections, where you can remove it too.)',
+      confirmLabel: 'Disconnect',
+      danger: false,
+    });
+    if (!yes) return;
+    disconnectGoogle();
+    toast('Google Calendar disconnected on this device.');
+  }
+
   /* Sync & backup */
-  const syncRow = row({ title: 'Sync', hint: '', state: true, control: button('Open Sync', () => openSyncPanel(), { iconName: 'sync' }) });
+  const syncRow = row({ title: 'Sync', hint: '', state: true, control: button('Open Sync', () => openSyncPanel(), { iconName: 'sync' }), keywords: 'github devices computers phone cloud key token' });
   const paintSync = () => syncRow.hint(syncLabel(syncStatus()) ?? 'Off: your data stays on this computer. Turn it on to use LIFE/OS on your other computers too.');
 
   const backupRow = row({
     title: 'Download a backup',
+    keywords: 'export save file json copy',
     hint: 'One file with all your tasks, notes, habits, events, workouts, subscriptions, recovery trackers, weights, timer history and settings. Keep it somewhere safe.',
     control: button('Download', downloadBackup, { iconName: 'arrow-down' }),
   });
@@ -654,15 +772,17 @@ function mount(root) {
   });
   const restoreRow = row({
     title: 'Restore a backup',
+    keywords: 'import upload load file',
     hint: 'Replaces this computer’s data with a backup file. What’s here now is kept as a backup first.',
     control: [button('Choose file…', () => fileInput.click(), { iconName: 'arrow-up' }), fileInput],
   });
 
-  const storageRow = row({ title: 'Storage', hint: STORAGE_TEXT.checking, state: true, control: [] });
+  const storageRow = row({ title: 'Storage', hint: STORAGE_TEXT.checking, state: true, control: [], keywords: 'space disk quota size persistent' });
 
   const deleteRow = row({
     key: 'delete-all',
     title: 'Delete all my data',
+    keywords: 'erase wipe remove reset clear start over account gdpr',
     hint: 'Removes everything LIFE/OS keeps on this device. It asks first and offers a backup.',
     control: h('button', { type: 'button', class: 'btn btn--sm btn--danger', onClick: openDeleteAll }, icon('trash', { size: 14 }), 'Delete…'),
   });
@@ -678,7 +798,7 @@ function mount(root) {
   }
 
   /* About */
-  const versionRow = row({ title: 'Version', hint: `LIFE/OS ${shell.version}`, state: true, control: [] });
+  const versionRow = row({ title: 'Version', hint: `LIFE/OS ${shell.version}`, state: true, control: [], keywords: 'update updates new release reload check' });
   const versionControl = versionRow.el.querySelector('.st-row-control');
   const checkBtn = button('Check for updates', checkUpdates, { iconName: 'sync' });
   versionControl.append(checkBtn);
@@ -703,7 +823,7 @@ function mount(root) {
   // The tutorials (js/tour.js): the quick one, the full one, or the full one from where it was
   // left on this device (Continue, or Start over). The tab bar's pages are also in More → Edit tabs.
   const TOUR_HINT = 'A guided tour that points at the real buttons while you add your first tasks, habits, a note and an event. Quick: about 3 minutes. Full: the main pages, about 10 minutes. Page guides: Training, Finance, Recovery and Health explain themselves the first time you open them.';
-  const tourRow = row({ key: 'tutorial', title: 'Tutorial', hint: TOUR_HINT, control: [] });
+  const tourRow = row({ key: 'tutorial', title: 'Tutorial', hint: TOUR_HINT, control: [], keywords: 'tour guide help onboarding walkthrough learn' });
   // Two or three buttons: under the words, as the color swatches are
   tourRow.el.classList.add('st-row--wide');
   const tourControl = tourRow.el.querySelector('.st-row-control');
@@ -748,6 +868,7 @@ function mount(root) {
 
   const elsewhereRow = row({
     title: 'Use it on another computer',
+    keywords: 'phone iphone android ipad tablet mobile install link share',
     hint: `Open ${SITE_URL.replace(/^https:\/\//, '')} in Chrome or Edge, install it, then turn on Sync there.`,
     control: [
       button('Copy link', async () => {
@@ -767,6 +888,7 @@ function mount(root) {
       key: `legal-${doc.id}`,
       title: doc.label,
       hint: doc.hint,
+      keywords: doc.keywords ?? '',
       control: h('a', { class: 'btn btn--sm', href: doc.href, target: '_blank', rel: 'noopener', 'aria-label': `Open ${doc.label} (new tab)` }, 'Open', icon('external', { size: 14 })),
     }),
   );
@@ -778,17 +900,20 @@ function mount(root) {
     sound: [soundRow, notifyRow, miniRow],
     reminders: [remOnRow, permRow, remSoundRow, allDayRow, remEventsRow, remTimedRow, remDateRow, remTestRow],
     startup: [startRow],
+    google: [googleRow, { el: googleList }],
     sync: [syncRow, backupRow, restoreRow, storageRow, deleteRow],
     about: [versionRow, tourRow, elsewhereRow],
     legal: legalRows,
   };
-  const cards = new Map(SETTINGS_SECTIONS.map((sec) => [sec.id, card(sec, rowsOf[sec.id])]));
+  // Google Calendar only where this copy has Google's client ID (js/google.config.js)
+  const sections = SETTINGS_SECTIONS.filter((sec) => sec.id !== 'google' || googleReady());
+  const cards = new Map(sections.map((sec) => [sec.id, card(sec, rowsOf[sec.id])]));
 
   /* The index: a column of the sections beside the cards on wide screens, one jump menu at the
      top on narrower ones (css/features/settings.css picks one). Both mark where you are. */
-  let current = SETTINGS_SECTIONS[0].id;
+  let current = sections[0].id;
   let pinnedUntil = 0; // after a jump: the section jumped to stays marked while the page glides there
-  const indexLinks = SETTINGS_SECTIONS.map((sec) =>
+  const indexLinks = sections.map((sec) =>
     h(
       'li',
       null,
@@ -797,18 +922,46 @@ function mount(root) {
   );
   const jumpMenu = dropdown({
     icon: 'list',
-    items: SETTINGS_SECTIONS.map((sec) => ({ value: sec.id, label: sec.title, icon: sec.icon })),
+    items: sections.map((sec) => ({ value: sec.id, label: sec.title, icon: sec.icon })),
     value: current,
     onSelect: (id) => jump(id),
     className: 'st-jump-btn',
     menuLabel: 'Settings sections',
     ariaLabel: ({ picked }) => `Go to a section (now: ${picked?.label ?? ''})`,
   });
+  /* Search: a field above the index (beside the jump menu on narrower screens). Every word typed
+     must match a row's title, its explanation, its card or other words for it (row keywords); the
+     cards then show only those rows, the index only their sections, the words marked. */
+  const searchInput = h('input', {
+    class: 'input',
+    type: 'search',
+    placeholder: 'Search settings',
+    'aria-label': 'Search settings',
+    'aria-keyshortcuts': '/',
+    'aria-controls': 'st-cards',
+    autocomplete: 'off',
+    spellcheck: 'false',
+    enterkeyhint: 'search',
+    onInput: () => setQuery(searchInput.value),
+    onKeydown: onSearchKey,
+  });
+  const searchClear = h('button', { type: 'button', class: 'st-search-clear', 'aria-label': 'Clear the search', hidden: true, onClick: () => setQuery('', { focus: true }) }, icon('x', { size: 14 }));
+  const searchBox = h(
+    'div',
+    { class: 'input-group st-search', role: 'search' },
+    icon('search'),
+    searchInput,
+    h('span', { class: 'kbd st-search-kbd lo-hint', 'aria-hidden': 'true' }, '/'),
+    searchClear,
+  );
+  // What the search found, in words (a screen reader hears it too)
+  const searchStatus = h('p', { class: 'st-search-status', role: 'status' });
+
   const index = h(
-    'nav',
-    { class: 'st-index', 'aria-label': 'Settings sections' },
-    h('ul', { class: 'st-index-list' }, indexLinks),
-    h('div', { class: 'st-jump' }, jumpMenu.el),
+    'div',
+    { class: 'st-index' },
+    searchBox,
+    h('nav', { class: 'st-index-nav', 'aria-label': 'Settings sections' }, h('ul', { class: 'st-index-list' }, indexLinks), h('div', { class: 'st-jump' }, jumpMenu.el)),
   );
 
   function mark(id) {
@@ -841,7 +994,7 @@ function mount(root) {
     const scroller = root.closest('.main') ?? document.scrollingElement;
     const top = scroller === document.scrollingElement ? 0 : scroller.getBoundingClientRect().top;
     const stickyJump = index.querySelector('.st-jump')?.getClientRects().length ? index.offsetHeight : 0;
-    const tops = [...cards].map(([id, el]) => ({ id, top: el.getBoundingClientRect().top - top }));
+    const tops = [...cards].filter(([, el]) => !el.classList.contains('st-miss')).map(([id, el]) => ({ id, top: el.getBoundingClientRect().top - top }));
     const atEnd = scroller.scrollTop > 0 && scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 4;
     mark(sectionAt(tops, { line: stickyJump + 96, atEnd }));
   };
@@ -854,7 +1007,122 @@ function mount(root) {
     if (spyFrame) cancelAnimationFrame(spyFrame);
   });
 
-  root.append(header, h('div', { class: 'st-layout' }, index, h('div', { class: 'st-cards' }, [...cards.values()])));
+  const layout = h('div', { class: 'st-layout' }, index, h('div', { class: 'st-cards', id: 'st-cards' }, searchStatus, [...cards.values()]));
+  root.append(header, layout);
+
+  /* ---- Search ---- */
+  let query = '';
+  let found = null; // searchRows' answer while something is typed
+
+  // Every row with words of its own, card by card (a Google calendar's switch comes and goes)
+  const searchable = () =>
+    sections.flatMap((sec) => {
+      const own = rowsOf[sec.id].filter((r) => typeof r.marks === 'function');
+      const calendars = sec.id === 'google' ? [...googleCals.values()].map((x) => x.row) : [];
+      return [...own, ...calendars].map((r) => ({ r, sec }));
+    });
+
+  function refilter() {
+    // (a row repainting while nothing is searched: nothing to do)
+    if (!query && !found) return;
+    const list = searchable();
+    found = searchRows(
+      list.map(({ r, sec }) => ({ id: r.id, section: sec.title, title: r.title, hint: r.hintText(), keywords: r.keywords, hidden: r.el.hidden, via: r.via?.id })),
+      query,
+    );
+    searchWords = found?.terms ?? null;
+    root.classList.toggle('is-searching', !!found);
+    const shownIn = new Map(); // section id -> its first row that shows
+    for (const { r, sec } of list) {
+      // (a row being used stays: Reminders' switch, found for its Sound, turned on)
+      const on = !found || found.ids.has(r.id) || r.el.contains(document.activeElement);
+      r.el.classList.toggle('st-miss', !on);
+      r.el.classList.remove('st-first');
+      if (on && !r.el.hidden && !shownIn.has(sec.id)) shownIn.set(sec.id, r);
+      r.marks();
+    }
+    for (const sec of sections) {
+      const on = !found || shownIn.has(sec.id);
+      const el = cards.get(sec.id);
+      el.classList.toggle('st-miss', !on);
+      paintHits(el.querySelector('.st-card-title > span'), sec.title, { inner: 2 });
+      // The card's first row that shows has no line over it (as its first row has none)
+      if (found && on) shownIn.get(sec.id).el.classList.add('st-first');
+      indexLinks[sections.indexOf(sec)].hidden = !on;
+    }
+    const shown = sections.filter((sec) => !found || shownIn.has(sec.id));
+    jumpMenu.update({ items: shown.map((sec) => ({ value: sec.id, label: sec.title, icon: sec.icon })) });
+    searchClear.hidden = !query;
+    searchBox.classList.toggle('has-query', !!query);
+    const said = query.trim();
+    searchStatus.textContent = !found
+      ? ''
+      : !found.count
+        ? `Nothing in Settings matches “${said}”. Try another word, like dark, backup, sound or reminders.`
+        : found.exact
+          ? `${found.count} ${found.count === 1 ? 'setting matches' : 'settings match'} “${said}”`
+          : found.typo
+            ? `No exact match for “${said}”. Showing ${found.count} with a similar spelling.`
+            : `Nothing matches all the words. Showing the ${found.count === 1 ? 'closest one' : `${found.count} closest`}.`;
+    if (!shown.some((sec) => sec.id === current) && shown.length) mark(shown[0].id);
+    onScroll();
+  }
+
+  function setQuery(text, { focus = false } = {}) {
+    query = text;
+    if (searchInput.value !== text) searchInput.value = text;
+    refilter();
+    // The results start where the cards do: back up there when the page was scrolled further down
+    const scroller = root.closest('.main') ?? document.scrollingElement;
+    const top = scroller === document.scrollingElement ? 0 : scroller.getBoundingClientRect().top;
+    const over = layout.getBoundingClientRect().top - top;
+    if (over < 0) scroller.scrollTop += over;
+    if (focus) searchInput.focus();
+  }
+
+  // The first row found: its first control (else its card's heading)
+  function toFirstResult() {
+    const first = searchable().find(({ r }) => !r.el.hidden && !r.el.classList.contains('st-miss'));
+    if (!first) return;
+    const target = first.r.el.querySelector('.st-row-control :is(button:not([disabled]), a[href], input:not([type="hidden"]), select)') ?? cards.get(first.sec.id).querySelector('.st-card-title');
+    first.r.el.scrollIntoView({ block: 'center', behavior: reducedMotion() ? 'auto' : 'smooth' });
+    target.focus({ preventScroll: true });
+  }
+
+  function onSearchKey(e) {
+    if (e.isComposing) return;
+    if (e.key === 'Escape') {
+      // Esc: clear what's typed, then leave the field
+      e.preventDefault();
+      e.stopPropagation();
+      if (searchInput.value) setQuery('');
+      else searchInput.blur();
+    } else if ((e.key === 'Enter' || e.key === 'ArrowDown') && found?.count) {
+      e.preventDefault();
+      toFirstResult();
+    }
+  }
+
+  // '/': to the search from anywhere on the page (not while typing, not in a dialog)
+  const onPageKey = (e) => {
+    if (e.key !== '/' || e.metaKey || e.ctrlKey || e.altKey || isTyping(e) || modalOpen() || !root.isConnected) return;
+    e.preventDefault();
+    searchInput.focus();
+    searchInput.select();
+  };
+  document.addEventListener('keydown', onPageKey);
+  cleanups.push(() => {
+    document.removeEventListener('keydown', onPageKey);
+    searchWords = null;
+    // (still on #/settings: this is a redraw, not a way out)
+    carriedQuery = /^#\/settings\b/.test(location.hash) ? query : '';
+  });
+  if (carriedQuery) {
+    query = carriedQuery;
+    searchInput.value = query;
+    carriedQuery = '';
+    refilter();
+  }
 
   // Live: the timer's settings (Pomodoro page, other windows), this computer's settings, sync
   let timerSig = '';
@@ -887,6 +1155,10 @@ function mount(root) {
   cleanups.push(() => palette.destroy());
   paintSync();
   cleanups.push(onSyncStatus(paintSync));
+  paintGoogle();
+  cleanups.push(subscribeGoogle(paintGoogle));
+  const googleClock = setInterval(paintGoogle, 30000);
+  cleanups.push(() => clearInterval(googleClock));
   paintStorage();
   // A permission changed in the browser's own settings while LIFE/OS was in the background
   const onVisible = () => {

@@ -1,7 +1,8 @@
 // LIFE/OS — 04 // Calendar: view builders (month grid, week + day timelines, phone agenda,
 // Unscheduled tray). Pure DOM out of a render context; no listeners here: calendar.js
 // handles every click, key and drag by delegation through these data attributes:
-//   data-act      click action: zoom-week · zoom-day · event · add-event · add-allday ·
+//   data-act      click action: zoom-week · zoom-day · event · gevent (from Google Calendar:
+//                 read-only, never dragged) · add-event · add-allday ·
 //                 task-check · task-open · task-schedule · habit-check · layer-on ·
 //                 more (a month day's "+N more": its whole list, dayPopover) ·
 //                 plan-toggle (open / fold a day-plan list: data-panel 'tasks' | 'habits')
@@ -91,7 +92,7 @@ export function occLabel(occ) {
       ? `all day, ${shortDay(occ.start)} to ${shortDay(occ.end)}`
       : `all day, ${longDay(occ.start)}`
     : `${longDay(occ.start)}, ${occ.startTime} to ${occ.endTime}`;
-  return `Event: ${occ.title}, ${when}${occ.location ? `, ${occ.location}` : ''}${occ.recurring ? ', repeats' : ''}${occ.remind ? ', reminders set' : ''}`;
+  return `${occ.source === 'google' ? 'Google event' : 'Event'}: ${occ.title}, ${when}${occ.location ? `, ${occ.location}` : ''}${occ.recurring ? ', repeats' : ''}${occ.remind ? ', reminders set' : ''}`;
 }
 
 /** 'Task: Call bank, due Monday 5 October 2026, high priority, overdue' (no "Task:" with bare). */
@@ -113,14 +114,16 @@ export function eventBar(occ, ctx, { prefix = 'm', tab = '-1', cl = false, cr = 
   // A one-line bar reads its title first ("Lunch with Ola 12:00"): squeezed, the title is what
   // must show. A list of the day's hours (an agenda) keeps the time in front.
   const time = occ.allDay ? null : h('span', { class: 'cal-ev-time' }, occ.startTime);
+  // From Google Calendar: opens read-only (its own click action), never dragged
+  const google = occ.source === 'google';
   const bar = h(
     'button',
     {
       type: 'button',
-      class: ['cal-ev', `cal-ev--${occ.style}`, occ.allDay ? 'is-allday' : 'is-timed', cl && 'cont-l', cr && 'cont-r', isPastOcc(occ, ctx) && 'is-past', time && !timeFirst && 'is-title-first'],
+      class: ['cal-ev', `cal-ev--${occ.style}`, occ.allDay ? 'is-allday' : 'is-timed', cl && 'cont-l', cr && 'cont-r', isPastOcc(occ, ctx) && 'is-past', time && !timeFirst && 'is-title-first', google && 'is-google'],
       tabindex: tab,
       'aria-label': occLabel(occ),
-      dataset: { act: 'event', occ: occ.occId, drag: drag ? 'event' : null, fid: `ev:${prefix}:${occ.occId}` },
+      dataset: { act: google ? 'gevent' : 'event', occ: occ.occId, drag: drag && !google ? 'event' : null, fid: `ev:${prefix}:${occ.occId}` },
     },
     timeFirst ? time : null,
     // The tooltip sits on the text, so it isn't read again as the button's description
@@ -648,15 +651,17 @@ function timedBlock(b, ctx, wide, { band = false, inset = false } = {}) {
   const height = Math.max((b.height / 60) * H, MIN_BLOCK_PX);
   const left = (b.col / b.cols) * 100;
   const width = (b.colSpan / b.cols) * 100;
+  // From Google Calendar: opens read-only, never moved or resized
+  const google = occ.source === 'google';
   if (band) {
     const el = h(
       'button',
       {
         type: 'button',
-        class: ['cal-tlev', 'is-band', `cal-band--${occ.style}`, isPastOcc(occ, ctx) && 'is-past', wide && 'is-wide'],
+        class: ['cal-tlev', 'is-band', `cal-band--${occ.style}`, isPastOcc(occ, ctx) && 'is-past', wide && 'is-wide', google && 'is-google'],
         style: { top: `${top}px`, height: `${height}px`, left: `calc(${left}% + 1px)`, width: `calc(${width}% - 2px)` },
         'aria-label': occLabel(occ),
-        dataset: { act: 'event', occ: occ.occId, tl: 'event', fid: `tl:${occ.occId}` },
+        dataset: { act: google ? 'gevent' : 'event', occ: occ.occId, tl: google ? null : 'event', fid: `tl:${occ.occId}` },
       },
       h(
         'span',
@@ -664,7 +669,7 @@ function timedBlock(b, ctx, wide, { band = false, inset = false } = {}) {
         h('span', { class: 'cal-tlev-title' }, occ.title),
         h('span', { class: 'cal-tlev-time tnum' }, `${occ.startTime}–${occ.endTime}`),
       ),
-      h('span', { class: 'cal-tlev-resize', dataset: { tlResize: '' }, 'aria-hidden': 'true' }),
+      google ? null : h('span', { class: 'cal-tlev-resize', dataset: { tlResize: '' }, 'aria-hidden': 'true' }),
     );
     return paintColor(el, 'events', occ.color);
   }
@@ -690,17 +695,17 @@ function timedBlock(b, ctx, wide, { band = false, inset = false } = {}) {
     'button',
     {
       type: 'button',
-      class: ['cal-tlev', `cal-ev--${occ.style}`, short && 'is-short', tiny && 'is-tiny', narrow && 'is-narrow', isPastOcc(occ, ctx) && 'is-past', wide && 'is-wide', inset && 'is-over-band'],
+      class: ['cal-tlev', `cal-ev--${occ.style}`, short && 'is-short', tiny && 'is-tiny', narrow && 'is-narrow', isPastOcc(occ, ctx) && 'is-past', wide && 'is-wide', inset && 'is-over-band', google && 'is-google'],
       style: { top: `${top}px`, height: `${height}px`, left: `calc(${left}% + ${pad}px)`, width: `calc(${width}% - ${pad + 2}px)` },
       'aria-label': occLabel(occ),
-      dataset: { act: 'event', occ: occ.occId, tl: 'event', fid: `tl:${occ.occId}` },
+      dataset: { act: google ? 'gevent' : 'event', occ: occ.occId, tl: google ? null : 'event', fid: `tl:${occ.occId}` },
     },
     short || narrow ? [titleEl, timeEl] : [timeEl, titleEl],
     showLoc ? h('span', { class: 'cal-tlev-loc' }, icon('map-pin', { size: 10 }), occ.location) : null,
     occ.recurring && !short && !narrow ? h('span', { class: 'cal-ev-rep', 'aria-hidden': 'true' }, icon('repeat', { size: 10, stroke: 2 })) : null,
     // (a short block has it at the end of its one line; a squeezed one has no room for it)
     occ.remind && !narrow && !tiny ? h('span', { class: 'cal-ev-bell', 'aria-hidden': 'true' }, icon('bell', { size: 10, stroke: 2 })) : null,
-    h('span', { class: 'cal-tlev-resize', dataset: { tlResize: '' }, 'aria-hidden': 'true' }),
+    google ? null : h('span', { class: 'cal-tlev-resize', dataset: { tlResize: '' }, 'aria-hidden': 'true' }),
   );
   block.style.setProperty('--cal-lines', String(lines));
   return paintColor(block, 'events', occ.color);

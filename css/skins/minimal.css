@@ -5688,7 +5688,9 @@
   display: none;
 }
 
-[data-skin="minimal"] .st-row-hint.st-row-hint--state:not([hidden]) {
+/* …and while searching, one with the words searched for in it: why its row is there */
+[data-skin="minimal"] .st-row-hint.st-row-hint--state:not([hidden]),
+[data-skin="minimal"] .st-root.is-searching .st-row-hint:has(.st-hit):not([hidden]) {
   display: block;
   margin-top: 2px;
   font-size: var(--fs-xs);

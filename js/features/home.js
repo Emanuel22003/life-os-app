@@ -59,6 +59,7 @@ import { dailySeries } from './habits.stats.js';
 import { notesApi } from './notes.js';
 import { WELCOME_NOTE } from './notes.logic.js';
 import { getEvents, subscribeCalendar, getDayColors } from './calendar.store.js';
+import { googleEvents, subscribeGoogle } from '../google.js';
 import { paintColor } from '../colors.js';
 import { calendarApi } from './calendar.js';
 import { occurrencesInRange, weekKeys, mondayOf, periodHeading, viewRange, shiftCursor, monthGrid, layoutTimed, tasksByDay, overdueTasks, habitsByDay, daysBetween } from './calendar.logic.js';
@@ -76,6 +77,12 @@ import { PHASE_LABEL, focusStats } from './pomodoro.logic.js';
 import { iconOf } from '../icons.logic.js';
 import { bellMark } from '../reminders.ui.js';
 import * as HM from './home.logic.js';
+
+/** Your events and, when connected and shown, Google Calendar's (read-only; they open the day). */
+const allEvents = () => {
+  const g = googleEvents();
+  return g.length ? [...getEvents(), ...g] : getEvents();
+};
 
 const prefs = createStore('home', { quickNoteSection: null });
 // The Start card's ✓ (settings.tips): hidden for good on this device
@@ -343,7 +350,7 @@ function mount(root) {
     }
     dateLong.textContent = formatDay(state.today, 'long');
     dateShort.textContent = formatDay(state.today);
-    const occs = occurrencesInRange(getEvents(), state.today, shiftKey(state.today, AHEAD_DAYS));
+    const occs = occurrencesInRange(allEvents(), state.today, shiftKey(state.today, AHEAD_DAYS));
     const up = HM.nextUp(occs, state.today, nowMinutes());
     nextDay = up ? (up.occ.start > state.today ? up.occ.start : state.today) : null;
     const text = nextText(up);
@@ -955,7 +962,7 @@ function mount(root) {
     // The agenda runs from today (this week) or from the day ‹ › moved to, for AGENDA_DAYS days
     const start = agenda ? (isCurrent('week') ? state.today : state.cursor) : null;
     const { from, to } = agenda ? { from: start, to: shiftKey(start, HM.AGENDA_DAYS - 1) } : viewRange(view, state.cursor);
-    const occs = layers.events ? occurrencesInRange(getEvents(), from, to) : [];
+    const occs = layers.events ? occurrencesInRange(allEvents(), from, to) : [];
     const byDay = layers.tasks ? tasksByDay(tasksApi.getItems(), from, to, { includeCompleted: layers.completed }) : new Map();
     const habits = layers.habits ? habitsByDay(habitsApi.source.getItems(), from, to, state.today) : new Map();
     const colors = getDayColors();
@@ -1440,7 +1447,7 @@ function mount(root) {
 
   function paintAgenda() {
     const now = nowMinutes();
-    const occs = occurrencesInRange(getEvents(), state.today, shiftKey(state.today, 13))
+    const occs = occurrencesInRange(allEvents(), state.today, shiftKey(state.today, 13))
       .filter((o) => !(o.start === state.today && !o.allDay && o.endMin <= now))
       .map((o) => ({ o, day: o.start < state.today ? state.today : o.start }))
       .sort((a, b) => (a.day !== b.day ? (a.day < b.day ? -1 : 1) : Number(!a.o.allDay) - Number(!b.o.allDay) || (a.o.startMin ?? 0) - (b.o.startMin ?? 0)))
@@ -2208,6 +2215,11 @@ function mount(root) {
       paintHeader();
       paintAgenda();
       refreshStart();
+    }),
+    subscribeGoogle(() => {
+      paintWeek();
+      paintHeader();
+      paintAgenda();
     }),
     financeApi.subscribe(() => paintPayments()),
     recoveryApi.subscribe(() => paintRecovery()),

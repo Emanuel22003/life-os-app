@@ -4,9 +4,10 @@
    switch, so every template styles them already.
    ========================================================================== */
 
-/* ---- Layout: the section index and the cards ----
-   Wide screens (>= 1100px): the index is a column on the left that stays in view while the
-   cards scroll. Narrower: one jump menu at the top that stays in view (the column hides). */
+/* ---- Layout: the search, the section index and the cards ----
+   Wide screens (>= 1100px): the search and the index are a column on the left that stays in
+   view while the cards scroll. Narrower: one bar at the top that stays in view, the search
+   beside the jump menu (the column hides). */
 .st-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -33,6 +34,9 @@
   background: color-mix(in srgb, var(--bg) 90%, transparent);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
 }
 
 @media (max-width: 900px) {
@@ -54,7 +58,17 @@
   list-style: none;
 }
 
+.st-index-nav {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 50%;
+}
+
+/* The menu fits its share of the bar (its section's name cut short with … on a phone) */
+.st-jump,
+.st-jump > *,
 .st-jump .dd-btn {
+  min-width: 0;
   max-width: 100%;
 }
 
@@ -72,12 +86,18 @@
 
   .st-index {
     top: var(--space-4);
+    display: grid;
+    gap: var(--space-3);
     margin: 0;
     padding: 0;
     border: 0;
     background: none;
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
+  }
+
+  .st-index-nav {
+    max-width: none;
   }
 
   .st-index-list {
@@ -137,6 +157,87 @@
 .st-index-link:focus-visible {
   outline: 2px solid var(--line-focus);
   outline-offset: -2px;
+}
+
+/* ---- Search: the field, what it found, and the words marked in the rows ---- */
+.st-search {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.st-search .input {
+  width: 100%;
+  padding-right: 40px;
+  /* Safari draws type=search natively (rounded, fixed padding) unless told not to */
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.st-search .input::-webkit-search-cancel-button,
+.st-search .input::-webkit-search-decoration {
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.st-search-kbd {
+  position: absolute;
+  right: 10px;
+  pointer-events: none;
+  transition: opacity var(--dur-fast) var(--ease);
+}
+
+.st-search:focus-within .st-search-kbd,
+.st-search.has-query .st-search-kbd {
+  opacity: 0;
+}
+
+.st-search-clear {
+  position: absolute;
+  right: 4px;
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-xs);
+  color: var(--text-3);
+  transition: color var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .st-search-clear:hover {
+    color: var(--text);
+    background: var(--surface-3);
+  }
+}
+
+.st-search-status {
+  margin: 0;
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+  line-height: 1.45;
+}
+
+.st-search-status:empty {
+  display: none;
+}
+
+/* Rows and sections the search leaves out (!important, like [hidden]: over any template's display) */
+.st-root .st-miss {
+  display: none !important;
+}
+
+/* A card's first row that shows has no line over it, as a card's first row never has */
+.st-root .st-row.st-first {
+  border-top: 0;
+}
+
+/* The words searched for, in the titles and explanations */
+.st-hit {
+  padding: 0 1px;
+  margin: 0 -1px;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--accent) 24%, transparent);
+  color: inherit;
 }
 
 /* ---- A section ---- */

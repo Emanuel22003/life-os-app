@@ -44,8 +44,9 @@ import { startTour, tutorialState, maybeGuide } from './tour.js';
 import { allGuidesSeen } from './tour.logic.js';
 import { isNewerVersion, startPage, LEGAL_LINKS } from './features/settings.logic.js';
 import { startReminders } from './reminders.js';
+import { startGoogle } from './google.js';
 
-const VERSION = 'v0.38';
+const VERSION = 'v0.39';
 
 // Read before any feature module can seed data: tells a first-ever run from an upgrade
 const hadSavedData = hasSavedData();
@@ -1422,6 +1423,8 @@ provideShell({
 
 if (isStandalone()) markInstalled(true);
 startSync();
+// Google Calendar, once connected in Settings: its events stay fresh while LIFE/OS is open
+startGoogle();
 syncInstallUi();
 syncStorageNote();
 render(true);

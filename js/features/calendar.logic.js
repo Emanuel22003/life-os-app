@@ -807,6 +807,8 @@ function makeOcc(c, n) {
     spanDays: c.span,
     // Reminders of its own (the quiet bell on chips, blocks and Home's agenda)
     remind: hasOwnReminders(ev),
+    // source 'google': from Google Calendar (js/google.logic.js), shown read-only
+    ...(ev.source === 'google' ? { source: 'google' } : null),
   };
 }
 

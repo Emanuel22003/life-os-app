@@ -965,6 +965,11 @@ const pageKeys = () => ({
     [['←', '→', 'Home', 'End'], 'The graph: read each weight · the first / last'],
     [['Enter'], 'On a weight in the list: edit it'],
   ],
+  settings: [
+    [['/'], 'Search the settings'],
+    [['Enter', '↓'], 'In the search: go to the first setting found'],
+    [['Esc'], 'In the search: clear it'],
+  ],
 });
 
 function keyList(rows) {
@@ -994,7 +999,8 @@ function keyList(rows) {
 function openShortcuts() {
   if (document.querySelector('.cmd-keys-modal')) return;
   const keys = pageKeys();
-  const pages = shell.pages?.length ? shell.pages : Object.keys(keys).map((id) => ({ id, title: id }));
+  // (Settings isn't one of the menu's pages; its keys come last)
+  const pages = [...(shell.pages?.length ? shell.pages : Object.keys(keys).map((id) => ({ id, title: id }))).filter((p) => p.id !== 'settings'), { id: 'settings', title: 'Settings' }];
   const here = shownPage();
   // The page you are on first and open; the others folded
   const listed = pages.filter((p) => keys[p.id]).sort((a, b) => Number(b.id === here) - Number(a.id === here));

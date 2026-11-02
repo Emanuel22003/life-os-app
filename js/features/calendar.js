@@ -22,6 +22,8 @@ import { parseQuickAdd } from './tasks.logic.js';
 import { undoToast, undoLast, snapshot, revertEvents } from './calendar.undo.js';
 import { trackPointer, dropTargetAt, ghostOf, edgeScroller, cancelDrag, isDragging } from './calendar.drag.js';
 import { registerContextProvider } from '../contextmenu.js';
+import { googleEvents, googleState, subscribeGoogle, wantGoogle, setGoogleShown } from '../google.js';
+import { openGoogleEvent, googleBar } from '../google.ui.js';
 import { clipText, slotMinute } from '../contextmenu.logic.js';
 import { remindMenu, openRemindersDialog } from '../reminders.ui.js';
 
@@ -636,7 +638,8 @@ function mount(root) {
     items: [],
     title: 'What the calendar shows',
     className: 'cal-show-btn',
-    onSelect: (id, on) => setLayer(id, on),
+    // Google Calendar's events have their own switch (on this device, js/google.js)
+    onSelect: (id, on) => (id === 'google' ? setGoogleShown(on) : setLayer(id, on)),
   });
   showDd.el.classList.add('cal-show-dd');
   let showSig = '';
@@ -692,7 +695,9 @@ function mount(root) {
   const tray = trayView();
   tray.el.id = 'cal-tray';
   const layout = h('div', { class: 'cal-layout' }, body, tray.el);
-  const cal = h('div', { class: 'cal' }, toolbar, tips, layout);
+  // Google Calendar: a Refresh bar when its events need a tap to update (js/google.ui.js)
+  const gbar = googleBar({ range: () => lastCtx?.range ?? null });
+  const cal = h('div', { class: 'cal' }, toolbar, gbar.el, tips, layout);
   root.append(header, cal);
 
   /* ---- context for the builders ---- */
@@ -702,7 +707,9 @@ function mount(root) {
     const phone = phoneMq.matches;
     const today = state.today;
     const range = L.viewRange(state.view, state.cursor);
-    const occs = L.occurrencesInRange(calState.events, range.from, range.to);
+    // Google Calendar's events (when connected and shown) sit among your own, read-only
+    const gEvents = googleEvents();
+    const occs = L.occurrencesInRange(gEvents.length ? [...calState.events, ...gEvents] : calState.events, range.from, range.to);
     const tasks = tasksApi.getItems();
     const dayTasks = new Map();
     const kind = state.view === 'month' ? (phone ? 'month-c' : 'month') : state.view === 'week' ? (phone ? 'agenda' : 'week') : 'day';
@@ -925,6 +932,9 @@ function mount(root) {
 
     updateToolbar(ctx);
     updateTips(ctx);
+    gbar.paint();
+    // Google Calendar: fetch when its events are old or don't cover this period
+    wantGoogle(ctx.range);
     // The tray can sit above the view (narrow, open): drawn before the view is fitted under it
     tray.update(ctx);
 
@@ -1107,12 +1117,19 @@ function mount(root) {
       planned += info.planned;
     }
     const hints = {
-      events: String(new Set(ctx.occs.map((o) => o.occId)).size),
+      events: String(new Set(ctx.occs.filter((o) => !o.source).map((o) => o.occId)).size),
       tasks: String(open),
       habits: ctx.habits && from <= ctx.today ? (planned ? `${Math.round((done / planned) * 100)}%` : '—') : '',
       completed: String(doneTasks),
     };
-    return LAYER_UI.map((l) => ({ value: l.id, label: l.label, icon: L.LAYER_ICON[l.id], hint: hints[l.id] || null, checked: !!ctx.layers[l.id] }));
+    const items = LAYER_UI.map((l) => ({ value: l.id, label: l.label, icon: L.LAYER_ICON[l.id], hint: hints[l.id] || null, checked: !!ctx.layers[l.id] }));
+    // Connected to Google Calendar: its switch, after your own events
+    const g = googleState();
+    if (g.connected) {
+      const n = new Set(ctx.occs.filter((o) => o.source === 'google').map((o) => o.occId)).size;
+      items.splice(1, 0, { value: 'google', label: 'Google Calendar', icon: 'cloud', hint: n ? String(n) : null, checked: g.show });
+    }
+    return items;
   }
 
   /** dropdown.update(), keeping keyboard focus on the same item when its menu is open. */
@@ -1724,6 +1741,8 @@ function mount(root) {
           return openDayPop(a.key);
         case 'event':
           return editOccurrence(a.occ);
+        case 'gevent':
+          return openGoogleEvent(lastCtx?.occById.get(a.occ), { onClose: returnFocusAfter() });
         case 'add-event':
           return newEvent(state.view === 'month' ? defaultSlotMonth(a.key) : defaultSlot(a.key));
         case 'add-allday':
@@ -2185,6 +2204,7 @@ function mount(root) {
     if (lastCtx && s.events === lastCtx.events && s.layers === lastCtx.layers && (s.dayColors ?? lastCtx.dayColors) === lastCtx.dayColors) return;
     scheduleRender();
   });
+  const offGoogle = subscribeGoogle(scheduleRender);
   // A tick by pointer holds the task lists a moment (holdTickedRow): their redraw waits for it
   let tickHoldUntil = 0;
   let tickHoldTimer = 0;
@@ -2286,6 +2306,7 @@ function mount(root) {
     document.documentElement.classList.remove('cal-vt');
     offMenu();
     offCal();
+    offGoogle();
     offTasks();
     clearTimeout(tickHoldTimer);
     offHabits();

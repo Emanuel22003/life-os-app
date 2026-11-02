@@ -225,6 +225,79 @@ html[data-skin] .main .view.cal-page > .page-header.cal-page-header::after,
   box-shadow: 0 0 0 2px var(--accent);
 }
 
+/* ---- Google Calendar (js/google.ui.js): its events are dashed and read-only; a bar offers
+   Refresh when they need a tap to update; a sheet shows one ---- */
+
+.cal-ev.is-google,
+.cal-tlev.is-google {
+  border-style: dashed;
+  border-color: var(--line-focus);
+  cursor: pointer;
+}
+
+/* No spine: the dashed edge is the mark */
+.cal-ev.is-google::before,
+.cal-tlev.is-google::before {
+  display: none;
+}
+
+.gcal-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius-sm);
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+}
+
+.gcal-bar[hidden] {
+  display: none;
+}
+
+.gcal-bar-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.gcal-sheet-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.gcal-sheet-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  color: var(--text);
+}
+
+.gcal-sheet-row .icon {
+  flex: none;
+  margin-top: 2px;
+  color: var(--text-3);
+}
+
+.gcal-sheet-notes {
+  margin-top: var(--space-2);
+  padding: var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text-2);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 40vh;
+  overflow: auto;
+}
+
+.gcal-sheet-hint {
+  margin-top: var(--space-2);
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+}
+
 /* ---- Tips under the toolbar: how to start, the look key (each with its own ✓) ---- */
 
 .cal-tips {

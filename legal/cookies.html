@@ -21,7 +21,7 @@
 
     <main id="main">
       <h1>Cookies and storage</h1>
-      <p class="meta">Last updated: <time data-legal="updated" datetime="2026-10-27">27 October 2026</time></p>
+      <p class="meta">Last updated: <time data-legal="updated" datetime="2026-11-02">2 November 2026</time></p>
       <p class="draft" data-legal-draft role="note">Draft: the parts marked [FILL IN] are not filled in yet, so this page is not final.</p>
 
       <section class="summary" aria-labelledby="summary">
@@ -46,7 +46,10 @@
       <h2 id="cookies">Cookies</h2>
       <p>
         LIFE/OS sets no cookies at all, and the app loads nothing from other websites that could set them: its typefaces, pictures
-        and code come from its own website (see the <a href="privacy.html#third-parties">privacy policy</a>).
+        and code come from its own website (see the <a href="privacy.html#third-parties">privacy policy</a>). The one exception is
+        one you ask for. If you connect Google Calendar, Google's sign-in comes from Google, and Google's own cookies apply to its
+        sign-in window (see <a href="privacy.html#google">Google Calendar</a> in the privacy policy). It is strictly necessary for
+        the connection you asked for, and it is never loaded unless you connect.
       </p>
 
       <h2 id="local">What the app stores in your browser</h2>
@@ -90,6 +93,12 @@
             <td data-label="What it holds">Only once you turn Sync on: your sync key, your GitHub user name and the repository's name; a copy of your data as it was last synced, used to merge changes</td>
             <td data-label="Why it is needed">Sync, which you turned on, can't work without them. The key never leaves the device except to sign requests to GitHub.</td>
             <td data-label="How long">Until you click <em>Turn off sync</em>. A sync running at that moment stops and doesn't save them again.</td>
+          </tr>
+          <tr>
+            <td data-label="Name"><code>lifeos:v1:google</code></td>
+            <td data-label="What it holds">Only once you connect Google Calendar: your Google account's address, your calendars' names and which of them show, and a copy of their events (never the access Google gives, which stays in the app's memory)</td>
+            <td data-label="Why it is needed">Shows your Google Calendar's events, which you asked for, and keeps them there between updates and while offline. Never synced and not in backups.</td>
+            <td data-label="How long">Until you click <em>Disconnect</em>; each update replaces the copy</td>
           </tr>
           <tr>
             <td data-label="Name"><code>lifeos:backup:before-sync:…</code>, <code>lifeos:backup:before-restore:…</code></td>
