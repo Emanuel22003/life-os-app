@@ -1,0 +1,257 @@
+/* ==========================================================================
+   LIFE/OS — 11 // Diary (js/features/diary.js)
+   The open day's page (its heading with ‹ › and Today, the text, the words and Saved), beside the
+   days written (search, then the list). One column on a narrow window: the page first.
+   ========================================================================== */
+
+/* ---- The page-top status ('Written today · 5 days in a row'): on a phone it takes its own line
+   under the title (as Health's does) ---- */
+@media (max-width: 640px) {
+  html[data-skin] .main .view.dy-root > .page-header .page-heading > .page-stat:not([hidden]) {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+}
+
+.dy-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1.8fr) minmax(260px, 1fr);
+  gap: var(--space-5);
+  align-items: start;
+  margin-top: var(--space-5);
+}
+
+/* ---- The open day ---- */
+.dy-editor {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: var(--space-4) var(--space-5) var(--space-3);
+}
+
+.dy-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--line);
+}
+
+.dy-head .spacer,
+.dy-meta .spacer {
+  flex: 1 1 auto;
+}
+
+.dy-nav-btn {
+  width: var(--btn-h);
+  padding: 0;
+  justify-content: center;
+}
+
+.dy-day {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding: 0 var(--space-1);
+}
+
+.dy-day-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--fs-xl);
+  font-weight: 600;
+  line-height: 1.15;
+}
+
+.dy-day-date {
+  margin: 0;
+  font-size: var(--fs-xs);
+  color: var(--text-2);
+}
+
+.dy-today[hidden],
+.dy-del[hidden] {
+  display: none;
+}
+
+/* The page itself: no box, a comfortable line to read and write on */
+.dy-text {
+  display: block;
+  width: 100%;
+  min-height: 340px;
+  margin: 0;
+  padding: var(--space-4) 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: var(--fs-md);
+  line-height: 1.7;
+  resize: none;
+  overflow: hidden;
+  box-shadow: none;
+}
+
+.dy-text::placeholder {
+  color: var(--text-3);
+  opacity: 1;
+}
+
+.dy-text:focus {
+  outline: none;
+}
+
+/* The keyboard is in the page: its line under the heading lights up */
+.dy-editor:has(.dy-text:focus-visible) .dy-head {
+  border-bottom-color: var(--line-focus);
+}
+
+.dy-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 36px;
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--line);
+  font-size: var(--fs-xs);
+  color: var(--text-2);
+}
+
+.dy-saved:empty,
+.dy-words:empty {
+  display: none;
+}
+
+/* ---- The days written ---- */
+.dy-side {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+  padding: var(--space-4) 0 var(--space-2);
+}
+
+.dy-side-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0 var(--space-4);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+
+.dy-side-title > svg {
+  color: var(--mod-diary, var(--text-2));
+}
+
+.input.dy-search {
+  width: auto;
+  margin: 0 var(--space-4);
+}
+
+.dy-search[hidden],
+.dy-count[hidden],
+.dy-more[hidden] {
+  display: none;
+}
+
+.dy-count {
+  margin: 0;
+  padding: 0 var(--space-4);
+  font-size: var(--fs-xs);
+  color: var(--text-2);
+}
+
+.dy-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.dy-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 2px var(--space-3);
+  width: 100%;
+  min-height: 44px;
+  padding: var(--space-2) var(--space-4);
+  border: 0;
+  border-top: 1px solid var(--line);
+  border-radius: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .dy-row:hover {
+    background: var(--surface-2);
+  }
+}
+
+.dy-row:focus-visible {
+  outline: 2px solid var(--line-focus);
+  outline-offset: -2px;
+}
+
+/* The day open on the left: marked by a bar, like a picked item elsewhere */
+.dy-row.is-open {
+  background: var(--accent-soft);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.dy-row-day {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+
+.dy-row-words {
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+}
+
+.dy-row-text {
+  grid-column: 1 / -1;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  font-size: var(--fs-xs);
+  line-height: 1.5;
+  color: var(--text-2);
+}
+
+.dy-more {
+  align-self: flex-start;
+  margin: 0 var(--space-3);
+}
+
+/* ---- A narrower window: one column, the page first ---- */
+@media (max-width: 1000px) {
+  .dy-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .dy-body {
+    gap: var(--space-4);
+    margin-top: var(--space-4);
+  }
+
+  .dy-editor {
+    padding: var(--space-3) var(--space-4) var(--space-2);
+  }
+
+  .dy-text {
+    min-height: 240px;
+    font-size: 16px; /* (under 16px iOS zooms in when the field gets the keyboard) */
+  }
+}

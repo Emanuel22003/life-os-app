@@ -822,7 +822,7 @@ function mount(root) {
 
   // The tutorials (js/tour.js): the quick one, the full one, or the full one from where it was
   // left on this device (Continue, or Start over). The tab bar's pages are also in More → Edit tabs.
-  const TOUR_HINT = 'A guided tour that points at the real buttons while you add your first tasks, habits, a note and an event. Quick: about 3 minutes. Full: the main pages, about 10 minutes. Page guides: Training, Finance, Recovery and Health explain themselves the first time you open them.';
+  const TOUR_HINT = 'A guided tour that points at the real buttons while you add your first tasks, habits, a note and an event. Quick: about 3 minutes. Full: the main pages, about 10 minutes. Page guides: Training, Finance, Recovery, Health and Diary explain themselves the first time you open them.';
   const tourRow = row({ key: 'tutorial', title: 'Tutorial', hint: TOUR_HINT, control: [], keywords: 'tour guide help onboarding walkthrough learn' });
   // Two or three buttons: under the words, as the color swatches are
   tourRow.el.classList.add('st-row--wide');
@@ -857,7 +857,7 @@ function mount(root) {
         'guides',
         () => {
           resetGuides();
-          toast('Training, Finance, Recovery and Health show their guide again the next time you open them.', { duration: 6000 });
+          toast('Training, Finance, Recovery, Health and Diary show their guide again the next time you open them.', { duration: 6000 });
         },
         { iconName: 'undo', name: 'Show the page guides again' },
       ),

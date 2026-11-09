@@ -608,6 +608,28 @@
   .main:has(> .view .tr-sess-bar > .tr-rest:not([hidden])) {
     --sticky-bottom: 128px;
   }
+
+  /* The Training page's own rest bar (no workout going): one row */
+  .main:has(> .view .tr-normal:not([hidden]) > .tr-rest-bar) {
+    --sticky-bottom: 72px;
+  }
+
+  /* The rest timer floating above the tab bar (training.css): room under the page for it */
+  body:has(> .tr-live-float:not([hidden])) .main {
+    --dock-room: 56px;
+  }
+
+  body:has(> .tr-live-float:not([hidden])) .page-legal {
+    margin-bottom: 56px;
+  }
+
+  body:has(> .tr-live-float:not([hidden])):has(.shell > .topbar-center > :not([hidden])) .main {
+    --dock-room: 108px;
+  }
+
+  body:has(> .tr-live-float:not([hidden])):has(.shell > .topbar-center > :not([hidden])) .page-legal {
+    margin-bottom: 108px;
+  }
 }
 
 /* Pages with a bar that stays at the top of .main while the page scrolls: its height */
@@ -960,6 +982,15 @@
     bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom) + var(--space-3) + 52px);
   }
 
+  /* The rest timer floating above the tab bar (on other pages than Training): toasts over it */
+  body:has(> .tr-live-float:not([hidden])) .toast-stack {
+    bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom) + var(--space-3) + 52px);
+  }
+
+  body:has(> .tr-live-float:not([hidden])):has(.shell > .topbar-center > :not([hidden])) .toast-stack {
+    bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom) + var(--space-3) + 104px);
+  }
+
   /* A page's own bar at the bottom (Training's live workout: Finish and Discard, the rest timer)
      keeps its buttons in sight: toasts ("Rest is over", an Undo) sit above it, wherever it is,
      stuck to the bottom or at the end of the page (where the page's last 20px and the 40px legal
@@ -970,6 +1001,10 @@
 
   body:has(.main > .view .tr-sess-bar > .tr-rest:not([hidden])) {
     --toast-lift: 188px;
+  }
+
+  body:has(.main > .view .tr-normal:not([hidden]) > .tr-rest-bar) {
+    --toast-lift: 132px;
   }
 
   body:has(.main > .view .tr-sess-bar) .toast-stack {

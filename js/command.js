@@ -61,6 +61,8 @@ const MODULES = {
   recovery: () => import('./features/recovery.js'),
   recoveryLogic: () => import('./features/recovery.logic.js'),
   health: () => import('./features/health.js'),
+  diary: () => import('./features/diary.js'),
+  diaryLogic: () => import('./features/diary.logic.js'),
   settingsLogic: () => import('./features/settings.logic.js'),
   syncPanel: () => import('./sync.panel.js'),
 };
@@ -180,12 +182,13 @@ const byId = (attr, id) => `[data-${attr}="${CSS.escape(String(id))}"]`;
 // Group order: with nothing typed, then for equal matches (a page before the action: 'money' is
 // more likely Finance than New subscription). And their headings
 const IDLE_ORDER = ['actions', 'pages'];
-const ORDER = ['pages', 'actions', 'tasks', 'notes', 'events', 'habits', 'subscriptions', 'training', 'recovery', 'create'];
+const ORDER = ['pages', 'actions', 'tasks', 'notes', 'diary', 'events', 'habits', 'subscriptions', 'training', 'recovery', 'create'];
 const GROUP_LABEL = {
   actions: 'Actions',
   pages: 'Go to',
   tasks: 'Tasks',
   notes: 'Notes',
+  diary: 'Diary',
   events: 'Events',
   habits: 'Habits',
   subscriptions: 'Subscriptions',
@@ -194,7 +197,7 @@ const GROUP_LABEL = {
   create: 'Create',
 };
 // "Show all 12 …"
-const GROUP_NOUN = { actions: 'actions', pages: 'pages', tasks: 'tasks', notes: 'notes', events: 'events', habits: 'habits', subscriptions: 'subscriptions', training: 'workouts and routines', recovery: 'trackers' };
+const GROUP_NOUN = { actions: 'actions', pages: 'pages', tasks: 'tasks', notes: 'notes', diary: 'diary days', events: 'events', habits: 'habits', subscriptions: 'subscriptions', training: 'workouts and routines', recovery: 'trackers' };
 
 // The pages' icons (the nav's) and the other words that find them
 const PAGE_INFO = {
@@ -208,6 +211,7 @@ const PAGE_INFO = {
   finance: { icon: 'wallet', keywords: 'money subscriptions payments bills' },
   recovery: { icon: 'leaf', keywords: 'addiction quit stop sober clean days relapse smoking alcohol' },
   health: { icon: 'heart', keywords: 'weight weigh scale body kg lb pounds kilos trend goal' },
+  diary: { icon: 'book', keywords: 'journal write day today dear thoughts feelings memories' },
   settings: { icon: 'gear', keywords: 'preferences options backup export import data delete' },
 };
 
@@ -444,6 +448,32 @@ function noteEntries() {
   });
 }
 
+/** Each day written in the diary: found by its words, opened on that day. */
+function diaryEntries(today) {
+  const api = mods.diary?.diaryApi;
+  const D = mods.diaryLogic;
+  if (!api || !D) return [];
+  return api.entries().map((e) => {
+    const body = clean(e.body);
+    const rel = relativeDay(e.date, today);
+    return {
+      id: `diary:${e.id}`,
+      group: 'diary',
+      title: /^(Today|Yesterday)$/.test(rel) ? `${rel} · ${formatDay(e.date)}` : formatDay(e.date, 'long'),
+      text: body,
+      snippet: body,
+      meta: `${D.wordCount(e.body)} ${D.wordCount(e.body) === 1 ? 'word' : 'words'}`,
+      icon: 'book',
+      tone: 'diary',
+      boost: nearness(-diffDays(today, e.date), 14),
+      run: async () => {
+        await dialogsGone();
+        api.open(e.date);
+      },
+    };
+  });
+}
+
 function eventEntries(today) {
   const events = mods.calendarStore?.getEvents?.();
   const L = mods.calendarLogic;
@@ -629,6 +659,7 @@ function buildEntries() {
   take('pages', pageEntries);
   take('tasks', () => taskEntries(today));
   take('notes', noteEntries);
+  take('diary', () => diaryEntries(today));
   take('events', () => eventEntries(today));
   take('habits', () => habitEntries(today));
   take('subscriptions', () => subscriptionEntries(today));
@@ -964,6 +995,11 @@ const pageKeys = () => ({
     [['Enter'], 'In the add line: add (a day that has a weight: replace it)'],
     [['←', '→', 'Home', 'End'], 'The graph: read each weight · the first / last'],
     [['Enter'], 'On a weight in the list: edit it'],
+  ],
+  diary: [
+    [['N'], 'Write (the text of the day open)'],
+    [['/'], 'Search your diary'],
+    [['[', ']'], 'The day before / after'],
   ],
   settings: [
     [['/'], 'Search the settings'],

@@ -427,16 +427,16 @@ const FULL = [
     id: 'done',
     chapter: 'end',
     title: 'You’re all set',
-    text: 'That’s the main pages. Training, Finance, Recovery and Health show a short guide when you first open them. Have a good day!',
+    text: 'That’s the main pages. Training, Finance, Recovery, Health and Diary show a short guide when you first open them. Have a good day!',
   },
 ];
 
 
-/* ---- Page guides: Training, Finance, Recovery and Health ----
+/* ---- Page guides: Training, Finance, Recovery, Health and Diary ----
    Not in the tutorials: each shows its own short guide the first time it's opened on a device
    (settings.guides, js/tour.js maybeGuide). A guide is a tour of kind 'guide:<page>'. */
 
-export const PAGE_GUIDES = Object.freeze(['training', 'finance', 'recovery', 'health']);
+export const PAGE_GUIDES = Object.freeze(['training', 'finance', 'recovery', 'health', 'diary']);
 
 const GUIDES = {
   training: [
@@ -523,6 +523,23 @@ const GUIDES = {
       tryIt: '.hl-qa-weight',
       text: 'Type your weight and press Enter, once a day at most. The graph’s trend line evens out the ups and downs. Try it, or press Next.',
       advanceOn: { store: 'health', list: 'weights' },
+    },
+  ],
+  diary: [
+    {
+      id: 'dy-hello',
+      page: 'diary',
+      title: 'Diary',
+      text: 'A page a day to write whatever you want. It saves as you type.',
+    },
+    {
+      id: 'dy-write',
+      page: 'diary',
+      title: 'Write today',
+      target: '.dy-editor',
+      tryIt: '.dy-text',
+      text: 'Write a few lines about today, then press Next. The arrows open other days, and every day you write shows in the list.',
+      advanceOn: { store: 'diary', list: 'entries' },
     },
   ],
 };

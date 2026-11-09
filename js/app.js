@@ -46,7 +46,7 @@ import { isNewerVersion, startPage, LEGAL_LINKS } from './features/settings.logi
 import { startReminders } from './reminders.js';
 import { startGoogle } from './google.js';
 
-const VERSION = 'v0.39';
+const VERSION = 'v0.40';
 
 // Read before any feature module can seed data: tells a first-ever run from an upgrade
 const hadSavedData = hasSavedData();
@@ -63,9 +63,11 @@ registerIcon('heart', '<path d="M12 20s-7.5-4.6-7.5-10.1A4.4 4.4 0 0 1 12 7.3a4.
 registerIcon('timer', '<circle cx="12" cy="13.5" r="7.5"/><path d="M12 9.5v4l2.5 1.5M9.5 2.5h5M12 2.5V6M18.5 6.5l1.5-1.5"/>');
 // Recovery: a leaf, for growing back (also the icon of a tracker whose name suggests none)
 registerIcon('leaf', '<path d="M8.6 15.4C6.9 9.1 11.3 4.6 19.8 4.2c.4 8.5-4.2 13-11.2 11.2Z"/><path d="M4.2 19.8c3-3.4 6.3-6.5 10.3-9.3"/>');
+// Diary: a closed book with a ribbon
+registerIcon('book', '<path d="M5.5 4.5A1.5 1.5 0 0 1 7 3h11.5v15H7a1.5 1.5 0 0 0-1.5 1.5Z"/><path d="M5.5 19.5A1.5 1.5 0 0 0 7 21h11.5v-3"/><path d="M14 3v6l-1.75-1.25L10.5 9V3"/>');
 
 // Order = nav order and number keys (1 Home … 8 Finance, 9 Recovery; the keys stop at 9, so a
-// tenth page, Health, has none). The phone tab bar shows the ones picked (settings.tabs: Edit tabs
+// tenth page, Health, and the eleventh, Diary, have none). The phone tab bar shows the ones picked (settings.tabs: Edit tabs
 // in More, or the tours' tab picker) under their own names, and More lists the rest. A new page
 // also needs its line in PAGE_INTROS (js/shell.js, the picker) and, in the full tutorial, a
 // chapter of its own (js/tour.logic.js).
@@ -81,6 +83,7 @@ const MANIFEST = [
   { id: 'finance', title: 'Finance', icon: 'wallet' },
   { id: 'recovery', title: 'Recovery', icon: 'leaf' },
   { id: 'health', title: 'Health', icon: 'heart' },
+  { id: 'diary', title: 'Diary', icon: 'book' },
   { id: 'settings', title: 'Settings', icon: 'gear', hidden: true },
 ];
 

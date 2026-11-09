@@ -120,6 +120,7 @@ export const PAGE_INTROS = Object.freeze({
   finance: 'Your subscriptions: what they cost a month and which payment is next.',
   recovery: 'Count the days you stay away from something, such as smoking or alcohol.',
   health: 'Log your weight once a day and follow its trend on a graph.',
+  diary: 'A page a day to write about anything; it saves as you type.',
 });
 
 /**

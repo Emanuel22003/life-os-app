@@ -48,18 +48,17 @@ import {
   lastDone,
   ghostSets,
   readSetRow,
-  REST_MIN,
-  REST_MAX,
   sessionItem,
   itemHasData,
   sessionElapsed,
-  restLeft,
   sessionGhosts,
   readSession,
   workoutFromSession,
   workoutLength,
 } from './training.logic.js';
 import { cleanTitle } from './tasks.logic.js';
+import { restControl, startRestNow, watchRest, restSnapshot, subscribeRest } from './training.rest.js';
+import { lengthText } from './training.rest.logic.js';
 
 registerIcon('tr-routine', '<path d="M7 3.5h10a1 1 0 0 1 1 1v16l-6-3.6-6 3.6v-16a1 1 0 0 1 1-1Z"/><path d="M9.5 8.5h5M9.5 11.5h3"/>');
 registerIcon('tr-rest', '<circle cx="12" cy="13" r="7.5"/><path d="M12 9.5V13l2 1.5M9.5 2.5h5"/>');
@@ -1241,38 +1240,9 @@ function sessionPage(host) {
     h('div', { class: 'tr-sess-timebox' }, h('span', { class: 'label' }, 'Time'), clock),
   );
 
-  /* ---- the bar at the bottom: rest (from the first ticked set), Finish, Discard ---- */
-  const restText = h('span', { class: 'tr-rest-time tnum' });
-  const restLabel = h('span', { class: 'label tr-rest-label' }, 'Rest');
-  const setRest = (sec) => {
-    live.restSec = clamp(sec, REST_MIN, REST_MAX);
-    flush();
-    tick();
-  };
-  const restEl = h(
-    'div',
-    { class: 'tr-rest', role: 'timer', 'aria-live': 'off', hidden: true },
-    icon('tr-rest', { size: 16 }),
-    restLabel,
-    restText,
-    h(
-      'div',
-      { class: 'tr-rest-ctl' },
-      btn('', () => {
-        if (live.restEndsAt && live.restEndsAt > Date.now()) live.restEndsAt -= 15000;
-        setRest(live.restSec - 15);
-      }, { iconName: 'minus', ghost: true, aria: '15 seconds less rest', title: '−15 s' }),
-      btn('', () => {
-        if (live.restEndsAt && live.restEndsAt > Date.now()) live.restEndsAt += 15000;
-        setRest(live.restSec + 15);
-      }, { iconName: 'plus', ghost: true, aria: '15 seconds more rest', title: '+15 s' }),
-      btn('', () => {
-        live.restEndsAt = null;
-        flush();
-        tick();
-      }, { iconName: 'tr-skip', ghost: true, aria: 'Skip the rest', title: 'Skip the rest' }),
-    ),
-  );
+  /* ---- the bar at the bottom: the rest timer (js/features/training.rest.js), Finish, Discard ---- */
+  const rest = restControl();
+  const restEl = rest.el;
   const err = h('p', { class: 'tr-err tr-sess-err', role: 'alert' });
   const bar = h(
     'div',
@@ -1420,7 +1390,7 @@ function sessionPage(host) {
             }
             row.done = true;
             it.touched = true;
-            live.restEndsAt = Date.now() + live.restSec * 1000;
+            startRestNow();
             // The session tip explains ticking: done once, it goes (C2)
             dismissTip('training.session');
           } else if (!on) row.done = false;
@@ -1489,18 +1459,9 @@ function sessionPage(host) {
     tick();
   }
 
-  /* ---- clock and rest timer ---- */
+  /* ---- the clock (the rest timer keeps its own time) ---- */
   function tick() {
     clock.textContent = clockText(sessionElapsed(live));
-    const left = restLeft(live);
-    const over = live.restEndsAt && live.restEndsAt <= Date.now() && Date.now() - live.restEndsAt < 8000;
-    // The rest timer comes in with the first ticked set
-    restEl.hidden = !live.restEndsAt && !live.items.some((it) => it.sets.some((x) => x.done));
-    restEl.classList.toggle('is-running', left > 0);
-    restEl.classList.toggle('is-over', !!over);
-    restText.textContent = left > 0 ? clockText(left) : over ? 'Go!' : clockText(live.restSec);
-    restLabel.textContent = over && !left ? 'Rest over' : 'Rest';
-    restEl.title = left > 0 || over ? '' : 'Starts when you tick a set';
   }
 
   /* ---- finish ---- */
@@ -1557,43 +1518,56 @@ function sessionPage(host) {
       flush();
       alive = false;
       clearInterval(timer);
+      rest.destroy();
       document.removeEventListener('visibilitychange', onHide);
       window.removeEventListener('pagehide', flush);
     },
   };
 }
 
-/** The pill in the top bar (every page but Training): the workout going on, its time or rest. */
+/**
+ * The pill on every page but Training: the workout going on (its time) and the rest timer (the
+ * time left, then "Rest over"); a click goes back to Training. In the top bar; on a phone, where
+ * the top bar is often hidden, the same pill floats above the tab bar. It also starts the rest
+ * timer's alarm, so a rest ends out loud wherever you are.
+ */
 function mountLivePill(slot) {
-  const pill = h('a', { class: 'tr-live', href: '#/training', hidden: true, title: 'Back to the workout in progress' });
+  const make = (className) => h('a', { class: className, href: '#/training', hidden: true });
+  const pill = make('tr-live');
+  const float = make('tr-live tr-live-float');
   slot.append(pill);
-  let toldRestEnd = null;
+  document.body.append(float);
+  watchRest();
   const paint = () => {
     const s = getState().session;
-    if (!s) {
-      pill.hidden = true;
-      return;
-    }
     const now = Date.now();
-    // The rest is over: say so once, wherever you are in the app
-    if (s.restEndsAt && s.restEndsAt <= now && toldRestEnd !== s.restEndsAt) {
-      toldRestEnd = s.restEndsAt;
-      if (now - s.restEndsAt < 4000) {
-        toast('Rest is over: time for the next set.');
-        navigator.vibrate?.(200);
-      }
+    const r = restSnapshot(now);
+    const resting = r.phase === 'running' || r.phase === 'over';
+    const away = !/^#\/training\b/.test(location.hash);
+    for (const el of [pill, float]) {
+      el.hidden = !away || (!s && !resting);
+      el.classList.toggle('is-rest', resting);
+      el.classList.toggle('is-over', r.phase === 'over');
+      // Just the rest (no workout): short, never cut
+      el.classList.toggle('is-solo', !s);
     }
-    pill.hidden = /^#\/training\b/.test(location.hash);
-    const rest = restLeft(s, now);
-    pill.replaceChildren(
-      h('span', { class: 'tr-live-dot', 'aria-hidden': 'true' }),
-      h('span', { class: 'tr-live-name' }, s.title || 'Workout'),
-      h('span', { class: 'tr-live-time tnum' }, rest ? `Rest ${clockText(rest)}` : clockText(sessionElapsed(s, now))),
-    );
-    pill.setAttribute('aria-label', `Workout in progress: ${s.title || 'Workout'}. Back to it`);
+    if (pill.hidden) return;
+    const restWords = r.phase === 'over' ? 'Rest over' : `Rest ${lengthText(r.left)}`;
+    const parts = () => [
+      s ? h('span', { class: 'tr-live-dot', 'aria-hidden': 'true' }) : icon('tr-rest', { size: 14 }),
+      h('span', { class: 'tr-live-name' }, s ? s.title || 'Workout' : r.phase === 'over' ? 'Rest over' : 'Rest'),
+      s ? h('span', { class: 'tr-live-time tnum' }, resting ? restWords : clockText(sessionElapsed(s, now))) : r.phase === 'over' ? h('span', { class: 'tr-live-time' }, 'Go!') : h('span', { class: 'tr-live-time tnum' }, lengthText(r.left)),
+    ];
+    const name = s ? `Workout in progress: ${s.title || 'Workout'}${resting ? `, ${restWords}` : ''}. Back to it` : `${r.phase === 'over' ? 'Rest is over' : `Rest: ${lengthText(r.left)} left`}. Open Training`;
+    for (const el of [pill, float]) {
+      el.replaceChildren(...parts());
+      el.setAttribute('aria-label', name);
+      el.title = s ? 'Back to the workout in progress' : 'The rest timer, on the Training page';
+    }
   };
-  setInterval(paint, 1000);
+  setInterval(paint, 250);
   store.subscribe(paint);
+  subscribeRest(paint);
   window.addEventListener('hashchange', paint);
   paint();
 }
@@ -1647,7 +1621,11 @@ function mount(root) {
   const bodyEl = h('div', { class: 'tr-body' });
   // The page shows either the usual view or, while a workout is going, only that workout. The
   // header is the page's own (its first child), like every page's, so it gets the page's icon.
-  const normalEl = h('div', { class: 'tr-normal' }, tabsEl, bodyEl);
+  // The rest timer, always at hand at the foot of the page (a workout's bar has its own)
+  const pageRest = restControl();
+  cleanups.push(() => pageRest.destroy());
+  const restBar = h('div', { class: 'tr-sess-bar tr-rest-bar panel' }, pageRest.el);
+  const normalEl = h('div', { class: 'tr-normal' }, tabsEl, bodyEl, restBar);
   const sessionEl = h('div', { class: 'tr-session', hidden: true });
   // While a workout is going the header steps aside: the page keeps its h1 for screen readers
   const sessionTitle = h('h1', { class: 'sr-only', hidden: true }, 'Training: workout in progress');

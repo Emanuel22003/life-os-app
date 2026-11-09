@@ -1129,6 +1129,27 @@
   color: inherit;
 }
 
+/* Ready: the length picked (a menu) and Start */
+.tr-rest-len .dd-label {
+  font-family: var(--font-mono);
+  font-weight: 600;
+}
+
+.tr-rest .tr-rest-start {
+  gap: 4px;
+}
+
+.tr-rest-ctl > .dd {
+  display: flex;
+}
+
+/* The rest timer at the foot of the Training page (no workout going): a small bar of its own */
+.tr-rest-bar {
+  width: fit-content;
+  max-width: 100%;
+  margin: var(--space-4) 0 0 auto;
+}
+
 .tr-sess-actions {
   display: flex;
   flex-wrap: nowrap;
@@ -1275,6 +1296,64 @@
   .tr-live {
     max-width: 170px;
   }
+
+  .tr-rest-bar {
+    width: auto;
+  }
+
+  /* On a phone the pill floats above the tab bar (the top bar is often hidden there), on the
+     right; over a docked Pomodoro timer when one shows */
+  .topbar .tr-live {
+    display: none;
+  }
+
+  .tr-live.tr-live-float:not([hidden]) {
+    display: inline-flex;
+  }
+
+  .tr-live-float {
+    position: fixed;
+    right: var(--space-4);
+    bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom) + var(--space-3));
+    z-index: var(--z-nav);
+    height: 40px;
+    max-width: calc(100vw - 2 * var(--space-4));
+    box-shadow: var(--shadow-sm);
+    font-size: var(--fs-sm);
+  }
+
+  body:has(.shell > .topbar-center > :not([hidden])) .tr-live-float {
+    bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom) + var(--space-3) + 52px);
+  }
+}
+
+/* Above a phone's width the pill is in the top bar */
+.tr-live-float {
+  display: none;
+}
+
+/* Just the rest ("Rest 1:43"): short, so it never gives way in a full top bar */
+.tr-live.is-solo {
+  flex: none;
+}
+
+.tr-live.is-solo .tr-live-name {
+  overflow: visible;
+}
+
+/* The rest going on: the pill lit like the timer; over: loud */
+.tr-live.is-rest {
+  border-color: var(--accent);
+}
+
+.tr-live.is-over {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.tr-live.is-over .tr-live-time {
+  color: inherit;
 }
 
 @media (prefers-reduced-motion: reduce) {

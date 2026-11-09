@@ -21,11 +21,13 @@ export const SYNCED = Object.freeze({
   recovery: Object.freeze(['view']),
   // (the weights, the goal and kg or lb sync; the graph's range is this window's choice)
   health: Object.freeze(['view']),
+  // (the day open is this window's choice)
+  diary: Object.freeze(['view']),
 });
 export const SYNCED_KEYS = Object.freeze(Object.keys(SYNCED));
 
 /** How each store is named in the repo's history ("Notes · Mac"). */
-export const STORE_LABELS = Object.freeze({ tasks: 'Tasks', notes: 'Notes', habits: 'Habits', calendar: 'Calendar', pomodoro: 'Pomodoro', training: 'Training', finance: 'Finance', recovery: 'Recovery', health: 'Health' });
+export const STORE_LABELS = Object.freeze({ tasks: 'Tasks', notes: 'Notes', habits: 'Habits', calendar: 'Calendar', pomodoro: 'Pomodoro', training: 'Training', finance: 'Finance', recovery: 'Recovery', health: 'Health', diary: 'Diary' });
 
 const isObject = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 const hasOwn = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
@@ -183,6 +185,7 @@ export function countData(docs = {}) {
     results: list(docs.finance?.entries).length,
     trackers: list(docs.recovery?.items).length,
     weights: list(docs.health?.weights).length,
+    diary: list(docs.diary?.entries).length,
   };
 }
 
@@ -199,6 +202,7 @@ const COUNT_WORDS = [
   ['results', 'daily result'],
   ['trackers', 'recovery tracker'],
   ['weights', 'weight'],
+  ['diary', 'diary day'],
 ];
 
 /** '88 tasks · 61 notes · 9 habits' (what there is; sections go with notes) or 'nothing yet' */

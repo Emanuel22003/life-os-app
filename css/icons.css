@@ -18,6 +18,7 @@
   --mod-finance: var(--text-2);
   --mod-recovery: var(--text-2);
   --mod-health: var(--text-2);
+  --mod-diary: var(--text-2);
   --mod-settings: var(--text-2);
 }
 
@@ -34,6 +35,8 @@
   --mod-recovery: color-mix(in srgb, var(--cc-blue) 50%, var(--cc-purple));
   /* Health: a rose between the Calendar's red and Training's pink (a heart, not an alarm) */
   --mod-health: color-mix(in srgb, var(--cc-red) 50%, var(--cc-pink));
+  /* Diary: an ink blue between Finance's teal and Tasks' blue */
+  --mod-diary: color-mix(in srgb, var(--cc-teal) 45%, var(--cc-blue));
 }
 
 /* Atelier (id coquette): muted editorial tones, Home in the house's own accent (rosewood by day,
@@ -51,6 +54,7 @@
   --mod-finance: #c9b296;
   --mod-recovery: #b0acd9;
   --mod-health: #dc9cbf;
+  --mod-diary: #9cc3e0;
 }
 
 :root[data-skin="coquette"][data-theme="light"] {
@@ -63,6 +67,7 @@
   --mod-finance: #6f5b47;
   --mod-recovery: #55508a;
   --mod-health: #8f3f6c;
+  --mod-diary: #2f5f80;
 }
 
 /* Pearl (id y2k): cool, muted tones around its violet-blue: Home in the accent, then steel blue,
@@ -79,6 +84,7 @@
   --mod-finance: #aab4c8;
   --mod-recovery: #e3b08e;
   --mod-health: #f0948f;
+  --mod-diary: #c4b8e8;
 }
 
 :root[data-skin="y2k"][data-theme="light"] {
@@ -91,6 +97,7 @@
   --mod-finance: #535f78;
   --mod-recovery: #8a4c24;
   --mod-health: #a8403a;
+  --mod-diary: #5a4a94;
 }
 
 :root[data-skin="oldmoney"] {
@@ -104,6 +111,7 @@
   --mod-finance: var(--om-brass, var(--accent));
   --mod-recovery: var(--om-brass, var(--accent));
   --mod-health: var(--om-brass, var(--accent));
+  --mod-diary: var(--om-brass, var(--accent));
 }
 
 /* ---- Late (overdue): one color for every page ----
@@ -171,6 +179,7 @@
 .cc-on.cc-pages .ib[data-tone="finance"] { --ib-c: var(--mod-finance); }
 .cc-on.cc-pages .ib[data-tone="recovery"] { --ib-c: var(--mod-recovery); }
 .cc-on.cc-pages .ib[data-tone="health"] { --ib-c: var(--mod-health); }
+.cc-on.cc-pages .ib[data-tone="diary"] { --ib-c: var(--mod-diary); }
 .cc-on.cc-pages .ib[data-tone="settings"] { --ib-c: var(--mod-settings); }
 
 /* ---- The menu and the tab bar: each page's icon in its color ---- */
@@ -185,6 +194,7 @@
 .cc-on.cc-pages :is(.nav-item, .tab)[data-id="finance"] > .icon { color: var(--mod-finance); }
 .cc-on.cc-pages :is(.nav-item, .tab)[data-id="recovery"] > .icon { color: var(--mod-recovery); }
 .cc-on.cc-pages :is(.nav-item, .tab)[data-id="health"] > .icon { color: var(--mod-health); }
+.cc-on.cc-pages :is(.nav-item, .tab)[data-id="diary"] > .icon { color: var(--mod-diary); }
 
 /* ---- A page's title with its icon ---- */
 

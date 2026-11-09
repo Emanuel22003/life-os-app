@@ -308,6 +308,7 @@
   --mod-finance: currentColor;
   --mod-recovery: currentColor;
   --mod-health: currentColor;
+  --mod-diary: currentColor;
   color: var(--accent-ink);
   background: var(--accent);
   border-color: var(--accent);
@@ -991,6 +992,7 @@
   --mod-finance: currentColor;
   --mod-recovery: currentColor;
   --mod-health: currentColor;
+  --mod-diary: currentColor;
   --mod-settings: currentColor;
   color: var(--terminal-inv-ink);
   text-shadow: none;
@@ -2012,6 +2014,7 @@
   --mod-finance: currentColor;
   --mod-recovery: currentColor;
   --mod-health: currentColor;
+  --mod-diary: currentColor;
   --mod-settings: currentColor;
   border-color: var(--terminal-inv-bg);
   background: var(--terminal-inv-bg);
@@ -2258,6 +2261,7 @@
     --mod-finance: currentColor;
     --mod-recovery: currentColor;
     --mod-health: currentColor;
+    --mod-diary: currentColor;
     background: var(--terminal-inv-bg);
     color: var(--terminal-inv-ink);
     text-shadow: none;
