@@ -427,16 +427,16 @@ const FULL = [
     id: 'done',
     chapter: 'end',
     title: 'You’re all set',
-    text: 'That’s the main pages. Training, Finance, Recovery, Health and Diary show a short guide when you first open them. Have a good day!',
+    text: 'That’s the main pages. Training, Finance, Recovery, Health, Diary and Calories show a short guide when you first open them. Have a good day!',
   },
 ];
 
 
-/* ---- Page guides: Training, Finance, Recovery, Health and Diary ----
+/* ---- Page guides: Training, Finance, Recovery, Health, Diary and Calories ----
    Not in the tutorials: each shows its own short guide the first time it's opened on a device
    (settings.guides, js/tour.js maybeGuide). A guide is a tour of kind 'guide:<page>'. */
 
-export const PAGE_GUIDES = Object.freeze(['training', 'finance', 'recovery', 'health', 'diary']);
+export const PAGE_GUIDES = Object.freeze(['training', 'finance', 'recovery', 'health', 'diary', 'calories']);
 
 const GUIDES = {
   training: [
@@ -540,6 +540,23 @@ const GUIDES = {
       tryIt: '.dy-text',
       text: 'Write a few lines about today, then press Next. The arrows open other days, and every day you write shows in the list.',
       advanceOn: { store: 'diary', list: 'entries' },
+    },
+  ],
+  calories: [
+    {
+      id: 'cl-hello',
+      page: 'calories',
+      title: 'Calories',
+      text: 'Log what you eat and see it against a daily goal. Goal at the top sets it, or works it out for you.',
+    },
+    {
+      id: 'cl-add',
+      page: 'calories',
+      title: 'Log a food',
+      target: '.cl-add',
+      tryIt: '.cl-add-name',
+      text: 'Type the food and its calories, then press Enter. Next time a few letters bring it back, or tap its chip. Try it, or press Next.',
+      advanceOn: { store: 'calories', list: 'entries' },
     },
   ],
 };

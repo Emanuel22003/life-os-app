@@ -63,6 +63,7 @@ const MODULES = {
   health: () => import('./features/health.js'),
   diary: () => import('./features/diary.js'),
   diaryLogic: () => import('./features/diary.logic.js'),
+  calories: () => import('./features/calories.js'),
   settingsLogic: () => import('./features/settings.logic.js'),
   syncPanel: () => import('./sync.panel.js'),
 };
@@ -212,6 +213,7 @@ const PAGE_INFO = {
   recovery: { icon: 'leaf', keywords: 'addiction quit stop sober clean days relapse smoking alcohol' },
   health: { icon: 'heart', keywords: 'weight weigh scale body kg lb pounds kilos trend goal' },
   diary: { icon: 'book', keywords: 'journal write day today dear thoughts feelings memories' },
+  calories: { icon: 'apple', keywords: 'food eat eating meal kcal calorie protein diet nutrition breakfast lunch dinner snack macros' },
   settings: { icon: 'gear', keywords: 'preferences options backup export import data delete' },
 };
 
@@ -268,6 +270,7 @@ function newActions(text = '') {
     { id: 'tracker', page: 'recovery', title: 'New tracker', keywords: 'add recovery addiction quit stop sober', icon: 'leaf', add: () => mods.recovery?.recoveryApi?.add },
     // (the Health page's weight field, in focus)
     { id: 'weight', page: 'health', title: 'Log weight', keywords: 'add health weigh weight scale body kg lb', icon: 'heart', noText: true, add: () => mods.health?.healthApi?.focusAdd },
+    { id: 'food', page: 'calories', title: 'Log food', keywords: 'add calories kcal eat meal food protein', icon: 'apple', noText: true, add: () => mods.calories?.caloriesApi?.focusAdd },
     // (N on Training starts one; while one is going, it is there to open)
     { id: 'workout', page: 'training', title: live ? 'Open the workout' : 'Start a workout', keywords: 'training gym log exercise new', icon: 'dumbbell', noText: true, add: () => (live ? null : mods.training?.trainingApi?.startSession) },
   ];
@@ -995,6 +998,11 @@ const pageKeys = () => ({
     [['Enter'], 'In the add line: add (a day that has a weight: replace it)'],
     [['←', '→', 'Home', 'End'], 'The graph: read each weight · the first / last'],
     [['Enter'], 'On a weight in the list: edit it'],
+  ],
+  calories: [
+    [['N'], 'Log a food (the food field)'],
+    [['↑', '↓', 'Enter'], 'In the food field: pick one of your foods'],
+    [['[', ']'], 'The day before / after'],
   ],
   diary: [
     [['N'], 'Write (the text of the day open)'],

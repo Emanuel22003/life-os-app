@@ -1,0 +1,640 @@
+/* ==========================================================================
+   LIFE/OS — 12 // Calories (js/features/calories.js)
+   The day (eaten, the goal, what's left, protein), the add line with its chips, the meals; beside
+   them the last 7 days and your saved foods. One column on a narrow window: the day first.
+   ========================================================================== */
+
+/* ---- The page-top status: on a phone it takes its own line under the title and Goal ---- */
+@media (max-width: 640px) {
+  html[data-skin] .main .view.cl-root > .page-header .page-heading > .page-stat:not([hidden]) {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+}
+
+.cl-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1.7fr) minmax(260px, 1fr);
+  gap: var(--space-5);
+  align-items: start;
+  margin-top: var(--space-5);
+}
+
+.cl-main,
+.cl-side {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+[hidden].cl-today,
+[hidden].cl-set-goal,
+.cl-left[hidden],
+.cl-bar[hidden],
+.cl-protein[hidden],
+.cl-chips[hidden],
+.cl-add-error[hidden] {
+  display: none;
+}
+
+/* ---- The day ---- */
+.cl-day {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+}
+
+.cl-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.cl-head .spacer {
+  flex: 1 1 auto;
+}
+
+.cl-nav-btn {
+  width: var(--btn-h);
+  padding: 0;
+}
+
+.cl-day-name {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding: 0 var(--space-1);
+}
+
+.cl-day-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--fs-xl);
+  font-weight: 600;
+  line-height: 1.15;
+}
+
+.cl-day-date {
+  margin: 0;
+  font-size: var(--fs-xs);
+  color: var(--text-2);
+}
+
+.cl-sum {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
+.cl-sum-line {
+  margin: 0;
+  color: var(--text-2);
+}
+
+.cl-eaten {
+  font-family: var(--font-display);
+  font-size: 2.6rem;
+  font-weight: 600;
+  line-height: 1;
+  color: var(--text);
+}
+
+.cl-of {
+  font-size: var(--fs-md);
+}
+
+.cl-left {
+  margin: 0;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+
+.cl-left.is-over {
+  color: var(--alert);
+}
+
+/* A bar of the goal: lit as you eat, the late color once over */
+.cl-bar {
+  position: relative;
+  align-self: stretch;
+  height: 10px;
+  overflow: hidden;
+  border-radius: var(--radius-pill);
+  background: var(--surface-3);
+}
+
+.cl-bar-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: inherit;
+  background: var(--accent);
+  transition: width var(--dur-fast) var(--ease);
+}
+
+.cl-bar.is-over .cl-bar-fill {
+  background: var(--alert);
+}
+
+.cl-bar--protein {
+  height: 6px;
+}
+
+.cl-protein {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 4px var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--line);
+  font-size: var(--fs-sm);
+}
+
+.cl-protein .cl-bar {
+  grid-column: 1 / -1;
+}
+
+/* ---- The add line ---- */
+.cl-add {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4);
+}
+
+.cl-add-grid {
+  display: grid;
+  grid-template-columns: minmax(160px, 1fr) 92px 92px 80px 124px auto;
+  align-items: end;
+  gap: var(--space-3);
+}
+
+.cl-add-grid .field {
+  min-width: 0;
+  margin: 0;
+}
+
+.cl-add-grid .input,
+.cl-add-grid .select {
+  width: 100%;
+}
+
+.cl-combo {
+  position: relative;
+}
+
+.cl-sugg {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 6;
+  display: grid;
+  max-height: 280px;
+  overflow-y: auto;
+  margin: 0;
+  padding: 4px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface-solid);
+  box-shadow: var(--shadow-sm);
+  list-style: none;
+}
+
+.cl-sugg[hidden] {
+  display: none;
+}
+
+.cl-sugg-opt {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-height: 36px;
+  padding: 8px var(--space-3);
+  border-radius: var(--radius-xs);
+  cursor: pointer;
+}
+
+.cl-sugg-opt[aria-selected="true"] {
+  background: var(--surface-3);
+  box-shadow: inset 0 0 0 1px var(--line-focus);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .cl-sugg-opt:hover {
+    background: var(--surface-3);
+  }
+}
+
+.cl-sugg-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cl-sugg-sub {
+  flex: none;
+  font-size: var(--fs-xs);
+  color: var(--text-2);
+}
+
+.cl-add-error {
+  margin: 0;
+  font-size: var(--fs-sm);
+  color: var(--alert);
+}
+
+.cl-add-hint {
+  margin: 0;
+  font-size: var(--fs-xs);
+  color: var(--text-2);
+}
+
+.cl-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.cl-chip {
+  gap: 6px;
+}
+
+.cl-chip-kcal {
+  color: var(--text-2);
+}
+
+/* ---- The meals ---- */
+.cl-meals {
+  padding: var(--space-2) 0;
+}
+
+.cl-meal + .cl-meal {
+  border-top: 1px solid var(--line);
+}
+
+.cl-meal-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 44px;
+  padding: var(--space-1) var(--space-2) var(--space-1) var(--space-5);
+}
+
+.cl-meal-title {
+  margin: 0;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+
+.cl-meal.is-empty .cl-meal-title {
+  color: var(--text-2);
+  font-weight: 500;
+}
+
+.cl-meal-kcal {
+  margin-left: auto;
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+}
+
+.cl-meal.is-empty .cl-meal-add {
+  margin-left: auto;
+}
+
+.cl-rows {
+  margin: 0 0 var(--space-2);
+  padding: 0;
+  list-style: none;
+}
+
+.cl-row {
+  display: flex;
+  align-items: center;
+  padding-right: var(--space-2);
+}
+
+.cl-row-main {
+  display: grid;
+  flex: 1 1 auto;
+  grid-template-columns: minmax(0, 1fr) 64px 64px;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+  min-height: 40px;
+  padding: 4px var(--space-2) 4px var(--space-5);
+  border: 0;
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: var(--fs-sm);
+  text-align: left;
+  cursor: pointer;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .cl-row-main:hover {
+    background: var(--surface-2);
+  }
+}
+
+.cl-row-main:focus-visible {
+  outline: 2px solid var(--line-focus);
+  outline-offset: -2px;
+}
+
+.cl-row-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cl-row-x,
+.cl-row-protein {
+  color: var(--text-2);
+}
+
+.cl-row-protein,
+.cl-row-kcal {
+  text-align: right;
+}
+
+.cl-row-del {
+  flex: none;
+  width: var(--btn-h);
+  padding: 0;
+  color: var(--text-3);
+}
+
+/* ---- The side: titles, the last 7 days, your foods ---- */
+.cl-week,
+.cl-foods {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+}
+
+.cl-side-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+
+.cl-side-title > svg {
+  color: var(--mod-calories, var(--text-2));
+}
+
+.cl-wk-plot {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 6px;
+  height: 120px;
+  border-bottom: 1px solid var(--line);
+}
+
+.cl-wk-day {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-xs) var(--radius-xs) 0 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .cl-wk-day:hover {
+    background: var(--surface-2);
+  }
+}
+
+.cl-wk-day:focus-visible {
+  outline: 2px solid var(--line-focus);
+  outline-offset: 1px;
+}
+
+.cl-wk-fill {
+  display: block;
+  width: 100%;
+  min-height: 0;
+  border-radius: var(--radius-xs) var(--radius-xs) 0 0;
+  background: var(--text-3);
+}
+
+.cl-wk-day.is-open .cl-wk-fill {
+  background: var(--accent);
+}
+
+.cl-wk-day.is-over .cl-wk-fill {
+  background: var(--alert);
+}
+
+.cl-wk-goal {
+  position: absolute;
+  left: 0;
+  right: 0;
+  border-top: 1px dashed var(--text-2);
+  pointer-events: none;
+}
+
+.cl-wk-labels {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 6px;
+  margin-top: calc(var(--space-3) * -1 + 4px);
+  font-size: var(--fs-xs);
+  text-align: center;
+  color: var(--text-2);
+}
+
+.cl-wk-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cl-wk-label.is-open {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.cl-wk-avg,
+.cl-foods-empty {
+  margin: 0;
+  font-size: var(--fs-xs);
+  color: var(--text-2);
+}
+
+.cl-food-list {
+  margin: 0 calc(var(--space-4) * -1);
+  padding: 0;
+  list-style: none;
+}
+
+.cl-food {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  column-gap: var(--space-1);
+  padding: 4px var(--space-2) 4px var(--space-4);
+  border-top: 1px solid var(--line);
+}
+
+.cl-food-name {
+  overflow: hidden;
+  font-size: var(--fs-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cl-food-sub {
+  grid-column: 1;
+  grid-row: 2;
+  font-size: var(--fs-xs);
+  color: var(--text-2);
+}
+
+.cl-food-add,
+.cl-food-del {
+  grid-row: 1 / 3;
+  width: var(--btn-h);
+  padding: 0;
+}
+
+.cl-food-del {
+  color: var(--text-3);
+}
+
+.cl-foods-more {
+  align-self: flex-start;
+}
+
+/* ---- Dialogs ---- */
+.cl-ed,
+.cl-goal {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.cl-ed-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+.cl-ed-grid--3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.cl-ed-grid .field,
+.cl-goal .field {
+  min-width: 0;
+  margin: 0;
+}
+
+.cl-ed .input,
+.cl-ed .select,
+.cl-goal .input,
+.cl-goal .select {
+  width: 100%;
+}
+
+.cl-calc {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin: var(--space-2) 0 0;
+  padding: var(--space-3) var(--space-4) var(--space-4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+}
+
+.cl-calc-title {
+  padding: 0 var(--space-1);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+
+.cl-calc-btn {
+  align-self: flex-start;
+}
+
+.cl-calc-result {
+  margin: 0;
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+  color: var(--text-2);
+}
+
+.cl-calc-result:empty {
+  display: none;
+}
+
+/* ---- Narrower windows ---- */
+@media (max-width: 1100px) {
+  .cl-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* The add line: the food on a row of its own, the numbers and the meal under it */
+  .cl-add-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(0, 1.3fr) auto;
+  }
+
+  .cl-add-f-name {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 640px) {
+  .cl-body {
+    gap: var(--space-4);
+    margin-top: var(--space-4);
+  }
+
+  .cl-day {
+    padding: var(--space-3) var(--space-4);
+  }
+
+  .cl-add-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .cl-add-f-meal {
+    grid-column: 1 / 3;
+  }
+
+  /* 16px fields: under that iOS zooms in when a field gets the keyboard */
+  .cl-add .input,
+  .cl-add .select {
+    font-size: 16px;
+  }
+
+  .cl-row-main {
+    grid-template-columns: minmax(0, 1fr) 52px 52px;
+    padding-left: var(--space-4);
+  }
+
+  .cl-meal-head {
+    padding-left: var(--space-4);
+  }
+
+  .cl-ed-grid--3 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

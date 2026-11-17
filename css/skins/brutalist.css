@@ -3825,6 +3825,7 @@
   --mod-recovery: #000000;
   --mod-health: #000000;
   --mod-diary: #000000;
+  --mod-calories: #000000;
   --mod-settings: #000000;
   color: #000000;
 }
@@ -3855,6 +3856,7 @@
     --mod-recovery: #000000;
     --mod-health: #000000;
     --mod-diary: #000000;
+    --mod-calories: #000000;
     --mod-settings: #000000;
     color: #000000;
   }

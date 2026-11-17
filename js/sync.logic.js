@@ -23,11 +23,13 @@ export const SYNCED = Object.freeze({
   health: Object.freeze(['view']),
   // (the day open is this window's choice)
   diary: Object.freeze(['view']),
+  // (the day open is this window's choice)
+  calories: Object.freeze(['view']),
 });
 export const SYNCED_KEYS = Object.freeze(Object.keys(SYNCED));
 
 /** How each store is named in the repo's history ("Notes · Mac"). */
-export const STORE_LABELS = Object.freeze({ tasks: 'Tasks', notes: 'Notes', habits: 'Habits', calendar: 'Calendar', pomodoro: 'Pomodoro', training: 'Training', finance: 'Finance', recovery: 'Recovery', health: 'Health', diary: 'Diary' });
+export const STORE_LABELS = Object.freeze({ tasks: 'Tasks', notes: 'Notes', habits: 'Habits', calendar: 'Calendar', pomodoro: 'Pomodoro', training: 'Training', finance: 'Finance', recovery: 'Recovery', health: 'Health', diary: 'Diary', calories: 'Calories' });
 
 const isObject = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 const hasOwn = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
@@ -186,6 +188,7 @@ export function countData(docs = {}) {
     trackers: list(docs.recovery?.items).length,
     weights: list(docs.health?.weights).length,
     diary: list(docs.diary?.entries).length,
+    foods: list(docs.calories?.entries).length,
   };
 }
 
@@ -203,11 +206,12 @@ const COUNT_WORDS = [
   ['trackers', 'recovery tracker'],
   ['weights', 'weight'],
   ['diary', 'diary day'],
+  ['foods', 'food logged', 'foods logged'],
 ];
 
 /** '88 tasks · 61 notes · 9 habits' (what there is; sections go with notes) or 'nothing yet' */
 export function describeCounts(counts) {
-  const parts = COUNT_WORDS.filter(([k]) => counts[k] > 0).map(([k, word]) => `${counts[k]} ${word}${counts[k] === 1 ? '' : 's'}`);
+  const parts = COUNT_WORDS.filter(([k]) => counts[k] > 0).map(([k, word, many]) => `${counts[k]} ${counts[k] === 1 ? word : many ?? `${word}s`}`);
   if (!parts.length && counts.sections > 0) parts.push(`${counts.sections} note section${counts.sections === 1 ? '' : 's'}`);
   return parts.length ? parts.join(' · ') : 'nothing yet';
 }
