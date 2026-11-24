@@ -21,6 +21,8 @@
 //   }
 // A badge that changes without a store change (a running timer) dispatches `lifeos:badge`.
 
+// The iPhone app's own parts (notifications while closed): first, before any module asks
+import { isNative } from './native.js';
 import { h, icon, iconBadge, registerIcon, brandMark, dayMonth, dateFormat, unitSystem, emptyState, isTyping, modalOpen, openModal, closeAllModals, onDayChange, toast, ensureToastRegion, skin, num, term, WEEKDAYS_SHORT, useSettings, gateTips, checkButton, reducedMotion, uid } from './ui.js';
 import { settings } from './store.js';
 // The shared icon set (habits, sections, the ideas every page uses): before any page draws
@@ -46,7 +48,7 @@ import { isNewerVersion, startPage, LEGAL_LINKS } from './features/settings.logi
 import { startReminders } from './reminders.js';
 import { startGoogle } from './google.js';
 
-const VERSION = 'v0.41';
+const VERSION = 'v0.42';
 
 // Read before any feature module can seed data: tells a first-ever run from an upgrade
 const hadSavedData = hasSavedData();
@@ -993,7 +995,8 @@ document.addEventListener('keydown', (e) => {
 /* ---- Install as an app ---- */
 
 const standaloneQuery = matchMedia('(display-mode: standalone)');
-const isStandalone = () => standaloneQuery.matches || navigator.standalone === true;
+// (the iPhone app is an app already: nothing to install)
+const isStandalone = () => isNative || standaloneQuery.matches || navigator.standalone === true;
 
 let installPrompt = null; // Chrome's beforeinstallprompt event, usable once
 let getAppPaint = null; // the open Get the app sheet's repaint (the prompt arrived, or was used)
@@ -1390,7 +1393,8 @@ async function checkForUpdate() {
 /* ---- Offline copy (service worker) ---- */
 
 function startOfflineSupport() {
-  if (!('serviceWorker' in navigator)) return;
+  // The iPhone app carries its files inside it: no offline copy to keep
+  if (isNative || !('serviceWorker' in navigator)) return;
   navigator.serviceWorker
     .register('./sw.js')
     .then(() => Promise.all([navigator.serviceWorker.ready, document.fonts?.ready]))

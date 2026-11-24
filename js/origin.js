@@ -12,8 +12,11 @@ export const SITE_ORIGIN = 'https://emanuel22003.github.io';
 export const SITE_URL = `${SITE_ORIGIN}/life-os-app/`;
 export const REAL_ORIGINS = Object.freeze([LOCAL_ORIGIN, SITE_ORIGIN]);
 
-/** Served from one of the real addresses (sync is only ever offered here). */
-export const isRealAddress = REAL_ORIGINS.includes(location.origin);
+/** The iPhone app (Capacitor serves it as capacitor://localhost): a real copy too. */
+export const isAppCopy = location.protocol === 'capacitor:';
+
+/** Served from one of the real addresses, or the iPhone app (sync is only ever offered here). */
+export const isRealAddress = REAL_ORIGINS.includes(location.origin) || isAppCopy;
 
 export const isRealCopy = (() => {
   if (isRealAddress) return true;

@@ -18,6 +18,7 @@ import { createStore } from '../store.js';
 import { play, prime, canPlay } from '../sounds.js';
 import { notificationState, askPermission } from '../reminders.js';
 import * as R from './training.rest.logic.js';
+import { scheduleNative } from '../native.js';
 
 registerIcon('tr-stop', '<rect x="6.5" y="6.5" width="11" height="11" rx="1.5"/>');
 
@@ -28,6 +29,15 @@ const SOUND = 'digital';
 
 export const restState = () => R.normalizeRest(store.get());
 export const subscribeRest = (fn) => store.subscribe(fn);
+
+// The iPhone app: the end of a rest running now, handed to the phone, so it rings with the app
+// closed too (js/native.js; nothing on the web)
+function handToPhone() {
+  const r = restState();
+  scheduleNative('rest', r.endsAt ? [{ key: `rest:${r.endsAt}`, at: r.endsAt, title: 'Rest is over', body: 'Time for the next set.', route: ROUTE }] : []);
+}
+store.subscribe(handToPhone);
+handToPhone();
 
 function change(fn) {
   const cur = restState();

@@ -29,6 +29,7 @@
 import { h, icon, toast, onDayChange, plural } from './ui.js';
 import { settings, savingAllowed } from './store.js';
 import { isRealAddress } from './origin.js';
+import { scheduleNative } from './native.js';
 import {
   PLAN_DAYS,
   MISSED_WINDOW_MS,
@@ -221,11 +222,18 @@ async function check() {
     timer = 0;
     if (!s.on) {
       clearCards();
+      scheduleNative('reminders', []);
       return;
     }
     const at = now();
     const log = loadLog(at);
     const moments = plan(at);
+    // The iPhone app: the coming ones handed to the phone, which shows them with the app closed
+    // (js/native.js; nothing on the web)
+    scheduleNative(
+      'reminders',
+      moments.filter((m) => m.at > at && !isFired(log.keys, m)).map((m) => ({ key: m.key, at: m.at, title: m.title, body: describeMoment(m, m.at), route: m.kind === 'event' ? '#/calendar' : '#/tasks' })),
+    );
     const { fire, missed, next } = sortOut(moments, { fired: log.keys, now: at, since: log.since });
     refreshCards(at);
     if (fire.length || missed.length) {

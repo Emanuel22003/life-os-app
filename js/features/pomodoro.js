@@ -13,6 +13,7 @@ import { h, icon, registerIcon, pageHeader, dismissTip, toast, isTyping, modalOp
 import { createStore } from '../store.js';
 import * as P from './pomodoro.logic.js';
 import { tasksApi } from './tasks.js';
+import { scheduleNative } from '../native.js';
 
 registerIcon('focus', '<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/><path d="M12 1.5v3M12 19.5v3M1.5 12h3M19.5 12h3"/>');
 registerIcon('coffee', '<path d="M4 9h12v4.5A5.5 5.5 0 0 1 10.5 19h-1A5.5 5.5 0 0 1 4 13.5Z"/><path d="M16 10.5h1.5a2.5 2.5 0 0 1 0 5H16M8 3.5v2.5M12 3.5v2.5M3 21h14"/>');
@@ -257,12 +258,24 @@ function onVisibility() {
   scheduleTick();
 }
 
+// The iPhone app: the end of the phase running now, handed to the phone, so it says so with the app
+// closed too (js/native.js; nothing on the web, nor with notifications off)
+function handToPhone() {
+  const doc = getDoc();
+  const s = doc.state;
+  const on = s.status === 'running' && Number.isFinite(s.endsAt) && doc.settings.notify;
+  const copy = s.phase === 'focus' ? { title: 'Focus done', body: 'Time for a break.' } : { title: 'Break over', body: 'Ready to focus again?' };
+  scheduleNative('pomodoro', on ? [{ key: `pomo:${s.sessionId}:${s.endsAt}`, at: s.endsAt, ...copy, route: '#/pomodoro' }] : []);
+}
+
 /** Start the clock for this window (once). Every entry point calls it. */
 function ensureService() {
   if (service || typeof document === 'undefined') return;
   service = true;
   seen = new Set(getDoc().history.map((e) => e.id));
   store.subscribe(onStoreChange);
+  store.subscribe(handToPhone);
+  handToPhone();
   document.addEventListener('visibilitychange', onVisibility);
   // A phase that ended while no window was open counts as finished while you were away
   settleNow('boot');
