@@ -18,7 +18,7 @@ import { createStore } from '../store.js';
 import { play, prime, canPlay } from '../sounds.js';
 import { notificationState, askPermission } from '../reminders.js';
 import * as R from './training.rest.logic.js';
-import { scheduleNative } from '../native.js';
+import { scheduleNative, haptic } from '../native.js';
 
 registerIcon('tr-stop', '<rect x="6.5" y="6.5" width="11" height="11" rx="1.5"/>');
 
@@ -127,6 +127,7 @@ function ring(r) {
   if (visible) {
     toast('Rest is over: time for the next set.', { duration: 6000, key: 'tr-rest-over', action: { label: 'Rest again', onClick: () => startRestNow() } });
     navigator.vibrate?.([200, 100, 200]);
+    haptic('done');
   }
   // Only a window that can play sound competes for the beeps; a visible one goes first
   const beeps = r.sound && canPlay();

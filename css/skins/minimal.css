@@ -4065,6 +4065,13 @@
   color: var(--text-2);
 }
 
+/* A phone: the month a size that keeps "September 2026" whole beside the arrows and Today */
+@container cal (max-width: 600px) {
+  [data-skin="minimal"] .cal-title {
+    font-size: 21px;
+  }
+}
+
 /* The words say it: no icons beside Today, the views and Show; no count on Show */
 [data-skin="minimal"] .cal-today-btn > .icon,
 [data-skin="minimal"] .cal-zoom-btn > .icon,

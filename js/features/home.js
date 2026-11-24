@@ -1787,7 +1787,20 @@ function mount(root) {
       const wrap = wraps.get(it.id);
       if (wrap) wrap.style.width = `${HM.widgetSpan(it, cols) * step - gap}px`;
     }
-    placed = HM.placeWidgets(layout, { cols, heights: heightsOf(layout), gap });
+    const fill = !editing;
+    placed = HM.placeWidgets(layout, { cols, heights: heightsOf(layout), gap, fill });
+    // A small widget alone on its row (two columns) is given the row: size it, measure again
+    const widened = placed.items.filter((p) => {
+      const it = layout.find((l) => l.id === p.id);
+      return it && p.w !== HM.widgetSpan(it, cols);
+    });
+    if (widened.length) {
+      for (const p of widened) {
+        const wrap = wraps.get(p.id);
+        if (wrap) wrap.style.width = `${p.w * step - gap}px`;
+      }
+      placed = HM.placeWidgets(layout, { cols, heights: heightsOf(layout), gap, fill });
+    }
     paintPlaces(placed);
   }
 

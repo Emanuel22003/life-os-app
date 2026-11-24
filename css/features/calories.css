@@ -263,6 +263,20 @@
 
 .cl-chip {
   gap: 6px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+/* A long name ends in "…" inside its chip: the chip never runs past the card */
+.cl-chip > span:not(.cl-chip-kcal) {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cl-chip > :is(.icon, .cl-chip-kcal) {
+  flex: none;
 }
 
 .cl-chip-kcal {
@@ -623,6 +637,34 @@
   .cl-add .input,
   .cl-add .select {
     font-size: 16px;
+  }
+
+  /* The foods to add again: one row you swipe sideways (eight chips, one under the other, pushed
+     the meals a screen down), fading out where there are more */
+  .cl-chips {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+    scroll-snap-type: x proximity;
+    margin-inline: calc(var(--space-4) * -1);
+    padding-inline: var(--space-4);
+    scroll-padding-inline: var(--space-4);
+    /* (a row that scrolls cuts what hangs under it: room for a template's button shadow) */
+    margin-bottom: -6px;
+    padding-bottom: 6px;
+    -webkit-mask-image: linear-gradient(to right, transparent, #000 var(--space-4), #000 calc(100% - 28px), transparent);
+    mask-image: linear-gradient(to right, transparent, #000 var(--space-4), #000 calc(100% - 28px), transparent);
+  }
+
+  .cl-chips::-webkit-scrollbar {
+    display: none;
+  }
+
+  .cl-chip {
+    flex: none;
+    max-width: 230px;
+    scroll-snap-align: start;
   }
 
   .cl-row-main {

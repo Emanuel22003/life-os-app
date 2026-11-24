@@ -599,7 +599,7 @@ function mount(root) {
   const pageBadge = iconBadge('calendar', { tone: 'calendar', size: 18, className: 'page-ib cal-page-ib' });
   const prevBtn = h('button', { type: 'button', class: 'btn btn--icon btn--sm', onClick: () => step(-1) }, icon('chevron-left'));
   const nextBtn = h('button', { type: 'button', class: 'btn btn--icon btn--sm', onClick: () => step(1) }, icon('chevron-right'));
-  const todayBtn = h('button', { type: 'button', class: 'btn btn--sm cal-today-btn', 'aria-keyshortcuts': 'T', title: 'Today (T)', onClick: () => goToday() }, icon('sun', { size: 14 }), h('span', null, 'Today'));
+  const todayBtn = h('button', { type: 'button', class: 'btn btn--sm cal-today-btn', 'aria-label': 'Today', 'aria-keyshortcuts': 'T', title: 'Today (T)', onClick: () => goToday() }, icon('sun', { size: 14 }), h('span', null, 'Today'));
   // Each view with its icon: a month is a grid, a week columns, a day rows
   const zoomBtns = new Map(
     L.VIEWS.map((v) => [

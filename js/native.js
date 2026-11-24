@@ -10,6 +10,10 @@
 //   `requestPermission()` with the app's own permission, so Settings, the Pomodoro and reminders
 //   offer and show notifications as on the web. Shown at once it is nothing: every alert the app
 //   gives is scheduled ahead (above), and the web's way would only come twice.
+// - The clock and battery over the page (the status bar) are drawn light on a dark look and dark on
+//   a light one: setStatusBar(theme), called whenever the look is applied (js/app.js).
+// - A small tap in the hand (haptic) when you switch tabs, tick a box or flip a switch, and a
+//   stronger one when a timer ends: haptic(kind).
 // Imported first by js/app.js, so the stand-in is there before any module asks.
 
 const cap = globalThis.Capacitor;
@@ -140,4 +144,53 @@ if (LN) {
     const route = notification?.extra?.route;
     if (typeof route === 'string' && /^#\/[a-z-]+$/.test(route) && location.hash !== route) location.hash = route;
   });
+}
+
+/* ---- The status bar: its text follows the look, not the phone's own light or dark ---- */
+
+const SB = isNative ? cap.Plugins?.StatusBar ?? null : null;
+let barStyle = null;
+
+/** `theme` 'light' | 'dark': the look showing. Dark text over a light page, light over a dark one. */
+export function setStatusBar(theme) {
+  if (!SB) return;
+  // Capacitor's names say the page, not the text: DARK = a dark page (light text)
+  const style = theme === 'light' ? 'LIGHT' : 'DARK';
+  if (style === barStyle) return;
+  barStyle = style;
+  SB.setStyle({ style }).catch(() => {
+    barStyle = null;
+  });
+}
+
+/* ---- Haptics: the phone's small taps ---- */
+
+const HP = isNative ? cap.Plugins?.Haptics ?? null : null;
+const HAPTICS = {
+  tap: () => HP.impact({ style: 'LIGHT' }),
+  press: () => HP.impact({ style: 'MEDIUM' }),
+  done: () => HP.notification({ type: 'SUCCESS' }),
+  warn: () => HP.notification({ type: 'WARNING' }),
+};
+
+/** 'tap' (a tick, a tab), 'press' (a long press, a drag picked up), 'done' (a timer over), 'warn'. Nothing on the web. */
+export function haptic(kind = 'tap') {
+  if (!HP || !HAPTICS[kind]) return;
+  try {
+    HAPTICS[kind]().catch(() => {});
+  } catch {
+    // (a phone without the motor: nothing to do)
+  }
+}
+
+// Every tab, tick box and switch answers the finger, wherever a page draws one
+const TAPPED = '.tab, [role="checkbox"], [role="switch"], input[type="checkbox"], input[type="radio"], [role="menuitemcheckbox"], [role="menuitemradio"]';
+if (HP) {
+  document.addEventListener(
+    'click',
+    (e) => {
+      if (e.isTrusted && e.target instanceof Element && e.target.closest(TAPPED)) haptic('tap');
+    },
+    { capture: true, passive: true },
+  );
 }

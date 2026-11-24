@@ -1238,6 +1238,69 @@
     padding: var(--space-3) var(--space-4);
   }
 
+  /* Routines: one row you swipe sideways, the next card peeking in (one under the other, four
+     routines pushed the workouts a screen down) */
+  .tr-routine-grid {
+    grid-template-columns: none;
+    grid-auto-flow: column;
+    grid-auto-columns: min(78%, 280px);
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+    margin-inline: calc(var(--space-4) * -1);
+    padding-inline: var(--space-4);
+    scroll-padding-inline: var(--space-4);
+    /* (a row that scrolls cuts what hangs under it: room for a template's card shadow) */
+    margin-bottom: -8px;
+    padding-bottom: 8px;
+  }
+
+  .tr-routine-grid::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* A single routine has nothing to swipe to: it takes the row */
+  .tr-routine-grid:has(> .tr-routine:only-child) {
+    grid-auto-columns: 100%;
+  }
+
+  .tr-routine {
+    scroll-snap-align: start;
+  }
+
+  .tr-routine-list {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    overflow: hidden;
+  }
+
+  /* A workout's card: its date and length on one line, the title under it, the record beside
+     the title. A tap on the card opens it, so Edit steps aside here */
+  .tr-card-head {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+    gap: var(--space-2) var(--space-3);
+  }
+
+  .tr-card-head > .tr-pr {
+    grid-column: 1;
+    grid-row: 2;
+    justify-self: start;
+  }
+
+  .tr-card-head > .tr-card-actions {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .tr-card-actions > .btn[aria-label="Edit workout"] {
+    display: none;
+  }
+
   .input.tr-sess-title {
     font-size: var(--fs-xl);
   }
@@ -1264,6 +1327,11 @@
 
   .tr-rest-time {
     margin-right: auto;
+  }
+
+  /* Ready (no time showing): the length and Start sit at the end of the row, under the thumb */
+  .tr-rest.is-idle > .tr-rest-ctl {
+    margin-left: auto;
   }
 
   .tr-sess-actions {

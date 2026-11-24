@@ -4257,6 +4257,11 @@
     display: none;
   }
 
+  /* …and the month a size that keeps "SEPTEMBER 2026" whole beside the arrows and TODAY */
+  [data-skin="brutalist"] .cal-title {
+    font-size: 23px;
+  }
+
   [data-skin="brutalist"] .cal-controls .dd-btn {
     padding-inline: 8px;
     letter-spacing: 0;

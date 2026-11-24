@@ -922,8 +922,9 @@
     display: none;
   }
 
-  [data-plain] .shell > .main,
-  .shell:not(:has(.topbar-widget)) > .main {
+  /* The phone's own bar (clock, battery; the iPhone app draws the page under it): the whole
+     app starts below it, so a page scrolls away at that line instead of running under the clock */
+  .shell {
     padding-top: env(safe-area-inset-top, 0px);
   }
 

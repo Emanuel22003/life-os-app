@@ -22,7 +22,7 @@
 // A badge that changes without a store change (a running timer) dispatches `lifeos:badge`.
 
 // The iPhone app's own parts (notifications while closed): first, before any module asks
-import { isNative } from './native.js';
+import { isNative, setStatusBar } from './native.js';
 import { h, icon, iconBadge, registerIcon, brandMark, dayMonth, dateFormat, unitSystem, emptyState, isTyping, modalOpen, openModal, closeAllModals, onDayChange, toast, ensureToastRegion, skin, num, term, WEEKDAYS_SHORT, useSettings, gateTips, checkButton, reducedMotion, uid } from './ui.js';
 import { settings } from './store.js';
 // The shared icon set (habits, sections, the ideas every page uses): before any page draws
@@ -48,7 +48,7 @@ import { isNewerVersion, startPage, LEGAL_LINKS } from './features/settings.logi
 import { startReminders } from './reminders.js';
 import { startGoogle } from './google.js';
 
-const VERSION = 'v0.42';
+const VERSION = 'v0.43';
 
 // Read before any feature module can seed data: tells a first-ever run from an upgrade
 const hadSavedData = hasSavedData();
@@ -150,6 +150,8 @@ function applyAppearance(s) {
   // Title bar of the installed app: the template's own background in this mode
   const bg = getComputedStyle(root).getPropertyValue('--bg').trim();
   document.querySelector('meta[name="theme-color"]')?.setAttribute('content', bg || SKIN_BOOT[next][theme]);
+  // The iPhone app: the clock and battery over the page, readable on this look
+  setStatusBar(theme);
   themeButtons.forEach((btn) => {
     const label = theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode';
     btn.replaceChildren(icon(theme === 'light' ? 'moon' : 'sun'), h('span', { class: 'sr-only' }, label));
@@ -412,6 +414,17 @@ const skipLink = h(
 const tabEls = new Map(
   NAV.map((f) => {
     const a = h('a', { class: 'tab', href: `#/${f.id}`, dataset: { id: f.id } }, icon(f.icon, { size: 22 }), h('span', { class: 'tab-label' }, f.title), dot(f.id));
+    // A tap on the tab of the page you are on takes it back to its top, as phone apps do
+    a.addEventListener('click', (e) => {
+      if (a.getAttribute('aria-current') !== 'page' || modalOpen()) return;
+      e.preventDefault();
+      const from = main.scrollTop;
+      main.scrollTo({ top: 0, behavior: reducedMotion() ? 'auto' : 'smooth' });
+      // (a browser too busy to glide all the way: finish it, unless you scrolled on down meanwhile)
+      setTimeout(() => {
+        if (main.scrollTop > 0 && main.scrollTop <= from) main.scrollTop = 0;
+      }, 900);
+    });
     navLinks.push(a);
     return [f.id, markLink(f.id, a, f.title)];
   }),

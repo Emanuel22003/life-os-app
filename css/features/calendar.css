@@ -2996,6 +2996,34 @@ html.cal-vt::view-transition {
     display: none;
   }
 
+  /* The period comes first and keeps its whole name ("September 2026"): the arrows and Today
+     (its sun here; the name stays on the button) follow it at the end of the row */
+  .cal-nav > .cal-title {
+    order: -1;
+    flex: 1 1 auto;
+    margin-left: 0;
+  }
+
+  /* The narrowest phones (320px): a size that still keeps "September 2026" whole */
+  @container cal (max-width: 340px) {
+    .cal-nav > .cal-title {
+      font-size: 18px;
+    }
+  }
+
+  /* (Minimal, Brutalist and Old Money say Today in a word, without the sun, and size their
+     month to fit beside it: css/skins) */
+  .cal-nav > .cal-today-btn:not(:where([data-skin="minimal"] *, [data-skin="brutalist"] *, [data-skin="oldmoney"] *)) {
+    width: var(--btn-h, 36px);
+    min-width: 40px;
+    padding: 0;
+    justify-content: center;
+  }
+
+  .cal-nav > .cal-today-btn:not(:where([data-skin="minimal"] *, [data-skin="brutalist"] *, [data-skin="oldmoney"] *)) > span {
+    display: none;
+  }
+
   /* Show is its eye and its count here (its name stays on the button), so the view keeps its word */
   .cal-show-dd:not(:where([data-skin="minimal"] *)) .dd-label {
     display: none;

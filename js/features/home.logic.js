@@ -515,9 +515,10 @@ export const HOLE = 48;
  * - a wide widget goes under both columns, so a lone small widget above it would leave a hole
  *   beside it: the following small widgets move up first (as many, in order, as even the
  *   columns out best).
+ * - with `fill`, a small widget left alone on its row takes both columns (its item says w: 2).
  * Four columns keep the order and the columns exactly.
  */
-export function placeWidgets(layout, { cols = COLUMNS, heights = {}, gap = 0 } = {}) {
+export function placeWidgets(layout, { cols = COLUMNS, heights = {}, gap = 0, fill = false } = {}) {
   const tops = new Array(cols).fill(0);
   const items = [];
   const heightOf = (id) => Math.max(0, Number(heights[id]) || 0);
@@ -568,6 +569,16 @@ export function placeWidgets(layout, { cols = COLUMNS, heights = {}, gap = 0 } =
       for (let c = 1; c <= cols - w; c++) if (at(c) < at(x)) x = c;
     }
     put(it, x, w);
+  }
+  // A small widget with nothing beside it (the only one waiting on a new Home, the odd one out)
+  // would leave half the phone empty: with `fill` it takes the whole row (the board as shown;
+  // while you rearrange it, every widget keeps its own column)
+  if (two && fill) {
+    for (const p of items) {
+      if (p.w !== 1) continue;
+      const beside = items.some((q) => q !== p && (q.w === 2 || q.x !== p.x) && q.y < p.y + p.h && q.y + q.h > p.y);
+      if (!beside) Object.assign(p, { x: 0, w: 2 });
+    }
   }
   return { items, height: items.length ? Math.max(...tops) - gap : 0 };
 }

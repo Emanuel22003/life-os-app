@@ -13,7 +13,7 @@ import { h, icon, registerIcon, pageHeader, dismissTip, toast, isTyping, modalOp
 import { createStore } from '../store.js';
 import * as P from './pomodoro.logic.js';
 import { tasksApi } from './tasks.js';
-import { scheduleNative } from '../native.js';
+import { scheduleNative, haptic } from '../native.js';
 
 registerIcon('focus', '<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/><path d="M12 1.5v3M12 19.5v3M1.5 12h3M19.5 12h3"/>');
 registerIcon('coffee', '<path d="M4 9h12v4.5A5.5 5.5 0 0 1 10.5 19h-1A5.5 5.5 0 0 1 4 13.5Z"/><path d="M16 10.5h1.5a2.5 2.5 0 0 1 0 5H16M8 3.5v2.5M12 3.5v2.5M3 21h14"/>');
@@ -321,6 +321,7 @@ function phaseEnded(entry, doc, { boot = false } = {}) {
     const idle = doc.state.status === 'idle';
     const startLabel = doc.state.phase === 'focus' ? 'Start focus' : 'Start break';
     toast(copy.text, idle ? { duration: 9000, action: { label: startLabel, onClick: () => act('start') } } : { duration: 6000 });
+    haptic('done');
   }
   alertOnce(entry, doc);
 }

@@ -392,6 +392,8 @@
 .nt-item-title.is-untitled {
   color: var(--text-3);
   font-style: italic;
+  /* The slant leans the last letter past the box, which cuts it ("Untitlea"): room for it */
+  padding-right: 3px;
 }
 
 .nt-item-pin {

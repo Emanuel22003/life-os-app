@@ -2158,6 +2158,14 @@ th.hb-plan-corner {
     display: none;
   }
 
+  /* The narrowest phones (320px): the days right under the bar say which week it is, so the
+     range steps aside and › stays on the screen */
+  @media (max-width: 359px) {
+    .hb-bar-when {
+      display: none;
+    }
+  }
+
   /* ---- overview tables. Week: seven >= 36px days (a thumb's width) leave 88px for the icon and
      the name, which takes two lines; rows are 46px tall ---- */
 
