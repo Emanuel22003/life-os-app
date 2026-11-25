@@ -688,8 +688,9 @@
   font-weight: 600;
   line-height: 1.4;
   text-decoration: none;
-  /* Parked above the window, so it is never seen or clicked by accident */
-  transform: translateY(calc(-100% - var(--space-6)));
+  /* Parked above the window, so it is never seen or clicked by accident (above the phone's own
+     bar too: in the iPhone app it showed under the clock) */
+  transform: translateY(calc(-100% - var(--space-6) - env(safe-area-inset-top, 0px)));
 }
 
 .skip-link:focus {

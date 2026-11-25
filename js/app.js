@@ -48,7 +48,7 @@ import { isNewerVersion, startPage, LEGAL_LINKS } from './features/settings.logi
 import { startReminders } from './reminders.js';
 import { startGoogle } from './google.js';
 
-const VERSION = 'v0.43';
+const VERSION = 'v0.44';
 
 // Read before any feature module can seed data: tells a first-ever run from an upgrade
 const hadSavedData = hasSavedData();
